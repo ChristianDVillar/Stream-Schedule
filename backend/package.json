@@ -23,7 +23,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.1.1",
     "morgan": "^1.10.0",
-    "multer": "^1.4.5-lts.1",
+    "multer": "^2.0.1",
     "passport": "^0.6.0",
     "passport-twitch": "^1.0.0",
     "redis": "^4.6.12"
@@ -34,7 +34,7 @@
     "@types/express": "^4.17.17",
     "@types/jsonwebtoken": "^9.0.5",
     "@types/morgan": "^1.9.9",
-    "@types/multer": "^1.4.11",
+    "@types/multer": "^2.0.0",
     "@types/node": "^18.15.11",
     "@types/passport": "^1.0.12",
     "ts-node-dev": "^2.0.0",
