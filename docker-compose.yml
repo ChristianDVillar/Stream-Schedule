@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:6.0
+    container_name: streamer-scheduler-web-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: streamer-scheduler-web
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - streamer-network
+
+  # Redis for Bull Queue
+  redis:
+    image: redis:7-alpine
+    container_name: streamer-scheduler-web-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - streamer-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: streamer-scheduler-web-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      MONGODB_URI: mongodb://admin:password123@mongodb:27017/streamer-scheduler-web?authSource=admin
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      ENCRYPTION_KEY: your-32-character-encryption-key-here
+      # OAuth2 credentials (set these in production)
+      TWITCH_CLIENT_ID: your-twitch-client-id
+      TWITCH_CLIENT_SECRET: your-twitch-client-secret
+      TWITTER_CLIENT_ID: your-twitter-client-id
+      TWITTER_CLIENT_SECRET: your-twitter-client-secret
+      INSTAGRAM_CLIENT_ID: your-instagram-client-id
+      INSTAGRAM_CLIENT_SECRET: your-instagram-client-secret
+      DISCORD_CLIENT_ID: your-discord-client-id
+      DISCORD_CLIENT_SECRET: your-discord-client-secret
+    ports:
+      - "3001:3001"
+    depends_on:
+      - mongodb
+      - redis
+    volumes:
+      - ./backend/uploads:/app/uploads
+    networks:
+      - streamer-network
+
+  # Frontend Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: streamer-scheduler-web-frontend
+    restart: unless-stopped
+    environment:
+      REACT_APP_API_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - streamer-network
+
+  # Nginx Reverse Proxy (Optional)
+  nginx:
+    image: nginx:alpine
+    container_name: streamer-scheduler-web-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - streamer-network
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  streamer-network:
+    driver: bridge 
