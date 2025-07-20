@@ -1,14 +1,12 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
 import { ArrowLeft, User, Mail, Calendar, Edit } from 'lucide-react';
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('es-ES', {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
@@ -27,7 +25,7 @@ const Profile = () => {
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-2xl font-bold text-gray-900">Perfil</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
           </div>
         </div>
       </header>
@@ -42,19 +40,19 @@ const Profile = () => {
                 <User className="w-10 h-10 text-primary-600" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">{user?.username}</h2>
-                <p className="text-gray-600">Usuario de Streamer Scheduler</p>
+                <h2 className="text-2xl font-bold text-gray-900">Demo User</h2>
+                <p className="text-gray-600">Streamer Scheduler User</p>
               </div>
               <button className="ml-auto flex items-center px-4 py-2 text-sm font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-md">
                 <Edit className="w-4 h-4 mr-2" />
-                Editar Perfil
+                Edit Profile
               </button>
             </div>
           </div>
 
           {/* Profile Details */}
           <div className="px-6 py-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Información Personal</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Personal Information</h3>
             
             <div className="space-y-4">
               <div className="flex items-center space-x-3">
@@ -62,8 +60,8 @@ const Profile = () => {
                   <User className="w-4 h-4 text-gray-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Nombre de usuario</p>
-                  <p className="text-sm text-gray-600">{user?.username}</p>
+                  <p className="text-sm font-medium text-gray-900">Username</p>
+                  <p className="text-sm text-gray-600">demo_user</p>
                 </div>
               </div>
               
@@ -72,8 +70,8 @@ const Profile = () => {
                   <Mail className="w-4 h-4 text-gray-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Correo electrónico</p>
-                  <p className="text-sm text-gray-600">{user?.email}</p>
+                  <p className="text-sm font-medium text-gray-900">Email</p>
+                  <p className="text-sm text-gray-600">demo@example.com</p>
                 </div>
               </div>
               
@@ -82,9 +80,9 @@ const Profile = () => {
                   <Calendar className="w-4 h-4 text-gray-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Miembro desde</p>
+                  <p className="text-sm font-medium text-gray-900">Member since</p>
                   <p className="text-sm text-gray-600">
-                    {user?.created_at ? formatDate(user.created_at) : 'Fecha no disponible'}
+                    {formatDate(new Date())}
                   </p>
                 </div>
               </div>
@@ -100,7 +98,7 @@ const Profile = () => {
                 <Calendar className="w-6 h-6 text-blue-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Contenido Total</p>
+                <p className="text-sm font-medium text-gray-600">Total Content</p>
                 <p className="text-2xl font-semibold text-gray-900">0</p>
               </div>
             </div>
@@ -112,7 +110,7 @@ const Profile = () => {
                 <Calendar className="w-6 h-6 text-green-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Publicado</p>
+                <p className="text-sm font-medium text-gray-600">Published</p>
                 <p className="text-2xl font-semibold text-gray-900">0</p>
               </div>
             </div>
@@ -124,7 +122,7 @@ const Profile = () => {
                 <Calendar className="w-6 h-6 text-yellow-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Pendiente</p>
+                <p className="text-sm font-medium text-gray-600">Pending</p>
                 <p className="text-2xl font-semibold text-gray-900">0</p>
               </div>
             </div>

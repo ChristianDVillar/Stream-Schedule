@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 import { 
   ArrowLeft, 
@@ -9,14 +8,12 @@ import {
   Instagram, 
   MessageCircle,
   CheckCircle,
-  XCircle,
   Link,
   Unlink
 } from 'lucide-react';
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [platforms, setPlatforms] = useState({
     twitch: false,
     twitter: false,
@@ -31,10 +28,13 @@ const Settings = () => {
 
   const fetchPlatformStatus = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/auth/profile', {
-        withCredentials: true
+      // Since we don't have authentication, we'll use mock data
+      setPlatforms({
+        twitch: false,
+        twitter: false,
+        instagram: false,
+        discord: false
       });
-      setPlatforms(response.data.platforms);
     } catch (error) {
       console.error('Error fetching platform status:', error);
     } finally {
@@ -80,25 +80,25 @@ const Settings = () => {
     const platformData = {
       twitch: {
         name: 'Twitch',
-        description: 'Conecta tu cuenta de Twitch para programar streams',
+        description: 'Connect your Twitch account to schedule streams',
         color: 'bg-purple-500',
         icon: Twitch
       },
       twitter: {
         name: 'Twitter/X',
-        description: 'Conecta tu cuenta de Twitter para programar tweets',
+        description: 'Connect your Twitter account to schedule tweets',
         color: 'bg-blue-500',
         icon: Twitter
       },
       instagram: {
         name: 'Instagram',
-        description: 'Conecta tu cuenta de Instagram para programar posts',
+        description: 'Connect your Instagram account to schedule posts',
         color: 'bg-pink-500',
         icon: Instagram
       },
       discord: {
         name: 'Discord',
-        description: 'Conecta tu servidor de Discord para programar mensajes',
+        description: 'Connect your Discord server to schedule messages',
         color: 'bg-indigo-500',
         icon: MessageCircle
       }
@@ -126,7 +126,7 @@ const Settings = () => {
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-2xl font-bold text-gray-900">Configuración</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
           </div>
         </div>
       </header>
@@ -135,9 +135,9 @@ const Settings = () => {
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white shadow rounded-lg">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Plataformas Sociales</h2>
+            <h2 className="text-lg font-medium text-gray-900">Social Platforms</h2>
             <p className="mt-1 text-sm text-gray-600">
-              Conecta tus cuentas sociales para programar contenido automáticamente
+              Connect your social accounts to automatically schedule content
             </p>
           </div>
           
@@ -164,14 +164,14 @@ const Settings = () => {
                       <>
                         <div className="flex items-center text-green-600">
                           <CheckCircle className="w-5 h-5 mr-2" />
-                          <span className="text-sm font-medium">Conectado</span>
+                          <span className="text-sm font-medium">Connected</span>
                         </div>
                         <button
                           onClick={() => handleDisconnectPlatform(platform)}
                           className="flex items-center px-3 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md"
                         >
                           <Unlink className="w-4 h-4 mr-1" />
-                          Desconectar
+                          Disconnect
                         </button>
                       </>
                     ) : (
@@ -180,7 +180,7 @@ const Settings = () => {
                         className="flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-md"
                       >
                         <Link className="w-4 h-4 mr-2" />
-                        Conectar
+                        Connect
                       </button>
                     )}
                   </div>
@@ -193,40 +193,40 @@ const Settings = () => {
         {/* Account Settings */}
         <div className="mt-8 bg-white shadow rounded-lg">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Configuración de Cuenta</h2>
+            <h2 className="text-lg font-medium text-gray-900">Account Settings</h2>
             <p className="mt-1 text-sm text-gray-600">
-              Gestiona la configuración de tu cuenta
+              Manage your account settings
             </p>
           </div>
           
           <div className="p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-medium text-gray-900">Nombre de usuario</h3>
-                <p className="text-sm text-gray-600">{user?.username}</p>
+                <h3 className="text-sm font-medium text-gray-900">Username</h3>
+                <p className="text-sm text-gray-600">demo_user</p>
               </div>
               <button className="text-primary-600 hover:text-primary-700 text-sm font-medium">
-                Cambiar
+                Change
               </button>
             </div>
             
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-medium text-gray-900">Correo electrónico</h3>
-                <p className="text-sm text-gray-600">{user?.email}</p>
+                <h3 className="text-sm font-medium text-gray-900">Email</h3>
+                <p className="text-sm text-gray-600">demo@example.com</p>
               </div>
               <button className="text-primary-600 hover:text-primary-700 text-sm font-medium">
-                Cambiar
+                Change
               </button>
             </div>
             
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-medium text-gray-900">Contraseña</h3>
+                <h3 className="text-sm font-medium text-gray-900">Password</h3>
                 <p className="text-sm text-gray-600">••••••••</p>
               </div>
               <button className="text-primary-600 hover:text-primary-700 text-sm font-medium">
-                Cambiar
+                Change
               </button>
             </div>
           </div>

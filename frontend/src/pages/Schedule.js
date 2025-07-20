@@ -36,8 +36,8 @@ const Schedule = () => {
   ];
 
   const contentTypes = [
-    { value: 'text', label: 'Texto' },
-    { value: 'image', label: 'Imagen' },
+    { value: 'text', label: 'Text' },
+    { value: 'image', label: 'Image' },
     { value: 'video', label: 'Video' },
     { value: 'stream', label: 'Stream' }
   ];
@@ -125,7 +125,7 @@ const Schedule = () => {
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-2xl font-bold text-gray-900">Programar Contenido</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Schedule Content</h1>
           </div>
         </div>
       </header>
@@ -138,33 +138,33 @@ const Schedule = () => {
             <div className="lg:col-span-2 space-y-6">
               {/* Content Information */}
               <div className="bg-white shadow rounded-lg p-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Información del Contenido</h2>
+                <h2 className="text-lg font-medium text-gray-900 mb-4">Content Information</h2>
                 
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Título del contenido
+                      Content Title
                     </label>
                     <input
                       type="text"
                       value={formData.title}
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                      placeholder="Escribe un título atractivo..."
+                      placeholder="Write an attractive title..."
                       required
                     />
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Contenido
+                      Content
                     </label>
                     <textarea
                       value={formData.content}
                       onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                       rows={4}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                      placeholder="Escribe tu contenido aquí..."
+                      placeholder="Write your content here..."
                       required
                     />
                   </div>
@@ -172,7 +172,7 @@ const Schedule = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Tipo de Contenido
+                        Content Type
                       </label>
                       <select
                         value={formData.contentType}
@@ -189,7 +189,7 @@ const Schedule = () => {
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Fecha y Hora de Publicación
+                        Publication Date and Time
                       </label>
                       <input
                         type="datetime-local"
@@ -204,7 +204,7 @@ const Schedule = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Hashtags (separados por comas)
+                        Hashtags (comma separated)
                       </label>
                       <input
                         type="text"
@@ -217,14 +217,14 @@ const Schedule = () => {
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Menciones (separadas por comas)
+                        Mentions (comma separated)
                       </label>
                       <input
                         type="text"
                         value={formData.mentions}
                         onChange={(e) => setFormData({ ...formData, mentions: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                        placeholder="@usuario1 @usuario2"
+                        placeholder="@user1 @user2"
                       />
                     </div>
                   </div>
@@ -233,7 +233,7 @@ const Schedule = () => {
 
               {/* File Upload */}
               <div className="bg-white shadow rounded-lg p-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Archivos Multimedia</h2>
+                <h2 className="text-lg font-medium text-gray-900 mb-4">Media Files</h2>
                 
                 <div
                   onClick={() => fileInputRef.current?.click()}
@@ -249,11 +249,11 @@ const Schedule = () => {
                   />
                   <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    Haz clic para seleccionar archivos
+                    Click to select files
                   </h3>
-                  <p className="text-gray-600 mb-2">o arrastra archivos aquí</p>
+                  <p className="text-gray-600 mb-2">or drag files here</p>
                   <p className="text-sm text-gray-500">
-                    Soporta: JPG, PNG, GIF, MP4, AVI, MOV (máx. 50MB por archivo)
+                    Supported: JPG, PNG, GIF, MP4, AVI, MOV (max 50MB per file)
                   </p>
                 </div>
 
@@ -261,7 +261,7 @@ const Schedule = () => {
                 {uploadedFiles.length > 0 && (
                   <div className="mt-6">
                     <h3 className="text-sm font-medium text-gray-900 mb-3">
-                      Archivos cargados ({uploadedFiles.length})
+                      Uploaded files ({uploadedFiles.length})
                     </h3>
                     <div className="space-y-2">
                       {uploadedFiles.map((fileWithPreview) => (
@@ -294,9 +294,9 @@ const Schedule = () => {
             <div className="space-y-6">
               {/* Platforms */}
               <div className="bg-white shadow rounded-lg p-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Plataformas</h2>
+                <h2 className="text-lg font-medium text-gray-900 mb-4">Platforms</h2>
                 <p className="text-sm text-gray-600 mb-4">
-                  Selecciona las plataformas donde quieres publicar
+                  Select the platforms where you want to publish
                 </p>
                 
                 <div className="space-y-3">
@@ -321,7 +321,7 @@ const Schedule = () => {
                 {selectedPlatforms.length === 0 && (
                   <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                     <p className="text-sm text-yellow-800">
-                      Selecciona al menos una plataforma
+                      Select at least one platform
                     </p>
                   </div>
                 )}
@@ -329,7 +329,7 @@ const Schedule = () => {
 
               {/* Preview */}
               <div className="bg-white shadow rounded-lg p-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Vista Previa</h2>
+                <h2 className="text-lg font-medium text-gray-900 mb-4">Preview</h2>
                 
                 {formData.title && (
                   <h3 className="font-medium text-gray-900 mb-2">{formData.title}</h3>
@@ -341,7 +341,7 @@ const Schedule = () => {
                 
                 {uploadedFiles.length > 0 && (
                   <div className="mb-3">
-                    <p className="text-xs text-gray-500 mb-2">Archivos adjuntos:</p>
+                    <p className="text-xs text-gray-500 mb-2">Attached files:</p>
                     <div className="grid grid-cols-3 gap-2">
                       {uploadedFiles.slice(0, 3).map((fileWithPreview) => (
                         <img
@@ -374,7 +374,7 @@ const Schedule = () => {
                 )}
                 
                 <p className="text-xs text-gray-500">
-                  Se publicará en: {selectedPlatforms.length} plataforma(s)
+                  Will be published on: {selectedPlatforms.length} platform(s)
                 </p>
               </div>
 
@@ -385,7 +385,7 @@ const Schedule = () => {
                   onClick={() => navigate('/dashboard')}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
                 >
-                  Cancelar
+                  Cancel
                 </button>
                 <button
                   type="submit"
@@ -397,7 +397,7 @@ const Schedule = () => {
                   ) : (
                     <>
                       <Save className="w-4 h-4 mr-2" />
-                      Programar
+                      Schedule
                     </>
                   )}
                 </button>
