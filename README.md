@@ -1,214 +1,220 @@
-# Streamer Scheduler Web
+# Streamer Scheduler
 
-A comprehensive web platform for streamers to link social media accounts, schedule content, and automate cross-platform publishing.
+Una aplicación web para programar contenido en múltiples plataformas sociales (Twitch, Twitter/X, Instagram, Discord) con una interfaz moderna y fácil de usar.
 
-## 🚀 Features
-
-### Core Functionality
-- **OAuth2 Authentication** for all supported platforms
-- **Multi-platform Content Scheduling** (Twitch, Twitter/X, Instagram Business, Discord)
-- **Visual Calendar Interface** for content management
-- **Admin Panel** with system monitoring and logs
-- **Task Queue Management** with Bull queue
-- **Token Encryption** for secure credential storage
-
-### Platform Support
-- **Twitch**: Stream scheduling, clip promotion
-- **Twitter/X**: Tweet scheduling, thread creation
-- **Instagram Business**: Post scheduling, reels, stories
-- **Discord**: Message scheduling, channel management
-
-### Admin Features
-- **Visual Calendar View**: See all scheduled content in a monthly/weekly view
-- **System Logs**: Monitor content publishing status and errors
-- **Queue Statistics**: Real-time queue monitoring
-- **Failed Content Management**: Retry failed publications
-- **System Health Monitoring**: Overall system status
-
-## 🛠️ Tech Stack
+## 🚀 Tecnologías
 
 ### Backend
-- **Node.js** with TypeScript
-- **Express.js** framework
-- **MongoDB** with Mongoose ODM
-- **Bull Queue** for task management
-- **Passport.js** for OAuth2 authentication
-- **JWT** for session management
+- **Python 3.8+**
+- **Flask** - Framework web
+- **SQLAlchemy** - ORM para base de datos
+- **SQLite** - Base de datos
+- **Flask-Login** - Autenticación de usuarios
+- **Flask-CORS** - Soporte para CORS
 
 ### Frontend
-- **React** with TypeScript
-- **Material-UI** for modern UI components
-- **React Router** for navigation
-- **Axios** for API communication
-- **Date-fns** for date manipulation
+- **React 18** - Biblioteca de UI
+- **JavaScript** - Lenguaje de programación
+- **Tailwind CSS** - Framework de CSS
+- **React Router** - Enrutamiento
+- **Axios** - Cliente HTTP
+- **Lucide React** - Iconos
 
-## 📦 Installation
+## 📁 Estructura del Proyecto
 
-### Prerequisites
-- Node.js (v16 or higher)
-- MongoDB
-- Redis (for Bull queue)
+```
+streamer-scheduler/
+├── backend/
+│   ├── app.py              # Aplicación Flask principal
+│   ├── requirements.txt    # Dependencias de Python
+│   └── streamer_scheduler.db # Base de datos SQLite
+├── frontend/
+│   ├── src/
+│   │   ├── components/     # Componentes reutilizables
+│   │   ├── contexts/       # Contextos de React
+│   │   ├── pages/          # Páginas de la aplicación
+│   │   ├── App.js          # Componente principal
+│   │   └── index.js        # Punto de entrada
+│   ├── package.json        # Dependencias de Node.js
+│   ├── tailwind.config.js  # Configuración de Tailwind
+│   └── postcss.config.js   # Configuración de PostCSS
+└── README.md
+```
 
-### Quick Start
+## 🛠️ Instalación
 
-1. **Clone the repository**
+### Prerrequisitos
+- Python 3.8 o superior
+- Node.js 16 o superior
+- npm o yarn
+
+### Backend (Python/Flask)
+
+1. **Navegar al directorio del backend:**
    ```bash
-   git clone <repository-url>
-   cd streamer-scheduler-web
-   ```
-
-2. **Install dependencies**
-   ```bash
-   # Windows
-   install-dependencies.bat
-   
-   # Or manually
-   cd backend && npm install
-   cd ../frontend && npm install
-   ```
-
-3. **Configure environment**
-   ```bash
-   # Copy backend environment file
    cd backend
-   copy env.example .env
-   # Edit .env with your configuration
    ```
 
-4. **Start the application**
+2. **Crear entorno virtual (opcional pero recomendado):**
+   ```bash
+   python -m venv venv
+   ```
+
+3. **Activar el entorno virtual:**
    ```bash
    # Windows
-   start-application.bat
+   venv\Scripts\activate
    
-   # Or manually
-   # Terminal 1: Backend
-   cd backend && npm run dev
-   
-   # Terminal 2: Frontend
-   cd frontend && npm start
+   # macOS/Linux
+   source venv/bin/activate
    ```
 
-## 🔧 Configuration
+4. **Instalar dependencias:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-### Backend Environment Variables
-```env
-# Server
-PORT=3001
-NODE_ENV=development
+5. **Ejecutar el servidor:**
+   ```bash
+   python app.py
+   ```
 
-# Database
-MONGODB_URI=mongodb://localhost:27017/streamer-scheduler-web
+El backend estará disponible en: http://localhost:5000
 
-# Redis (for Bull queue)
-REDIS_URL=redis://localhost:6379
+### Frontend (React/JavaScript)
 
-# JWT
-JWT_SECRET=your-jwt-secret
+1. **Navegar al directorio del frontend:**
+   ```bash
+   cd frontend
+   ```
 
-# OAuth2 Credentials
-TWITCH_CLIENT_ID=your-twitch-client-id
-TWITCH_CLIENT_SECRET=your-twitch-client-secret
-TWITTER_CLIENT_ID=your-twitter-client-id
-TWITTER_CLIENT_SECRET=your-twitter-client-secret
-INSTAGRAM_CLIENT_ID=your-instagram-client-id
-INSTAGRAM_CLIENT_SECRET=your-instagram-client-secret
-DISCORD_CLIENT_ID=your-discord-client-id
-DISCORD_CLIENT_SECRET=your-discord-client-secret
+2. **Instalar dependencias:**
+   ```bash
+   npm install
+   ```
 
-# Encryption
-ENCRYPTION_KEY=your-32-character-encryption-key
-```
+3. **Ejecutar en modo desarrollo:**
+   ```bash
+   npm start
+   ```
 
-## 📱 Usage
+El frontend estará disponible en: http://localhost:3000
 
-### User Dashboard
-1. **Login** with your preferred platform
-2. **Connect social media accounts** via OAuth2
-3. **Schedule content** for multiple platforms
-4. **Monitor publishing status** in real-time
+## 🎯 Funcionalidades
 
-### Admin Panel
-1. **Access admin panel** from the dashboard
-2. **Calendar View**: Visual overview of all scheduled content
-3. **System Logs**: Monitor publishing status and errors
-4. **Queue Management**: View and manage task queue
-5. **Failed Content**: Retry failed publications
+### 🔐 Autenticación
+- Registro de usuarios
+- Inicio de sesión
+- Gestión de sesiones
 
-### Calendar Features
-- **Monthly/Weekly View**: Toggle between calendar views
-- **Content Filtering**: Filter by platform, status, or date range
-- **Quick Actions**: View, edit, or retry content directly from calendar
-- **Visual Indicators**: Color-coded platforms and status
+### 📅 Programación de Contenido
+- Crear contenido con título y descripción
+- Programar fecha y hora de publicación
+- Seleccionar múltiples plataformas
+- Agregar hashtags y menciones
+- Cargar archivos multimedia (imágenes y videos)
 
-## 🔒 Security Features
+### 🎨 Interfaz Moderna
+- Diseño responsive con Tailwind CSS
+- Iconos modernos con Lucide React
+- Navegación intuitiva
+- Vista previa en tiempo real
 
-- **Token Encryption**: All OAuth tokens encrypted with AES-256-CBC
-- **JWT Authentication**: Secure session management
-- **Rate Limiting**: API rate limiting to prevent abuse
-- **CORS Protection**: Configured CORS for security
-- **Input Validation**: Comprehensive input validation and sanitization
+### 📊 Dashboard
+- Estadísticas de contenido programado
+- Lista de contenido con estados
+- Acciones rápidas (editar, eliminar)
 
-## 📊 Monitoring & Logs
+### ⚙️ Configuración
+- Gestión de plataformas sociales
+- Configuración de cuenta
+- Conexión/desconexión de APIs
 
-### Admin Logs Panel
-- **Content Publishing Logs**: Track all content publishing attempts
-- **Error Monitoring**: View failed publications with error details
-- **Queue Statistics**: Monitor Bull queue performance
-- **System Health**: Overall system status and metrics
+## 🔧 Configuración de APIs
 
-### Queue Management
-- **Real-time Statistics**: Active, waiting, completed, and failed jobs
-- **Retry Mechanism**: Automatic retry for failed publications
-- **Manual Retry**: Admin can manually retry failed content
+Para conectar las plataformas sociales, necesitarás configurar las siguientes APIs:
 
-## 🚀 Deployment
+### Twitch
+1. Crear aplicación en [Twitch Developer Console](https://dev.twitch.tv/console)
+2. Obtener Client ID y Client Secret
+3. Configurar OAuth2
 
-### Production Setup
-1. **Environment Configuration**: Set production environment variables
-2. **Database Setup**: Configure production MongoDB instance
-3. **Redis Setup**: Configure production Redis instance
-4. **SSL Certificate**: Configure SSL for secure connections
-5. **Process Management**: Use PM2 or similar for process management
+### Twitter/X
+1. Crear aplicación en [Twitter Developer Portal](https://developer.twitter.com/)
+2. Obtener API Key y API Secret
+3. Configurar OAuth2
 
-### Docker Deployment
+### Instagram
+1. Crear aplicación en [Facebook Developers](https://developers.facebook.com/)
+2. Configurar Instagram Basic Display API
+3. Obtener Access Token
+
+### Discord
+1. Crear aplicación en [Discord Developer Portal](https://discord.com/developers/applications)
+2. Obtener Bot Token
+3. Configurar permisos
+
+## 🚀 Despliegue
+
+### Backend (Producción)
 ```bash
-# Build and run with Docker Compose
-docker-compose up -d
+# Instalar gunicorn
+pip install gunicorn
+
+# Ejecutar con gunicorn
+gunicorn -w 4 -b 0.0.0.0:5000 app:app
 ```
 
-## 🤝 Contributing
+### Frontend (Producción)
+```bash
+# Construir para producción
+npm run build
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+# Servir archivos estáticos con nginx o similar
+```
 
-## 📄 License
+## 📝 Variables de Entorno
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+Crear un archivo `.env` en el directorio backend:
 
-## 🆘 Support
+```env
+SECRET_KEY=your-secret-key-here
+FLASK_ENV=development
+```
 
-For support and questions:
-- Create an issue in the repository
-- Check the documentation in the `/docs` folder
-- Review the architecture documentation
+## 🤝 Contribuir
 
-## 🔄 Changelog
+1. Fork el proyecto
+2. Crear una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abrir un Pull Request
 
-### v1.0.0 (Current)
-- ✅ OAuth2 authentication for all platforms
-- ✅ Visual calendar interface
-- ✅ Admin panel with monitoring
-- ✅ Task queue management
-- ✅ Token encryption
-- ✅ Multi-platform content scheduling
-- ✅ Code optimization and redundancy removal
+## 📄 Licencia
 
-### Planned Features
-- 📅 Advanced calendar features (recurring content)
-- 📊 Analytics dashboard
-- 🔔 Notification system
-- 📱 Mobile app
-- 🤖 AI-powered content suggestions
+Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para detalles.
+
+## 🆘 Soporte
+
+Si encuentras algún problema o tienes preguntas:
+
+1. Revisa los issues existentes
+2. Crea un nuevo issue con detalles del problema
+3. Incluye logs de error y pasos para reproducir
+
+## 🔄 Actualizaciones
+
+### v2.0.0 - Migración a JavaScript y SQLAlchemy
+- ✅ Migrado de TypeScript a JavaScript
+- ✅ Migrado de MongoDB a SQLAlchemy (SQLite)
+- ✅ Migrado de Material-UI a Tailwind CSS
+- ✅ Simplificado el stack tecnológico
+- ✅ Eliminadas dependencias innecesarias
+- ✅ Mejorada la experiencia de desarrollo
+
+### Próximas características
+- [ ] Integración real con APIs de plataformas
+- [ ] Notificaciones push
+- [ ] Analytics y métricas
+- [ ] Plantillas de contenido
+- [ ] Programación recurrente
