@@ -1,0 +1,83 @@
+Unified Social Scheduler for Streamers
+Arquitectura Técnica – MVP y Escalable
+1. Visión General de la Arquitectura
+El sistema sigue una arquitectura cliente-servidor desacoplada, preparada para escalar
+horizontalmente y permitir la integración progresiva de servicios externos como APIs de redes
+sociales y analítica avanzada.
+2. Arquitectura de Alto Nivel
+1
+Frontend Web (React + Tailwind)
+2
+Backend API REST (Node.js + Express)
+3
+Base de Datos PostgreSQL (Neon)
+4
+Servicios externos (APIs sociales – futuro)
+5
+Infraestructura Cloud (Railway)
+3. Capa Frontend
+1
+Aplicación React SPA
+2
+Gestión de estado con Context API
+3
+Consumo de API mediante Axios
+4
+Rutas protegidas por rol (User/Admin)
+5
+UI responsive con Tailwind CSS
+4. Capa Backend
+1
+API REST centralizada
+2
+Autenticación JWT
+3
+Middleware de autorización por rol
+4
+Gestión de licencias y validaciones
+5
+Servicios desacoplados por dominio
+5. Base de Datos
+1
+PostgreSQL como base relacional principal
+2
+ORM Sequelize para abstracción
+3
+Migraciones versionadas
+4
+Índices para consultas de calendario y analytics
+6. Seguridad
+1
+JWT con expiración
+
+2
+Hash de contraseñas
+3
+Validación de permisos por endpoint
+4
+Variables sensibles en entorno seguro
+7. Escalabilidad
+1
+Separación frontend / backend
+2
+Posibilidad de microservicios futuros
+3
+Integración de colas para auto-posting
+4
+Cacheo de métricas (futuro)
+8. Flujo Básico de Datos
+Paso
+Descripción
+1
+Usuario crea contenido en frontend
+2
+Frontend envía solicitud autenticada al backend
+3
+Backend valida licencia y permisos
+4
+Datos guardados en PostgreSQL
+5
+Frontend actualiza calendario y estadísticas
+Esta arquitectura permite evolucionar el MVP hacia una plataforma robusta, modular y preparada
+para integraciones avanzadas sin reescrituras críticas.
+
