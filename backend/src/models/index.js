@@ -1,16 +1,29 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
+import path from 'path';
 import { Sequelize, DataTypes } from 'sequelize';
 
-const sequelize = new Sequelize(process.env.DATABASE_URL, {
-  dialect: 'postgres',
-  logging: false,
-  protocol: 'postgres',
-  ssl: process.env.DATABASE_SSL === 'true',
-  dialectOptions: {
-    ssl: process.env.DATABASE_SSL === 'true'
-      ? { require: true, rejectUnauthorized: false }
-      : false,
-  },
-});
+const databaseUrl = process.env.DATABASE_URL;
+const usePostgres = Boolean(databaseUrl);
+
+const sequelize = usePostgres
+  ? new Sequelize(databaseUrl, {
+      dialect: 'postgres',
+      logging: false,
+      protocol: 'postgres',
+      ssl: process.env.DATABASE_SSL === 'true',
+      dialectOptions: {
+        ssl: process.env.DATABASE_SSL === 'true'
+          ? { require: true, rejectUnauthorized: false }
+          : false,
+      },
+    })
+  : new Sequelize({
+      dialect: 'sqlite',
+      storage: process.env.SQLITE_STORAGE || path.resolve(process.cwd(), 'database.sqlite'),
+      logging: false,
+    });
 
 // 👤 User
 const User = sequelize.define('User', {
@@ -31,6 +44,15 @@ const User = sequelize.define('User', {
   },
   licenseKey: {
     type: DataTypes.STRING,
+    allowNull: true
+  },
+  licenseType: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: 'none'
+  },
+  licenseExpiresAt: {
+    type: DataTypes.DATE,
     allowNull: true
   },
   isAdmin: {
@@ -114,6 +136,40 @@ const Platform = sequelize.define('Platform', {
   }
 });
 
+// 💳 Payment
+const Payment = sequelize.define('Payment', {
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  licenseType: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  amount: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false
+  },
+  currency: {
+    type: DataTypes.STRING,
+    defaultValue: 'USD'
+  },
+  status: {
+    type: DataTypes.STRING,
+    defaultValue: 'pending'
+  },
+  provider: {
+    type: DataTypes.STRING,
+    defaultValue: 'manual'
+  },
+  reference: {
+    type: DataTypes.STRING
+  },
+  paidAt: {
+    type: DataTypes.DATE
+  }
+});
+
 // 🔗 Relaciones
 User.hasMany(Content, { foreignKey: 'userId', onDelete: 'CASCADE' });
 Content.belongsTo(User, { foreignKey: 'userId' });
@@ -121,4 +177,7 @@ Content.belongsTo(User, { foreignKey: 'userId' });
 User.hasMany(Platform, { foreignKey: 'userId', onDelete: 'CASCADE' });
 Platform.belongsTo(User, { foreignKey: 'userId' });
 
-export { sequelize, User, Content, Platform }; 
+User.hasMany(Payment, { foreignKey: 'userId', onDelete: 'CASCADE' });
+Payment.belongsTo(User, { foreignKey: 'userId' });
+
+export { sequelize, User, Content, Platform, Payment };

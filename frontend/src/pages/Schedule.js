@@ -1,411 +1,379 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { apiClient } from '../api';
+import toast from 'react-hot-toast';
+import Joyride, { STATUS } from 'react-joyride';
 import { 
-  ArrowLeft, 
   Calendar, 
-  Upload, 
+  Clock, 
+  Share2, 
+  Save, 
   X, 
-  Image, 
-  Video, 
-  FileText,
-  Save,
-  Plus
+  Info,
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react';
 
-const Schedule = () => {
+const Schedule = ({ user, token }) => {
   const navigate = useNavigate();
-  const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     title: '',
     content: '',
-    contentType: 'text',
+    platforms: [],
     scheduledFor: '',
-    hashtags: '',
-    mentions: ''
+    scheduledTime: ''
   });
-  const [selectedPlatforms, setSelectedPlatforms] = useState([]);
-  const [uploadedFiles, setUploadedFiles] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [showTour, setShowTour] = useState(false);
 
-  const platforms = [
-    { id: 'twitch', name: 'Twitch', color: 'bg-purple-500' },
-    { id: 'twitter', name: 'Twitter/X', color: 'bg-blue-500' },
-    { id: 'instagram', name: 'Instagram', color: 'bg-pink-500' },
-    { id: 'discord', name: 'Discord', color: 'bg-indigo-500' }
+  // Tour steps
+  const steps = [
+    {
+      target: '.title-input',
+      content: 'Enter a catchy title for your content. This will help you identify it later.',
+      placement: 'bottom'
+    },
+    {
+      target: '.content-textarea',
+      content: 'Write your content here. You can include hashtags, mentions, and links.',
+      placement: 'top'
+    },
+    {
+      target: '.platforms-section',
+      content: 'Select the platforms where you want to publish your content.',
+      placement: 'bottom'
+    },
+    {
+      target: '.datetime-section',
+      content: 'Choose when you want your content to be published.',
+      placement: 'top'
+    },
+    {
+      target: '.submit-button',
+      content: 'Click here to schedule your content!',
+      placement: 'top'
+    }
   ];
 
-  const contentTypes = [
-    { value: 'text', label: 'Text' },
-    { value: 'image', label: 'Image' },
-    { value: 'video', label: 'Video' },
-    { value: 'stream', label: 'Stream' }
-  ];
+  useEffect(() => {
+    // Show tour for new users (you can store this in localStorage)
+    const hasSeenTour = localStorage.getItem('hasSeenScheduleTour');
+    if (!hasSeenTour) {
+      setShowTour(true);
+    }
+  }, []);
 
-  const handleFileSelect = (event) => {
-    const files = event.target.files;
-    if (files) {
-      const newFiles = Array.from(files).map(file => ({
-        file,
-        preview: URL.createObjectURL(file),
-        id: Math.random().toString(36).substr(2, 9)
-      }));
-      setUploadedFiles(prev => [...prev, ...newFiles]);
+  const handleTourCallback = (data) => {
+    const { status } = data;
+    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
+      setShowTour(false);
+      localStorage.setItem('hasSeenScheduleTour', 'true');
     }
   };
 
-  const removeFile = (fileId) => {
-    setUploadedFiles(prev => {
-      const fileToRemove = prev.find(f => f.id === fileId);
-      if (fileToRemove) {
-        URL.revokeObjectURL(fileToRemove.preview);
-      }
-      return prev.filter(f => f.id !== fileId);
-    });
-  };
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!formData.title.trim()) {
+      newErrors.title = 'Title is required';
+    } else if (formData.title.length < 3) {
+      newErrors.title = 'Title must be at least 3 characters';
+    }
+    
+    if (!formData.content.trim()) {
+      newErrors.content = 'Content is required';
+    } else if (formData.content.length < 10) {
+      newErrors.content = 'Content must be at least 10 characters';
+    }
+    
+    if (formData.platforms.length === 0) {
+      newErrors.platforms = 'Select at least one platform';
+    }
+    
+    if (!formData.scheduledFor) {
+      newErrors.scheduledFor = 'Date is required';
+    }
+    
+    if (!formData.scheduledTime) {
+      newErrors.scheduledTime = 'Time is required';
+    }
 
-  const getFileIcon = (fileType) => {
-    if (fileType.startsWith('image/')) return <Image className="w-4 h-4" />;
-    if (fileType.startsWith('video/')) return <Video className="w-4 h-4" />;
-    return <FileText className="w-4 h-4" />;
-  };
-
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const handlePlatformChange = (platformId) => {
-    setSelectedPlatforms(prev => 
-      prev.includes(platformId) 
-        ? prev.filter(p => p !== platformId)
-        : [...prev, platformId]
-    );
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      toast.error('Please fix the errors before submitting');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const contentData = {
-        ...formData,
-        platforms: JSON.stringify(selectedPlatforms),
-        files: JSON.stringify(uploadedFiles.map(f => ({ 
-          name: f.file.name, 
-          size: f.file.size, 
-          type: f.file.type 
-        })))
-      };
-
-      await axios.post('http://localhost:5000/api/content', contentData, {
+      const scheduledDateTime = new Date(`${formData.scheduledFor}T${formData.scheduledTime}`);
+      
+      const response = await apiClient.post('/content', {
+        title: formData.title,
+        content: formData.content,
+        platforms: formData.platforms,
+        scheduledFor: scheduledDateTime.toISOString()
+      }, {
+        headers: { Authorization: `Bearer ${token}` },
         withCredentials: true
       });
 
+      toast.success('Content scheduled successfully!');
       navigate('/dashboard');
     } catch (error) {
-      console.error('Error creating content:', error);
+      console.error('Error scheduling content:', error);
+      toast.error('Failed to schedule content. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-16">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg mr-4"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <h1 className="text-2xl font-bold text-gray-900">Schedule Content</h1>
-          </div>
-        </div>
-      </header>
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Main Form */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Content Information */}
-              <div className="bg-white shadow rounded-lg p-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Content Information</h2>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Content Title
+  const handlePlatformToggle = (platform) => {
+    setFormData(prev => ({
+      ...prev,
+      platforms: prev.platforms.includes(platform)
+        ? prev.platforms.filter(p => p !== platform)
+        : [...prev.platforms, platform]
+    }));
+    
+    if (errors.platforms) {
+      setErrors(prev => ({ ...prev, platforms: '' }));
+    }
+  };
+
+  const platforms = [
+    { id: 'twitch', name: 'Twitch', color: 'bg-purple-500' },
+    { id: 'twitter', name: 'Twitter', color: 'bg-blue-400' },
+    { id: 'instagram', name: 'Instagram', color: 'bg-pink-500' },
+    { id: 'discord', name: 'Discord', color: 'bg-indigo-500' }
+  ];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 py-8">
+      <Joyride
+        steps={steps}
+        run={showTour}
+        continuous={true}
+        showProgress={true}
+        showSkipButton={true}
+        callback={handleTourCallback}
+        styles={{
+          options: {
+            primaryColor: '#3b82f6',
+            zIndex: 1000,
+          }
+        }}
+      />
+      
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Schedule New Content</h1>
+          <p className="text-gray-600">Create and schedule your content across multiple platforms</p>
+        </div>
+
+        {/* Form */}
+        <div className="bg-white rounded-lg shadow-xl p-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Title */}
+            <div className="title-input">
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+                Content Title <span className="text-red-500">*</span>
                     </label>
+              <div className="relative">
                     <input
+                  id="title"
                       type="text"
                       value={formData.title}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                      placeholder="Write an attractive title..."
-                      required
-                    />
+                  onChange={(e) => handleInputChange('title', e.target.value)}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    errors.title ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter a catchy title..."
+                />
+                {errors.title && (
+                  <div className="absolute right-3 top-3">
+                    <AlertCircle className="w-5 h-5 text-red-500" />
+                  </div>
+                )}
+              </div>
+              {errors.title && (
+                <p className="mt-1 text-sm text-red-600">{errors.title}</p>
+              )}
                   </div>
                   
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Content
+            {/* Content */}
+            <div className="content-textarea">
+              <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-2">
+                Content <span className="text-red-500">*</span>
                     </label>
+              <div className="relative">
                     <textarea
+                  id="content"
+                  rows={6}
                       value={formData.content}
-                      onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                      rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  onChange={(e) => handleInputChange('content', e.target.value)}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
+                    errors.content ? 'border-red-500' : 'border-gray-300'
+                  }`}
                       placeholder="Write your content here..."
-                      required
                     />
+                {errors.content && (
+                  <div className="absolute right-3 top-3">
+                    <AlertCircle className="w-5 h-5 text-red-500" />
                   </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Content Type
-                      </label>
-                      <select
-                        value={formData.contentType}
-                        onChange={(e) => setFormData({ ...formData, contentType: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                      >
-                        {contentTypes.map(type => (
-                          <option key={type.value} value={type.value}>
-                            {type.label}
-                          </option>
-                        ))}
-                      </select>
+                )}
                     </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Publication Date and Time
-                      </label>
-                      <input
-                        type="datetime-local"
-                        value={formData.scheduledFor}
-                        onChange={(e) => setFormData({ ...formData, scheduledFor: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                        required
-                      />
+              <div className="flex justify-between items-center mt-1">
+                {errors.content && (
+                  <p className="text-sm text-red-600">{errors.content}</p>
+                )}
+                <p className="text-sm text-gray-500 ml-auto">
+                  {formData.content.length}/500 characters
+                </p>
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+            {/* Platforms */}
+            <div className="platforms-section">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Hashtags (comma separated)
+                Platforms <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="text"
-                        value={formData.hashtags}
-                        onChange={(e) => setFormData({ ...formData, hashtags: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                        placeholder="#gaming #streamer #live"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Mentions (comma separated)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.mentions}
-                        onChange={(e) => setFormData({ ...formData, mentions: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                        placeholder="@user1 @user2"
-                      />
-                    </div>
-                  </div>
-                </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {platforms.map((platform) => (
+                  <button
+                    key={platform.id}
+                    type="button"
+                    onClick={() => handlePlatformToggle(platform.id)}
+                    className={`p-4 rounded-lg border-2 transition-all duration-200 flex flex-col items-center space-y-2 ${
+                      formData.platforms.includes(platform.id)
+                        ? `${platform.color} border-transparent text-white shadow-lg transform scale-105`
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                    }`}
+                  >
+                    <Share2 className="w-6 h-6" />
+                    <span className="text-sm font-medium">{platform.name}</span>
+                    {formData.platforms.includes(platform.id) && (
+                      <CheckCircle className="w-4 h-4" />
+                    )}
+                  </button>
+                ))}
               </div>
-
-              {/* File Upload */}
-              <div className="bg-white shadow rounded-lg p-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Media Files</h2>
-                
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-primary-500 hover:bg-primary-50 transition-colors"
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept="image/*,video/*"
-                    onChange={handleFileSelect}
-                    className="hidden"
+              {errors.platforms && (
+                <p className="mt-1 text-sm text-red-600">{errors.platforms}</p>
+              )}
+                    </div>
+                    
+            {/* Date and Time */}
+            <div className="datetime-section grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                <label htmlFor="scheduledFor" className="block text-sm font-medium text-gray-700 mb-2">
+                  Date <span className="text-red-500">*</span>
+                      </label>
+                <div className="relative">
+                      <input
+                    id="scheduledFor"
+                    type="date"
+                    value={formData.scheduledFor}
+                    onChange={(e) => handleInputChange('scheduledFor', e.target.value)}
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors.scheduledFor ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    min={new Date().toISOString().split('T')[0]}
                   />
-                  <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    Click to select files
-                  </h3>
-                  <p className="text-gray-600 mb-2">or drag files here</p>
-                  <p className="text-sm text-gray-500">
-                    Supported: JPG, PNG, GIF, MP4, AVI, MOV (max 50MB per file)
-                  </p>
+                  <Calendar className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
                 </div>
-
-                {/* File List */}
-                {uploadedFiles.length > 0 && (
-                  <div className="mt-6">
-                    <h3 className="text-sm font-medium text-gray-900 mb-3">
-                      Uploaded files ({uploadedFiles.length})
-                    </h3>
-                    <div className="space-y-2">
-                      {uploadedFiles.map((fileWithPreview) => (
-                        <div key={fileWithPreview.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div className="flex items-center space-x-3">
-                            {getFileIcon(fileWithPreview.file.type)}
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">{fileWithPreview.file.name}</p>
-                              <p className="text-xs text-gray-500">
-                                {formatFileSize(fileWithPreview.file.size)} • {fileWithPreview.file.type}
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeFile(fileWithPreview.id)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Sidebar */}
-            <div className="space-y-6">
-              {/* Platforms */}
-              <div className="bg-white shadow rounded-lg p-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Platforms</h2>
-                <p className="text-sm text-gray-600 mb-4">
-                  Select the platforms where you want to publish
-                </p>
-                
-                <div className="space-y-3">
-                  {platforms.map(platform => (
-                    <label key={platform.id} className="flex items-center space-x-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedPlatforms.includes(platform.id)}
-                        onChange={() => handlePlatformChange(platform.id)}
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                      />
-                      <div className={`w-6 h-6 ${platform.color} rounded flex items-center justify-center`}>
-                        <span className="text-white text-xs font-bold">
-                          {platform.name.charAt(0)}
-                        </span>
-                      </div>
-                      <span className="text-sm font-medium text-gray-900">{platform.name}</span>
-                    </label>
-                  ))}
-                </div>
-                
-                {selectedPlatforms.length === 0 && (
-                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                    <p className="text-sm text-yellow-800">
-                      Select at least one platform
-                    </p>
-                  </div>
+                {errors.scheduledFor && (
+                  <p className="mt-1 text-sm text-red-600">{errors.scheduledFor}</p>
                 )}
               </div>
 
-              {/* Preview */}
-              <div className="bg-white shadow rounded-lg p-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Preview</h2>
-                
-                {formData.title && (
-                  <h3 className="font-medium text-gray-900 mb-2">{formData.title}</h3>
+              <div>
+                <label htmlFor="scheduledTime" className="block text-sm font-medium text-gray-700 mb-2">
+                  Time <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    id="scheduledTime"
+                    type="time"
+                    value={formData.scheduledTime}
+                    onChange={(e) => handleInputChange('scheduledTime', e.target.value)}
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors.scheduledTime ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  />
+                  <Clock className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
+                </div>
+                {errors.scheduledTime && (
+                  <p className="mt-1 text-sm text-red-600">{errors.scheduledTime}</p>
                 )}
-                
-                {formData.content && (
-                  <p className="text-gray-600 mb-3 text-sm">{formData.content}</p>
-                )}
-                
-                {uploadedFiles.length > 0 && (
-                  <div className="mb-3">
-                    <p className="text-xs text-gray-500 mb-2">Attached files:</p>
-                    <div className="grid grid-cols-3 gap-2">
-                      {uploadedFiles.slice(0, 3).map((fileWithPreview) => (
-                        <img
-                          key={fileWithPreview.id}
-                          src={fileWithPreview.preview}
-                          alt={fileWithPreview.file.name}
-                          className="w-full h-16 object-cover rounded"
-                        />
-                      ))}
-                      {uploadedFiles.length > 3 && (
-                        <div className="w-full h-16 bg-gray-200 rounded flex items-center justify-center">
-                          <span className="text-xs text-gray-500">+{uploadedFiles.length - 3}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-                
-                {formData.hashtags && (
-                  <div className="mb-3">
-                    {formData.hashtags.split(',').map((tag, index) => (
-                      <span
-                        key={index}
-                        className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mr-1 mb-1"
-                      >
-                        {tag.trim()}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                
-                <p className="text-xs text-gray-500">
-                  Will be published on: {selectedPlatforms.length} platform(s)
-                </p>
+              </div>
               </div>
 
               {/* Actions */}
-              <div className="flex space-x-3">
+            <div className="flex justify-end space-x-4 pt-6 border-t">
                 <button
                   type="button"
                   onClick={() => navigate('/dashboard')}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2"
                 >
-                  Cancel
+                <X className="w-4 h-4" />
+                <span>Cancel</span>
                 </button>
                 <button
                   type="submit"
-                  disabled={loading || selectedPlatforms.length === 0 || !formData.title || !formData.content}
-                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                disabled={loading}
+                className="submit-button px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Scheduling...</span>
+                  </>
                   ) : (
                     <>
-                      <Save className="w-4 h-4 mr-2" />
-                      Schedule
+                    <Save className="w-4 h-4" />
+                    <span>Schedule Content</span>
                     </>
                   )}
                 </button>
               </div>
+          </form>
+        </div>
+
+        {/* Help Section */}
+        <div className="mt-8 bg-blue-50 rounded-lg p-6">
+          <div className="flex items-start space-x-3">
+            <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <h3 className="text-sm font-medium text-blue-900 mb-2">Tips for better content</h3>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li>• Use engaging titles that capture attention</li>
+                <li>• Include relevant hashtags for better discoverability</li>
+                <li>• Schedule during peak hours for maximum engagement</li>
+                <li>• Cross-post across multiple platforms for wider reach</li>
+              </ul>
             </div>
           </div>
-        </form>
-      </main>
+        </div>
+      </div>
     </div>
   );
 };

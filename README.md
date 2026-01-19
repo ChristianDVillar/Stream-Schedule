@@ -5,12 +5,12 @@ Una aplicación web para programar contenido en múltiples plataformas sociales 
 ## 🚀 Tecnologías
 
 ### Backend
-- **Python 3.8+**
-- **Flask** - Framework web
-- **SQLAlchemy** - ORM para base de datos
-- **SQLite** - Base de datos
-- **Flask-Login** - Autenticación de usuarios
-- **Flask-CORS** - Soporte para CORS
+- **Node.js**
+- **Express** - Framework web
+- **Sequelize** - ORM para base de datos
+- **PostgreSQL / SQLite** - Base de datos
+- **JWT** - Autenticación
+- **CORS** - Soporte para CORS
 
 ### Frontend
 - **React 18** - Biblioteca de UI
@@ -25,9 +25,12 @@ Una aplicación web para programar contenido en múltiples plataformas sociales 
 ```
 streamer-scheduler/
 ├── backend/
-│   ├── app.py              # Aplicación Flask principal
-│   ├── requirements.txt    # Dependencias de Python
-│   └── streamer_scheduler.db # Base de datos SQLite
+│   ├── src/
+│   │   ├── app.js          # API Express
+│   │   ├── routes/         # Rutas API
+│   │   └── models/         # Modelos Sequelize
+│   ├── migrations/         # Migraciones Sequelize
+│   └── database.sqlite     # Base SQLite local (dev)
 ├── frontend/
 │   ├── src/
 │   │   ├── components/     # Componentes reutilizables
@@ -44,39 +47,24 @@ streamer-scheduler/
 ## 🛠️ Instalación
 
 ### Prerrequisitos
-- Python 3.8 o superior
 - Node.js 16 o superior
 - npm o yarn
 
-### Backend (Python/Flask)
+### Backend (Node/Express)
 
 1. **Navegar al directorio del backend:**
    ```bash
    cd backend
    ```
 
-2. **Crear entorno virtual (opcional pero recomendado):**
+2. **Instalar dependencias:**
    ```bash
-   python -m venv venv
+   npm install
    ```
 
-3. **Activar el entorno virtual:**
+3. **Ejecutar el servidor:**
    ```bash
-   # Windows
-   venv\Scripts\activate
-   
-   # macOS/Linux
-   source venv/bin/activate
-   ```
-
-4. **Instalar dependencias:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-5. **Ejecutar el servidor:**
-   ```bash
-   python app.py
+   npm start
    ```
 
 El backend estará disponible en: http://localhost:5000
@@ -156,15 +144,6 @@ Para conectar las plataformas sociales, necesitarás configurar las siguientes A
 
 ## 🚀 Despliegue
 
-### Backend (Producción)
-```bash
-# Instalar gunicorn
-pip install gunicorn
-
-# Ejecutar con gunicorn
-gunicorn -w 4 -b 0.0.0.0:5000 app:app
-```
-
 ### Frontend (Producción)
 ```bash
 # Construir para producción
@@ -178,8 +157,11 @@ npm run build
 Crear un archivo `.env` en el directorio backend:
 
 ```env
-SECRET_KEY=your-secret-key-here
-FLASK_ENV=development
+PORT=5000
+JWT_SECRET=your-jwt-secret
+DATABASE_URL=postgres://user:pass@host:5432/dbname
+DATABASE_SSL=false
+SQLITE_STORAGE=database.sqlite
 ```
 
 ## 🤝 Contribuir

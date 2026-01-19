@@ -1,10 +1,12 @@
 import express from 'express';
-import Platform from '../models/platform.js';
+import { Platform } from '../models/index.js';
+import checkLicense from '../middleware/checkLicense.js';
 const router = express.Router();
+
+router.use(checkLicense);
 
 // Connect platform (store tokens)
 router.post('/connect/:platform', async (req, res) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { accessToken, refreshToken, expiresAt, extra } = req.body;
   const { platform } = req.params;
   try {
@@ -22,7 +24,6 @@ router.post('/connect/:platform', async (req, res) => {
 
 // Disconnect platform
 router.post('/disconnect/:platform', async (req, res) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { platform } = req.params;
   const record = await Platform.findOne({ where: { userId: req.user.id, platform } });
   if (!record) return res.status(404).json({ error: 'Not connected' });
@@ -32,7 +33,6 @@ router.post('/disconnect/:platform', async (req, res) => {
 
 // Get status of all platforms
 router.get('/status', async (req, res) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const platforms = await Platform.findAll({ where: { userId: req.user.id } });
   res.json(platforms);
 });

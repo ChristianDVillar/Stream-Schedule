@@ -1,46 +1,97 @@
-# Unified Social Scheduler for Streamers – MVP Version
+# Unified Social Scheduler for Streamers – MVP & Scalable Version
 
-**Budget: €2000**
+**Budget Estimate**
+
+---
 
 ## 1. Project Summary
-The Unified Social Scheduler for Streamers is a web-based platform designed to help content creators manage and schedule social media posts across multiple platforms including Twitch, Twitter/X, Instagram (Business), and Discord. This Minimum Viable Product (MVP) focuses on delivering core functionality with a minimal budget while ensuring usability and scalability.
 
-## 2. Key Features
-- OAuth2 authentication with:
-  - Twitch
-  - Twitter/X
-  - Instagram (Business accounts only)
-  - Discord
-- Secure token storage and refresh system
-- Basic calendar interface for scheduling posts
-- Platform-specific actions:
-  - Twitter: Post text and images
-  - Twitch: Schedule streams
-  - Discord: Send channel messages via bot
-  - Instagram: Save posts (manual publishing if API restricted)
-- Background task runner using cron or similar
-- Admin panel for viewing logs and monitoring status
+A unified platform for streamers to schedule, manage, and analyze their social media content across multiple platforms (Twitch, Twitter, Instagram, Discord, etc.), with user/admin roles, licensing, and advanced analytics.
 
-## 3. Technology Stack
-- Frontend: React + Tailwind CSS
-- Backend: Node.js (Express) or Python Flask
-- Database: PostgreSQL
-- Storage: Optional AWS S3 or Firebase
+---
 
-## 4. Cost Breakdown
-| Task | Estimated Cost (€) |
-|------------------------------------------------------------------|-------------|
-| User Authentication & OAuth2                                     | €400        |
-| UI Calendar & Dashboard                                          | €500        |
-| Backend APIs & Scheduler Logic                                   | €600        |
-| Job Runner & Logs System                                         | €300        |
-| Testing, Deployment & Fixes                                      | €200        |
-|------------------------------------------------------------------|-------------|
-| **Total**                                                        | **2000**    |
+## 2. Key Features (Current MVP)
 
-## 5. Next Steps
-- Finalize tech stack
-- Design basic UI wireframes
-- Begin OAuth2 integrations
-- Test with sample users
-- Launch beta version 
+- User registration, login, JWT authentication
+- Role-based dashboards (user/admin)
+- Content scheduling (multi-platform)
+- Calendar view and filters
+- Content search and advanced filters
+- License management (admin)
+- Responsive UI (React, Tailwind)
+- Notifications and onboarding tour
+- Data export (JSON)
+- Initial analytics (basic stats, profile)
+
+---
+
+## 3. Potential/Scalable Features
+
+- Advanced analytics & dashboards (charts, trends, engagement)
+- Platform integration (auto-posting, API sync)
+- Engagement tracking (likes, shares, comments)
+- Audience growth tracking
+- Optimal time suggestions (AI/ML)
+- Team/multi-user management
+- Payment integration for licenses
+- Custom branding/themes
+- Mobile app version
+- Multi-language support
+- Audit logs and admin reports
+
+---
+
+## 4. Technology Stack
+
+| Layer         | Technology                |
+|--------------|---------------------------|
+| Frontend     | React, Tailwind CSS, Axios|
+| Backend      | Node.js, Express, JWT     |
+| Database     | PostgreSQL (Neon), Sequelize|
+| Deployment   | Railway, Neon             |
+| Analytics    | Chart.js / Recharts (planned) |
+| Notifications| react-hot-toast           |
+| Onboarding   | react-joyride             |
+
+---
+
+## 5. Budget Breakdown (EUR)
+
+| Item/Phase                | Estimated Cost |
+|---------------------------|---------------:|
+| MVP Design & Planning     |         €200   |
+| Frontend Dev (MVP)        |         €600   |
+| Backend Dev (MVP)         |         €600   |
+| Database Setup/Migrations |         €150   |
+| Admin & Licensing         |         €150   |
+| QA & Testing              |         €100   |
+| Deployment/DevOps         |         €100   |
+| **MVP Subtotal**          |     **€1,900** |
+| **Advanced Analytics**    |         €400   |
+| Platform Integrations     |         €300   |
+| Mobile/Branding/AI        |         €400   |
+| **Full Potential Total**  |   **€3,000**   |
+
+---
+
+## 6. Deliverables
+
+- Complete MVP (as described above)
+- Documentation (user/admin)
+- Source code (frontend/backend)
+- Deployment scripts
+- Initial admin/test users
+- Roadmap for scalable features
+
+---
+
+## 7. Notes
+
+- Budget is an estimate and may vary with feature scope.
+- Advanced analytics and integrations are modular and can be added as needed.
+- The system is designed to scale for more users, platforms, and analytics.
+
+---
+
+**Prepared by:** Christian - Develop
+**Date:** 2024-06-XX 
