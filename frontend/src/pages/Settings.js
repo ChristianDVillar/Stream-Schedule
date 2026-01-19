@@ -59,7 +59,7 @@ const Settings = ({ user, token }) => {
 
   // Theme settings
   const [themeSettings, setThemeSettings] = useState({
-    theme: 'light',
+    theme: localStorage.getItem('theme') || 'light',
     accentColor: 'blue',
     compactMode: false
   });
@@ -109,6 +109,22 @@ const Settings = ({ user, token }) => {
       }));
     }
   }, [user]);
+
+  useEffect(() => {
+    const applyTheme = (theme) => {
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else if (theme === 'auto') {
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.classList.toggle('dark', prefersDark);
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      localStorage.setItem('theme', theme);
+    };
+
+    applyTheme(themeSettings.theme);
+  }, [themeSettings.theme]);
 
   useEffect(() => {
     if (token) {
@@ -752,7 +768,7 @@ const Settings = ({ user, token }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
@@ -760,10 +776,10 @@ const Settings = ({ user, token }) => {
           <p className="text-gray-600">Manage your account settings and preferences</p>
         </div>
 
-        <div className="bg-white rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
           <div className="grid grid-cols-1 md:grid-cols-4">
             {/* Sidebar */}
-            <div className="md:col-span-1 border-r border-gray-200">
+            <div className="md:col-span-1 border-r border-gray-200 dark:border-gray-700">
               <nav className="p-4 space-y-2">
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
@@ -773,8 +789,8 @@ const Settings = ({ user, token }) => {
                       onClick={() => setActiveTab(tab.id)}
                       className={`w-full flex items-center space-x-3 px-4 py-3 text-left rounded-lg transition-colors ${
                         activeTab === tab.id
-                          ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                          ? 'bg-blue-50 dark:bg-gray-900 text-blue-700 border-r-2 border-blue-700'
+                          : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900'
                       }`}
                     >
                       <Icon className="w-5 h-5" />

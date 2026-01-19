@@ -21,8 +21,23 @@ const Schedule = ({ user, token }) => {
     content: '',
     platforms: [],
     scheduledFor: '',
-    scheduledTime: ''
+    scheduledTime: '',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    recurrence: {
+      enabled: false,
+      frequency: 'weekly',
+      count: 1
+    }
   });
+  const [templates, setTemplates] = useState(() => {
+    try {
+      const stored = localStorage.getItem('contentTemplates');
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [templateName, setTemplateName] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [showTour, setShowTour] = useState(false);
@@ -63,6 +78,10 @@ const Schedule = ({ user, token }) => {
       setShowTour(true);
     }
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('contentTemplates', JSON.stringify(templates));
+  }, [templates]);
 
   const handleTourCallback = (data) => {
     const { status } = data;
@@ -120,13 +139,16 @@ const Schedule = ({ user, token }) => {
         title: formData.title,
         content: formData.content,
         platforms: formData.platforms,
-        scheduledFor: scheduledDateTime.toISOString()
+        scheduledFor: scheduledDateTime.toISOString(),
+        timezone: formData.timezone,
+        recurrence: formData.recurrence
       }, {
         headers: { Authorization: `Bearer ${token}` },
         withCredentials: true
       });
 
-      toast.success('Content scheduled successfully!');
+      const createdCount = Array.isArray(response.data) ? response.data.length : 1;
+      toast.success(`Content scheduled successfully! (${createdCount})`);
       navigate('/dashboard');
     } catch (error) {
       console.error('Error scheduling content:', error);
@@ -158,6 +180,32 @@ const Schedule = ({ user, token }) => {
     }
   };
 
+  const handleSaveTemplate = () => {
+    if (!templateName.trim()) {
+      toast.error('Template name is required');
+      return;
+    }
+    const template = {
+      id: Date.now(),
+      name: templateName.trim(),
+      title: formData.title,
+      content: formData.content,
+      platforms: formData.platforms
+    };
+    setTemplates(prev => [...prev, template]);
+    setTemplateName('');
+    toast.success('Template saved');
+  };
+
+  const handleApplyTemplate = (template) => {
+    setFormData(prev => ({
+      ...prev,
+      title: template.title,
+      content: template.content,
+      platforms: template.platforms
+    }));
+  };
+
   const platforms = [
     { id: 'twitch', name: 'Twitch', color: 'bg-purple-500' },
     { id: 'twitter', name: 'Twitter', color: 'bg-blue-400' },
@@ -166,7 +214,7 @@ const Schedule = ({ user, token }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 dark:from-gray-900 dark:to-gray-900 py-8">
       <Joyride
         steps={steps}
         run={showTour}
@@ -190,7 +238,7 @@ const Schedule = ({ user, token }) => {
         </div>
 
         {/* Form */}
-        <div className="bg-white rounded-lg shadow-xl p-8">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Title */}
             <div className="title-input">
@@ -203,7 +251,7 @@ const Schedule = ({ user, token }) => {
                       type="text"
                       value={formData.title}
                   onChange={(e) => handleInputChange('title', e.target.value)}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                     errors.title ? 'border-red-500' : 'border-gray-300'
                   }`}
                   placeholder="Enter a catchy title..."
@@ -230,7 +278,7 @@ const Schedule = ({ user, token }) => {
                   rows={6}
                       value={formData.content}
                   onChange={(e) => handleInputChange('content', e.target.value)}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
+                  className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
                     errors.content ? 'border-red-500' : 'border-gray-300'
                   }`}
                       placeholder="Write your content here..."
@@ -293,7 +341,7 @@ const Schedule = ({ user, token }) => {
                     type="date"
                     value={formData.scheduledFor}
                     onChange={(e) => handleInputChange('scheduledFor', e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       errors.scheduledFor ? 'border-red-500' : 'border-gray-300'
                     }`}
                     min={new Date().toISOString().split('T')[0]}
@@ -315,7 +363,7 @@ const Schedule = ({ user, token }) => {
                     type="time"
                     value={formData.scheduledTime}
                     onChange={(e) => handleInputChange('scheduledTime', e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       errors.scheduledTime ? 'border-red-500' : 'border-gray-300'
                     }`}
                   />
@@ -370,6 +418,105 @@ const Schedule = ({ user, token }) => {
                 <li>• Schedule during peak hours for maximum engagement</li>
                 <li>• Cross-post across multiple platforms for wider reach</li>
               </ul>
+            </div>
+
+            {/* Timezone */}
+            <div>
+              <label htmlFor="timezone" className="block text-sm font-medium text-gray-700 mb-2">
+                Timezone
+              </label>
+              <input
+                id="timezone"
+                type="text"
+                value={formData.timezone}
+                onChange={(e) => handleInputChange('timezone', e.target.value)}
+                className="w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <p className="text-xs text-gray-500 mt-1">Set the timezone used for this schedule.</p>
+            </div>
+
+            {/* Recurrence */}
+            <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-900 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-gray-900">Recurring schedule</h3>
+                <input
+                  type="checkbox"
+                  checked={formData.recurrence.enabled}
+                  onChange={(e) => handleInputChange('recurrence', {
+                    ...formData.recurrence,
+                    enabled: e.target.checked
+                  })}
+                />
+              </div>
+              {formData.recurrence.enabled && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Frequency</label>
+                    <select
+                      value={formData.recurrence.frequency}
+                      onChange={(e) => handleInputChange('recurrence', {
+                        ...formData.recurrence,
+                        frequency: e.target.value
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900"
+                    >
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Occurrences</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={formData.recurrence.count}
+                      onChange={(e) => handleInputChange('recurrence', {
+                        ...formData.recurrence,
+                        count: Number(e.target.value)
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Templates */}
+            <div className="border rounded-lg p-4 bg-white dark:bg-gray-800 dark:border-gray-700">
+              <h3 className="text-sm font-medium text-gray-900 mb-3">Templates</h3>
+              <div className="flex flex-col md:flex-row gap-3 mb-3">
+                <input
+                  type="text"
+                  placeholder="Template name"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  className="flex-1 px-3 py-2 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveTemplate}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Save Template
+                </button>
+              </div>
+              {templates.length === 0 ? (
+                <p className="text-sm text-gray-500">No templates yet.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {templates.map(template => (
+                    <button
+                      key={template.id}
+                      type="button"
+                      onClick={() => handleApplyTemplate(template)}
+                      className="px-3 py-1 border rounded-full text-sm hover:bg-gray-100"
+                    >
+                      {template.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

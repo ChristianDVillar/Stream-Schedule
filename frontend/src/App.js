@@ -50,14 +50,14 @@ function Header({ user, onLogout, onMenuClick }) {
   const navigate = useNavigate();
   if (!user) return null;
   return (
-    <header className="bg-white shadow-sm border-b mb-4">
+    <header className="bg-white dark:bg-gray-800 shadow-sm border-b mb-4">
       <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-16">
         <div className="flex items-center space-x-4">
           <button className="md:hidden" onClick={onMenuClick} aria-label="Open menu">
             <Menu className="w-6 h-6 text-primary-700" />
           </button>
           <span className="font-bold text-primary-700">Streamer Scheduler</span>
-          <span className="text-gray-600">{user.isAdmin ? 'Admin' : 'User'}: <span className="font-semibold">{user.username}</span></span>
+          <span className="text-gray-600 dark:text-gray-300">{user.isAdmin ? 'Admin' : 'User'}: <span className="font-semibold">{user.username}</span></span>
         </div>
         <button
           onClick={() => { onLogout(); navigate('/login'); }}
@@ -72,17 +72,17 @@ function Header({ user, onLogout, onMenuClick }) {
 
 function Sidebar({ user, open, onClose }) {
   return (
-    <div className={`fixed inset-0 z-40 md:static md:inset-auto md:translate-x-0 transition-transform duration-200 ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 bg-white md:bg-transparent shadow-lg md:shadow-none w-64 md:w-56 h-full md:h-auto flex flex-col`}>
+    <div className={`fixed inset-0 z-40 md:static md:inset-auto md:translate-x-0 transition-transform duration-200 ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 bg-white dark:bg-gray-800 md:bg-transparent shadow-lg md:shadow-none w-64 md:w-56 h-full md:h-auto flex flex-col`}>
       <div className="flex items-center justify-between px-4 py-4 md:hidden">
         <span className="font-bold text-primary-700">Menu</span>
         <button onClick={onClose} aria-label="Close menu"><X className="w-6 h-6" /></button>
       </div>
       <nav className="flex-1 px-4 py-2 space-y-2">
-        <Link to={user?.isAdmin ? "/admin" : "/dashboard"} className="block px-3 py-2 rounded hover:bg-blue-100 font-medium">Dashboard</Link>
-        {!user?.isAdmin && <Link to="/schedule" className="block px-3 py-2 rounded hover:bg-blue-100 font-medium">New Content</Link>}
-        <Link to="/settings" className="block px-3 py-2 rounded hover:bg-blue-100 font-medium">Settings</Link>
-        <Link to="/profile" className="block px-3 py-2 rounded hover:bg-blue-100 font-medium">Profile</Link>
-        {user?.isAdmin && <Link to="/admin" className="block px-3 py-2 rounded hover:bg-purple-100 font-medium">Admin Licenses</Link>}
+        <Link to={user?.isAdmin ? "/admin" : "/dashboard"} className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">Dashboard</Link>
+        {!user?.isAdmin && <Link to="/schedule" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">New Content</Link>}
+        <Link to="/settings" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">Settings</Link>
+        <Link to="/profile" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">Profile</Link>
+        {user?.isAdmin && <Link to="/admin" className="block px-3 py-2 rounded hover:bg-purple-100 dark:hover:bg-gray-700 font-medium">Admin Licenses</Link>}
       </nav>
     </div>
   );
@@ -101,6 +101,32 @@ const App = () => {
     return localStorage.getItem('auth_token') || null;
   });
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const applyTheme = () => {
+      const storedTheme = localStorage.getItem('theme') || 'light';
+      if (storedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else if (storedTheme === 'auto') {
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.classList.toggle('dark', prefersDark);
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    };
+
+    applyTheme();
+    const media = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = () => applyTheme();
+    if (media && media.addEventListener) {
+      media.addEventListener('change', handler);
+    }
+    return () => {
+      if (media && media.removeEventListener) {
+        media.removeEventListener('change', handler);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -126,7 +152,7 @@ const App = () => {
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Toaster position="top-right" />
-      <div className="flex min-h-screen bg-gray-50">
+      <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
         {user && <Sidebar user={user} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
         <div className="flex-1 flex flex-col">
           <Header user={user} onLogout={handleLogout} onMenuClick={() => setSidebarOpen(true)} />
@@ -167,7 +193,7 @@ const App = () => {
               } />
             </Routes>
           </div>
-          <footer className="text-center text-gray-500 py-4 border-t bg-white">© 2025 Christian - Develop</footer>
+          <footer className="text-center text-gray-500 py-4 border-t bg-white dark:bg-gray-800">© 2025 Christian - Develop</footer>
         </div>
       </div>
     </Router>
