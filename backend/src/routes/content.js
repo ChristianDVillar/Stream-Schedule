@@ -5,11 +5,43 @@ const router = express.Router();
 
 router.use(checkLicense);
 
+function buildOccurrences(baseDate, recurrence) {
+  if (!recurrence || !recurrence.enabled) {
+    return [baseDate];
+  }
+
+  const occurrences = [];
+  const count = Math.max(1, Math.min(Number(recurrence.count || 1), 50));
+  const frequency = recurrence.frequency || 'weekly';
+
+  for (let i = 0; i < count; i += 1) {
+    const date = new Date(baseDate);
+    if (frequency === 'daily') {
+      date.setDate(date.getDate() + i);
+    } else if (frequency === 'weekly') {
+      date.setDate(date.getDate() + i * 7);
+    } else {
+      date.setDate(date.getDate() + i);
+    }
+    occurrences.push(date);
+  }
+
+  return occurrences;
+}
+
 // Create content
 router.post('/', async (req, res) => {
   try {
-    const content = await Content.create({ ...req.body, userId: req.user.id });
-    res.status(201).json(content);
+    const scheduledFor = new Date(req.body.scheduledFor);
+    const occurrences = buildOccurrences(scheduledFor, req.body.recurrence);
+    const created = await Promise.all(
+      occurrences.map(date => Content.create({
+        ...req.body,
+        scheduledFor: date,
+        userId: req.user.id
+      }))
+    );
+    res.status(201).json(created);
   } catch (err) {
     res.status(400).json({ error: 'Invalid data', details: err.message });
   }

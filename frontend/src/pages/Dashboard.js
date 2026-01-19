@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../api';
 import AdminDashboard from './AdminDashboard';
-import Calendar from 'react-calendar';
-import 'react-calendar/dist/Calendar.css';
+import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
+import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
+import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
+import { format, parse, startOfWeek, getDay } from 'date-fns';
 import toast from 'react-hot-toast';
 import { 
   Calendar as CalendarIcon, 
@@ -189,6 +192,39 @@ const Dashboard = ({ user, token, ...props }) => {
     return matchesSearch && matchesStatus && matchesPlatform && matchesDateRange;
   });
 
+  const DragAndDropCalendar = withDragAndDrop(BigCalendar);
+  const locales = { 'en-US': require('date-fns/locale/en-US') };
+  const localizer = dateFnsLocalizer({
+    format,
+    parse,
+    startOfWeek,
+    getDay,
+    locales
+  });
+
+  const calendarEvents = filteredContents.map(content => ({
+    id: content.id,
+    title: content.title,
+    start: new Date(content.scheduledFor),
+    end: new Date(new Date(content.scheduledFor).getTime() + 30 * 60 * 1000),
+    resource: content
+  }));
+
+  const handleEventDrop = async ({ event, start, end }) => {
+    try {
+      await apiClient.put(`/content/${event.id}`, {
+        scheduledFor: start.toISOString()
+      }, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+      });
+      toast.success('Content rescheduled');
+      fetchContents();
+    } catch (error) {
+      toast.error('Failed to reschedule');
+    }
+  };
+
   // Si es admin, muestra el dashboard de admin
   if (user && user.isAdmin) {
     return <AdminDashboard user={user} token={token} {...props} />;
@@ -206,9 +242,9 @@ const Dashboard = ({ user, token, ...props }) => {
 
   // Dashboard de usuario normal
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
@@ -218,13 +254,13 @@ const Dashboard = ({ user, token, ...props }) => {
               <div className="flex space-x-2">
                 <button
                   onClick={() => navigate('/settings')}
-                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+                  className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                 >
                   <Settings className="w-5 h-5" />
                 </button>
                 <button
                   onClick={() => navigate('/profile')}
-                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+                  className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                 >
                   <User className="w-5 h-5" />
                 </button>
@@ -236,23 +272,35 @@ const Dashboard = ({ user, token, ...props }) => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-          {/* Calendario */}
-          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-400 flex flex-col items-center">
-            <h3 className="text-lg font-bold text-blue-700 mb-4 flex items-center"><CalendarIcon className="w-5 h-5 mr-2" />Calendar</h3>
-            <Calendar
-              onChange={setSelectedDate}
-              value={selectedDate}
-              className="mb-2"
+        {/* Calendario */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-blue-400 mb-8">
+          <h3 className="text-lg font-bold text-blue-700 dark:text-blue-400 mb-4 flex items-center"><CalendarIcon className="w-5 h-5 mr-2" />Calendar</h3>
+          <div className="h-[600px]">
+            <DragAndDropCalendar
+              localizer={localizer}
+              events={calendarEvents}
+              startAccessor="start"
+              endAccessor="end"
+              defaultView="week"
+              views={['week', 'month', 'day']}
+              onEventDrop={handleEventDrop}
+              selectable
+              onSelectSlot={(slotInfo) => setSelectedDate(slotInfo.start)}
+              onSelectEvent={(event) => {
+                setSelectedContent(event.resource);
+                setShowContentModal(true);
+              }}
+              style={{ height: '100%' }}
             />
-            <p className="text-sm text-gray-600 mt-2">Selected: {selectedDate.toLocaleDateString()}</p>
           </div>
-          
-          {/* Lista de posts del día */}
-          <div className="md:col-span-2 bg-white rounded-lg shadow p-6 border-t-4 border-blue-600">
-            {/* Search and Filters */}
-            <div className="mb-6">
-              <div className="flex flex-col sm:flex-row gap-4 mb-4">
+          <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">Selected: {selectedDate.toLocaleDateString()}</p>
+        </div>
+
+        {/* Lista de posts del día */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-blue-600">
+          {/* Search and Filters */}
+          <div className="mb-6">
+            <div className="flex flex-col sm:flex-row gap-4 mb-4">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <input
@@ -260,14 +308,14 @@ const Dashboard = ({ user, token, ...props }) => {
                     placeholder="Search content..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
                 <div className="flex space-x-2">
                   <button
                     onClick={() => setShowFilters(!showFilters)}
                     className={`px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors ${
-                      showFilters ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      showFilters ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
                   >
                     <Filter className="w-4 h-4" />
@@ -286,19 +334,19 @@ const Dashboard = ({ user, token, ...props }) => {
                   >
                     <RefreshCw className="w-4 h-4" />
                   </button>
-              </div>
-              </div>
+            </div>
+          </div>
 
               {/* Advanced Filters */}
               {showFilters && (
-                <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg mb-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
                       <select
                         value={filters.status}
                         onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="all">All Status</option>
                         <option value="pending">Pending</option>
@@ -312,7 +360,7 @@ const Dashboard = ({ user, token, ...props }) => {
                       <select
                         value={filters.platform}
                         onChange={(e) => setFilters(prev => ({ ...prev, platform: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="all">All Platforms</option>
                         <option value="twitch">Twitch</option>
@@ -327,7 +375,7 @@ const Dashboard = ({ user, token, ...props }) => {
                       <select
                         value={filters.dateRange}
                         onChange={(e) => setFilters(prev => ({ ...prev, dateRange: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="all">All Dates</option>
                         <option value="today">Today</option>
@@ -352,7 +400,7 @@ const Dashboard = ({ user, token, ...props }) => {
           </button>
         </div>
 
-        <div className="bg-white shadow rounded-lg">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
               {loading ? (
                 <div className="p-8 text-center">Loading...</div>
               ) : postsForSelectedDay.length === 0 ? (
@@ -370,58 +418,58 @@ const Dashboard = ({ user, token, ...props }) => {
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+                <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Title
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Platforms
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Scheduled for
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {postsForSelectedDay.map((content) => (
-                    <tr key={content.id} className="hover:bg-gray-50">
+                    <tr key={content.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
-                              <div className="text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600" 
+                              <div className="text-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400" 
                                    onClick={() => {
                                      setSelectedContent(content);
                                      setShowContentModal(true);
                                    }}>
                                 {content.title}
                               </div>
-                          <div className="text-sm text-gray-500 truncate max-w-xs">{content.content}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-300 truncate max-w-xs">{content.content}</div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex space-x-1">
                               {Array.isArray(content.platforms)
                                 ? content.platforms.map((platform) => (
-                            <div key={platform} className="p-1 bg-gray-100 rounded">
+                            <div key={platform} className="p-1 bg-gray-100 dark:bg-gray-700 rounded">
                               {getPlatformIcon(platform)}
                                     </div>
                                   ))
                                 : null}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                             {formatDate(content.scheduledFor)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           {getStatusIcon(content.status)}
-                          <span className="ml-2 text-sm text-gray-900 capitalize">{content.status}</span>
+                          <span className="ml-2 text-sm text-gray-900 dark:text-gray-100 capitalize">{content.status}</span>
                         </div>
                       </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -459,18 +507,17 @@ const Dashboard = ({ user, token, ...props }) => {
             </div>
           )}
         </div>
-          </div>
         </div>
 
         {/* Content Details Modal */}
         {showContentModal && selectedContent && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-start mb-4">
-                <h2 className="text-xl font-bold text-gray-900">{selectedContent.title}</h2>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{selectedContent.title}</h2>
                 <button
                   onClick={() => setShowContentModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -478,19 +525,19 @@ const Dashboard = ({ user, token, ...props }) => {
               
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Content</h3>
-                  <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{selectedContent.content}</p>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Content</h3>
+                  <p className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">{selectedContent.content}</p>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <h3 className="text-sm font-medium text-gray-700 mb-2">Platforms</h3>
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Platforms</h3>
                     <div className="flex space-x-2">
                       {Array.isArray(selectedContent.platforms)
                         ? selectedContent.platforms.map((platform) => (
-                            <div key={platform} className="p-2 bg-gray-100 rounded-lg flex items-center space-x-2">
+                            <div key={platform} className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center space-x-2">
                               {getPlatformIcon(platform)}
-                              <span className="text-sm capitalize">{platform}</span>
+                              <span className="text-sm capitalize text-gray-900 dark:text-gray-100">{platform}</span>
                             </div>
                           ))
                         : null}
@@ -498,21 +545,21 @@ const Dashboard = ({ user, token, ...props }) => {
                   </div>
                   
                   <div>
-                    <h3 className="text-sm font-medium text-gray-700 mb-2">Status</h3>
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</h3>
                     <div className="flex items-center">
                       {getStatusIcon(selectedContent.status)}
-                      <span className="ml-2 text-sm capitalize">{selectedContent.status}</span>
+                      <span className="ml-2 text-sm capitalize text-gray-900 dark:text-gray-100">{selectedContent.status}</span>
                     </div>
                   </div>
                 </div>
                 
                 <div>
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Scheduled For</h3>
-                  <p className="text-gray-900">{formatDate(selectedContent.scheduledFor)}</p>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Scheduled For</h3>
+                  <p className="text-gray-900 dark:text-gray-100">{formatDate(selectedContent.scheduledFor)}</p>
                 </div>
               </div>
               
-              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
+              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   onClick={() => handleDuplicateContent(selectedContent)}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"

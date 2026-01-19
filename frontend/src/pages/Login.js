@@ -52,73 +52,73 @@ export default function Login({ setUser, setToken }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <form onSubmit={handleSubmit} className="bg-white p-8 rounded shadow-md w-full max-w-sm">
-        <h1 className="text-2xl font-bold mb-6 text-center">{isRegister ? 'Crear cuenta' : 'Login'}</h1>
-        {error && <div className="mb-4 text-red-600 text-center">{error}</div>}
-        {notice && <div className="mb-4 text-yellow-700 text-center">{notice}</div>}
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-8 rounded shadow-md w-full max-w-sm">
+        <h1 className="text-2xl font-bold mb-6 text-center text-gray-900 dark:text-gray-100">{isRegister ? 'Crear cuenta' : 'Login'}</h1>
+        {error && <div className="mb-4 text-red-600 dark:text-red-400 text-center">{error}</div>}
+        {notice && <div className="mb-4 text-yellow-700 dark:text-yellow-400 text-center">{notice}</div>}
         {isRegister && (
           <div className="mb-4">
-            <label htmlFor="login-username" className="block text-gray-700 mb-2">Username</label>
+            <label htmlFor="login-username" className="block text-gray-700 dark:text-gray-300 mb-2">Username</label>
             <input
               id="login-username"
               name="username"
               type="text"
               value={username}
               onChange={e => setUsername(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             />
           </div>
         )}
         <div className="mb-4">
-          <label htmlFor="login-email" className="block text-gray-700 mb-2">Email</label>
+          <label htmlFor="login-email" className="block text-gray-700 dark:text-gray-300 mb-2">Email</label>
           <input
             id="login-email"
             name="email"
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
-            className="w-full px-3 py-2 border rounded"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             required
           />
         </div>
         <div className="mb-6">
-          <label htmlFor="login-password" className="block text-gray-700 mb-2">Password</label>
+          <label htmlFor="login-password" className="block text-gray-700 dark:text-gray-300 mb-2">Password</label>
           <input
             id="login-password"
             name="password"
             type="password"
             value={password}
             onChange={e => setPassword(e.target.value)}
-            className="w-full px-3 py-2 border rounded"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             required
           />
         </div>
         {isRegister && (
           <div className="mb-6">
-            <label htmlFor="login-confirm" className="block text-gray-700 mb-2">Confirm Password</label>
+            <label htmlFor="login-confirm" className="block text-gray-700 dark:text-gray-300 mb-2">Confirm Password</label>
             <input
               id="login-confirm"
               name="confirmPassword"
               type="password"
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             />
           </div>
         )}
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50 transition-colors"
           disabled={loading}
         >
           {loading ? (isRegister ? 'Creando...' : 'Logging in...') : (isRegister ? 'Crear cuenta' : 'Login')}
         </button>
         <button
           type="button"
-          className="w-full mt-4 text-sm text-blue-600 hover:underline"
+          className="w-full mt-4 text-sm text-blue-600 dark:text-blue-400 hover:underline"
           onClick={() => {
             setError(null);
             setIsRegister(!isRegister);
