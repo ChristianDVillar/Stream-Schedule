@@ -92,6 +92,12 @@ const Content = sequelize.define('Content', {
     type: DataTypes.JSONB,
     allowNull: false
   },
+  timezone: {
+    type: DataTypes.STRING
+  },
+  recurrence: {
+    type: DataTypes.JSONB
+  },
   files: {
     type: DataTypes.JSONB
   },

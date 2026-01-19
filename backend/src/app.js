@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import userRoutes from './routes/user.js';
 import contentRoutes from './routes/content.js';
 import platformsRoutes from './routes/platforms.js';
@@ -12,6 +14,13 @@ dotenv.config();
 
 const app = express();
 const jwtSecret = process.env.JWT_SECRET || 'dev-jwt-secret';
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300
+});
+
+app.use(helmet());
+app.use(limiter);
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 

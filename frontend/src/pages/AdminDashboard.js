@@ -147,7 +147,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
           <button onClick={onLogout} className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded hover:from-blue-700 hover:to-purple-700">Logout</button>
         )}
       </div>
-      <div className="mb-8 p-6 rounded-lg shadow-lg bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100">
+      <div className="mb-8 p-6 rounded-lg shadow-lg bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-900 border border-blue-100 dark:border-gray-700">
         <h2 className="text-xl font-semibold text-blue-800 mb-2">Bienvenido, <span className="font-bold">{user?.username}</span></h2>
         <p className="text-gray-700">Gestiona usuarios, licencias y revisa logs del sistema.</p>
       </div>
@@ -156,23 +156,23 @@ export default function AdminDashboard({ token, user, onLogout }) {
           <p className="text-sm text-gray-500">Usuarios</p>
           <p className="text-2xl font-bold text-blue-900">{stats.totalUsers}</p>
         </div>
-        <div className="bg-white rounded-lg shadow p-4 border-t-4 border-purple-400">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-t-4 border-purple-400">
           <p className="text-sm text-gray-500">Admins</p>
           <p className="text-2xl font-bold text-purple-900">{stats.admins}</p>
         </div>
-        <div className="bg-white rounded-lg shadow p-4 border-t-4 border-green-400">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-t-4 border-green-400">
           <p className="text-sm text-gray-500">Con licencia</p>
           <p className="text-2xl font-bold text-green-900">{stats.licensed}</p>
         </div>
-        <div className="bg-white rounded-lg shadow p-4 border-t-4 border-yellow-400">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-t-4 border-yellow-400">
           <p className="text-sm text-gray-500">Por vencer</p>
           <p className="text-2xl font-bold text-yellow-700">{stats.expiringSoon}</p>
         </div>
-        <div className="bg-white rounded-lg shadow p-4 border-t-4 border-red-400">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-t-4 border-red-400">
           <p className="text-sm text-gray-500">Vencidas</p>
           <p className="text-2xl font-bold text-red-700">{stats.expired}</p>
         </div>
-        <div className="bg-white rounded-lg shadow p-4 border-t-4 border-emerald-400">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-t-4 border-emerald-400">
           <p className="text-sm text-gray-500">Ganancias del mes</p>
           <p className="text-2xl font-bold text-emerald-700">
             {revenue.currency} {stats.monthlyRevenue.toFixed(2)}
@@ -181,7 +181,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
         {/* Create user */}
-        <div className="bg-white rounded-lg shadow p-6 border-t-4 border-green-400">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-green-400">
           <h3 className="text-lg font-bold text-green-700 mb-4">Crear usuario</h3>
           <div className="space-y-3">
             <input
@@ -189,21 +189,21 @@ export default function AdminDashboard({ token, user, onLogout }) {
               placeholder="Username"
               value={createData.username}
               onChange={e => setCreateData(prev => ({ ...prev, username: e.target.value }))}
-              className="w-full border px-3 py-2 rounded"
+              className="w-full border px-3 py-2 rounded bg-white dark:bg-gray-900 dark:border-gray-700"
             />
             <input
               type="email"
               placeholder="Email"
               value={createData.email}
               onChange={e => setCreateData(prev => ({ ...prev, email: e.target.value }))}
-              className="w-full border px-3 py-2 rounded"
+              className="w-full border px-3 py-2 rounded bg-white dark:bg-gray-900 dark:border-gray-700"
             />
             <input
               type="password"
               placeholder="Password"
               value={createData.password}
               onChange={e => setCreateData(prev => ({ ...prev, password: e.target.value }))}
-              className="w-full border px-3 py-2 rounded"
+              className="w-full border px-3 py-2 rounded bg-white dark:bg-gray-900 dark:border-gray-700"
             />
             <label className="flex items-center space-x-2 text-sm text-gray-700">
               <input
@@ -223,7 +223,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
           </div>
         </div>
         {/* Licencias asignadas */}
-        <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-400">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-blue-400">
           <h3 className="text-lg font-bold text-blue-700 mb-4">Licencias asignadas</h3>
           <ul className="space-y-2">
             {users.filter(u => u.licenseKey).length === 0 ? (
@@ -245,7 +245,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
           </ul>
         </div>
         {/* Logs */}
-        <div className="bg-white rounded-lg shadow p-6 border-t-4 border-purple-400">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-purple-400">
           <h3 className="text-lg font-bold text-purple-700 mb-4">Logs recientes</h3>
           <ul className="space-y-2 text-sm">
             {mockLogs.map(log => (
@@ -257,7 +257,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
           </ul>
         </div>
       </div>
-      <div className="bg-white rounded-lg shadow p-6 border-t-4 border-yellow-500 mb-8">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-yellow-500 mb-8">
         <h3 className="text-lg font-bold text-yellow-700 mb-4">Licencias por renovar</h3>
         {expiringUsers.length === 0 ? (
           <p className="text-gray-500">No hay licencias próximas a vencer.</p>
@@ -298,7 +298,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
           </div>
         )}
       </div>
-      <div className="bg-white rounded-lg shadow p-6 border-t-4 border-emerald-500 mb-8">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-emerald-500 mb-8">
         <h3 className="text-lg font-bold text-emerald-700 mb-4">Ganancias mensuales</h3>
         {revenue.monthlyTotals.length === 0 ? (
           <p className="text-gray-500">No hay pagos registrados.</p>
