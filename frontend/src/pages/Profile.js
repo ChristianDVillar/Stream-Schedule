@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatDate } from '../utils/dateUtils';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../api';
 import toast from 'react-hot-toast';
@@ -87,14 +88,6 @@ const Profile = ({ user, token }) => {
     }
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
 
   const getProgressPercentage = (current, target) => {
     return Math.min((current / target) * 100, 100);
@@ -272,7 +265,7 @@ const Profile = ({ user, token }) => {
                     {getActivityIcon(activity.type)}
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-900">{activity.description}</p>
-                      <p className="text-xs text-gray-500">{formatDate(activity.timestamp)}</p>
+                      <p className="text-xs text-gray-500">{formatDate(activity.timestamp, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
                     </div>
                   </div>
                 ))
@@ -325,7 +318,7 @@ const Profile = ({ user, token }) => {
                         </p>
                         {achievement.earned && (
                           <p className="text-xs text-yellow-600 mt-1">
-                            Earned {formatDate(achievement.date)}
+                            Earned {formatDate(achievement.date, { month: 'short', day: 'numeric', year: 'numeric' })}
                           </p>
                         )}
                       </div>

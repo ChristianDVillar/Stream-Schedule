@@ -10,19 +10,51 @@ const password = process.env.ADMIN_PASSWORD || 'admin123';
 
 async function createAdmin() {
   try {
+    console.log('🔌 Connecting to database...');
     await sequelize.authenticate();
-    await sequelize.sync();
+    console.log('✅ Database connected');
+    
+    console.log('🔄 Syncing database models...');
+    await sequelize.sync({ alter: true });
+    console.log('✅ Database models synced');
+    
+    console.log('🔍 Checking for existing admin user...');
     const existing = await User.findOne({ where: { email } });
+    
     if (existing) {
-      console.log('Admin user already exists:', email);
+      if (existing.isAdmin) {
+        console.log('✅ Admin user already exists:', email);
+        console.log('   Username:', existing.username);
+        console.log('   Is Admin:', existing.isAdmin);
+      } else {
+        console.log('⚠️  User exists but is not admin. Upgrading to admin...');
+        await existing.update({ isAdmin: true });
+        console.log('✅ User upgraded to admin:', email);
+      }
       process.exit(0);
     }
+    
+    console.log('👤 Creating new admin user...');
     const hash = await bcrypt.hash(password, 10);
-    await User.create({ username, email, passwordHash: hash, isAdmin: true });
-    console.log('Admin user created:', email);
+    const admin = await User.create({ 
+      username, 
+      email, 
+      passwordHash: hash, 
+      isAdmin: true 
+    });
+    
+    console.log('✅ Admin user created successfully!');
+    console.log('   Username:', admin.username);
+    console.log('   Email:', admin.email);
+    console.log('   Is Admin:', admin.isAdmin);
+    console.log('\n📝 Login credentials:');
+    console.log('   Email:', email);
+    console.log('   Password:', password);
+    
     process.exit(0);
   } catch (err) {
-    console.error('Error creating admin user:', err);
+    console.error('❌ Error creating admin user:', err.message);
+    console.error('Full error:', err);
     process.exit(1);
   }
 }

@@ -96,17 +96,34 @@ export default function AdminDashboard({ token, user, onLogout }) {
 
   async function handleCreateUser() {
     if (!createData.username || !createData.email || !createData.password) {
-      alert('Complete username, email and password');
+      alert('Por favor completa username, email y password');
       return;
     }
+    
+    // Validar email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(createData.email)) {
+      alert('Por favor ingresa un email válido');
+      return;
+    }
+    
+    // Validar password mínimo
+    if (createData.password.length < 6) {
+      alert('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+    
     setCreating(true);
+    setError(null);
     try {
-      await adminCreateUser({ ...createData, token });
+      const response = await adminCreateUser({ ...createData, token });
       setCreateData({ username: '', email: '', password: '', isAdmin: false });
       await fetchUsers();
-      alert('User created');
+      alert(`✅ Usuario creado exitosamente!\nEmail: ${response.data.email}\nUsername: ${response.data.username}`);
     } catch (err) {
-      alert('Error creating user');
+      const errorMessage = err.response?.data?.error || err.message || 'Error al crear usuario';
+      alert(`❌ ${errorMessage}`);
+      console.error('Error creating user:', err);
     } finally {
       setCreating(false);
     }
@@ -389,58 +406,73 @@ export default function AdminDashboard({ token, user, onLogout }) {
                       {(!u.licenseAlert || u.licenseAlert === 'none') && <span className="text-gray-500">—</span>}
                     </td>
                     <td className="px-4 py-2 border">{u.isAdmin ? 'Yes' : 'No'}</td>
-                    <td className="px-4 py-2 border space-x-2">
-                      {!u.licenseKey && (
-                        <>
-                          <button
-                            className="px-2 py-1 bg-blue-600 text-white rounded disabled:opacity-50"
-                            disabled={generating[u.id]}
-                            onClick={() => handleGenerateLicense(u.id, 'monthly')}
+                    <td className="px-4 py-2 border">
+                      <div className="flex flex-wrap gap-2 items-center">
+                        {!u.licenseKey && (
+                          <>
+                            <button
+                              className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={generating[u.id]}
+                              onClick={() => handleGenerateLicense(u.id, 'monthly')}
+                              title="Generar licencia mensual"
+                            >
+                              {generating[u.id] ? '...' : 'Mensual'}
+                            </button>
+                            <button
+                              className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={generating[u.id]}
+                              onClick={() => handleGenerateLicense(u.id, 'lifetime')}
+                              title="Generar licencia de por vida"
+                            >
+                              {generating[u.id] ? '...' : 'Vida'}
+                            </button>
+                            <button
+                              className="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={generating[u.id]}
+                              onClick={() => handleGenerateLicense(u.id, 'quarterly')}
+                              title="Generar licencia trimestral"
+                            >
+                              {generating[u.id] ? '...' : '3M'}
+                            </button>
+                          </>
+                        )}
+                        <div className="flex items-center gap-1">
+                          <select
+                            value={licenseEdits[u.id] || u.licenseType || 'none'}
+                            onChange={e => setLicenseEdits(prev => ({ ...prev, [u.id]: e.target.value }))}
+                            className="border px-2 py-1 rounded text-xs bg-white dark:bg-gray-900"
+                            title="Seleccionar tipo de licencia"
                           >
-                            {generating[u.id] ? 'Generating...' : 'Mensual'}
-                          </button>
+                            <option value="none">Sin licencia</option>
+                            <option value="monthly">Mensual</option>
+                            <option value="quarterly">Cada 3 meses</option>
+                            <option value="temporary">Temporal 30 días</option>
+                            <option value="lifetime">De por vida</option>
+                          </select>
                           <button
-                            className="px-2 py-1 bg-green-600 text-white rounded disabled:opacity-50"
-                            disabled={generating[u.id]}
-                            onClick={() => handleGenerateLicense(u.id, 'lifetime')}
+                            className="px-2 py-1 text-xs bg-gray-700 text-white rounded hover:bg-gray-800"
+                            onClick={() => handleUpdateLicense(u.id)}
+                            title="Actualizar licencia"
                           >
-                            {generating[u.id] ? 'Generating...' : 'De por vida'}
+                            ✓
                           </button>
-                          <button
-                            className="px-2 py-1 bg-indigo-600 text-white rounded disabled:opacity-50"
-                            disabled={generating[u.id]}
-                            onClick={() => handleGenerateLicense(u.id, 'quarterly')}
-                          >
-                            {generating[u.id] ? 'Generating...' : '3 meses'}
-                          </button>
-                        </>
-                      )}
-                      <select
-                        value={licenseEdits[u.id] || u.licenseType || 'none'}
-                        onChange={e => setLicenseEdits(prev => ({ ...prev, [u.id]: e.target.value }))}
-                        className="border px-2 py-1 rounded"
-                      >
-                        <option value="none">Sin licencia</option>
-                        <option value="monthly">Mensual</option>
-                        <option value="quarterly">Cada 3 meses</option>
-                        <option value="temporary">Temporal 30 días</option>
-                        <option value="lifetime">De por vida</option>
-                      </select>
-                      <button
-                        className="px-2 py-1 bg-gray-700 text-white rounded"
-                        onClick={() => handleUpdateLicense(u.id)}
-                      >
-                        Actualizar
-                      </button>
-                      <button
-                        className="px-2 py-1 bg-yellow-500 text-white rounded"
-                        onClick={() => handleEditEmail(u)}
-                      >Edit Email</button>
-                      <button
-                        className="px-2 py-1 bg-purple-600 text-white rounded"
-                        disabled={resetting === u.id}
-                        onClick={() => handleResetPassword(u.id)}
-                      >{resetting === u.id ? 'Resetting...' : 'Reset Pass'}</button>
+                        </div>
+                        <button
+                          className="px-2 py-1 text-xs bg-yellow-500 text-white rounded hover:bg-yellow-600"
+                          onClick={() => handleEditEmail(u)}
+                          title="Editar email"
+                        >
+                          📧
+                        </button>
+                        <button
+                          className="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={resetting === u.id}
+                          onClick={() => handleResetPassword(u.id)}
+                          title="Resetear contraseña"
+                        >
+                          {resetting === u.id ? '...' : '🔑'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
