@@ -43,7 +43,7 @@ function buildLicenseSummary(user) {
   const type = user.licenseType || 'none';
   const expiresAt = user.licenseExpiresAt;
   if (type === 'lifetime' || type === 'none') {
-    return { licenseType: 'lifetime', daysLeft: null, alert: 'none' };
+    return { licenseType: type, daysLeft: null, alert: 'none' };
   }
   if (!expiresAt) {
     return { licenseType: type, daysLeft: null, alert: 'none' };
@@ -100,7 +100,8 @@ router.post('/login', async (req, res) => {
         licenseType: user.licenseType,
         licenseAlert: licenseSummary.alert,
         licenseDaysLeft: licenseSummary.daysLeft,
-        isAdmin: user.isAdmin
+        isAdmin: user.isAdmin,
+        merchandisingLink: user.merchandisingLink
       }
     });
   } catch (err) {
@@ -303,6 +304,41 @@ router.get('/license', async (req, res) => {
     licenseAlert: summary.alert,
     licenseDaysLeft: summary.daysLeft
   });
+});
+
+// Update user profile
+router.put('/profile', async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { username, email, bio, timezone, language, merchandisingLink } = req.body;
+  try {
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    if (username !== undefined) user.username = username;
+    if (email !== undefined) user.email = email;
+    if (merchandisingLink !== undefined) user.merchandisingLink = merchandisingLink;
+    
+    await user.save();
+    const licenseSummary = buildLicenseSummary(user);
+    res.json({ 
+      message: 'Profile updated successfully',
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        licenseKey: user.licenseKey,
+        licenseExpiresAt: user.licenseExpiresAt,
+        licenseType: user.licenseType,
+        licenseAlert: licenseSummary.alert,
+        licenseDaysLeft: licenseSummary.daysLeft,
+        isAdmin: user.isAdmin,
+        merchandisingLink: user.merchandisingLink
+      }
+    });
+  } catch (err) {
+    console.error('Profile update error:', err);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
 });
 
 export default router; 

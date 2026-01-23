@@ -22,6 +22,10 @@ const limiter = rateLimit({
 app.use(helmet());
 app.use(limiter);
 app.use(cors({ origin: true, credentials: true }));
+
+// Stripe webhook must be before JSON parsing middleware
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.json());
 
 // JWT authentication middleware
