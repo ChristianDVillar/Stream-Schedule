@@ -58,6 +58,10 @@ const User = sequelize.define('User', {
   isAdmin: {
     type: DataTypes.BOOLEAN,
     defaultValue: false
+  },
+  merchandisingLink: {
+    type: DataTypes.STRING,
+    allowNull: true
   }
 });
 
@@ -166,10 +170,22 @@ const Payment = sequelize.define('Payment', {
   },
   provider: {
     type: DataTypes.STRING,
-    defaultValue: 'manual'
+    defaultValue: 'stripe'
   },
   reference: {
     type: DataTypes.STRING
+  },
+  stripeSessionId: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  stripePaymentIntentId: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  stripeCustomerId: {
+    type: DataTypes.STRING,
+    allowNull: true
   },
   paidAt: {
     type: DataTypes.DATE
