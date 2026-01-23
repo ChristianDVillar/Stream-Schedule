@@ -192,6 +192,54 @@ const Payment = sequelize.define('Payment', {
   }
 });
 
+// 📁 Media
+const Media = sequelize.define('Media', {
+  filename: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  originalName: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  mimeType: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  size: {
+    type: DataTypes.INTEGER, // bytes
+    allowNull: false
+  },
+  url: {
+    type: DataTypes.STRING,
+    allowNull: false // URL en Supabase Storage o CDN
+  },
+  storagePath: {
+    type: DataTypes.STRING,
+    allowNull: false // Ruta en Supabase Storage
+  },
+  thumbnailUrl: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  metadata: {
+    type: DataTypes.JSONB,
+    allowNull: true // width, height, duration, etc.
+  },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  }
+});
+
+// 🔗 ContentMedia (Many-to-Many relationship)
+const ContentMedia = sequelize.define('ContentMedia', {
+  order: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0 // Para ordenar media en un contenido
+  }
+});
+
 // 🔗 Relaciones
 User.hasMany(Content, { foreignKey: 'userId', onDelete: 'CASCADE' });
 Content.belongsTo(User, { foreignKey: 'userId' });
@@ -202,4 +250,21 @@ Platform.belongsTo(User, { foreignKey: 'userId' });
 User.hasMany(Payment, { foreignKey: 'userId', onDelete: 'CASCADE' });
 Payment.belongsTo(User, { foreignKey: 'userId' });
 
-export { sequelize, User, Content, Platform, Payment };
+User.hasMany(Media, { foreignKey: 'userId', onDelete: 'CASCADE' });
+Media.belongsTo(User, { foreignKey: 'userId' });
+
+// Many-to-Many: Content <-> Media
+Content.belongsToMany(Media, { 
+  through: ContentMedia, 
+  foreignKey: 'contentId',
+  otherKey: 'mediaId',
+  onDelete: 'CASCADE'
+});
+Media.belongsToMany(Content, { 
+  through: ContentMedia, 
+  foreignKey: 'mediaId',
+  otherKey: 'contentId',
+  onDelete: 'CASCADE'
+});
+
+export { sequelize, User, Content, Platform, Payment, Media, ContentMedia };
