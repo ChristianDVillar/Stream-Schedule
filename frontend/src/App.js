@@ -6,7 +6,7 @@ import Profile from './pages/Profile';
 import Schedule from './pages/Schedule';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
-import { ShieldOff, UserX, Menu, X } from 'lucide-react';
+import { ShieldOff, UserX, Menu, X, ShoppingBag } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 
 function PrivateRoute({ user, children }) {
@@ -171,7 +171,7 @@ const App = () => {
               } />
               <Route path="/settings" element={
                 <PrivateRoute user={user}>
-                  <Settings user={user} token={token} />
+                  <Settings user={user} token={token} setUser={setUser} />
                 </PrivateRoute>
               } />
               <Route path="/profile" element={
@@ -193,6 +193,18 @@ const App = () => {
               } />
             </Routes>
           </div>
+          {/* Icono de bolsa flotante para merchandising */}
+          {user && user.merchandisingLink && (
+            <a
+              href={user.merchandisingLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="fixed bottom-6 right-6 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg transition-all duration-300 hover:scale-110 flex items-center justify-center"
+              aria-label="Ir a página de merchandising"
+            >
+              <ShoppingBag className="w-6 h-6" />
+            </a>
+          )}
           <footer className="text-center text-gray-500 py-4 border-t bg-white dark:bg-gray-800">© 2025 Christian - Develop</footer>
         </div>
       </div>
