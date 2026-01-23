@@ -66,8 +66,8 @@ export async function createCheckout({ licenseType, token }) {
   });
 }
 
-export async function confirmPayment({ paymentId, token }) {
-  return apiClient.post('/payments/confirm', { paymentId }, {
+export async function verifyPaymentSession({ sessionId, token }) {
+  return apiClient.post('/payments/verify-session', { sessionId }, {
     headers: { Authorization: `Bearer ${token}` }
   });
 }
