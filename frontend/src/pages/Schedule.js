@@ -19,6 +19,7 @@ const Schedule = ({ user, token }) => {
   const [formData, setFormData] = useState({
     title: '',
     content: '',
+    contentType: 'post',
     platforms: [],
     scheduledFor: '',
     scheduledTime: '',
@@ -106,6 +107,10 @@ const Schedule = ({ user, token }) => {
       newErrors.content = 'Content must be at least 10 characters';
     }
     
+    if (!formData.contentType) {
+      newErrors.contentType = 'Content type is required';
+    }
+    
     if (formData.platforms.length === 0) {
       newErrors.platforms = 'Select at least one platform';
     }
@@ -138,6 +143,7 @@ const Schedule = ({ user, token }) => {
       const response = await apiClient.post('/content', {
         title: formData.title,
         content: formData.content,
+        contentType: formData.contentType,
         platforms: formData.platforms,
         scheduledFor: scheduledDateTime.toISOString(),
         timezone: formData.timezone,
@@ -152,7 +158,8 @@ const Schedule = ({ user, token }) => {
       navigate('/dashboard');
     } catch (error) {
       console.error('Error scheduling content:', error);
-      toast.error('Failed to schedule content. Please try again.');
+      const errorMessage = error.response?.data?.details || error.response?.data?.error || error.message || 'Failed to schedule content. Please try again.';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -298,6 +305,29 @@ const Schedule = ({ user, token }) => {
                 </p>
                     </div>
                   </div>
+
+            {/* Content Type */}
+            <div>
+              <label htmlFor="contentType" className="block text-sm font-medium text-gray-700 mb-2">
+                Content Type <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="contentType"
+                value={formData.contentType}
+                onChange={(e) => handleInputChange('contentType', e.target.value)}
+                className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  errors.contentType ? 'border-red-500' : 'border-gray-300'
+                }`}
+              >
+                <option value="post">Post</option>
+                <option value="stream">Stream</option>
+                <option value="event">Event</option>
+                <option value="reel">Reel</option>
+              </select>
+              {errors.contentType && (
+                <p className="mt-1 text-sm text-red-600">{errors.contentType}</p>
+              )}
+            </div>
                   
             {/* Platforms */}
             <div className="platforms-section">
