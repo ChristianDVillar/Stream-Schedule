@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "start": "node src/app.js",
-    "dev": "nodemon src/app.js"
+    "dev": "nodemon src/app.js",
+    "migrate": "node src/scripts/runMigrations.js",
+    "migrate:status": "node src/scripts/checkMigrations.js",
+    "validate:performance": "node src/scripts/validatePerformance.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -17,7 +20,8 @@
     "jsonwebtoken": "^9.0.0",
     "pg": "^8.8.0",
     "sequelize": "^6.28.0",
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^5.1.7",
+    "stripe": "^20.2.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.22",

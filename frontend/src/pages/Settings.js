@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { apiClient, createCheckout, confirmPayment, getLicenseStatus } from '../api';
+import { apiClient, createCheckout, verifyPaymentSession, getLicenseStatus } from '../api';
+import { useLanguage } from '../contexts/LanguageContext';
 import { 
   User, 
   Bell, 
@@ -15,7 +16,8 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 
-const Settings = ({ user, token }) => {
+const Settings = ({ user, token, setUser }) => {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
@@ -29,7 +31,8 @@ const Settings = ({ user, token }) => {
     email: user?.email || '',
     bio: '',
     timezone: 'UTC',
-    language: 'en'
+    language: 'en',
+    merchandisingLink: user?.merchandisingLink || ''
   });
 
   // Notification settings
@@ -105,7 +108,8 @@ const Settings = ({ user, token }) => {
       setProfileData(prev => ({
         ...prev,
         username: user.username || '',
-        email: user.email || ''
+        email: user.email || '',
+        merchandisingLink: user.merchandisingLink || ''
       }));
     }
   }, [user]);
@@ -168,10 +172,16 @@ const Settings = ({ user, token }) => {
 
     setLoading(true);
     try {
-      await apiClient.put('/user/profile', profileData, {
+      const response = await apiClient.put('/user/profile', profileData, {
         headers: { Authorization: `Bearer ${token}` },
         withCredentials: true
       });
+      // Actualizar el estado del usuario en App.js
+      if (setUser && response.data.user) {
+        const updatedUser = { ...user, ...response.data.user };
+        setUser(updatedUser);
+        localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+      }
       toast.success('Profile updated successfully!');
     } catch (error) {
       toast.error('Failed to update profile');
@@ -291,15 +301,47 @@ const Settings = ({ user, token }) => {
     setBillingLoading(true);
     try {
       const checkout = await createCheckout({ licenseType, token });
-      await confirmPayment({ paymentId: checkout.data.paymentId, token });
-      await fetchLicenseStatus();
-      toast.success('Payment completed and license activated!');
+      // Redirect to Stripe Checkout
+      if (checkout.data.url) {
+        window.location.href = checkout.data.url;
+      } else {
+        toast.error('Failed to create checkout session');
+      }
     } catch (error) {
       toast.error('Payment failed. Please try again.');
-    } finally {
       setBillingLoading(false);
     }
   };
+
+  // Check for payment success on component mount
+  useEffect(() => {
+    const checkPaymentStatus = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const paymentStatus = urlParams.get('payment');
+      const sessionId = urlParams.get('session_id');
+
+      if (paymentStatus === 'success' && sessionId && token) {
+        try {
+          const result = await verifyPaymentSession({ sessionId, token });
+          if (result.data.status === 'paid') {
+            toast.success('Payment completed and license activated!');
+            await fetchLicenseStatus();
+            // Clean URL
+            window.history.replaceState({}, document.title, '/settings');
+          }
+        } catch (error) {
+          toast.error('Failed to verify payment. Please contact support.');
+        }
+      } else if (paymentStatus === 'cancelled') {
+        toast.error('Payment was cancelled');
+        window.history.replaceState({}, document.title, '/settings');
+      }
+    };
+
+    if (token) {
+      checkPaymentStatus();
+    }
+  }, [token]);
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -354,6 +396,21 @@ const Settings = ({ user, token }) => {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   placeholder="Tell us about yourself..."
                 />
+              </div>
+
+              <div className="mt-6">
+                <label htmlFor="merchandisingLink" className="block text-sm font-medium text-gray-700 mb-2">
+                  Link de Página de Merchandising
+                </label>
+                <input
+                  id="merchandisingLink"
+                  type="url"
+                  value={profileData.merchandisingLink}
+                  onChange={(e) => setProfileData(prev => ({ ...prev, merchandisingLink: e.target.value }))}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="https://ejemplo.com/tienda"
+                />
+                <p className="mt-1 text-sm text-gray-500">Agrega el link de tu página de merchandising</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
@@ -705,6 +762,7 @@ const Settings = ({ user, token }) => {
                     {licenseInfo.licenseType === 'lifetime' && 'De por vida'}
                     {licenseInfo.licenseType === 'monthly' && 'Mensual'}
                     {licenseInfo.licenseType === 'quarterly' && 'Cada 3 meses'}
+                    {licenseInfo.licenseType === 'trial' && 'Prueba 7 días'}
                     {licenseInfo.licenseType === 'temporary' && 'Temporal 30 días'}
                     {!licenseInfo.licenseType && 'Sin licencia'}
                   </p>

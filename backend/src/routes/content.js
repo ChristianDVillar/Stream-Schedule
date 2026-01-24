@@ -80,4 +80,41 @@ router.delete('/:id', async (req, res) => {
   res.json({ message: 'Deleted' });
 });
 
+// Export content
+router.get('/export', async (req, res) => {
+  try {
+    const contents = await Content.findAll({ 
+      where: { userId: req.user.id },
+      order: [['scheduledFor', 'DESC']]
+    });
+    
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      userId: req.user.id,
+      totalItems: contents.length,
+      contents: contents.map(c => ({
+        id: c.id,
+        title: c.title,
+        content: c.content,
+        contentType: c.contentType,
+        scheduledFor: c.scheduledFor,
+        status: c.status,
+        platforms: c.platforms,
+        hashtags: c.hashtags,
+        mentions: c.mentions,
+        timezone: c.timezone,
+        recurrence: c.recurrence,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt
+      }))
+    };
+    
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="content-export-${new Date().toISOString().split('T')[0]}.json"`);
+    res.json(exportData);
+  } catch (err) {
+    res.status(500).json({ error: 'Export failed', details: err.message });
+  }
+});
+
 export default router; 
