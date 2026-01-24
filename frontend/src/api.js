@@ -59,6 +59,10 @@ export async function login({ email, password }) {
   return apiClient.post('/user/login', { email, password });
 }
 
+export async function forgotPassword({ email }) {
+  return apiClient.post('/user/forgot-password', { email });
+}
+
 export async function loginWithGoogle() {
   // Redirect to backend OAuth endpoint
   window.location.href = `${apiClient.defaults.baseURL}/user/auth/google`;
