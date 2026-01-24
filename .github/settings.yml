@@ -1,0 +1,12 @@
+# GitHub Repository Settings
+# This file helps configure repository behavior
+
+# Note: Cursor Bugbot configuration is managed in the Cursor dashboard
+# To disable Bugbot PR reviews:
+# 1. Go to https://cursor.com/dashboard
+# 2. Navigate to Settings > Integrations > GitHub
+# 3. Disable "Automated PR Reviews" or "Bugbot Reviews"
+
+repository:
+  # Disable automatic code review bots if possible
+  # Note: This may not fully disable Cursor Bugbot as it's managed externally
