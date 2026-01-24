@@ -51,12 +51,22 @@ apiClient.interceptors.response.use(
   }
 );
 
-export async function register({ username, email, password, startWithTrial }) {
-  return apiClient.post('/user/register', { username, email, password, startWithTrial });
+export async function register({ username, email, password, startWithTrial, licenseOption }) {
+  return apiClient.post('/user/register', { username, email, password, startWithTrial, licenseOption });
 }
 
 export async function login({ email, password }) {
   return apiClient.post('/user/login', { email, password });
+}
+
+export async function loginWithGoogle() {
+  // Redirect to backend OAuth endpoint
+  window.location.href = `${apiClient.defaults.baseURL}/user/auth/google`;
+}
+
+export async function loginWithTwitch() {
+  // Redirect to backend OAuth endpoint
+  window.location.href = `${apiClient.defaults.baseURL}/user/auth/twitch`;
 }
 
 export async function generateLicense({ userId, token }) {
@@ -127,6 +137,34 @@ export async function verifyPaymentSession({ sessionId, token }) {
 
 export async function getPaymentStats(token) {
   return apiClient.get('/payments/admin/stats', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function getAvailableLicenses() {
+  return apiClient.get('/user/available-licenses');
+}
+
+export async function getLicenseConfig(token) {
+  return apiClient.get('/user/admin/license-config', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function updateLicenseConfig({ availableLicenseTypes, token }) {
+  return apiClient.post('/user/admin/license-config', { availableLicenseTypes }, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function changePassword({ currentPassword, newPassword, token }) {
+  return apiClient.put('/user/password', { currentPassword, newPassword }, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function getPasswordReminder(token) {
+  return apiClient.get('/user/admin/password-reminder', {
     headers: { Authorization: `Bearer ${token}` }
   });
 }

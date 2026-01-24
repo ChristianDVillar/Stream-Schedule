@@ -54,13 +54,20 @@
     "howToStart": "¿Cómo quieres empezar?",
     "trialOption": "Prueba gratuita de 7 días",
     "trialDescription": "Explora todas las funciones sin costo",
-    "purchaseOption": "Comprar licencia ahora",
-    "purchaseDescription": "Ir directamente a la compra de licencias",
+    "monthlyOption": "Licencia mensual",
+    "monthlyDescription": "Comenzar con suscripción mensual",
     "trialWelcome": "¡Bienvenido! Has activado tu prueba gratuita de 7 días. Disfruta de todas las funciones.",
     "accountCreated": "¡Cuenta creada! Puedes comprar una licencia en Configuración cuando estés listo.",
+    "monthlyAccountCreated": "¡Cuenta creada! Tu licencia mensual está ahora activa.",
     "licenseExpired": "Tu licencia está vencida. Por favor renueva para continuar.",
     "licenseExpires7Days": "Tu licencia vence en 7 días. Te recomendamos renovarla.",
-    "licenseExpires3Days": "Tu licencia vence en 3 días. Te recomendamos renovarla."
+    "licenseExpires3Days": "Tu licencia vence en 3 días. Te recomendamos renovarla.",
+    "signInWithGoogle": "Iniciar sesión con Google",
+    "signUpWithGoogle": "Registrarse con Google",
+    "signInWithTwitch": "Iniciar sesión con Twitch",
+    "signUpWithTwitch": "Registrarse con Twitch",
+    "orContinueWith": "O continuar con",
+    "oauthFailed": "Error en la autenticación OAuth. Por favor intenta de nuevo."
   },
   "dashboard": {
     "title": "Panel de control",

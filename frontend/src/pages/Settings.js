@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { apiClient, createCheckout, verifyPaymentSession, getLicenseStatus } from '../api';
+import { apiClient, createCheckout, verifyPaymentSession, getLicenseStatus, getAvailableLicenses } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { 
   User, 
@@ -24,6 +24,7 @@ const Settings = ({ user, token, setUser }) => {
   const [errors, setErrors] = useState({});
   const [licenseInfo, setLicenseInfo] = useState(null);
   const [billingLoading, setBillingLoading] = useState(false);
+  const [availableLicenses, setAvailableLicenses] = useState({ monthly: true, quarterly: false, lifetime: false, temporary: false });
   
   // Profile settings
   const [profileData, setProfileData] = useState({
@@ -134,7 +135,17 @@ const Settings = ({ user, token, setUser }) => {
     if (token) {
       fetchLicenseStatus();
     }
+    fetchAvailableLicenses();
   }, [token]);
+
+  const fetchAvailableLicenses = async () => {
+    try {
+      const res = await getAvailableLicenses();
+      setAvailableLicenses(res.data.availableLicenseTypes || { monthly: true, quarterly: false, lifetime: false, temporary: false });
+    } catch (error) {
+      console.error('Error fetching available licenses:', error);
+    }
+  };
 
   const fetchLicenseStatus = async () => {
     try {
@@ -783,39 +794,45 @@ const Settings = ({ user, token, setUser }) => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 bg-white rounded-lg border">
-                <h4 className="text-sm font-medium text-gray-900 mb-2">Renovación mensual</h4>
-                <p className="text-sm text-gray-600 mb-4">Licencia mensual con renovación automática. Alertas a 7 y 3 días.</p>
-                <button
-                  onClick={() => handlePurchase('monthly')}
-                  disabled={billingLoading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {billingLoading ? 'Procesando...' : 'Comprar $5.99 / mes'}
-                </button>
-              </div>
-              <div className="p-4 bg-white rounded-lg border">
-                <h4 className="text-sm font-medium text-gray-900 mb-2">Renovación cada 3 meses</h4>
-                <p className="text-sm text-gray-600 mb-4">Facturación trimestral: $4.66/mes (total $13.98).</p>
-                <button
-                  onClick={() => handlePurchase('quarterly')}
-                  disabled={billingLoading}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  {billingLoading ? 'Procesando...' : 'Comprar $13.98'}
-                </button>
-              </div>
-              <div className="p-4 bg-white rounded-lg border">
-                <h4 className="text-sm font-medium text-gray-900 mb-2">Licencia de por vida</h4>
-                <p className="text-sm text-gray-600 mb-4">Acceso ilimitado sin vencimiento.</p>
-                <button
-                  onClick={() => handlePurchase('lifetime')}
-                  disabled={billingLoading}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                >
-                  {billingLoading ? 'Procesando...' : 'Comprar $99.00'}
-                </button>
-              </div>
+              {availableLicenses.monthly && (
+                <div className="p-4 bg-white rounded-lg border">
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Renovación mensual</h4>
+                  <p className="text-sm text-gray-600 mb-4">Licencia mensual con renovación automática. Alertas a 7 y 3 días.</p>
+                  <button
+                    onClick={() => handlePurchase('monthly')}
+                    disabled={billingLoading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {billingLoading ? 'Procesando...' : 'Comprar $5.99 / mes'}
+                  </button>
+                </div>
+              )}
+              {availableLicenses.quarterly && (
+                <div className="p-4 bg-white rounded-lg border">
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Renovación cada 3 meses</h4>
+                  <p className="text-sm text-gray-600 mb-4">Facturación trimestral: $4.66/mes (total $13.98).</p>
+                  <button
+                    onClick={() => handlePurchase('quarterly')}
+                    disabled={billingLoading}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {billingLoading ? 'Procesando...' : 'Comprar $13.98'}
+                  </button>
+                </div>
+              )}
+              {availableLicenses.lifetime && (
+                <div className="p-4 bg-white rounded-lg border">
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Licencia de por vida</h4>
+                  <p className="text-sm text-gray-600 mb-4">Acceso ilimitado sin vencimiento.</p>
+                  <button
+                    onClick={() => handlePurchase('lifetime')}
+                    disabled={billingLoading}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {billingLoading ? 'Procesando...' : 'Comprar $99.00'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         );
