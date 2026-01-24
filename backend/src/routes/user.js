@@ -3,76 +3,55 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User, Content } from '../models/index.js';
 import checkLicense from '../middleware/checkLicense.js';
+import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { normalizeLicenseType, resolveLicenseExpiry, buildLicenseSummary } from '../utils/licenseUtils.js';
 
 const router = express.Router();
 
-// Middleware to check admin
-function requireAdmin(req, res, next) {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-  if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin only' });
-  next();
-}
-
-function normalizeLicenseType(licenseType) {
-  const allowed = ['none', 'temporary', 'monthly', 'quarterly', 'lifetime'];
-  if (!licenseType) return 'temporary';
-  return allowed.includes(licenseType) ? licenseType : 'temporary';
-}
-
-function resolveLicenseExpiry({ expiresAt, durationDays, licenseType }) {
-  if (licenseType === 'lifetime' || licenseType === 'none') {
-    return { value: null };
-  }
-  if (expiresAt) {
-    const parsed = new Date(expiresAt);
-    if (Number.isNaN(parsed.getTime())) {
-      return { error: 'Invalid expiresAt' };
-    }
-    return { value: parsed };
-  }
-  let fallbackDays = 30;
-  if (licenseType === 'monthly') fallbackDays = 30;
-  if (licenseType === 'quarterly') fallbackDays = 90;
-  const days = Number.isFinite(durationDays) ? Number(durationDays) : fallbackDays;
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return { value: date };
-}
-
-function buildLicenseSummary(user) {
-  const type = user.licenseType || 'none';
-  const expiresAt = user.licenseExpiresAt;
-  if (type === 'lifetime' || type === 'none') {
-    return { licenseType: 'lifetime', daysLeft: null, alert: 'none' };
-  }
-  if (!expiresAt) {
-    return { licenseType: type, daysLeft: null, alert: 'none' };
-  }
-  const now = new Date();
-  const end = new Date(expiresAt);
-  const diffMs = end - now;
-  const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-  let alert = 'none';
-  if (daysLeft <= 0) {
-    alert = 'expired';
-  } else if (daysLeft <= 3) {
-    alert = '3_days';
-  } else if (daysLeft <= 7) {
-    alert = '7_days';
-  }
-  return { licenseType: type, daysLeft, alert };
-}
-
 const jwtSecret = process.env.JWT_SECRET || 'dev-jwt-secret';
+const JWT_EXPIRY = process.env.JWT_EXPIRY || '7d'; // Default 7 days
 
 // Register
 router.post('/register', async (req, res) => {
-  const { username, email, password } = req.body;
+  const { username, email, password, startWithTrial } = req.body;
   if (!username || !email || !password) return res.status(400).json({ error: 'Missing fields' });
   try {
     const hash = await bcrypt.hash(password, 10);
-    const user = await User.create({ username, email, passwordHash: hash });
-    res.status(201).json({ message: 'User registered', user: { id: user.id, username, email } });
+    
+    // Prepare user data
+    const userData = { username, email, passwordHash: hash };
+    
+    // If user chooses trial, set up trial license
+    if (startWithTrial === true || startWithTrial === 'true') {
+      const expiryResult = resolveLicenseExpiry({ licenseType: normalizeLicenseType('trial') });
+      if (expiryResult.error) {
+        return res.status(400).json({ error: expiryResult.error });
+      }
+      userData.licenseType = normalizeLicenseType('trial');
+      userData.licenseExpiresAt = expiryResult.value;
+      // Generate a trial license key
+      userData.licenseKey = `TRIAL-${Math.random().toString(36).substr(2, 12).toUpperCase()}`;
+      // Mark that user has used trial
+      userData.hasUsedTrial = true;
+    }
+    // If startWithTrial is false, user starts with no license (can purchase later)
+    
+    const user = await User.create(userData);
+    const licenseSummary = buildLicenseSummary(user);
+    
+    res.status(201).json({ 
+      message: 'User registered', 
+      user: { 
+        id: user.id, 
+        username, 
+        email,
+        licenseType: user.licenseType,
+        licenseExpiresAt: user.licenseExpiresAt,
+        licenseKey: user.licenseKey,
+        licenseAlert: licenseSummary.alert,
+        licenseDaysLeft: licenseSummary.daysLeft
+      } 
+    });
   } catch (err) {
     res.status(400).json({ error: 'User already exists or invalid data' });
   }
@@ -87,7 +66,17 @@ router.post('/login', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
-    const token = jwt.sign({ id: user.id, email: user.email }, jwtSecret, { expiresIn: '1d' });
+    // Generate JWT token with user info
+    const token = jwt.sign(
+      { 
+        id: user.id, 
+        email: user.email,
+        username: user.username,
+        isAdmin: user.isAdmin
+      }, 
+      jwtSecret, 
+      { expiresIn: JWT_EXPIRY }
+    );
     const licenseSummary = buildLicenseSummary(user);
     res.json({
       token,
@@ -100,7 +89,8 @@ router.post('/login', async (req, res) => {
         licenseType: user.licenseType,
         licenseAlert: licenseSummary.alert,
         licenseDaysLeft: licenseSummary.daysLeft,
-        isAdmin: user.isAdmin
+        isAdmin: user.isAdmin,
+        merchandisingLink: user.merchandisingLink
       }
     });
   } catch (err) {
@@ -139,7 +129,7 @@ router.post('/generate-license', requireAdmin, async (req, res) => {
 
 // List all users (admin only)
 router.get('/admin/users', requireAdmin, async (req, res) => {
-  const users = await User.findAll({ attributes: ['id', 'username', 'email', 'licenseKey', 'licenseType', 'licenseExpiresAt', 'isAdmin'] });
+  const users = await User.findAll({ attributes: ['id', 'username', 'email', 'licenseKey', 'licenseType', 'licenseExpiresAt', 'isAdmin', 'hasUsedTrial'] });
   const payload = users.map(user => {
     const summary = buildLicenseSummary(user);
     return {
@@ -247,6 +237,50 @@ router.post('/admin/update-license', requireAdmin, async (req, res) => {
   }
 });
 
+// Assign trial license to user (admin only, one time per user)
+router.post('/admin/assign-trial', requireAdmin, async (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ error: 'Missing userId' });
+  
+  try {
+    const user = await User.findByPk(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    // Check if user has already used trial
+    if (user.hasUsedTrial) {
+      return res.status(400).json({ 
+        error: 'Este usuario ya ha usado su trial. Solo se puede asignar una vez por usuario.' 
+      });
+    }
+    
+    // Set up trial license
+    const expiryResult = resolveLicenseExpiry({ licenseType: normalizeLicenseType('trial') });
+    if (expiryResult.error) {
+      return res.status(400).json({ error: expiryResult.error });
+    }
+    
+    user.licenseType = normalizeLicenseType('trial');
+    user.licenseExpiresAt = expiryResult.value;
+    user.licenseKey = `TRIAL-${Math.random().toString(36).substr(2, 12).toUpperCase()}`;
+    user.hasUsedTrial = true; // Mark as used
+    await user.save();
+    
+    const summary = buildLicenseSummary(user);
+    res.json({
+      message: 'Trial asignado exitosamente',
+      licenseKey: user.licenseKey,
+      licenseType: user.licenseType,
+      licenseExpiresAt: user.licenseExpiresAt,
+      licenseAlert: summary.alert,
+      licenseDaysLeft: summary.daysLeft,
+      hasUsedTrial: user.hasUsedTrial
+    });
+  } catch (err) {
+    console.error('Error assigning trial:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Resetear contraseña de usuario (admin)
 router.post('/admin/reset-password', requireAdmin, async (req, res) => {
   const { userId } = req.body;
@@ -279,7 +313,7 @@ router.get('/stats', checkLicense, async (req, res) => {
 });
 
 // Recent activity (basic)
-router.get('/activity', checkLicense, async (req, res) => {
+router.get('/activity', requireAuth, checkLicense, async (req, res) => {
   const contents = await Content.findAll({
     where: { userId: req.user.id },
     order: [['createdAt', 'DESC']],
@@ -293,8 +327,7 @@ router.get('/activity', checkLicense, async (req, res) => {
   res.json(activity);
 });
 
-router.get('/license', async (req, res) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+router.get('/license', requireAuth, async (req, res) => {
   const summary = buildLicenseSummary(req.user);
   res.json({
     licenseKey: req.user.licenseKey,
@@ -303,6 +336,40 @@ router.get('/license', async (req, res) => {
     licenseAlert: summary.alert,
     licenseDaysLeft: summary.daysLeft
   });
+});
+
+// Update user profile
+router.put('/profile', requireAuth, async (req, res) => {
+  const { username, email, bio, timezone, language, merchandisingLink } = req.body;
+  try {
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    if (username !== undefined) user.username = username;
+    if (email !== undefined) user.email = email;
+    if (merchandisingLink !== undefined) user.merchandisingLink = merchandisingLink;
+    
+    await user.save();
+    const licenseSummary = buildLicenseSummary(user);
+    res.json({ 
+      message: 'Profile updated successfully',
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        licenseKey: user.licenseKey,
+        licenseExpiresAt: user.licenseExpiresAt,
+        licenseType: user.licenseType,
+        licenseAlert: licenseSummary.alert,
+        licenseDaysLeft: licenseSummary.daysLeft,
+        isAdmin: user.isAdmin,
+        merchandisingLink: user.merchandisingLink
+      }
+    });
+  } catch (err) {
+    console.error('Profile update error:', err);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
 });
 
 export default router; 

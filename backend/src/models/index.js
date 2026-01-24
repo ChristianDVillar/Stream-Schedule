@@ -1,20 +1,44 @@
 import dotenv from 'dotenv';
-dotenv.config();
+
+// Load environment variables based on NODE_ENV
+const nodeEnv = process.env.NODE_ENV || 'development';
+// Try to load environment-specific file first
+const envFile = `.env.${nodeEnv}`;
+dotenv.config({ path: envFile, override: false });
+// Always fallback to .env if specific env file doesn't exist
+dotenv.config({ path: '.env', override: false });
 
 import path from 'path';
 import { Sequelize, DataTypes } from 'sequelize';
+import { LICENSE_TYPES, LICENSE_TYPE_VALUES } from '../constants/licenseTypes.js';
+import { CONTENT_STATUS, CONTENT_STATUS_VALUES } from '../constants/contentStatus.js';
+import { CONTENT_TYPES, CONTENT_TYPE_VALUES } from '../constants/contentTypes.js';
+import { PLATFORMS, PLATFORM_VALUES } from '../constants/platforms.js';
+import { PAYMENT_STATUS, PAYMENT_STATUS_VALUES } from '../constants/paymentStatus.js';
 
 const databaseUrl = process.env.DATABASE_URL;
 const usePostgres = Boolean(databaseUrl);
+const enableLogging = process.env.ENABLE_LOGGING === 'true';
+const isProduction = nodeEnv === 'production';
+const requireSSL = isProduction || process.env.DATABASE_SSL === 'true';
+
+// In production, DATABASE_URL and SSL are required
+if (isProduction && !databaseUrl) {
+  throw new Error('DATABASE_URL is required in production environment');
+}
+
+if (isProduction && !requireSSL) {
+  throw new Error('DATABASE_SSL=true is required in production environment');
+}
 
 const sequelize = usePostgres
   ? new Sequelize(databaseUrl, {
       dialect: 'postgres',
-      logging: false,
+      logging: enableLogging ? console.log : false,
       protocol: 'postgres',
-      ssl: process.env.DATABASE_SSL === 'true',
+      ssl: requireSSL,
       dialectOptions: {
-        ssl: process.env.DATABASE_SSL === 'true'
+        ssl: requireSSL
           ? { require: true, rejectUnauthorized: false }
           : false,
       },
@@ -22,7 +46,7 @@ const sequelize = usePostgres
   : new Sequelize({
       dialect: 'sqlite',
       storage: process.env.SQLITE_STORAGE || path.resolve(process.cwd(), 'database.sqlite'),
-      logging: false,
+      logging: enableLogging ? console.log : false,
     });
 
 // 👤 User
@@ -49,7 +73,10 @@ const User = sequelize.define('User', {
   licenseType: {
     type: DataTypes.STRING,
     allowNull: false,
-    defaultValue: 'none'
+    defaultValue: LICENSE_TYPES.NONE,
+    validate: {
+      isIn: [LICENSE_TYPE_VALUES]
+    }
   },
   licenseExpiresAt: {
     type: DataTypes.DATE,
@@ -57,6 +84,15 @@ const User = sequelize.define('User', {
   },
   isAdmin: {
     type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
+  merchandisingLink: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  hasUsedTrial: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
     defaultValue: false
   }
 });
@@ -75,7 +111,7 @@ const Content = sequelize.define('Content', {
     type: DataTypes.STRING,
     allowNull: false,
     validate: {
-      isIn: [['post', 'stream', 'event', 'reel']]
+      isIn: [CONTENT_TYPE_VALUES]
     }
   },
   scheduledFor: {
@@ -107,9 +143,9 @@ const Content = sequelize.define('Content', {
   },
   status: {
     type: DataTypes.STRING,
-    defaultValue: 'scheduled',
+    defaultValue: CONTENT_STATUS.SCHEDULED,
     validate: {
-      isIn: [['scheduled', 'published', 'failed', 'canceled']]
+      isIn: [CONTENT_STATUS_VALUES]
     }
   }
 });
@@ -124,7 +160,7 @@ const Platform = sequelize.define('Platform', {
     type: DataTypes.STRING,
     allowNull: false,
     validate: {
-      isIn: [['twitch', 'twitter', 'instagram', 'discord']]
+      isIn: [PLATFORM_VALUES]
     }
   },
   accessToken: {
@@ -162,17 +198,80 @@ const Payment = sequelize.define('Payment', {
   },
   status: {
     type: DataTypes.STRING,
-    defaultValue: 'pending'
+    defaultValue: PAYMENT_STATUS.PENDING,
+    validate: {
+      isIn: [PAYMENT_STATUS_VALUES]
+    }
   },
   provider: {
     type: DataTypes.STRING,
-    defaultValue: 'manual'
+    defaultValue: 'stripe'
   },
   reference: {
     type: DataTypes.STRING
   },
+  stripeSessionId: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  stripePaymentIntentId: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  stripeCustomerId: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   paidAt: {
     type: DataTypes.DATE
+  }
+});
+
+// 📁 Media
+const Media = sequelize.define('Media', {
+  filename: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  originalName: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  mimeType: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  size: {
+    type: DataTypes.INTEGER, // bytes
+    allowNull: false
+  },
+  url: {
+    type: DataTypes.STRING,
+    allowNull: false // URL en Supabase Storage o CDN
+  },
+  storagePath: {
+    type: DataTypes.STRING,
+    allowNull: false // Ruta en Supabase Storage
+  },
+  thumbnailUrl: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  metadata: {
+    type: DataTypes.JSONB,
+    allowNull: true // width, height, duration, etc.
+  },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  }
+});
+
+// 🔗 ContentMedia (Many-to-Many relationship)
+const ContentMedia = sequelize.define('ContentMedia', {
+  order: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0 // Para ordenar media en un contenido
   }
 });
 
@@ -186,4 +285,21 @@ Platform.belongsTo(User, { foreignKey: 'userId' });
 User.hasMany(Payment, { foreignKey: 'userId', onDelete: 'CASCADE' });
 Payment.belongsTo(User, { foreignKey: 'userId' });
 
-export { sequelize, User, Content, Platform, Payment };
+User.hasMany(Media, { foreignKey: 'userId', onDelete: 'CASCADE' });
+Media.belongsTo(User, { foreignKey: 'userId' });
+
+// Many-to-Many: Content <-> Media
+Content.belongsToMany(Media, { 
+  through: ContentMedia, 
+  foreignKey: 'contentId',
+  otherKey: 'mediaId',
+  onDelete: 'CASCADE'
+});
+Media.belongsToMany(Content, { 
+  through: ContentMedia, 
+  foreignKey: 'mediaId',
+  otherKey: 'contentId',
+  onDelete: 'CASCADE'
+});
+
+export { sequelize, User, Content, Platform, Payment, Media, ContentMedia };

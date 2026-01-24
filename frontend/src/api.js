@@ -1,11 +1,58 @@
 import axios from 'axios';
+import { isTokenExpired, clearAuth } from './utils/auth';
 
 export const apiClient = axios.create({
-  baseURL: 'http://localhost:5000/api'
+  baseURL: 'http://localhost:5000/api',
+  timeout: 10000, // 10 seconds timeout
 });
 
-export async function register({ username, email, password }) {
-  return apiClient.post('/user/register', { username, email, password });
+// Request interceptor: Add token to all requests
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('auth_token');
+    
+    // Check if token is expired before making request
+    if (token && isTokenExpired(token)) {
+      // Token expired, clear auth and redirect will happen in response interceptor
+      clearAuth();
+      return Promise.reject(new Error('Token expired'));
+    }
+    
+    // Add token to request headers
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor: Handle 401 errors (unauthorized)
+apiClient.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    // Handle 401 Unauthorized (token expired or invalid)
+    if (error.response?.status === 401) {
+      // Clear authentication data
+      clearAuth();
+      
+      // Redirect to login if not already there
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+export async function register({ username, email, password, startWithTrial }) {
+  return apiClient.post('/user/register', { username, email, password, startWithTrial });
 }
 
 export async function login({ email, password }) {
@@ -54,6 +101,12 @@ export async function adminUpdateLicense({ userId, licenseType, token }) {
   });
 }
 
+export async function adminAssignTrial({ userId, token }) {
+  return apiClient.post('/user/admin/assign-trial', { userId }, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
 export async function getLicenseStatus(token) {
   return apiClient.get('/user/license', {
     headers: { Authorization: `Bearer ${token}` }
@@ -66,8 +119,8 @@ export async function createCheckout({ licenseType, token }) {
   });
 }
 
-export async function confirmPayment({ paymentId, token }) {
-  return apiClient.post('/payments/confirm', { paymentId }, {
+export async function verifyPaymentSession({ sessionId, token }) {
+  return apiClient.post('/payments/verify-session', { sessionId }, {
     headers: { Authorization: `Bearer ${token}` }
   });
 }

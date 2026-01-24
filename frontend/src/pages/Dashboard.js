@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../api';
 import AdminDashboard from './AdminDashboard';
+import { useLanguage } from '../contexts/LanguageContext';
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import toast from 'react-hot-toast';
+import { formatDate } from '../utils/dateUtils';
 import { 
   Calendar as CalendarIcon, 
   Settings, 
@@ -31,6 +33,7 @@ import {
 } from 'lucide-react';
 
 const Dashboard = ({ user, token, ...props }) => {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [contents, setContents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -93,9 +96,6 @@ const Dashboard = ({ user, token, ...props }) => {
     }
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString();
-  };
 
   const handleDeleteContent = async (contentId) => {
     if (window.confirm('Are you sure you want to delete this content?')) {
