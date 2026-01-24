@@ -232,8 +232,7 @@ const App = () => {
               </a>
             )}
             <footer className="text-center text-gray-500 py-4 border-t bg-white dark:bg-gray-800">
-              <div>© 2025 Christian - Develop</div>
-              <div className="text-sm mt-1">v2.1.0</div>
+              © 2025 Christian - Develop <span className="text-sm">v2.1.0</span>
             </footer>
           </div>
         </div>

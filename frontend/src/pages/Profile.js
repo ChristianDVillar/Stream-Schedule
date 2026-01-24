@@ -3,6 +3,7 @@ import { formatDate } from '../utils/dateUtils';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../api';
 import toast from 'react-hot-toast';
+import { useLanguage } from '../contexts/LanguageContext';
 import { 
   User, 
   Calendar, 
