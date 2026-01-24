@@ -28,11 +28,19 @@ const sequelize = usePostgres
       dialect: 'postgres',
       logging: false,
       protocol: 'postgres',
-      ssl: requireSSL,
       dialectOptions: {
         ssl: requireSSL
-          ? { require: true, rejectUnauthorized: false }
+          ? {
+              require: true,
+              rejectUnauthorized: false, // Supabase uses self-signed certificates
+            }
           : false,
+      },
+      pool: {
+        max: 5,
+        min: 0,
+        acquire: 30000,
+        idle: 10000,
       },
     })
   : new Sequelize({
