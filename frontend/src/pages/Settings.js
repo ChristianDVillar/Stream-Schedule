@@ -760,6 +760,7 @@ const Settings = ({ user, token, setUser }) => {
                     {licenseInfo.licenseType === 'lifetime' && 'De por vida'}
                     {licenseInfo.licenseType === 'monthly' && 'Mensual'}
                     {licenseInfo.licenseType === 'quarterly' && 'Cada 3 meses'}
+                    {licenseInfo.licenseType === 'trial' && 'Prueba 7 días'}
                     {licenseInfo.licenseType === 'temporary' && 'Temporal 30 días'}
                     {!licenseInfo.licenseType && 'Sin licencia'}
                   </p>

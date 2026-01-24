@@ -1,6 +1,10 @@
 import express from 'express';
 import Stripe from 'stripe';
 import { Payment, User } from '../models/index.js';
+import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { resolveLicenseExpiry } from '../utils/licenseUtils.js';
+import { LICENSE_TYPES } from '../constants/licenseTypes.js';
+import { PAYMENT_STATUS } from '../constants/paymentStatus.js';
 
 const router = express.Router();
 
@@ -12,36 +16,20 @@ const stripe = process.env.STRIPE_SECRET_KEY
   : null;
 
 const PLANS = {
-  monthly: { amount: 5.99, currency: 'USD', durationDays: 30 },
-  quarterly: { amount: 13.98, currency: 'USD', durationDays: 90 },
-  lifetime: { amount: 99.0, currency: 'USD', durationDays: null },
-  temporary: { amount: 9.99, currency: 'USD', durationDays: 30 }
+  [LICENSE_TYPES.MONTHLY]: { amount: 5.99, currency: 'USD', durationDays: 30 },
+  [LICENSE_TYPES.QUARTERLY]: { amount: 13.98, currency: 'USD', durationDays: 90 },
+  [LICENSE_TYPES.LIFETIME]: { amount: 99.0, currency: 'USD', durationDays: null },
+  [LICENSE_TYPES.TEMPORARY]: { amount: 9.99, currency: 'USD', durationDays: 30 }
 };
 
-function requireAdmin(req, res, next) {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-  if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin only' });
-  next();
-}
-
-function resolveLicenseExpiry(licenseType) {
-  if (licenseType === 'lifetime') {
-    return null;
-  }
-  if (!PLANS[licenseType]) {
-    return null;
-  }
-  const date = new Date();
-  date.setDate(date.getDate() + PLANS[licenseType].durationDays);
-  return date;
-}
+// requireAdmin is now imported from middleware/auth.js
 
 // Create a Stripe checkout session
 router.post('/checkout', async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   if (!stripe) return res.status(500).json({ error: 'Stripe is not configured. Please set STRIPE_SECRET_KEY in environment variables.' });
   
-  const licenseType = req.body.licenseType || 'monthly';
+  const licenseType = req.body.licenseType || LICENSE_TYPES.MONTHLY;
   const plan = PLANS[licenseType];
   if (!plan) return res.status(400).json({ error: 'Invalid licenseType' });
 
@@ -52,7 +40,7 @@ router.post('/checkout', async (req, res) => {
       licenseType,
       amount: plan.amount,
       currency: plan.currency,
-      status: 'pending',
+      status: PAYMENT_STATUS.PENDING,
       provider: 'stripe'
     });
 
@@ -65,7 +53,7 @@ router.post('/checkout', async (req, res) => {
             currency: plan.currency.toLowerCase(),
             product_data: {
               name: `License - ${licenseType.charAt(0).toUpperCase() + licenseType.slice(1)}`,
-              description: licenseType === 'lifetime' 
+              description: licenseType === LICENSE_TYPES.LIFETIME 
                 ? 'Lifetime license - Unlimited access'
                 : `${plan.durationDays} days license`,
             },
@@ -102,8 +90,7 @@ router.post('/checkout', async (req, res) => {
 });
 
 // Verify payment status from Stripe session
-router.post('/verify-session', async (req, res) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+router.post('/verify-session', requireAuth, async (req, res) => {
   if (!stripe) return res.status(500).json({ error: 'Stripe is not configured' });
   
   const { sessionId } = req.body;
@@ -121,7 +108,7 @@ router.post('/verify-session', async (req, res) => {
         return res.status(404).json({ error: 'Payment not found' });
       }
 
-      if (payment.status === 'paid') {
+      if (payment.status === PAYMENT_STATUS.COMPLETED) {
         return res.json({ 
           status: 'paid',
           licenseKey: req.user.licenseKey,
@@ -131,14 +118,15 @@ router.post('/verify-session', async (req, res) => {
       }
 
       // Update payment status
-      payment.status = 'paid';
+      payment.status = PAYMENT_STATUS.COMPLETED;
       payment.paidAt = new Date();
       payment.stripePaymentIntentId = session.payment_intent;
       await payment.save();
 
       // Assign license to user
       const licenseKey = Math.random().toString(36).substr(2, 16).toUpperCase();
-      const expiresAt = resolveLicenseExpiry(payment.licenseType);
+      const expiryResult = resolveLicenseExpiry({ licenseType: payment.licenseType });
+      const expiresAt = expiryResult.value;
       const user = await User.findByPk(req.user.id);
       user.licenseKey = licenseKey;
       user.licenseType = payment.licenseType;
@@ -198,12 +186,12 @@ router.post('/webhook', async (req, res) => {
         return res.status(404).json({ error: 'Payment not found' });
       }
 
-      if (payment.status === 'paid') {
+      if (payment.status === PAYMENT_STATUS.COMPLETED) {
         return res.json({ received: true });
       }
 
       // Update payment status
-      payment.status = 'paid';
+      payment.status = PAYMENT_STATUS.COMPLETED;
       payment.paidAt = new Date();
       payment.stripePaymentIntentId = session.payment_intent;
       payment.stripeCustomerId = session.customer;
@@ -215,7 +203,8 @@ router.post('/webhook', async (req, res) => {
       
       if (user) {
         const licenseKey = Math.random().toString(36).substr(2, 16).toUpperCase();
-        const expiresAt = resolveLicenseExpiry(payment.licenseType);
+        const expiryResult = resolveLicenseExpiry({ licenseType: payment.licenseType });
+        const expiresAt = expiryResult.value;
         user.licenseKey = licenseKey;
         user.licenseType = payment.licenseType;
         user.licenseExpiresAt = expiresAt;
@@ -233,7 +222,7 @@ router.post('/webhook', async (req, res) => {
 });
 
 router.get('/admin/stats', requireAdmin, async (req, res) => {
-  const payments = await Payment.findAll({ where: { status: 'paid' } });
+  const payments = await Payment.findAll({ where: { status: PAYMENT_STATUS.COMPLETED } });
   const totals = {};
   let totalPaid = 0;
 

@@ -3,14 +3,15 @@
  * Shared across routes to avoid code duplication
  */
 
+import { LICENSE_TYPES, LICENSE_TYPE_VALUES } from '../constants/licenseTypes.js';
+
 export function normalizeLicenseType(licenseType) {
-  const allowed = ['none', 'temporary', 'monthly', 'quarterly', 'lifetime'];
-  if (!licenseType) return 'temporary';
-  return allowed.includes(licenseType) ? licenseType : 'temporary';
+  if (!licenseType) return LICENSE_TYPES.TEMPORARY;
+  return LICENSE_TYPE_VALUES.includes(licenseType) ? licenseType : LICENSE_TYPES.TEMPORARY;
 }
 
 export function resolveLicenseExpiry({ expiresAt, durationDays, licenseType }) {
-  if (licenseType === 'lifetime' || licenseType === 'none') {
+  if (licenseType === LICENSE_TYPES.LIFETIME || licenseType === LICENSE_TYPES.NONE) {
     return { value: null };
   }
   if (expiresAt) {
@@ -21,8 +22,9 @@ export function resolveLicenseExpiry({ expiresAt, durationDays, licenseType }) {
     return { value: parsed };
   }
   let fallbackDays = 30;
-  if (licenseType === 'monthly') fallbackDays = 30;
-  if (licenseType === 'quarterly') fallbackDays = 90;
+  if (licenseType === LICENSE_TYPES.TRIAL) fallbackDays = 7;
+  if (licenseType === LICENSE_TYPES.MONTHLY) fallbackDays = 30;
+  if (licenseType === LICENSE_TYPES.QUARTERLY) fallbackDays = 90;
   const days = Number.isFinite(durationDays) ? Number(durationDays) : fallbackDays;
   const date = new Date();
   date.setDate(date.getDate() + days);
@@ -30,9 +32,9 @@ export function resolveLicenseExpiry({ expiresAt, durationDays, licenseType }) {
 }
 
 export function buildLicenseSummary(user) {
-  const type = user.licenseType || 'none';
+  const type = user.licenseType || LICENSE_TYPES.NONE;
   const expiresAt = user.licenseExpiresAt;
-  if (type === 'lifetime' || type === 'none') {
+  if (type === LICENSE_TYPES.LIFETIME || type === LICENSE_TYPES.NONE) {
     return { licenseType: type, daysLeft: null, alert: 'none' };
   }
   if (!expiresAt) {
