@@ -207,8 +207,21 @@ router.post('/register', async (req, res) => {
     const user = await User.create(userData);
     const licenseSummary = buildLicenseSummary(user);
     
+    // Generate JWT token for immediate login after registration
+    const token = jwt.sign(
+      { 
+        id: user.id, 
+        email: user.email,
+        username: user.username,
+        isAdmin: user.isAdmin
+      }, 
+      jwtSecret, 
+      { expiresIn: JWT_EXPIRY }
+    );
+    
     res.status(201).json({ 
       message: 'User registered', 
+      token,
       user: { 
         id: user.id, 
         username, 
@@ -217,7 +230,9 @@ router.post('/register', async (req, res) => {
         licenseExpiresAt: user.licenseExpiresAt,
         licenseKey: user.licenseKey,
         licenseAlert: licenseSummary.alert,
-        licenseDaysLeft: licenseSummary.daysLeft
+        licenseDaysLeft: licenseSummary.daysLeft,
+        isAdmin: user.isAdmin,
+        merchandisingLink: user.merchandisingLink
       } 
     });
   } catch (err) {

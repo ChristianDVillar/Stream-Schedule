@@ -48,22 +48,37 @@ export default function Login({ setUser, setToken }) {
         // 'trial' -> startWithTrial: true
         // 'monthly' -> startWithTrial: false, licenseOption: 'monthly' (creates monthly license directly)
         const startWithTrial = licenseOption === 'trial';
-        await register({ username, email, password, startWithTrial, licenseOption });
+        const registerRes = await register({ username, email, password, startWithTrial, licenseOption });
+        
+        // If registration returns token, use it directly (no need to login again)
+        if (registerRes.data.token && registerRes.data.user) {
+          setToken(registerRes.data.token);
+          setUser(registerRes.data.user);
+          const alert = registerRes.data.user?.licenseAlert;
+          const licenseType = registerRes.data.user?.licenseType;
+          
+          // Show welcome message based on license type
+          if (licenseType === 'trial') {
+            setNotice(t('login.trialWelcome'));
+          } else if (licenseType === 'monthly') {
+            setNotice(t('login.monthlyAccountCreated'));
+          } else if (!licenseType || licenseType === 'none') {
+            setNotice(t('login.accountCreated'));
+          }
+          navigate('/dashboard');
+          return;
+        }
       }
+      
+      // Regular login flow (for existing users or if registration didn't return token)
       const res = await login({ email, password });
       setToken(res.data.token);
       setUser(res.data.user);
       const alert = res.data.user?.licenseAlert;
       const licenseType = res.data.user?.licenseType;
       
-      // Show welcome message based on license type
-      if (isRegister && licenseType === 'trial') {
-        setNotice(t('login.trialWelcome'));
-      } else if (isRegister && licenseType === 'monthly') {
-        setNotice(t('login.monthlyAccountCreated'));
-      } else if (isRegister && (!licenseType || licenseType === 'none')) {
-        setNotice(t('login.accountCreated'));
-      } else if (alert === 'expired') {
+      // Show welcome message (only for non-registration logins)
+      if (alert === 'expired') {
         setNotice(t('login.licenseExpired'));
       } else if (alert === '7_days') {
         setNotice(t('login.licenseExpires7Days'));
