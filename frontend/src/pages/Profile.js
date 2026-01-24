@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 
 const Profile = ({ user, token }) => {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalPosts: 0,
