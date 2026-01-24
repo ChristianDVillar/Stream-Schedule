@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../api';
 import AdminDashboard from './AdminDashboard';
+import { useLanguage } from '../contexts/LanguageContext';
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -32,6 +33,7 @@ import {
 } from 'lucide-react';
 
 const Dashboard = ({ user, token, ...props }) => {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [contents, setContents] = useState([]);
   const [loading, setLoading] = useState(true);
