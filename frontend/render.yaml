@@ -1,0 +1,11 @@
+# Render configuration for frontend
+# This file should be in the frontend directory if using Root Directory: frontend
+
+# Build settings
+buildCommand: npm install && npm run build
+startCommand: npx serve -s build -l $PORT
+
+# Environment variables
+envVars:
+  - NODE_ENV=production
+  - REACT_APP_API_URL=https://stream-schedule-api.onrender.com
