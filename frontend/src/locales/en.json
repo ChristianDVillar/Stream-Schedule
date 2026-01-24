@@ -64,7 +64,13 @@
     "signInWithTwitch": "Sign in with Twitch",
     "signUpWithTwitch": "Sign up with Twitch",
     "orContinueWith": "Or continue with",
-    "oauthFailed": "OAuth authentication failed. Please try again."
+    "oauthFailed": "OAuth authentication failed. Please try again.",
+    "resetPassword": "Reset Password",
+    "resetPasswordInstructions": "Enter your email address and we will reset your password.",
+    "passwordResetSuccess": "Password reset successful! Check the response for your temporary password.",
+    "passwordResetEmailSent": "If an account with that email exists, a password reset has been processed.",
+    "passwordResetFailed": "Failed to reset password",
+    "emailRequired": "Email is required"
   },
   "dashboard": {
     "title": "Dashboard",

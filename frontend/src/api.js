@@ -1,8 +1,12 @@
 import axios from 'axios';
 import { isTokenExpired, clearAuth } from './utils/auth';
 
+// Get API URL from environment variable, fallback to localhost for development
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
+
 export const apiClient = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: API_BASE_URL,
   timeout: 10000, // 10 seconds timeout
 });
 
@@ -57,6 +61,10 @@ export async function register({ username, email, password, startWithTrial, lice
 
 export async function login({ email, password }) {
   return apiClient.post('/user/login', { email, password });
+}
+
+export async function forgotPassword({ email }) {
+  return apiClient.post('/user/forgot-password', { email });
 }
 
 export async function loginWithGoogle() {

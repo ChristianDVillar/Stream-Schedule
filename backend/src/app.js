@@ -50,7 +50,8 @@ async function initServer() {
   try {
     await sequelize.authenticate();
     if (enableLogging && logLevel === 'debug') {
-      console.log(`✅ Database connection established (${nodeEnv})`);
+      const dbType = process.env.DATABASE_URL ? 'PostgreSQL (Supabase)' : 'SQLite';
+      console.log(`✅ Database connection established: ${dbType} (${nodeEnv})`);
     }
     
     // Only sync in non-production environments
@@ -61,7 +62,15 @@ async function initServer() {
       }
     }
   } catch (err) {
-    console.error('❌ Database initialization failed:', err);
+    console.error('❌ Database initialization failed:', err.message);
+    if (err.message.includes('SSL') || err.message.includes('certificate')) {
+      console.error('💡 Tip: Make sure DATABASE_SSL=true is set in your .env file for Supabase');
+    }
+    if (err.message.includes('password') || err.message.includes('authentication')) {
+      console.error('💡 Tip: Check your DATABASE_URL - make sure special characters in password are URL-encoded');
+      console.error('   Example: ! becomes %21, @ becomes %40');
+    }
+    console.error('Full error:', err);
     process.exit(1);
   }
 
