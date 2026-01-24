@@ -5,6 +5,7 @@ import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import Schedule from './pages/Schedule';
 import Login from './pages/Login';
+import AuthCallback from './pages/AuthCallback';
 import AdminDashboard from './pages/AdminDashboard';
 import { ShieldOff, UserX, Menu, X, ShoppingBag, Globe } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
@@ -185,6 +186,7 @@ const App = () => {
             <div className="flex-1">
               <Routes>
                 <Route path="/login" element={<Login setUser={setUser} setToken={setToken} />} />
+                <Route path="/auth/callback" element={<AuthCallback setUser={setUser} setToken={setToken} />} />
                 <Route path="/dashboard" element={
                   <UserRoute user={user}>
                     <Dashboard user={user} token={token} />

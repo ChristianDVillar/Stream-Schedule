@@ -51,13 +51,20 @@
     "howToStart": "How do you want to start?",
     "trialOption": "7-day free trial",
     "trialDescription": "Explore all features at no cost",
-    "purchaseOption": "Purchase license now",
-    "purchaseDescription": "Go directly to license purchase",
+    "monthlyOption": "Monthly license",
+    "monthlyDescription": "Start with monthly subscription",
     "trialWelcome": "Welcome! You've activated your 7-day free trial. Enjoy all features.",
     "accountCreated": "Account created! You can purchase a license in Settings when you're ready.",
+    "monthlyAccountCreated": "Account created! Your monthly license is now active.",
     "licenseExpired": "Your license has expired. Please renew to continue.",
     "licenseExpires7Days": "Your license expires in 7 days. We recommend renewing it.",
-    "licenseExpires3Days": "Your license expires in 3 days. We recommend renewing it."
+    "licenseExpires3Days": "Your license expires in 3 days. We recommend renewing it.",
+    "signInWithGoogle": "Sign in with Google",
+    "signUpWithGoogle": "Sign up with Google",
+    "signInWithTwitch": "Sign in with Twitch",
+    "signUpWithTwitch": "Sign up with Twitch",
+    "orContinueWith": "Or continue with",
+    "oauthFailed": "OAuth authentication failed. Please try again."
   },
   "dashboard": {
     "title": "Dashboard",

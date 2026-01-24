@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, getPaymentStats } from '../api';
+import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const mockLogs = [
@@ -30,11 +30,44 @@ export default function AdminDashboard({ token, user, onLogout }) {
     currentMonthAmount: 0,
     monthlyTotals: []
   });
+  const [licenseConfig, setLicenseConfig] = useState({ monthly: true, quarterly: false, lifetime: false, temporary: false });
+  const [passwordReminders, setPasswordReminders] = useState([]);
+  const [showLicenseConfig, setShowLicenseConfig] = useState(false);
 
   useEffect(() => {
     fetchUsers();
+    fetchLicenseConfig();
+    fetchPasswordReminders();
     // eslint-disable-next-line
   }, []);
+
+  const fetchLicenseConfig = async () => {
+    try {
+      const res = await getLicenseConfig(token);
+      setLicenseConfig(res.data.availableLicenseTypes || { monthly: true, quarterly: false, lifetime: false, temporary: false });
+    } catch (err) {
+      console.error('Error fetching license config:', err);
+    }
+  };
+
+  const fetchPasswordReminders = async () => {
+    try {
+      const res = await getPasswordReminder(token);
+      setPasswordReminders(res.data.reminders || []);
+    } catch (err) {
+      console.error('Error fetching password reminders:', err);
+    }
+  };
+
+  const handleUpdateLicenseConfig = async () => {
+    try {
+      await updateLicenseConfig({ availableLicenseTypes: licenseConfig, token });
+      alert('License configuration updated successfully!');
+      setShowLicenseConfig(false);
+    } catch (err) {
+      alert('Error updating license configuration');
+    }
+  };
 
   async function fetchUsers() {
     setLoading(true);
@@ -215,6 +248,95 @@ export default function AdminDashboard({ token, user, onLogout }) {
           </p>
         </div>
       </div>
+      {/* Password Reminder Alert */}
+      {passwordReminders.some(r => r.needsChange) && (
+        <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 rounded">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3 flex-1">
+              <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                Password Change Reminder
+              </h3>
+              <div className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
+                {passwordReminders.filter(r => r.needsChange).map((reminder, idx) => (
+                  <p key={idx} className="mb-1">
+                    {reminder.email}: {reminder.message}
+                  </p>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* License Configuration */}
+      <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-blue-400">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-blue-700">License Configuration</h3>
+          <button
+            onClick={() => setShowLicenseConfig(!showLicenseConfig)}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            {showLicenseConfig ? 'Hide' : 'Manage Available Licenses'}
+          </button>
+        </div>
+        {showLicenseConfig && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Enable or disable license types that users can purchase. Only enabled types will appear in user settings.
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={licenseConfig.monthly}
+                  onChange={(e) => setLicenseConfig(prev => ({ ...prev, monthly: e.target.checked }))}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm">Monthly</span>
+              </label>
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={licenseConfig.quarterly}
+                  onChange={(e) => setLicenseConfig(prev => ({ ...prev, quarterly: e.target.checked }))}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm">Quarterly (3 months)</span>
+              </label>
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={licenseConfig.lifetime}
+                  onChange={(e) => setLicenseConfig(prev => ({ ...prev, lifetime: e.target.checked }))}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm">Lifetime</span>
+              </label>
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={licenseConfig.temporary}
+                  onChange={(e) => setLicenseConfig(prev => ({ ...prev, temporary: e.target.checked }))}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm">Temporary (30 days)</span>
+              </label>
+            </div>
+            <button
+              onClick={handleUpdateLicenseConfig}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+            >
+              Save Configuration
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
         {/* Create user */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-green-400">
