@@ -8,6 +8,7 @@ export default function Login({ setUser, setToken }) {
   const [email, setEmail] = useState('admin@example.com');
   const [password, setPassword] = useState('admin123');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [startWithTrial, setStartWithTrial] = useState(true); // Default to trial
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
@@ -30,13 +31,20 @@ export default function Login({ setUser, setToken }) {
           setLoading(false);
           return;
         }
-        await register({ username, email, password });
+        await register({ username, email, password, startWithTrial });
       }
       const res = await login({ email, password });
       setToken(res.data.token);
       setUser(res.data.user);
       const alert = res.data.user?.licenseAlert;
-      if (alert === 'expired') {
+      const licenseType = res.data.user?.licenseType;
+      
+      // Show trial welcome message
+      if (isRegister && licenseType === 'trial') {
+        setNotice('¡Bienvenido! Has activado tu prueba gratuita de 7 días. Disfruta de todas las funciones.');
+      } else if (isRegister && !licenseType) {
+        setNotice('¡Cuenta creada! Puedes comprar una licencia en Configuración cuando estés listo.');
+      } else if (alert === 'expired') {
         setNotice('Tu licencia está vencida. Por favor renueva para continuar.');
       } else if (alert === '7_days') {
         setNotice('Tu licencia vence en 7 días. Te recomendamos renovarla.');
@@ -96,18 +104,53 @@ export default function Login({ setUser, setToken }) {
           />
         </div>
         {isRegister && (
-          <div className="mb-6">
-            <label htmlFor="login-confirm" className="block text-gray-700 dark:text-gray-300 mb-2">Confirm Password</label>
-            <input
-              id="login-confirm"
-              name="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              required
-            />
-          </div>
+          <>
+            <div className="mb-6">
+              <label htmlFor="login-confirm" className="block text-gray-700 dark:text-gray-300 mb-2">Confirm Password</label>
+              <input
+                id="login-confirm"
+                name="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+            </div>
+            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <label className="block text-gray-700 dark:text-gray-300 mb-3 font-semibold">¿Cómo quieres empezar?</label>
+              <div className="space-y-3">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    name="registrationOption"
+                    value="trial"
+                    checked={startWithTrial === true}
+                    onChange={() => setStartWithTrial(true)}
+                    className="mr-3 w-4 h-4 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900 dark:text-gray-100">Prueba gratuita de 7 días</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">Explora todas las funciones sin costo</div>
+                  </div>
+                </label>
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    name="registrationOption"
+                    value="purchase"
+                    checked={startWithTrial === false}
+                    onChange={() => setStartWithTrial(false)}
+                    className="mr-3 w-4 h-4 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900 dark:text-gray-100">Comprar licencia ahora</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">Ir directamente a la compra de licencias</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </>
         )}
         <button
           type="submit"

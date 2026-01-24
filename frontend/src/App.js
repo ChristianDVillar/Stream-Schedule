@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import { ShieldOff, UserX, Menu, X, ShoppingBag } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
+import { isTokenExpired, getStoredAuth } from './utils/auth';
 
 function PrivateRoute({ user, children }) {
   if (!user) return <Navigate to="/login" replace />;
@@ -89,16 +90,25 @@ function Sidebar({ user, open, onClose }) {
 }
 
 const App = () => {
+  // Initialize auth state from localStorage, but validate token
   const [user, setUser] = useState(() => {
-    try {
-      const stored = localStorage.getItem('auth_user');
-      return stored ? JSON.parse(stored) : null;
-    } catch (e) {
+    const { user: storedUser, token: storedToken } = getStoredAuth();
+    // If token is expired, clear auth
+    if (storedToken && isTokenExpired(storedToken)) {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
       return null;
     }
+    return storedUser;
   });
   const [token, setToken] = useState(() => {
-    return localStorage.getItem('auth_token') || null;
+    const { token: storedToken } = getStoredAuth();
+    // If token is expired, clear it
+    if (storedToken && isTokenExpired(storedToken)) {
+      localStorage.removeItem('auth_token');
+      return null;
+    }
+    return storedToken;
   });
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
