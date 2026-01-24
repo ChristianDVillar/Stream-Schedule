@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../api';
 import toast from 'react-hot-toast';
+import { useLanguage } from '../contexts/LanguageContext';
 import Joyride, { STATUS } from 'react-joyride';
 import { 
   Calendar, 
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 
 const Schedule = ({ user, token }) => {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     title: '',

@@ -1,202 +1,263 @@
 # Streamer Scheduler
 
-Una aplicación web para programar contenido en múltiples plataformas sociales (Twitch, Twitter/X, Instagram, Discord) con una interfaz moderna y fácil de usar.
+Una aplicación web para programar y gestionar contenido en múltiples plataformas sociales desde un solo lugar.
 
-## 🚀 Tecnologías
+---
 
-### Backend
-- **Node.js**
-- **Express** - Framework web
-- **Sequelize** - ORM para base de datos
-- **PostgreSQL / SQLite** - Base de datos
-- **JWT** - Autenticación
-- **CORS** - Soporte para CORS
+# Streamer Scheduler
 
-### Frontend
-- **React 18** - Biblioteca de UI
-- **JavaScript** - Lenguaje de programación
-- **Tailwind CSS** - Framework de CSS
-- **React Router** - Enrutamiento
-- **Axios** - Cliente HTTP
-- **Lucide React** - Iconos
+A web application to schedule and manage content across multiple social platforms from a single place.
 
-## 📁 Estructura del Proyecto
+---
 
-```
-streamer-scheduler/
-├── backend/
-│   ├── src/
-│   │   ├── app.js          # API Express
-│   │   ├── routes/         # Rutas API
-│   │   └── models/         # Modelos Sequelize
-│   ├── migrations/         # Migraciones Sequelize
-│   └── database.sqlite     # Base SQLite local (dev)
-├── frontend/
-│   ├── src/
-│   │   ├── components/     # Componentes reutilizables
-│   │   ├── contexts/       # Contextos de React
-│   │   ├── pages/          # Páginas de la aplicación
-│   │   ├── App.js          # Componente principal
-│   │   └── index.js        # Punto de entrada
-│   ├── package.json        # Dependencias de Node.js
-│   ├── tailwind.config.js  # Configuración de Tailwind
-│   └── postcss.config.js   # Configuración de PostCSS
-└── README.md
-```
+## 🌍 Idioma / Language
 
-## 🛠️ Instalación
+La aplicación soporta múltiples idiomas. Puedes cambiar entre **Español** e **Inglés** usando el botón de idioma en el header de la aplicación.
 
-### Prerrequisitos
-- Node.js 16 o superior
-- npm o yarn
+The application supports multiple languages. You can switch between **Spanish** and **English** using the language button in the application header.
 
-### Backend (Node/Express)
+---
 
-1. **Navegar al directorio del backend:**
+## 📖 ¿Cómo funciona? / How does it work?
+
+### Español
+
+**Streamer Scheduler** es una plataforma que te permite programar publicaciones para múltiples plataformas sociales (Twitch, Twitter/X, Instagram, Discord) de manera centralizada.
+
+#### Funcionamiento Principal
+
+1. **Registro y Autenticación**
+   - Los usuarios pueden registrarse con una cuenta
+   - Opción de comenzar con una prueba gratuita de 7 días o comprar una licencia directamente
+   - Sistema de autenticación seguro con sesiones persistentes
+
+2. **Programación de Contenido**
+   - Crea contenido con título, descripción y archivos multimedia
+   - Programa la fecha y hora exacta de publicación
+   - Selecciona en qué plataformas quieres publicar
+   - Agrega hashtags y menciones personalizadas
+
+3. **Gestión de Contenido**
+   - Visualiza todo tu contenido programado en un calendario
+   - Reorganiza publicaciones arrastrando y soltando
+   - Edita o elimina contenido antes de su publicación
+   - Duplica publicaciones existentes para ahorrar tiempo
+
+4. **Sistema de Licencias**
+   - Diferentes tipos de licencias disponibles (mensual, trimestral, de por vida)
+   - Prueba gratuita de 7 días disponible una vez por usuario
+   - Notificaciones cuando la licencia está por vencer
+   - Administradores pueden gestionar licencias de usuarios
+
+5. **Panel de Administración**
+   - Los administradores pueden gestionar usuarios y licencias
+   - Generar y asignar licencias
+   - Ver estadísticas de ingresos y usuarios
+   - Gestionar configuraciones del sistema
+
+6. **Configuración Personal**
+   - Perfil de usuario personalizable
+   - Gestión de plataformas conectadas
+   - Configuración de notificaciones
+   - Información de licencia y facturación
+
+### English
+
+**Streamer Scheduler** is a platform that allows you to schedule posts for multiple social platforms (Twitch, Twitter/X, Instagram, Discord) from a centralized location.
+
+#### Main Functionality
+
+1. **Registration and Authentication**
+   - Users can register with an account
+   - Option to start with a 7-day free trial or purchase a license directly
+   - Secure authentication system with persistent sessions
+
+2. **Content Scheduling**
+   - Create content with title, description, and multimedia files
+   - Schedule the exact date and time for publication
+   - Select which platforms you want to publish on
+   - Add custom hashtags and mentions
+
+3. **Content Management**
+   - View all your scheduled content in a calendar
+   - Reorganize posts by dragging and dropping
+   - Edit or delete content before publication
+   - Duplicate existing posts to save time
+
+4. **License System**
+   - Different license types available (monthly, quarterly, lifetime)
+   - 7-day free trial available once per user
+   - Notifications when license is about to expire
+   - Administrators can manage user licenses
+
+5. **Admin Dashboard**
+   - Administrators can manage users and licenses
+   - Generate and assign licenses
+   - View revenue and user statistics
+   - Manage system settings
+
+6. **Personal Settings**
+   - Customizable user profile
+   - Management of connected platforms
+   - Notification settings
+   - License and billing information
+
+---
+
+## 🚀 Inicio Rápido / Quick Start
+
+### Español
+
+1. **Instalar dependencias del backend:**
    ```bash
    cd backend
-   ```
-
-2. **Instalar dependencias:**
-   ```bash
    npm install
    ```
 
-3. **Ejecutar el servidor:**
+2. **Configurar variables de entorno:**
+   - Crear archivo `.env` basado en `env.example`
+   - Configurar base de datos y JWT secret
+
+3. **Iniciar el servidor backend:**
    ```bash
    npm start
    ```
 
-El backend estará disponible en: http://localhost:5000
-
-### Frontend (React/JavaScript)
-
-1. **Navegar al directorio del frontend:**
+4. **Instalar dependencias del frontend:**
    ```bash
    cd frontend
-   ```
-
-2. **Instalar dependencias:**
-   ```bash
    npm install
    ```
 
-3. **Ejecutar en modo desarrollo:**
+5. **Iniciar la aplicación frontend:**
    ```bash
    npm start
    ```
 
-El frontend estará disponible en: http://localhost:3000
+6. **Acceder a la aplicación:**
+   - Abre tu navegador en `http://localhost:3000`
+   - Registra una nueva cuenta o inicia sesión
+   - Comienza a programar tu contenido
 
-## 🎯 Funcionalidades
+### English
 
-### 🔐 Autenticación
-- Registro de usuarios
-- Inicio de sesión
-- Gestión de sesiones
+1. **Install backend dependencies:**
+   ```bash
+   cd backend
+   npm install
+   ```
 
-### 📅 Programación de Contenido
-- Crear contenido con título y descripción
-- Programar fecha y hora de publicación
-- Seleccionar múltiples plataformas
-- Agregar hashtags y menciones
-- Cargar archivos multimedia (imágenes y videos)
+2. **Configure environment variables:**
+   - Create `.env` file based on `env.example`
+   - Configure database and JWT secret
 
-### 🎨 Interfaz Moderna
-- Diseño responsive con Tailwind CSS
-- Iconos modernos con Lucide React
-- Navegación intuitiva
-- Vista previa en tiempo real
+3. **Start backend server:**
+   ```bash
+   npm start
+   ```
 
-### 📊 Dashboard
-- Estadísticas de contenido programado
-- Lista de contenido con estados
-- Acciones rápidas (editar, eliminar)
+4. **Install frontend dependencies:**
+   ```bash
+   cd frontend
+   npm install
+   ```
 
-### ⚙️ Configuración
-- Gestión de plataformas sociales
-- Configuración de cuenta
-- Conexión/desconexión de APIs
+5. **Start frontend application:**
+   ```bash
+   npm start
+   ```
 
-## 🔧 Configuración de APIs
+6. **Access the application:**
+   - Open your browser at `http://localhost:3000`
+   - Register a new account or login
+   - Start scheduling your content
 
-Para conectar las plataformas sociales, necesitarás configurar las siguientes APIs:
+---
 
-### Twitch
-1. Crear aplicación en [Twitch Developer Console](https://dev.twitch.tv/console)
-2. Obtener Client ID y Client Secret
-3. Configurar OAuth2
+## 🎯 Características Principales / Main Features
 
-### Twitter/X
-1. Crear aplicación en [Twitter Developer Portal](https://developer.twitter.com/)
-2. Obtener API Key y API Secret
-3. Configurar OAuth2
+### Español
 
-### Instagram
-1. Crear aplicación en [Facebook Developers](https://developers.facebook.com/)
-2. Configurar Instagram Basic Display API
-3. Obtener Access Token
+- ✅ **Multiplataforma**: Programa contenido para Twitch, Twitter/X, Instagram y Discord
+- ✅ **Interfaz Multilingüe**: Cambia entre Español e Inglés con un clic
+- ✅ **Calendario Visual**: Visualiza y gestiona tu contenido en un calendario interactivo
+- ✅ **Sistema de Licencias**: Diferentes planes según tus necesidades
+- ✅ **Prueba Gratuita**: 7 días gratis para probar todas las funciones
+- ✅ **Panel de Administración**: Gestión completa para administradores
+- ✅ **Arrastrar y Soltar**: Reorganiza publicaciones fácilmente
+- ✅ **Multimedia**: Sube imágenes y videos a tus publicaciones
 
-### Discord
-1. Crear aplicación en [Discord Developer Portal](https://discord.com/developers/applications)
-2. Obtener Bot Token
-3. Configurar permisos
+### English
 
-## 🚀 Despliegue
+- ✅ **Multi-platform**: Schedule content for Twitch, Twitter/X, Instagram, and Discord
+- ✅ **Multilingual Interface**: Switch between Spanish and English with one click
+- ✅ **Visual Calendar**: View and manage your content in an interactive calendar
+- ✅ **License System**: Different plans according to your needs
+- ✅ **Free Trial**: 7 days free to try all features
+- ✅ **Admin Dashboard**: Complete management for administrators
+- ✅ **Drag and Drop**: Easily reorganize posts
+- ✅ **Multimedia**: Upload images and videos to your posts
 
-### Frontend (Producción)
-```bash
-# Construir para producción
-npm run build
+---
 
-# Servir archivos estáticos con nginx o similar
-```
+## 📝 Notas / Notes
 
-## 📝 Variables de Entorno
+### Español
 
-Crear un archivo `.env` en el directorio backend:
+- El idioma seleccionado se guarda automáticamente y se mantiene entre sesiones
+- Los administradores tienen acceso completo al sistema sin necesidad de licencia
+- La prueba gratuita solo puede ser utilizada una vez por usuario
+- El sistema notifica cuando tu licencia está por vencer
 
-```env
-PORT=5000
-JWT_SECRET=your-jwt-secret
-DATABASE_URL=postgres://user:pass@host:5432/dbname
-DATABASE_SSL=false
-SQLITE_STORAGE=database.sqlite
-```
+### English
 
-## 🤝 Contribuir
+- The selected language is automatically saved and persists between sessions
+- Administrators have full system access without needing a license
+- The free trial can only be used once per user
+- The system notifies you when your license is about to expire
 
-1. Fork el proyecto
-2. Crear una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abrir un Pull Request
+---
 
-## 📄 Licencia
+## 📄 Licencia / License
 
 Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para detalles.
 
-## 🆘 Soporte
+This project is under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🆘 Soporte / Support
+
+### Español
 
 Si encuentras algún problema o tienes preguntas:
+- Revisa los issues existentes en el repositorio
+- Crea un nuevo issue con detalles del problema
+- Incluye información relevante para reproducir el problema
 
-1. Revisa los issues existentes
-2. Crea un nuevo issue con detalles del problema
-3. Incluye logs de error y pasos para reproducir
+### English
 
-## 🔄 Actualizaciones
+If you encounter any issues or have questions:
+- Check existing issues in the repository
+- Create a new issue with problem details
+- Include relevant information to reproduce the issue
 
-### v2.0.0 - Migración a JavaScript y SQLAlchemy
-- ✅ Migrado de TypeScript a JavaScript
-- ✅ Migrado de MongoDB a SQLAlchemy (SQLite)
-- ✅ Migrado de Material-UI a Tailwind CSS
-- ✅ Simplificado el stack tecnológico
-- ✅ Eliminadas dependencias innecesarias
-- ✅ Mejorada la experiencia de desarrollo
+---
 
-### Próximas características
-- [ ] Integración real con APIs de plataformas
-- [ ] Notificaciones push
-- [ ] Analytics y métricas
-- [ ] Plantillas de contenido
-- [ ] Programación recurrente
+## 🔄 Versión Actual / Current Version
+
+### Español
+
+**v2.1.0** - Sistema de idiomas multilingüe
+- ✅ Soporte para Español e Inglés
+- ✅ Cambio de idioma en tiempo real
+- ✅ Persistencia de preferencia de idioma
+- ✅ Interfaz completamente traducida
+
+### English
+
+**v2.1.0** - Multilingual language system
+- ✅ Support for Spanish and English
+- ✅ Real-time language switching
+- ✅ Language preference persistence
+- ✅ Fully translated interface

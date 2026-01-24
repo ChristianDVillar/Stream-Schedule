@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { apiClient, createCheckout, verifyPaymentSession, getLicenseStatus } from '../api';
+import { useLanguage } from '../contexts/LanguageContext';
 import { 
   User, 
   Bell, 
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react';
 
 const Settings = ({ user, token, setUser }) => {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
