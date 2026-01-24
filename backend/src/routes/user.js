@@ -221,7 +221,12 @@ router.post('/register', async (req, res) => {
       } 
     });
   } catch (err) {
-    res.status(400).json({ error: 'User already exists or invalid data' });
+    console.error('Registration error:', err);
+    if (err.name === 'SequelizeUniqueConstraintError') {
+      res.status(400).json({ error: 'User already exists' });
+    } else {
+      res.status(400).json({ error: 'User already exists or invalid data' });
+    }
   }
 });
 
@@ -231,7 +236,9 @@ router.post('/login', async (req, res) => {
   if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
   try {
     const user = await User.findOne({ where: { email } });
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
     
     // Check if user is OAuth-only (no password)
     if (!user.passwordHash) {
@@ -239,7 +246,9 @@ router.post('/login', async (req, res) => {
     }
     
     const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
     
     // Update lastPasswordChange if it's the first time or password was changed
     // This will be updated when password is actually changed via the change password endpoint
