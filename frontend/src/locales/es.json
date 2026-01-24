@@ -67,7 +67,13 @@
     "signInWithTwitch": "Iniciar sesión con Twitch",
     "signUpWithTwitch": "Registrarse con Twitch",
     "orContinueWith": "O continuar con",
-    "oauthFailed": "Error en la autenticación OAuth. Por favor intenta de nuevo."
+    "oauthFailed": "Error en la autenticación OAuth. Por favor intenta de nuevo.",
+    "resetPassword": "Restablecer Contraseña",
+    "resetPasswordInstructions": "Ingresa tu dirección de correo electrónico y restableceremos tu contraseña.",
+    "passwordResetSuccess": "¡Contraseña restablecida exitosamente! Revisa la respuesta para tu contraseña temporal.",
+    "passwordResetEmailSent": "Si existe una cuenta con ese correo, se ha procesado el restablecimiento de contraseña.",
+    "passwordResetFailed": "Error al restablecer la contraseña",
+    "emailRequired": "El correo electrónico es requerido"
   },
   "dashboard": {
     "title": "Panel de control",

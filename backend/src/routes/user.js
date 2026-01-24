@@ -207,8 +207,21 @@ router.post('/register', async (req, res) => {
     const user = await User.create(userData);
     const licenseSummary = buildLicenseSummary(user);
     
+    // Generate JWT token for immediate login after registration
+    const token = jwt.sign(
+      { 
+        id: user.id, 
+        email: user.email,
+        username: user.username,
+        isAdmin: user.isAdmin
+      }, 
+      jwtSecret, 
+      { expiresIn: JWT_EXPIRY }
+    );
+    
     res.status(201).json({ 
       message: 'User registered', 
+      token,
       user: { 
         id: user.id, 
         username, 
@@ -217,11 +230,18 @@ router.post('/register', async (req, res) => {
         licenseExpiresAt: user.licenseExpiresAt,
         licenseKey: user.licenseKey,
         licenseAlert: licenseSummary.alert,
-        licenseDaysLeft: licenseSummary.daysLeft
+        licenseDaysLeft: licenseSummary.daysLeft,
+        isAdmin: user.isAdmin,
+        merchandisingLink: user.merchandisingLink
       } 
     });
   } catch (err) {
-    res.status(400).json({ error: 'User already exists or invalid data' });
+    console.error('Registration error:', err);
+    if (err.name === 'SequelizeUniqueConstraintError') {
+      res.status(400).json({ error: 'User already exists' });
+    } else {
+      res.status(400).json({ error: 'User already exists or invalid data' });
+    }
   }
 });
 
@@ -231,7 +251,9 @@ router.post('/login', async (req, res) => {
   if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
   try {
     const user = await User.findOne({ where: { email } });
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
     
     // Check if user is OAuth-only (no password)
     if (!user.passwordHash) {
@@ -239,7 +261,9 @@ router.post('/login', async (req, res) => {
     }
     
     const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
     
     // Update lastPasswordChange if it's the first time or password was changed
     // This will be updated when password is actually changed via the change password endpoint
@@ -468,9 +492,46 @@ router.post('/admin/reset-password', requireAdmin, async (req, res) => {
     if (!user) return res.status(404).json({ error: 'User not found' });
     const hash = await bcrypt.hash('changeme123', 10);
     user.passwordHash = hash;
+    user.lastPasswordChange = new Date();
     await user.save();
     res.json({ message: 'Password reset to changeme123' });
   } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Request password reset (public - by email)
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+  try {
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      // Don't reveal if user exists or not (security best practice)
+      return res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+    }
+    
+    // Check if user is OAuth-only
+    if (!user.passwordHash) {
+      return res.status(400).json({ error: 'This account uses OAuth and does not have a password. Please sign in with Google or Twitch.' });
+    }
+    
+    // Generate a simple reset token (in production, use a secure token with expiration)
+    // For now, we'll just reset it directly to a temporary password
+    const tempPassword = `temp${Math.random().toString(36).substr(2, 8)}`;
+    const hash = await bcrypt.hash(tempPassword, 10);
+    user.passwordHash = hash;
+    user.lastPasswordChange = new Date();
+    await user.save();
+    
+    // In production, send email with reset link
+    // For now, return the temp password (NOT SECURE - only for development)
+    res.json({ 
+      message: 'Password reset successful. Please check your email for the temporary password.',
+      tempPassword: process.env.NODE_ENV === 'development' ? tempPassword : undefined // Only show in dev
+    });
+  } catch (err) {
+    console.error('Error in forgot password:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

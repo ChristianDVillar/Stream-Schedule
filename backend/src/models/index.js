@@ -34,11 +34,23 @@ const sequelize = usePostgres
       dialect: 'postgres',
       logging: enableLogging ? console.log : false,
       protocol: 'postgres',
-      ssl: requireSSL,
       dialectOptions: {
         ssl: requireSSL
-          ? { require: true, rejectUnauthorized: false }
+          ? {
+              require: true,
+              rejectUnauthorized: false, // Supabase uses self-signed certificates
+            }
           : false,
+        // Supabase pooler compatibility
+        ...(databaseUrl.includes('pooler.supabase.com') && {
+          application_name: 'streamer-scheduler',
+        }),
+      },
+      pool: {
+        max: 5,
+        min: 0,
+        acquire: 30000,
+        idle: 10000,
       },
     })
   : new Sequelize({

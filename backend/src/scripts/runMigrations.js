@@ -14,10 +14,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Load environment variables
+// For local development: loads from .env file
+// For Render/production: uses Environment Variables from Render dashboard
+dotenv.config({ path: path.resolve(__dirname, '../../', '.env') });
 const nodeEnv = process.env.NODE_ENV || 'development';
-const envFile = `.env.${nodeEnv}`;
-dotenv.config({ path: path.resolve(__dirname, '../../', envFile), override: false });
-dotenv.config({ path: path.resolve(__dirname, '../../', '.env'), override: false });
 
 // Database configuration
 const databaseUrl = process.env.DATABASE_URL;
@@ -36,11 +36,19 @@ const sequelize = usePostgres
       dialect: 'postgres',
       logging: enableLogging ? console.log : false,
       protocol: 'postgres',
-      ssl: requireSSL,
       dialectOptions: {
         ssl: requireSSL
-          ? { require: true, rejectUnauthorized: false }
+          ? {
+              require: true,
+              rejectUnauthorized: false, // Supabase uses self-signed certificates
+            }
           : false,
+      },
+      pool: {
+        max: 5,
+        min: 0,
+        acquire: 30000,
+        idle: 10000,
       },
     })
   : new Sequelize({
