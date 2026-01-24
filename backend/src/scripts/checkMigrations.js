@@ -13,10 +13,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Load environment variables
+// For local development: loads from .env file
+// For Render/production: uses Environment Variables from Render dashboard
+dotenv.config({ path: path.resolve(__dirname, '../../', '.env') });
 const nodeEnv = process.env.NODE_ENV || 'development';
-const envFile = `.env.${nodeEnv}`;
-dotenv.config({ path: path.resolve(__dirname, '../../', envFile), override: false });
-dotenv.config({ path: path.resolve(__dirname, '../../', '.env'), override: false });
 
 const databaseUrl = process.env.DATABASE_URL;
 const usePostgres = Boolean(databaseUrl);
