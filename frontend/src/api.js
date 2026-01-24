@@ -1,8 +1,12 @@
 import axios from 'axios';
 import { isTokenExpired, clearAuth } from './utils/auth';
 
+// Get API URL from environment variable, fallback to localhost for development
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_BASE_URL = `${API_URL}/api`;
+
 export const apiClient = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: API_BASE_URL,
   timeout: 10000, // 10 seconds timeout
 });
 
