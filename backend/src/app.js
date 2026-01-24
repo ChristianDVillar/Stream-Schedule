@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import passport from 'passport';
 import userRoutes from './routes/user.js';
 import contentRoutes from './routes/content.js';
 import platformsRoutes from './routes/platforms.js';
@@ -10,15 +11,13 @@ import paymentsRoutes from './routes/payments.js';
 import { sequelize } from './models/index.js';
 import { authenticateToken } from './middleware/auth.js';
 
-// Load environment variables based on NODE_ENV
-const nodeEnv = process.env.NODE_ENV || 'development';
-// Try to load environment-specific file first
-const envFile = `.env.${nodeEnv}`;
-dotenv.config({ path: envFile, override: false });
-// Always fallback to .env if specific env file doesn't exist
-dotenv.config({ path: '.env', override: false });
+// Load environment variables
+// For local development: loads from .env file
+// For Render/production: uses Environment Variables from Render dashboard
+dotenv.config();
 
 const app = express();
+const nodeEnv = process.env.NODE_ENV || 'development';
 const jwtSecret = process.env.JWT_SECRET || 'dev-jwt-secret';
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -28,6 +27,7 @@ const limiter = rateLimit({
 app.use(helmet());
 app.use(limiter);
 app.use(cors({ origin: true, credentials: true }));
+app.use(passport.initialize());
 
 // Stripe webhook must be before JSON parsing middleware
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
