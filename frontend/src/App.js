@@ -231,9 +231,7 @@ const App = () => {
                 <ShoppingBag className="w-6 h-6" />
               </a>
             )}
-            <footer className="text-center text-gray-500 py-4 border-t bg-white dark:bg-gray-800">
-              © 2025 Christian - Develop <span className="text-sm">v2.1.0</span>
-            </footer>
+            <footer className="text-center text-gray-500 py-4 border-t bg-white dark:bg-gray-800">© 2025 Christian - Develop</footer>
           </div>
         </div>
       </Router>
