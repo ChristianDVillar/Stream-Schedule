@@ -1,12 +1,9 @@
 import dotenv from 'dotenv';
 
-// Load environment variables based on NODE_ENV
-const nodeEnv = process.env.NODE_ENV || 'development';
-// Try to load environment-specific file first
-const envFile = `.env.${nodeEnv}`;
-dotenv.config({ path: envFile, override: false });
-// Always fallback to .env if specific env file doesn't exist
-dotenv.config({ path: '.env', override: false });
+// Load environment variables
+// For local development: loads from .env file
+// For Render/production: uses Environment Variables from Render dashboard
+dotenv.config();
 
 import path from 'path';
 import { Sequelize, DataTypes } from 'sequelize';
@@ -18,6 +15,7 @@ import { PAYMENT_STATUS, PAYMENT_STATUS_VALUES } from '../constants/paymentStatu
 
 const databaseUrl = process.env.DATABASE_URL;
 const usePostgres = Boolean(databaseUrl);
+const nodeEnv = process.env.NODE_ENV || 'development';
 const enableLogging = process.env.ENABLE_LOGGING === 'true';
 const isProduction = nodeEnv === 'production';
 const requireSSL = isProduction || process.env.DATABASE_SSL === 'true';
@@ -64,7 +62,18 @@ const User = sequelize.define('User', {
   },
   passwordHash: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: true // Allow null for OAuth users
+  },
+  oauthProvider: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    validate: {
+      isIn: [['google', 'twitch', null]]
+    }
+  },
+  oauthId: {
+    type: DataTypes.STRING,
+    allowNull: true
   },
   licenseKey: {
     type: DataTypes.STRING,
@@ -94,6 +103,10 @@ const User = sequelize.define('User', {
     type: DataTypes.BOOLEAN,
     allowNull: false,
     defaultValue: false
+  },
+  lastPasswordChange: {
+    type: DataTypes.DATE,
+    allowNull: true
   }
 });
 
@@ -302,4 +315,22 @@ Media.belongsToMany(Content, {
   onDelete: 'CASCADE'
 });
 
-export { sequelize, User, Content, Platform, Payment, Media, ContentMedia };
+// ⚙️ System Configuration
+const SystemConfig = sequelize.define('SystemConfig', {
+  key: {
+    type: DataTypes.STRING,
+    unique: true,
+    allowNull: false,
+    primaryKey: true
+  },
+  value: {
+    type: DataTypes.JSONB,
+    allowNull: false
+  },
+  description: {
+    type: DataTypes.STRING,
+    allowNull: true
+  }
+});
+
+export { sequelize, User, Content, Platform, Payment, Media, ContentMedia, SystemConfig };
