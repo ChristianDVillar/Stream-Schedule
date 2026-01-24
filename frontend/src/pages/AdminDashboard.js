@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, getPaymentStats } from '../api';
+import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, getPaymentStats } from '../api';
 
 const mockLogs = [
   { id: 1, action: 'User admin@example.com created', date: '2025-07-21 10:00' },
@@ -56,6 +56,23 @@ export default function AdminDashboard({ token, user, onLogout }) {
       await fetchUsers();
     } catch (err) {
       alert('Error generating license');
+    } finally {
+      setGenerating(prev => ({ ...prev, [userId]: false }));
+    }
+  }
+
+  async function handleAssignTrial(userId) {
+    if (!window.confirm('¿Asignar trial de 7 días a este usuario? Solo se puede hacer una vez por usuario.')) {
+      return;
+    }
+    setGenerating(prev => ({ ...prev, [userId]: true }));
+    try {
+      await adminAssignTrial({ userId, token });
+      window.alert('Trial asignado exitosamente');
+      await fetchUsers();
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || 'Error asignando trial';
+      window.alert(errorMsg);
     } finally {
       setGenerating(prev => ({ ...prev, [userId]: false }));
     }
@@ -251,7 +268,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                   <div className="flex flex-col">
                     <span className="font-mono text-blue-900">{u.licenseKey}</span>
                     <span className="text-xs text-gray-600">
-                      {u.licenseType === 'lifetime' ? 'De por vida' : 'Temporal 30 días'}
+                      {u.licenseType === 'lifetime' ? 'De por vida' : u.licenseType === 'trial' ? 'Prueba 7 días' : 'Temporal 30 días'}
                       {u.licenseExpiresAt ? ` · vence ${new Date(u.licenseExpiresAt).toLocaleDateString()}` : ''}
                     </span>
                   </div>
@@ -300,6 +317,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                       {u.licenseType === 'monthly' && 'Mensual'}
                       {u.licenseType === 'quarterly' && 'Cada 3 meses'}
                       {u.licenseType === 'temporary' && 'Temporal 30 días'}
+                      {u.licenseType === 'trial' && 'Prueba 7 días'}
                       {!u.licenseType && '—'}
                     </td>
                     <td className="px-4 py-2 border">{u.licenseExpiresAt ? new Date(u.licenseExpiresAt).toLocaleDateString() : '—'}</td>
@@ -394,6 +412,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                       {u.licenseType === 'monthly' && 'Mensual'}
                       {u.licenseType === 'quarterly' && 'Cada 3 meses'}
                       {u.licenseType === 'temporary' && 'Temporal 30 días'}
+                      {u.licenseType === 'trial' && 'Prueba 7 días'}
                       {!u.licenseType && '—'}
                     </td>
                     <td className="px-4 py-2 border">
@@ -410,6 +429,14 @@ export default function AdminDashboard({ token, user, onLogout }) {
                       <div className="flex flex-wrap gap-2 items-center">
                         {!u.licenseKey && (
                           <>
+                            <button
+                              className="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={generating[u.id] || u.hasUsedTrial}
+                              onClick={() => handleAssignTrial(u.id)}
+                              title={u.hasUsedTrial ? 'Este usuario ya usó su trial' : 'Asignar trial de 7 días (solo una vez)'}
+                            >
+                              {generating[u.id] ? '...' : u.hasUsedTrial ? 'Trial usado' : 'Trial 7d'}
+                            </button>
                             <button
                               className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                               disabled={generating[u.id]}
