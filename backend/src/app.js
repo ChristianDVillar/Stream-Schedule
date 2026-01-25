@@ -1,3 +1,9 @@
+/**
+ * Streamer Scheduler - Backend Application
+ * Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.
+ * Proprietary Software - Unauthorized copying, distribution, or modification is strictly prohibited.
+ */
+
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -18,6 +24,13 @@ dotenv.config();
 
 const app = express();
 const nodeEnv = process.env.NODE_ENV || 'development';
+
+// Copyright and Legal Protection Headers
+app.use((req, res, next) => {
+  res.setHeader('X-Copyright', 'Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.');
+  res.setHeader('X-Proprietary', 'Proprietary Software - Unauthorized use prohibited.');
+  next();
+});
 const jwtSecret = process.env.JWT_SECRET || 'dev-jwt-secret';
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -37,10 +50,37 @@ app.use(express.json());
 // JWT authentication middleware - attaches user to req.user if token is valid
 app.use(authenticateToken);
 
+// API Routes
 app.use('/api/user', userRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/platforms', platformsRoutes);
 app.use('/api/payments', paymentsRoutes);
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    environment: nodeEnv,
+    service: 'stream-schedule-api'
+  });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Streamer Scheduler API',
+    version: '2.1.0',
+    status: 'running',
+    endpoints: {
+      health: '/api/health',
+      user: '/api/user',
+      content: '/api/content',
+      platforms: '/api/platforms',
+      payments: '/api/payments'
+    }
+  });
+});
 
 const PORT = process.env.PORT || 5000;
 const enableLogging = process.env.ENABLE_LOGGING === 'true';
