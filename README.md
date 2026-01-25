@@ -220,9 +220,19 @@ The application supports multiple languages. You can switch between **Spanish** 
 
 ## 📄 Licencia / License
 
-Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para detalles.
+**Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.**
 
-This project is under the MIT License - see the [LICENSE](LICENSE) file for details.
+Este es un software propietario. Todos los derechos reservados. Ver el archivo [LICENSE](LICENSE) para los términos completos de la licencia.
+
+**Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.**
+
+This is proprietary software. All rights reserved. See the [LICENSE](LICENSE) file for complete license terms.
+
+### Términos de Uso / Terms of Service
+
+Para los términos de servicio completos, ver [TERMS_OF_SERVICE.md](TERMS_OF_SERVICE.md)
+
+For complete terms of service, see [TERMS_OF_SERVICE.md](TERMS_OF_SERVICE.md)
 
 ---
 
