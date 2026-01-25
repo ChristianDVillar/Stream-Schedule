@@ -123,6 +123,7 @@ npx serve -s build -l 10000
 - El flag `-s` en `serve` es **crítico** para SPAs (Single Page Applications)
 - Sin `-s`, las rutas como `/login`, `/dashboard` darán 404 al refrescar
 - El puerto `10000` es el que Render espera (no uses `3000`)
+- Alternativamente, puedes usar: `./node_modules/.bin/serve -s build -l 10000` si `serve` está en devDependencies
 
 ### 2. Environment Variables (Frontend)
 
