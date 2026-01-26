@@ -14,8 +14,10 @@ import userRoutes from './routes/user.js';
 import contentRoutes from './routes/content.js';
 import platformsRoutes from './routes/platforms.js';
 import paymentsRoutes from './routes/payments.js';
+import uploadsRoutes from './routes/uploads.js';
 import { sequelize } from './models/index.js';
 import { authenticateToken } from './middleware/auth.js';
+import logger from './utils/logger.js';
 
 // Load environment variables
 // For local development: loads from .env file
@@ -55,6 +57,7 @@ app.use('/api/user', userRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/platforms', platformsRoutes);
 app.use('/api/payments', paymentsRoutes);
+app.use('/api/upload', uploadsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -77,7 +80,8 @@ app.get('/', (req, res) => {
       user: '/api/user',
       content: '/api/content',
       platforms: '/api/platforms',
-      payments: '/api/payments'
+      payments: '/api/payments',
+      upload: '/api/upload'
     }
   });
 });
@@ -89,37 +93,41 @@ const logLevel = process.env.LOG_LEVEL || 'info';
 async function initServer() {
   try {
     await sequelize.authenticate();
-    if (enableLogging && logLevel === 'debug') {
-      const dbType = process.env.DATABASE_URL ? 'PostgreSQL (Supabase)' : 'SQLite';
-      console.log(`✅ Database connection established: ${dbType} (${nodeEnv})`);
-    }
+    const dbType = process.env.DATABASE_URL ? 'PostgreSQL (Supabase)' : 'SQLite';
+    logger.info('Database connection established', { dbType, environment: nodeEnv });
     
     // Only sync in non-production environments
     if (nodeEnv !== 'production') {
       await sequelize.sync({ alter: true });
-      if (enableLogging && logLevel === 'debug') {
-        console.log('✅ Database schema synchronized');
-      }
+      logger.debug('Database schema synchronized');
     }
   } catch (err) {
-    console.error('❌ Database initialization failed:', err.message);
+    logger.error('Database initialization failed', {
+      error: err.message,
+      stack: err.stack,
+      hasSSL: process.env.DATABASE_SSL === 'true',
+      hasDatabaseUrl: !!process.env.DATABASE_URL
+    });
+    
     if (err.message.includes('SSL') || err.message.includes('certificate')) {
-      console.error('💡 Tip: Make sure DATABASE_SSL=true is set in your .env file for Supabase');
+      logger.warn('SSL configuration issue - make sure DATABASE_SSL=true is set for Supabase');
     }
     if (err.message.includes('password') || err.message.includes('authentication')) {
-      console.error('💡 Tip: Check your DATABASE_URL - make sure special characters in password are URL-encoded');
-      console.error('   Example: ! becomes %21, @ becomes %40');
+      logger.warn('Authentication issue - check DATABASE_URL and URL-encode special characters');
     }
-    console.error('Full error:', err);
+    
     process.exit(1);
   }
 
   app.listen(PORT, () => {
-    const envInfo = nodeEnv === 'production' ? '🚀 PRODUCTION' : nodeEnv === 'test' ? '🧪 TEST' : '🔧 DEVELOPMENT';
-    console.log(`${envInfo} Server running on port ${PORT}`);
+    logger.info('Server started', {
+      port: PORT,
+      environment: nodeEnv,
+      logLevel
+    });
+    
     if (nodeEnv === 'production') {
-      console.log('⚠️  Logging is DISABLED in production');
-      console.log('⚠️  SSL is REQUIRED for database connections');
+      logger.warn('Production mode - ensure SSL is enabled for database connections');
     }
   });
 }

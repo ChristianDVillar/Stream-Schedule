@@ -15,7 +15,7 @@ console.log('\n🔐 Codificación de contraseña para Supabase\n');
 console.log(`Contraseña original: ${password}`);
 console.log(`Contraseña codificada: ${encoded}\n`);
 console.log('URL completa de ejemplo:');
-console.log(`postgresql://postgres.omdosutakaefpowscagp:${encoded}@aws-1-eu-west-1.pooler.supabase.com:5432/postgres\n`);
+console.log(`postgresql://postgres.xxx:${encoded}@aws-1-eu-west-1.pooler.supabase.com:5432/postgres\n`);
 console.log('⚠️  IMPORTANTE: Esta es solo la codificación. La contraseña real debe obtenerse desde el dashboard de Supabase.');
 console.log('   Ve a: Settings → Database → Connection string\n');
 

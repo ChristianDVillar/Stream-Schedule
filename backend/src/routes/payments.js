@@ -5,6 +5,10 @@ import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { resolveLicenseExpiry } from '../utils/licenseUtils.js';
 import { LICENSE_TYPES } from '../constants/licenseTypes.js';
 import { PAYMENT_STATUS } from '../constants/paymentStatus.js';
+import { generateLicenseKey } from '../utils/cryptoUtils.js';
+import { validateBody } from '../middleware/validate.js';
+import { checkoutSchema, verifySessionSchema } from '../validators/paymentSchemas.js';
+import logger from '../utils/logger.js';
 
 const router = express.Router();
 
@@ -25,8 +29,7 @@ const PLANS = {
 // requireAdmin is now imported from middleware/auth.js
 
 // Create a Stripe checkout session
-router.post('/checkout', async (req, res) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+router.post('/checkout', requireAuth, validateBody(checkoutSchema), async (req, res) => {
   if (!stripe) return res.status(500).json({ error: 'Stripe is not configured. Please set STRIPE_SECRET_KEY in environment variables.' });
   
   const licenseType = req.body.licenseType || LICENSE_TYPES.MONTHLY;
@@ -84,17 +87,22 @@ router.post('/checkout', async (req, res) => {
       paymentId: payment.id,
     });
   } catch (error) {
-    console.error('Stripe checkout error:', error);
+    logger.error('Stripe checkout error', {
+      error: error.message,
+      userId: req.user.id,
+      licenseType,
+      ip: req.ip,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
     res.status(500).json({ error: 'Failed to create checkout session', details: error.message });
   }
 });
 
 // Verify payment status from Stripe session
-router.post('/verify-session', requireAuth, async (req, res) => {
+router.post('/verify-session', requireAuth, validateBody(verifySessionSchema), async (req, res) => {
   if (!stripe) return res.status(500).json({ error: 'Stripe is not configured' });
   
   const { sessionId } = req.body;
-  if (!sessionId) return res.status(400).json({ error: 'Missing sessionId' });
 
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
@@ -124,7 +132,7 @@ router.post('/verify-session', requireAuth, async (req, res) => {
       await payment.save();
 
       // Assign license to user
-      const licenseKey = Math.random().toString(36).substr(2, 16).toUpperCase();
+      const licenseKey = generateLicenseKey('', 16);
       const expiryResult = resolveLicenseExpiry({ licenseType: payment.licenseType });
       const expiresAt = expiryResult.value;
       const user = await User.findByPk(req.user.id);
@@ -143,7 +151,13 @@ router.post('/verify-session', requireAuth, async (req, res) => {
 
     res.json({ status: session.payment_status });
   } catch (error) {
-    console.error('Stripe session verification error:', error);
+    logger.error('Stripe session verification error', {
+      error: error.message,
+      userId: req.user.id,
+      sessionId,
+      ip: req.ip,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
     res.status(500).json({ error: 'Failed to verify session', details: error.message });
   }
 });
@@ -151,7 +165,7 @@ router.post('/verify-session', requireAuth, async (req, res) => {
 // Webhook endpoint for Stripe
 router.post('/webhook', async (req, res) => {
   if (!stripe) {
-    console.error('Stripe is not configured');
+    logger.error('Stripe is not configured for webhook');
     return res.status(500).json({ error: 'Stripe is not configured' });
   }
 
@@ -159,7 +173,7 @@ router.post('/webhook', async (req, res) => {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
   if (!webhookSecret) {
-    console.error('STRIPE_WEBHOOK_SECRET is not set');
+    logger.error('STRIPE_WEBHOOK_SECRET is not set');
     return res.status(500).json({ error: 'Webhook secret not configured' });
   }
 
@@ -168,7 +182,10 @@ router.post('/webhook', async (req, res) => {
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
   } catch (err) {
-    console.error('Webhook signature verification failed:', err.message);
+    logger.error('Webhook signature verification failed', {
+      error: err.message,
+      ip: req.ip
+    });
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
@@ -182,7 +199,10 @@ router.post('/webhook', async (req, res) => {
       });
 
       if (!payment) {
-        console.error('Payment not found for session:', session.id);
+        logger.error('Payment not found for session', {
+          sessionId: session.id,
+          ip: req.ip
+        });
         return res.status(404).json({ error: 'Payment not found' });
       }
 
@@ -213,7 +233,12 @@ router.post('/webhook', async (req, res) => {
 
       res.json({ received: true });
     } catch (error) {
-      console.error('Error processing webhook:', error);
+      logger.error('Error processing webhook', {
+        error: error.message,
+        eventType: event.type,
+        ip: req.ip,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
       res.status(500).json({ error: 'Error processing webhook' });
     }
   } else {

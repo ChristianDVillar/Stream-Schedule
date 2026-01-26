@@ -183,7 +183,7 @@
     "generating": "Generating...",
     "creating": "Creating...",
     "passwordReset": "Reset password",
-    "passwordResetTo": "Password reset to changeme123",
+    "passwordResetTo": "Password reset successful",
     "passwordResetError": "Error resetting password",
     "manageDescription": "Manage users, licenses and review system logs.",
     "noUsersFound": "No users found.",

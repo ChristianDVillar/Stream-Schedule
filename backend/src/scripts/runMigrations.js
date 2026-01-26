@@ -134,11 +134,11 @@ async function executeMigration(filename) {
     }
   }
   
-  // Record migration (escape filename for SQL)
-  const escapedFilename = filename.replace(/'/g, "''");
+  // Record migration using parameterized query to prevent SQL injection
   const tableName = usePostgres ? '"SequelizeMeta"' : 'SequelizeMeta';
   await sequelize.query(
-    `INSERT INTO ${tableName} (name) VALUES ('${escapedFilename}')`
+    `INSERT INTO ${tableName} (name) VALUES ($1)`,
+    { bind: [filename] }
   );
   
   console.log(`✅ Executed: ${filename}`);

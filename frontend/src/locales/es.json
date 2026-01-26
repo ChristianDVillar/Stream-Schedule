@@ -186,7 +186,7 @@
     "generating": "Generando...",
     "creating": "Creando...",
     "passwordReset": "Restablecer contraseña",
-    "passwordResetTo": "Contraseña restablecida a changeme123",
+    "passwordResetTo": "Contraseña restablecida exitosamente",
     "manageDescription": "Gestiona usuarios, licencias y revisa logs del sistema.",
     "noUsersFound": "No se encontraron usuarios.",
     "assignTrialTooltip": "Asignar trial de 7 días (solo una vez)",
