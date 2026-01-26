@@ -176,3 +176,31 @@ export async function getPasswordReminder(token) {
     headers: { Authorization: `Bearer ${token}` }
   });
 }
+
+/**
+ * Register an upload in the backend
+ * This should be called after successfully uploading a file to Supabase Storage
+ * @param {Object} params
+ * @param {string} params.user_id - User UUID
+ * @param {string} params.bucket - 'images' or 'videos'
+ * @param {string} params.file_path - Path to the file in Supabase Storage
+ * @param {boolean} params.isTrialUser - Whether the user is on trial (optional, will be inferred from user if not provided)
+ * @returns {Promise} API response
+ */
+export async function registerUpload({ user_id, bucket, file_path, isTrialUser }) {
+  return apiClient.post('/upload', {
+    user_id,
+    bucket,
+    file_path,
+    isTrialUser
+  });
+}
+
+/**
+ * Get upload statistics for a user
+ * @param {string} user_id - User UUID
+ * @returns {Promise} API response with upload stats
+ */
+export async function getUploadStats(user_id) {
+  return apiClient.get(`/upload/stats/${user_id}`);
+}

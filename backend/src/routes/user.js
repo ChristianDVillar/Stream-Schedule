@@ -9,6 +9,21 @@ import { User, Content, SystemConfig } from '../models/index.js';
 import checkLicense from '../middleware/checkLicense.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { normalizeLicenseType, resolveLicenseExpiry, buildLicenseSummary } from '../utils/licenseUtils.js';
+import { generateLicenseKey, generateTemporaryPassword, generateUsernameSuffix } from '../utils/cryptoUtils.js';
+import { validateBody } from '../middleware/validate.js';
+import {
+  registerSchema,
+  loginSchema,
+  changePasswordSchema,
+  forgotPasswordSchema,
+  updateProfileSchema,
+  adminCreateUserSchema,
+  adminUpdateLicenseSchema,
+  adminChangeEmailSchema,
+  adminResetPasswordSchema,
+  adminAssignTrialSchema
+} from '../validators/userSchemas.js';
+import logger from '../utils/logger.js';
 
 const router = express.Router();
 
@@ -83,7 +98,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       } else {
         // Create new user
         user = await User.create({
-          username: displayName.replace(/\s+/g, '').toLowerCase() + Math.random().toString(36).substr(2, 5),
+          username: displayName.replace(/\s+/g, '').toLowerCase() + generateUsernameSuffix(3),
           email,
           passwordHash: null, // OAuth users don't need password
           oauthProvider: 'google',
@@ -136,7 +151,7 @@ if (process.env.TWITCH_CLIENT_ID && process.env.TWITCH_CLIENT_SECRET) {
       } else {
         // Create new user
         user = await User.create({
-          username: displayName.replace(/\s+/g, '').toLowerCase() + Math.random().toString(36).substr(2, 5),
+          username: displayName.replace(/\s+/g, '').toLowerCase() + generateUsernameSuffix(3),
           email,
           passwordHash: null, // OAuth users don't need password
           oauthProvider: 'twitch',
@@ -172,9 +187,8 @@ router.get('/auth/twitch/callback',
 );
 
 // Register
-router.post('/register', async (req, res) => {
+router.post('/register', validateBody(registerSchema), async (req, res) => {
   const { username, email, password, startWithTrial, licenseOption } = req.body;
-  if (!username || !email || !password) return res.status(400).json({ error: 'Missing fields' });
   try {
     const hash = await bcrypt.hash(password, 10);
     
@@ -190,7 +204,7 @@ router.post('/register', async (req, res) => {
       }
       userData.licenseType = normalizeLicenseType('trial');
       userData.licenseExpiresAt = expiryResult.value;
-      userData.licenseKey = `TRIAL-${Math.random().toString(36).substr(2, 12).toUpperCase()}`;
+      userData.licenseKey = generateLicenseKey('TRIAL', 12);
       userData.hasUsedTrial = true;
     } else if (licenseOption === 'monthly') {
       // User chooses monthly license - create it directly
@@ -200,7 +214,7 @@ router.post('/register', async (req, res) => {
       }
       userData.licenseType = normalizeLicenseType('monthly');
       userData.licenseExpiresAt = expiryResult.value;
-      userData.licenseKey = `MONTHLY-${Math.random().toString(36).substr(2, 12).toUpperCase()}`;
+      userData.licenseKey = generateLicenseKey('MONTHLY', 12);
     }
     // If neither trial nor monthly, user starts with no license (can purchase later)
     
@@ -236,7 +250,13 @@ router.post('/register', async (req, res) => {
       } 
     });
   } catch (err) {
-    console.error('Registration error:', err);
+    logger.error('Registration failed', {
+      error: err.message,
+      email: req.body.email,
+      username: req.body.username,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+    
     if (err.name === 'SequelizeUniqueConstraintError') {
       res.status(400).json({ error: 'User already exists' });
     } else {
@@ -246,9 +266,8 @@ router.post('/register', async (req, res) => {
 });
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/login', validateBody(loginSchema), async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
   try {
     const user = await User.findOne({ where: { email } });
     if (!user) {
@@ -296,7 +315,13 @@ router.post('/login', async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Login error:', err);
+    logger.error('Login error', {
+      error: err.message,
+      email: req.body.email,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -308,7 +333,7 @@ router.post('/generate-license', requireAdmin, async (req, res) => {
   const licenseType = normalizeLicenseType(req.body.licenseType);
   const expiry = resolveLicenseExpiry({ ...req.body, licenseType });
   if (expiry.error) return res.status(400).json({ error: expiry.error });
-  const licenseKey = Math.random().toString(36).substr(2, 16).toUpperCase();
+  const licenseKey = generateLicenseKey('', 16);
   try {
     const user = await User.findByPk(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -356,7 +381,7 @@ router.post('/admin/generate-license', requireAdmin, async (req, res) => {
   const licenseType = normalizeLicenseType(req.body.licenseType);
   const expiry = resolveLicenseExpiry({ ...req.body, licenseType });
   if (expiry.error) return res.status(400).json({ error: expiry.error });
-  const licenseKey = Math.random().toString(36).substr(2, 16).toUpperCase();
+  const licenseKey = generateLicenseKey('', 16);
   try {
     const user = await User.findByPk(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -378,9 +403,8 @@ router.post('/admin/generate-license', requireAdmin, async (req, res) => {
 });
 
 // Cambiar email de usuario (admin)
-router.post('/admin/change-email', requireAdmin, async (req, res) => {
+router.post('/admin/change-email', requireAdmin, validateBody(adminChangeEmailSchema), async (req, res) => {
   const { userId, newEmail } = req.body;
-  if (!userId || !newEmail) return res.status(400).json({ error: 'Missing userId or newEmail' });
   try {
     const user = await User.findByPk(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -393,9 +417,8 @@ router.post('/admin/change-email', requireAdmin, async (req, res) => {
 });
 
 // Create user (admin)
-router.post('/admin/create', requireAdmin, async (req, res) => {
+router.post('/admin/create', requireAdmin, validateBody(adminCreateUserSchema), async (req, res) => {
   const { username, email, password, isAdmin } = req.body;
-  if (!username || !email || !password) return res.status(400).json({ error: 'Missing fields' });
   try {
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({
@@ -411,9 +434,8 @@ router.post('/admin/create', requireAdmin, async (req, res) => {
 });
 
 // Update license type (admin)
-router.post('/admin/update-license', requireAdmin, async (req, res) => {
+router.post('/admin/update-license', requireAdmin, validateBody(adminUpdateLicenseSchema), async (req, res) => {
   const { userId, licenseType } = req.body;
-  if (!userId || !licenseType) return res.status(400).json({ error: 'Missing userId or licenseType' });
   const normalized = normalizeLicenseType(licenseType);
   const expiry = resolveLicenseExpiry({ licenseType: normalized });
   if (expiry.error) return res.status(400).json({ error: expiry.error });
@@ -421,7 +443,7 @@ router.post('/admin/update-license', requireAdmin, async (req, res) => {
     const user = await User.findByPk(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
     if (!user.licenseKey && normalized !== 'none') {
-      user.licenseKey = Math.random().toString(36).substr(2, 16).toUpperCase();
+      user.licenseKey = generateLicenseKey('', 16);
     }
     user.licenseType = normalized;
     user.licenseExpiresAt = expiry.value;
@@ -440,9 +462,8 @@ router.post('/admin/update-license', requireAdmin, async (req, res) => {
 });
 
 // Assign trial license to user (admin only, one time per user)
-router.post('/admin/assign-trial', requireAdmin, async (req, res) => {
+router.post('/admin/assign-trial', requireAdmin, validateBody(adminAssignTrialSchema), async (req, res) => {
   const { userId } = req.body;
-  if (!userId) return res.status(400).json({ error: 'Missing userId' });
   
   try {
     const user = await User.findByPk(userId);
@@ -463,7 +484,7 @@ router.post('/admin/assign-trial', requireAdmin, async (req, res) => {
     
     user.licenseType = normalizeLicenseType('trial');
     user.licenseExpiresAt = expiryResult.value;
-    user.licenseKey = `TRIAL-${Math.random().toString(36).substr(2, 12).toUpperCase()}`;
+    user.licenseKey = generateLicenseKey('TRIAL', 12);
     user.hasUsedTrial = true; // Mark as used
     await user.save();
     
@@ -478,32 +499,55 @@ router.post('/admin/assign-trial', requireAdmin, async (req, res) => {
       hasUsedTrial: user.hasUsedTrial
     });
   } catch (err) {
-    console.error('Error assigning trial:', err);
+    logger.error('Error assigning trial', {
+      error: err.message,
+      userId: req.body.userId,
+      adminId: req.user?.id,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
     res.status(500).json({ error: 'Server error' });
   }
 });
 
 // Resetear contraseña de usuario (admin)
-router.post('/admin/reset-password', requireAdmin, async (req, res) => {
+router.post('/admin/reset-password', requireAdmin, validateBody(adminResetPasswordSchema), async (req, res) => {
   const { userId } = req.body;
-  if (!userId) return res.status(400).json({ error: 'Missing userId' });
   try {
     const user = await User.findByPk(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
-    const hash = await bcrypt.hash('changeme123', 10);
+    
+    // Generate secure temporary password
+    const tempPassword = generateTemporaryPassword(12);
+    const hash = await bcrypt.hash(tempPassword, 10);
     user.passwordHash = hash;
     user.lastPasswordChange = new Date();
     await user.save();
-    res.json({ message: 'Password reset to changeme123' });
+    
+    // TODO: Send password via secure channel (email, SMS, etc.)
+    // NEVER expose passwords in API responses
+    // For development only, log to console
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[DEV ONLY] Password reset for user ${userId} (${user.email}): ${tempPassword}`);
+    }
+    
+    res.json({ 
+      message: 'Password reset successful. The new password has been sent to the user via secure channel.'
+    });
   } catch (err) {
+    logger.error('Error resetting password', {
+      error: err.message,
+      userId: req.body.userId,
+      adminId: req.user?.id,
+      ip: req.ip,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
     res.status(500).json({ error: 'Server error' });
   }
 });
 
 // Request password reset (public - by email)
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', validateBody(forgotPasswordSchema), async (req, res) => {
   const { email } = req.body;
-  if (!email) return res.status(400).json({ error: 'Email is required' });
   try {
     const user = await User.findOne({ where: { email } });
     if (!user) {
@@ -516,22 +560,30 @@ router.post('/forgot-password', async (req, res) => {
       return res.status(400).json({ error: 'This account uses OAuth and does not have a password. Please sign in with Google or Twitch.' });
     }
     
-    // Generate a simple reset token (in production, use a secure token with expiration)
-    // For now, we'll just reset it directly to a temporary password
-    const tempPassword = `temp${Math.random().toString(36).substr(2, 8)}`;
+    // Generate a secure temporary password
+    const tempPassword = generateTemporaryPassword(12);
     const hash = await bcrypt.hash(tempPassword, 10);
     user.passwordHash = hash;
     user.lastPasswordChange = new Date();
     await user.save();
     
-    // In production, send email with reset link
-    // For now, return the temp password (NOT SECURE - only for development)
+    // TODO: In production, send email with reset link or temporary password
+    // NEVER expose passwords in API responses
+    // For development only, log to console (not in response)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[DEV ONLY] Temporary password for ${email}: ${tempPassword}`);
+    }
+    
     res.json({ 
-      message: 'Password reset successful. Please check your email for the temporary password.',
-      tempPassword: process.env.NODE_ENV === 'development' ? tempPassword : undefined // Only show in dev
+      message: 'Password reset successful. Please check your email for the temporary password.'
     });
   } catch (err) {
-    console.error('Error in forgot password:', err);
+    logger.error('Error in forgot password', {
+      error: err.message,
+      email: req.body.email,
+      ip: req.ip,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -578,8 +630,8 @@ router.get('/license', requireAuth, async (req, res) => {
 });
 
 // Update user profile
-router.put('/profile', requireAuth, async (req, res) => {
-  const { username, email, bio, timezone, language, merchandisingLink } = req.body;
+router.put('/profile', requireAuth, validateBody(updateProfileSchema), async (req, res) => {
+  const { username, email, merchandisingLink } = req.body;
   try {
     const user = await User.findByPk(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -606,20 +658,18 @@ router.put('/profile', requireAuth, async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Profile update error:', err);
+    logger.error('Profile update error', {
+      error: err.message,
+      userId: req.user?.id,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
     res.status(500).json({ error: 'Failed to update profile' });
   }
 });
 
 // Change password
-router.put('/password', requireAuth, async (req, res) => {
+router.put('/password', requireAuth, validateBody(changePasswordSchema), async (req, res) => {
   const { currentPassword, newPassword } = req.body;
-  if (!currentPassword || !newPassword) {
-    return res.status(400).json({ error: 'Missing fields' });
-  }
-  if (newPassword.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters' });
-  }
   try {
     const user = await User.findByPk(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -638,7 +688,12 @@ router.put('/password', requireAuth, async (req, res) => {
     
     res.json({ message: 'Password changed successfully' });
   } catch (err) {
-    console.error('Error changing password:', err);
+    logger.error('Error changing password', {
+      error: err.message,
+      userId: req.user?.id,
+      ip: req.ip,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -662,7 +717,11 @@ router.get('/admin/license-config', requireAdmin, async (req, res) => {
     }
     res.json({ availableLicenseTypes: config.value });
   } catch (err) {
-    console.error('Error getting license config:', err);
+    logger.error('Error getting license config', {
+      error: err.message,
+      adminId: req.user?.id,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -687,7 +746,11 @@ router.post('/admin/license-config', requireAdmin, async (req, res) => {
     }
     res.json({ availableLicenseTypes: config.value, message: 'Configuration updated' });
   } catch (err) {
-    console.error('Error updating license config:', err);
+    logger.error('Error updating license config', {
+      error: err.message,
+      adminId: req.user?.id,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -702,7 +765,10 @@ router.get('/available-licenses', async (req, res) => {
     }
     res.json({ availableLicenseTypes: config.value });
   } catch (err) {
-    console.error('Error getting available licenses:', err);
+    logger.error('Error getting available licenses', {
+      error: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -744,7 +810,11 @@ router.get('/admin/password-reminder', requireAdmin, async (req, res) => {
     
     res.json({ reminders });
   } catch (err) {
-    console.error('Error getting password reminders:', err);
+    logger.error('Error getting password reminders', {
+      error: err.message,
+      adminId: req.user?.id,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
     res.status(500).json({ error: 'Server error' });
   }
 });

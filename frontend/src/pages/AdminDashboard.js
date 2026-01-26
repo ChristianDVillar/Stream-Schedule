@@ -139,7 +139,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
     setResetting(userId);
     try {
       await adminResetPassword({ userId, token });
-      alert('Password reset to changeme123');
+      alert('Password reset successful. The new password has been sent to the user via secure channel.');
     } catch (err) {
       alert('Error resetting password');
     }

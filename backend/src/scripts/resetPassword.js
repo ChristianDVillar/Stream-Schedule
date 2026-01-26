@@ -4,8 +4,14 @@ import { User, sequelize } from '../models/index.js';
 
 dotenv.config();
 
-const email = process.env.RESET_EMAIL || 'christiandvillar@gmail.com';
-const newPassword = process.env.RESET_PASSWORD || '!Omunculo_42!';
+const email = process.env.RESET_EMAIL;
+const newPassword = process.env.RESET_PASSWORD;
+
+if (!email || !newPassword) {
+  console.error('❌ RESET_EMAIL and RESET_PASSWORD environment variables are required');
+  console.error('Usage: RESET_EMAIL=user@example.com RESET_PASSWORD=securePassword node src/scripts/resetPassword.js');
+  process.exit(1);
+}
 
 async function resetPassword() {
   try {
@@ -18,9 +24,11 @@ async function resetPassword() {
     
     if (!user) {
       console.log(`⚠️  User not found. Creating new user...`);
+      // Generate username from email
+      const username = email.split('@')[0].replace(/[^a-z0-9]/gi, '').toLowerCase();
       const hash = await bcrypt.hash(newPassword, 10);
       user = await User.create({
-        username: 'christiandvillar',
+        username: username,
         email: email,
         passwordHash: hash,
         isAdmin: true,

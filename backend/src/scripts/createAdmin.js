@@ -4,10 +4,16 @@ import { User, sequelize } from '../models/index.js';
 
 dotenv.config();
 
-// Default admin: Christian David Villar Colodro
-const username = process.env.ADMIN_USERNAME || 'christiandvillar';
-const email = process.env.ADMIN_EMAIL || 'christiandvillar@gmail.com';
-const password = process.env.ADMIN_PASSWORD || '!Omunculo_42!';
+// Admin credentials must be provided via environment variables
+const username = process.env.ADMIN_USERNAME;
+const email = process.env.ADMIN_EMAIL;
+const password = process.env.ADMIN_PASSWORD;
+
+if (!username || !email || !password) {
+  console.error('❌ ADMIN_USERNAME, ADMIN_EMAIL, and ADMIN_PASSWORD environment variables are required');
+  console.error('Usage: ADMIN_USERNAME=admin ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD=securePassword node src/scripts/createAdmin.js');
+  process.exit(1);
+}
 
 async function createAdmin() {
   try {

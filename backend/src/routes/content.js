@@ -1,6 +1,10 @@
 import express from 'express';
 import { Content } from '../models/index.js';
 import checkLicense from '../middleware/checkLicense.js';
+import { validateBody } from '../middleware/validate.js';
+import { contentSchema, updateContentSchema } from '../validators/contentSchemas.js';
+import logger from '../utils/logger.js';
+
 const router = express.Router();
 
 router.use(checkLicense);
@@ -30,7 +34,7 @@ function buildOccurrences(baseDate, recurrence) {
 }
 
 // Create content
-router.post('/', async (req, res) => {
+router.post('/', validateBody(contentSchema), async (req, res) => {
   try {
     const scheduledFor = new Date(req.body.scheduledFor);
     const occurrences = buildOccurrences(scheduledFor, req.body.recurrence);
@@ -41,8 +45,20 @@ router.post('/', async (req, res) => {
         userId: req.user.id
       }))
     );
+    
+    logger.info('Content created', {
+      userId: req.user.id,
+      contentCount: created.length,
+      contentType: req.body.contentType
+    });
+    
     res.status(201).json(created);
   } catch (err) {
+    logger.error('Error creating content', {
+      error: err.message,
+      userId: req.user.id,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
     res.status(400).json({ error: 'Invalid data', details: err.message });
   }
 });
@@ -61,13 +77,23 @@ router.get('/:id', async (req, res) => {
 });
 
 // Update content
-router.put('/:id', async (req, res) => {
+router.put('/:id', validateBody(updateContentSchema), async (req, res) => {
   const content = await Content.findOne({ where: { id: req.params.id, userId: req.user.id } });
   if (!content) return res.status(404).json({ error: 'Not found' });
   try {
     await content.update(req.body);
+    logger.info('Content updated', {
+      userId: req.user.id,
+      contentId: req.params.id
+    });
     res.json(content);
   } catch (err) {
+    logger.error('Error updating content', {
+      error: err.message,
+      userId: req.user.id,
+      contentId: req.params.id,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
     res.status(400).json({ error: 'Invalid data', details: err.message });
   }
 });

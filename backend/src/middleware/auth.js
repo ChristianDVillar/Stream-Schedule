@@ -5,6 +5,7 @@
 
 import jwt from 'jsonwebtoken';
 import { User } from '../models/index.js';
+import logger from '../utils/logger.js';
 
 const jwtSecret = process.env.JWT_SECRET || 'dev-jwt-secret';
 
@@ -35,7 +36,11 @@ export function authenticateToken(req, res, next) {
         next();
       })
       .catch(err => {
-        console.error('Error fetching user:', err);
+        logger.error('Error fetching user in auth middleware', {
+          error: err.message,
+          userId: payload.id,
+          stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        });
         req.user = null;
         next();
       });
