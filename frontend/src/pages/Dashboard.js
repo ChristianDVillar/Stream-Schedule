@@ -10,6 +10,7 @@ import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import toast from 'react-hot-toast';
 import { formatDate } from '../utils/dateUtils';
+import TrialWarning from '../components/TrialWarning';
 import { 
   Calendar as CalendarIcon, 
   Settings, 
@@ -272,6 +273,8 @@ const Dashboard = ({ user, token, ...props }) => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Trial Warning */}
+        {!user?.isAdmin && <TrialWarning user={user} />}
         {/* Calendario */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-blue-400 mb-8">
           <h3 className="text-lg font-bold text-blue-700 dark:text-blue-400 mb-4 flex items-center"><CalendarIcon className="w-5 h-5 mr-2" />Calendar</h3>
