@@ -48,6 +48,13 @@ export const contentSchema = Joi.object({
   hashtags: Joi.string().max(500).allow('', null).optional(),
   mentions: Joi.string().max(500).allow('', null).optional(),
   timezone: Joi.string().max(100).optional(),
+  mediaUrls: Joi.array()
+    .items(Joi.string().uri())
+    .optional()
+    .messages({
+      'array.base': 'Media URLs must be an array',
+      'string.uri': 'Each media URL must be a valid URI'
+    }),
   recurrence: recurrenceSchema
 }).required();
 
@@ -66,6 +73,13 @@ export const updateContentSchema = Joi.object({
   hashtags: Joi.string().max(500).allow('', null).optional(),
   mentions: Joi.string().max(500).allow('', null).optional(),
   timezone: Joi.string().max(100).optional(),
+  mediaUrls: Joi.array()
+    .items(Joi.string().uri())
+    .optional()
+    .messages({
+      'array.base': 'Media URLs must be an array',
+      'string.uri': 'Each media URL must be a valid URI'
+    }),
   recurrence: recurrenceSchema,
   status: Joi.string()
     .valid('draft', 'scheduled', 'published', 'failed', 'cancelled')
