@@ -67,8 +67,10 @@ export default function TrialWarning({ user, onDismiss }) {
           </div>
           <div className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
             <p>
-              {t('trialWarning.message')?.replace('{days}', daysLeft)?.replace('{days, plural, one {dia} other {dias}}', daysLeft === 1 ? 'dia' : 'dias')?.replace('{days, plural, one {day} other {days}}', daysLeft === 1 ? 'day' : 'days') || 
-                `Tu trial expira en ${daysLeft} ${daysLeft === 1 ? 'dia' : 'dias'}. Actualiza tu plan para continuar disfrutando de todas las funciones.`}
+              {(t('trialWarning.message') || 'Tu trial expira en {days} dias. Actualiza tu plan para continuar disfrutando de todas las funciones.')
+                .replace('{days}', daysLeft)
+                .replace('dias', daysLeft === 1 ? 'dia' : 'dias')
+                .replace('days', daysLeft === 1 ? 'day' : 'days')}
             </p>
           </div>
           <div className="mt-4">

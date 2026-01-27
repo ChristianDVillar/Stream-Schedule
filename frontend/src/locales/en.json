@@ -221,7 +221,7 @@
   },
   "trialWarning": {
     "title": "Your trial period is about to expire",
-    "message": "Your trial expires in {days} {days, plural, one {day} other {days}}. Upgrade your plan to continue enjoying all features.",
+    "message": "Your trial expires in {days} days. Upgrade your plan to continue enjoying all features.",
     "upgradeButton": "Upgrade Plan"
   }
 }
