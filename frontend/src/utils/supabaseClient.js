@@ -27,18 +27,26 @@ export const supabase = supabaseUrl && supabaseAnonKey
  */
 export async function uploadFile(file, bucket, userId) {
   if (!supabase) {
-    throw new Error('Supabase no está configurado');
+    const error = new Error('Supabase no está configurado. Verifica REACT_APP_SUPABASE_URL y REACT_APP_SUPABASE_ANON_KEY');
+    console.error(error.message);
+    return { path: null, error };
   }
 
   if (bucket !== 'images' && bucket !== 'videos') {
-    throw new Error('Bucket debe ser "images" o "videos"');
+    const error = new Error('Bucket debe ser "images" o "videos"');
+    console.error(error.message);
+    return { path: null, error };
   }
 
   try {
     // Generate unique file path: bucket/userId/timestamp-filename
     const timestamp = Date.now();
-    const fileName = `${timestamp}-${file.name}`;
+    // Sanitize filename (remove special characters that might cause issues)
+    const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const fileName = `${timestamp}-${sanitizedFileName}`;
     const filePath = userId ? `${userId}/${fileName}` : fileName;
+
+    console.log('Uploading file to Supabase:', { bucket, filePath, size: file.size });
 
     // Upload file to Supabase Storage
     const { data, error } = await supabase.storage
@@ -49,10 +57,18 @@ export async function uploadFile(file, bucket, userId) {
       });
 
     if (error) {
-      console.error('Error uploading file:', error);
-      throw error;
+      console.error('Error uploading file to Supabase:', error);
+      // Provide more specific error messages
+      if (error.message.includes('Bucket not found')) {
+        return { path: null, error: new Error('Bucket no encontrado. Verifica que los buckets "images" y "videos" existan en Supabase Storage') };
+      }
+      if (error.message.includes('new row violates')) {
+        return { path: null, error: new Error('Error de permisos. Verifica las politicas de Storage en Supabase') };
+      }
+      return { path: null, error };
     }
 
+    console.log('File uploaded successfully:', data.path);
     return { path: data.path, error: null };
   } catch (error) {
     console.error('Error in uploadFile:', error);

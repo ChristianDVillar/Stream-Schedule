@@ -7,9 +7,15 @@ import Joi from 'joi';
 
 // Register upload schema
 export const registerUploadSchema = Joi.object({
-  user_id: Joi.string().uuid().optional().messages({
-    'string.guid': 'User ID must be a valid UUID'
-  }),
+  user_id: Joi.alternatives()
+    .try(
+      Joi.number().integer().positive(),
+      Joi.string().uuid()
+    )
+    .optional()
+    .messages({
+      'alternatives.match': 'User ID must be a number or valid UUID'
+    }),
   bucket: Joi.string()
     .valid('images', 'videos')
     .required()
@@ -31,8 +37,14 @@ export const registerUploadSchema = Joi.object({
 
 // Get upload stats schema
 export const getUploadStatsSchema = Joi.object({
-  user_id: Joi.string().uuid().required().messages({
-    'string.guid': 'User ID must be a valid UUID',
-    'any.required': 'User ID is required'
-  })
+  user_id: Joi.alternatives()
+    .try(
+      Joi.number().integer().positive(),
+      Joi.string().uuid()
+    )
+    .required()
+    .messages({
+      'alternatives.match': 'User ID must be a number or valid UUID',
+      'any.required': 'User ID is required'
+    })
 }).required();
