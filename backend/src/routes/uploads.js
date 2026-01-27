@@ -5,6 +5,7 @@
  */
 
 import express from 'express';
+import multer from 'multer';
 import { supabase } from '../utils/supabaseClient.js';
 import { LICENSE_TYPES } from '../constants/licenseTypes.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -13,6 +14,22 @@ import { registerUploadSchema, getUploadStatsSchema } from '../validators/upload
 import logger from '../utils/logger.js';
 
 const router = express.Router();
+
+// Configure multer for memory storage (we'll upload directly to Supabase)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 100 * 1024 * 1024 // 100MB max
+  },
+  fileFilter: (req, file, cb) => {
+    // Allow images and videos
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image and video files are allowed'), false);
+    }
+  }
+});
 
 // Límite diario para usuarios trial
 const TRIAL_DAILY_LIMIT = 1;
@@ -144,6 +161,177 @@ router.post('/', requireAuth, validateBody(registerUploadSchema), async (req, re
     logger.error('Error in /api/upload', {
       error: err.message,
       userId: finalUserId,
+      bucket,
+      ip: req.ip,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+    res.status(500).json({ 
+      error: 'Error interno del servidor',
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+});
+
+/**
+ * POST /api/upload/file
+ * Upload file through backend (more secure, uses Service Role Key)
+ * 
+ * Multipart form data:
+ * - file: The file to upload
+ * - bucket: 'images' or 'videos' (optional, auto-detected from file type)
+ */
+router.post('/file', requireAuth, upload.single('file'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file provided' });
+  }
+
+  if (!supabase) {
+    return res.status(500).json({ 
+      error: 'Supabase no está configurado. Verifica SUPABASE_URL y SUPABASE_SERVICE_KEY' 
+    });
+  }
+
+  const authenticatedUserId = req.user.id.toString();
+  const file = req.file;
+  const bucket = req.body.bucket || (file.mimetype.startsWith('image/') ? 'images' : 'videos');
+
+  // Validate bucket
+  if (bucket !== 'images' && bucket !== 'videos') {
+    return res.status(400).json({ error: 'Bucket must be "images" or "videos"' });
+  }
+
+  try {
+    // Determine if user is trial
+    const isTrial = req.user.licenseType === LICENSE_TYPES.TRIAL;
+
+    // Check trial limits before uploading
+    if (isTrial) {
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data: uploads, error: countError } = await supabase
+        .from('uploads')
+        .select('id')
+        .eq('user_id', authenticatedUserId)
+        .gte('created_at', twentyFourHoursAgo);
+
+      if (countError) {
+        logger.error('Error counting uploads', {
+          error: countError.message,
+          userId: authenticatedUserId,
+          ip: req.ip
+        });
+        return res.status(500).json({ 
+          error: 'Error al verificar límites de upload' 
+        });
+      }
+
+      if (uploads && uploads.length >= TRIAL_DAILY_LIMIT) {
+        return res.status(403).json({ 
+          error: `Has alcanzado el límite diario de trial (${TRIAL_DAILY_LIMIT} upload por día)` 
+        });
+      }
+    }
+
+    // Generate unique file path
+    const timestamp = Date.now();
+    const sanitizedFileName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const fileName = `${timestamp}-${sanitizedFileName}`;
+    const filePath = `${authenticatedUserId}/${fileName}`;
+
+    // Upload file to Supabase Storage using Service Role Key
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, file.buffer, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.mimetype
+      });
+
+    if (uploadError) {
+      logger.error('Error uploading file to Supabase', {
+        error: uploadError.message,
+        userId: authenticatedUserId,
+        bucket,
+        filePath,
+        ip: req.ip
+      });
+      return res.status(500).json({ 
+        error: 'Error al subir archivo a Supabase Storage',
+        details: uploadError.message 
+      });
+    }
+
+    // Register upload in database
+    const { data: insertData, error: insertError } = await supabase
+      .from('uploads')
+      .insert([
+        { 
+          user_id: authenticatedUserId, 
+          bucket, 
+          file_path: uploadData.path,
+          created_at: new Date().toISOString()
+        }
+      ])
+      .select();
+
+    if (insertError) {
+      logger.error('Error inserting upload', {
+        error: insertError.message,
+        userId: authenticatedUserId,
+        bucket,
+        file_path: uploadData.path,
+        ip: req.ip
+      });
+      // File is already uploaded, but registration failed
+      // Optionally: Delete the file from storage
+      return res.status(500).json({ 
+        error: 'Error al registrar upload',
+        details: insertError.message 
+      });
+    }
+
+    // Get URL for the uploaded file
+    let url;
+    if (bucket === 'images') {
+      const { data: urlData } = supabase.storage
+        .from('images')
+        .getPublicUrl(uploadData.path);
+      url = urlData.publicUrl;
+    } else {
+      const { data: signedData, error: signedError } = await supabase.storage
+        .from('videos')
+        .createSignedUrl(uploadData.path, 3600);
+      if (signedError) {
+        logger.error('Error creating signed URL', {
+          error: signedError.message,
+          filePath: uploadData.path
+        });
+      } else {
+        url = signedData.signedUrl;
+      }
+    }
+
+    logger.info('File uploaded successfully', {
+      userId: authenticatedUserId,
+      bucket,
+      file_path: uploadData.path,
+      isTrialUser: isTrial,
+      remainingUploads: isTrial ? Math.max(0, TRIAL_DAILY_LIMIT - (uploads?.length || 0) - 1) : null
+    });
+
+    res.json({
+      message: 'Archivo subido exitosamente',
+      upload: insertData[0],
+      url,
+      bucket,
+      file_path: uploadData.path,
+      isTrialUser: isTrial,
+      remainingUploads: isTrial ? Math.max(0, TRIAL_DAILY_LIMIT - (uploads?.length || 0) - 1) : null
+    });
+
+  } catch (err) {
+    logger.error('Error in /api/upload/file', {
+      error: err.message,
+      userId: authenticatedUserId,
       bucket,
       ip: req.ip,
       stack: process.env.NODE_ENV === 'development' ? err.stack : undefined

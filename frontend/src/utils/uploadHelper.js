@@ -5,7 +5,7 @@
  */
 
 import { uploadFile, getPublicImageUrl, getSignedVideoUrl } from './supabaseClient';
-import { registerUpload } from '../api';
+import { registerUpload, uploadFileThroughBackend } from '../api';
 import toast from 'react-hot-toast';
 
 // Check if Supabase is configured
@@ -14,71 +14,39 @@ const isSupabaseConfigured = () => {
 };
 
 /**
- * Complete upload flow: Upload to Supabase Storage + Register in backend
+ * Complete upload flow: Upload through backend (secure method)
+ * This uses the backend Service Role Key instead of frontend anon key
  * @param {Object} params
  * @param {File} params.file - File to upload
- * @param {string} params.bucket - 'images' or 'videos'
- * @param {number|string} params.userId - User ID (optional, will be inferred from auth token)
- * @param {boolean} params.isTrialUser - Whether user is on trial (optional, will be inferred from user)
+ * @param {string} params.bucket - 'images' or 'videos' (optional, auto-detected)
+ * @param {number|string} params.userId - User ID (optional, not needed when using backend)
+ * @param {boolean} params.isTrialUser - Whether user is on trial (optional, backend will check)
  * @returns {Promise<{url: string, error: Error|null}>}
  */
 export async function handleUpload({ file, bucket, userId, isTrialUser }) {
   try {
-    // Validate Supabase is configured
-    if (!isSupabaseConfigured()) {
-      const errorMsg = 'Supabase no esta configurado. Verifica REACT_APP_SUPABASE_URL y REACT_APP_SUPABASE_ANON_KEY en las variables de entorno.';
-      toast.error(errorMsg);
-      console.error('Supabase configuration missing:', {
-        hasUrl: !!process.env.REACT_APP_SUPABASE_URL,
-        hasKey: !!process.env.REACT_APP_SUPABASE_ANON_KEY
-      });
-      return { url: null, error: new Error('Supabase not configured') };
-    }
-
-    // Step 1: Upload file to Supabase Storage
-    const uploadResult = await uploadFile(file, bucket, userId?.toString());
-    
-    if (uploadResult.error) {
-      toast.error('Error subiendo archivo a Supabase Storage');
-      return { url: null, error: uploadResult.error };
-    }
-
-    // Step 2: Register upload in backend (this checks trial limits)
-    // user_id is optional - backend will use authenticated user from token
+    // Use backend upload method (more secure, uses Service Role Key)
     try {
-      const response = await registerUpload({
-        ...(userId && { user_id: userId }), // Only include if provided
-        bucket,
-        file_path: uploadResult.path,
-        ...(isTrialUser !== undefined && { isTrialUser }) // Only include if provided
-      });
-
-      // Check if upload was rejected due to limits
+      const response = await uploadFileThroughBackend(file, bucket);
+      
       if (response.data.error) {
         toast.error(response.data.error);
-        // Optionally: Delete the uploaded file from storage if limit was reached
         return { url: null, error: new Error(response.data.error) };
       }
 
-      toast.success('Archivo subido y registrado con éxito');
-    } catch (registerError) {
-      // If registration fails, the file is already uploaded
-      // You might want to delete it or handle this case
-      console.error('Error registrando upload:', registerError);
-      const errorMessage = registerError.response?.data?.error || 'Error al registrar upload';
+      toast.success('Archivo subido exitosamente');
+      return { 
+        url: response.data.url, 
+        path: response.data.file_path,
+        bucket: response.data.bucket,
+        error: null 
+      };
+    } catch (uploadError) {
+      console.error('Error uploading through backend:', uploadError);
+      const errorMessage = uploadError.response?.data?.error || uploadError.message || 'Error al subir archivo';
       toast.error(errorMessage);
       return { url: null, error: new Error(errorMessage) };
     }
-
-    // Step 3: Get URL for display
-    let url;
-    if (bucket === 'images') {
-      url = getPublicImageUrl(uploadResult.path);
-    } else {
-      url = await getSignedVideoUrl(uploadResult.path, 300); // 5 minutes for preview
-    }
-
-    return { url, error: null };
   } catch (error) {
     console.error('Error en handleUpload:', error);
     toast.error('Error subiendo archivo');
