@@ -17,7 +17,23 @@ export function validate(schema, source = 'body') {
       const dataToValidate = req[source];
       
       // Validate data
-      const { value, error } = schema.validate(dataToValidate, {
+      // For params, try to convert numeric strings to numbers
+      let dataToValidateProcessed = dataToValidate;
+      if (source === 'params') {
+        dataToValidateProcessed = { ...dataToValidate };
+        // Try to convert string numbers to actual numbers
+        for (const key in dataToValidateProcessed) {
+          const value = dataToValidateProcessed[key];
+          if (typeof value === 'string' && /^\d+$/.test(value)) {
+            const numValue = Number(value);
+            if (!isNaN(numValue)) {
+              dataToValidateProcessed[key] = numValue;
+            }
+          }
+        }
+      }
+      
+      const { value, error } = schema.validate(dataToValidateProcessed, {
         abortEarly: false, // Return all errors, not just the first one
         stripUnknown: true, // Remove unknown fields
         convert: true // Convert types (e.g., string to number)
