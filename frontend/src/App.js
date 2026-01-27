@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import Schedule from './pages/Schedule';
+import MediaUpload from './pages/MediaUpload';
 import Login from './pages/Login';
 import AuthCallback from './pages/AuthCallback';
 import AdminDashboard from './pages/AdminDashboard';
@@ -97,6 +98,7 @@ function Sidebar({ user, open, onClose }) {
       <nav className="flex-1 px-4 py-2 space-y-2">
         <Link to={user?.isAdmin ? "/admin" : "/dashboard"} className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('dashboard.title')}</Link>
         {!user?.isAdmin && <Link to="/schedule" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('schedule.newPost')}</Link>}
+        {!user?.isAdmin && <Link to="/media" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">Media / Archivos</Link>}
         <Link to="/settings" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('settings.title')}</Link>
         <Link to="/profile" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('profile.title')}</Link>
         {user?.isAdmin && <Link to="/admin" className="block px-3 py-2 rounded hover:bg-purple-100 dark:hover:bg-gray-700 font-medium">{t('admin.title')}</Link>}
@@ -210,6 +212,11 @@ const App = () => {
                 <Route path="/schedule" element={
                   <PrivateRoute user={user}>
                     <Schedule user={user} token={token} />
+                  </PrivateRoute>
+                } />
+                <Route path="/media" element={
+                  <PrivateRoute user={user}>
+                    <MediaUpload user={user} token={token} />
                   </PrivateRoute>
                 } />
                 <Route path="/" element={

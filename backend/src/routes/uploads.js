@@ -70,10 +70,11 @@ router.post('/', requireAuth, validateBody(registerUploadSchema), async (req, re
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
       // Contar uploads en las últimas 24 horas
+      // Convert user_id to string for Supabase (it stores as text/uuid)
       const { data: uploads, error: countError } = await supabase
         .from('uploads')
         .select('id')
-        .eq('user_id', finalUserId)
+        .eq('user_id', finalUserId.toString())
         .gte('created_at', twentyFourHoursAgo);
 
       if (countError) {
@@ -96,11 +97,12 @@ router.post('/', requireAuth, validateBody(registerUploadSchema), async (req, re
     }
 
     // Registrar upload en la tabla uploads
+    // Convert user_id to string for Supabase (it stores as text/uuid)
     const { data, error: insertError } = await supabase
       .from('uploads')
       .insert([
         { 
-          user_id: finalUserId, 
+          user_id: finalUserId.toString(), 
           bucket, 
           file_path,
           created_at: new Date().toISOString()
@@ -162,7 +164,9 @@ router.get('/stats/:user_id', requireAuth, validateParams(getUploadStatsSchema),
 
   // Verificar que el user_id coincida con el usuario autenticado (excepto admins)
   const authenticatedUserId = req.user.id.toString();
-  if (user_id !== authenticatedUserId && !req.user.isAdmin) {
+  // Convert user_id from params to string for comparison
+  const paramUserId = user_id.toString();
+  if (paramUserId !== authenticatedUserId && !req.user.isAdmin) {
     return res.status(403).json({ 
       error: 'No tienes permiso para ver estadísticas de otro usuario' 
     });
@@ -179,10 +183,11 @@ router.get('/stats/:user_id', requireAuth, validateParams(getUploadStatsSchema),
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
     // Contar uploads en las últimas 24 horas
+    // user_id comes as string from params, but ensure it's a string
     const { data: uploads, error } = await supabase
       .from('uploads')
       .select('id, bucket, created_at')
-      .eq('user_id', user_id)
+      .eq('user_id', user_id.toString())
       .gte('created_at', twentyFourHoursAgo)
       .order('created_at', { ascending: false });
 

@@ -8,19 +8,35 @@ import { uploadFile, getPublicImageUrl, getSignedVideoUrl } from './supabaseClie
 import { registerUpload } from '../api';
 import toast from 'react-hot-toast';
 
+// Check if Supabase is configured
+const isSupabaseConfigured = () => {
+  return !!(process.env.REACT_APP_SUPABASE_URL && process.env.REACT_APP_SUPABASE_ANON_KEY);
+};
+
 /**
  * Complete upload flow: Upload to Supabase Storage + Register in backend
  * @param {Object} params
  * @param {File} params.file - File to upload
  * @param {string} params.bucket - 'images' or 'videos'
- * @param {string} params.userId - User UUID (optional, will be inferred from auth token)
+ * @param {number|string} params.userId - User ID (optional, will be inferred from auth token)
  * @param {boolean} params.isTrialUser - Whether user is on trial (optional, will be inferred from user)
  * @returns {Promise<{url: string, error: Error|null}>}
  */
 export async function handleUpload({ file, bucket, userId, isTrialUser }) {
   try {
+    // Validate Supabase is configured
+    if (!isSupabaseConfigured()) {
+      const errorMsg = 'Supabase no esta configurado. Verifica REACT_APP_SUPABASE_URL y REACT_APP_SUPABASE_ANON_KEY en las variables de entorno.';
+      toast.error(errorMsg);
+      console.error('Supabase configuration missing:', {
+        hasUrl: !!process.env.REACT_APP_SUPABASE_URL,
+        hasKey: !!process.env.REACT_APP_SUPABASE_ANON_KEY
+      });
+      return { url: null, error: new Error('Supabase not configured') };
+    }
+
     // Step 1: Upload file to Supabase Storage
-    const uploadResult = await uploadFile(file, bucket, userId);
+    const uploadResult = await uploadFile(file, bucket, userId?.toString());
     
     if (uploadResult.error) {
       toast.error('Error subiendo archivo a Supabase Storage');
