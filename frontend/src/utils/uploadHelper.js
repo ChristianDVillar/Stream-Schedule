@@ -98,12 +98,13 @@ export async function getUploadStats(userId) {
     // For now, require userId - can be enhanced later to get from auth context
     if (!userId) {
       console.warn('getUploadStats requires userId');
-      return null;
+      return { uploads: [], totalUploads24h: 0, isTrialUser: false };
     }
     const response = await getStats(userId);
-    return response.data;
+    return response.data || { uploads: [], totalUploads24h: 0, isTrialUser: false };
   } catch (error) {
     console.error('Error obteniendo estadísticas:', error);
-    return null;
+    // Return empty stats instead of null to prevent errors in components
+    return { uploads: [], totalUploads24h: 0, isTrialUser: false, error: error.message };
   }
 }

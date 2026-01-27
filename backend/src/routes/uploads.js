@@ -214,7 +214,7 @@ router.get('/stats/:user_id', requireAuth, validateParams(getUploadStatsSchema),
       isTrialUser: isTrial,
       dailyLimit: isTrial ? TRIAL_DAILY_LIMIT : null,
       remainingUploads: isTrial ? Math.max(0, TRIAL_DAILY_LIMIT - uploads24h.length) : null,
-      uploads: uploads || [] // Return all uploads for gallery
+      uploads: uploads || [] // Return all uploads for gallery (empty array if no uploads)
     });
 
   } catch (err) {

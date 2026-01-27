@@ -95,8 +95,16 @@ export default function FileUpload({ user, onUploadComplete }) {
   useEffect(() => {
     const loadStats = async () => {
       if (user?.id) {
-        const stats = await getUploadStats(user.id.toString());
-        setUploadStats(stats);
+        try {
+          const stats = await getUploadStats(user.id.toString());
+          if (stats && !stats.error) {
+            setUploadStats(stats);
+          }
+        } catch (error) {
+          console.error('Error loading upload stats:', error);
+          // Set empty stats to prevent errors
+          setUploadStats({ uploads: [], totalUploads24h: 0, isTrialUser: false });
+        }
       }
     };
     loadStats();
