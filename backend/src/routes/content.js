@@ -38,11 +38,17 @@ router.post('/', validateBody(contentSchema), async (req, res) => {
   try {
     const scheduledFor = new Date(req.body.scheduledFor);
     const occurrences = buildOccurrences(scheduledFor, req.body.recurrence);
+    
+    // Extract mediaUrls and store in files field
+    const { mediaUrls, ...contentData } = req.body;
+    const filesData = mediaUrls && mediaUrls.length > 0 ? { urls: mediaUrls } : null;
+    
     const created = await Promise.all(
       occurrences.map(date => Content.create({
-        ...req.body,
+        ...contentData,
         scheduledFor: date,
-        userId: req.user.id
+        userId: req.user.id,
+        files: filesData
       }))
     );
     

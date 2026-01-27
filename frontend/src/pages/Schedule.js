@@ -4,6 +4,8 @@ import { apiClient } from '../api';
 import toast from 'react-hot-toast';
 import { useLanguage } from '../contexts/LanguageContext';
 import Joyride, { STATUS } from 'react-joyride';
+import FileUpload from '../components/FileUpload';
+import MediaGallery from '../components/MediaGallery';
 import { 
   Calendar, 
   Clock, 
@@ -12,7 +14,9 @@ import {
   X, 
   Info,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Paperclip,
+  Image as ImageIcon
 } from 'lucide-react';
 
 const Schedule = ({ user, token }) => {
@@ -26,12 +30,14 @@ const Schedule = ({ user, token }) => {
     scheduledFor: '',
     scheduledTime: '',
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    mediaUrls: [], // Array of media URLs to attach
     recurrence: {
       enabled: false,
       frequency: 'weekly',
       count: 1
     }
   });
+  const [showMediaSection, setShowMediaSection] = useState(false);
   const [templates, setTemplates] = useState(() => {
     try {
       const stored = localStorage.getItem('contentTemplates');
@@ -149,6 +155,7 @@ const Schedule = ({ user, token }) => {
         platforms: formData.platforms,
         scheduledFor: scheduledDateTime.toISOString(),
         timezone: formData.timezone,
+        mediaUrls: formData.mediaUrls, // Include media URLs
         recurrence: formData.recurrence
       }, {
         headers: { Authorization: `Bearer ${token}` },
@@ -213,6 +220,34 @@ const Schedule = ({ user, token }) => {
       content: template.content,
       platforms: template.platforms
     }));
+  };
+
+  const handleMediaSelect = (url, bucket) => {
+    setFormData(prev => {
+      const currentUrls = prev.mediaUrls || [];
+      if (currentUrls.includes(url)) {
+        // Deselect if already selected
+        return {
+          ...prev,
+          mediaUrls: currentUrls.filter(u => u !== url)
+        };
+      } else {
+        // Select if not selected
+        return {
+          ...prev,
+          mediaUrls: [...currentUrls, url]
+        };
+      }
+    });
+  };
+
+  const handleUploadComplete = (url, bucket) => {
+    // Automatically add uploaded file to selected media
+    setFormData(prev => ({
+      ...prev,
+      mediaUrls: [...(prev.mediaUrls || []), url]
+    }));
+    toast.success('Archivo subido y agregado al post');
   };
 
   const platforms = [
@@ -307,6 +342,89 @@ const Schedule = ({ user, token }) => {
                 </p>
                     </div>
                   </div>
+
+            {/* Media Section */}
+            <div className="border-t pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <div className="flex items-center space-x-2">
+                    <Paperclip className="w-4 h-4" />
+                    <span>Archivos e Imagenes</span>
+                  </div>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowMediaSection(!showMediaSection)}
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {showMediaSection ? 'Ocultar' : 'Mostrar'}
+                </button>
+              </div>
+
+              {showMediaSection && (
+                <div className="space-y-4">
+                  {/* File Upload */}
+                  <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center">
+                      <ImageIcon className="w-4 h-4 mr-2" />
+                      Subir nuevo archivo
+                    </h4>
+                    <FileUpload 
+                      user={user} 
+                      onUploadComplete={handleUploadComplete}
+                    />
+                  </div>
+
+                  {/* Media Gallery */}
+                  <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                      Archivos disponibles
+                    </h4>
+                    <MediaGallery 
+                      user={user}
+                      onSelect={handleMediaSelect}
+                      selectedUrls={formData.mediaUrls || []}
+                    />
+                  </div>
+
+                  {/* Selected Media Preview */}
+                  {formData.mediaUrls && formData.mediaUrls.length > 0 && (
+                    <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-900/20">
+                      <h4 className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-2">
+                        Archivos seleccionados ({formData.mediaUrls.length})
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {formData.mediaUrls.map((url, index) => (
+                          <div
+                            key={index}
+                            className="relative group"
+                          >
+                            <div className="w-16 h-16 rounded border-2 border-blue-500 bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+                              {url.includes('images') ? (
+                                <img 
+                                  src={url} 
+                                  alt={`Media ${index + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <Video className="w-6 h-6 text-gray-400" />
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleMediaSelect(url)}
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Content Type */}
             <div>

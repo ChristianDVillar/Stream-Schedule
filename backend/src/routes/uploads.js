@@ -182,14 +182,14 @@ router.get('/stats/:user_id', requireAuth, validateParams(getUploadStatsSchema),
     // Calcular fecha de hace 24 horas
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-    // Contar uploads en las últimas 24 horas
-    // user_id comes as string from params, but ensure it's a string
+    // Get all uploads (not just last 24h) for media gallery
+    // For stats, we still want last 24h, but for gallery we want more
     const { data: uploads, error } = await supabase
       .from('uploads')
-      .select('id, bucket, created_at')
+      .select('id, bucket, file_path, created_at')
       .eq('user_id', user_id.toString())
-      .gte('created_at', twentyFourHoursAgo)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(100); // Limit to last 100 uploads
 
     if (error) {
       logger.error('Error getting upload stats', {
@@ -208,12 +208,16 @@ router.get('/stats/:user_id', requireAuth, validateParams(getUploadStatsSchema),
       isTrial = req.user.licenseType === LICENSE_TYPES.TRIAL;
     }
 
+    // Calculate 24h stats separately
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const uploads24h = uploads?.filter(u => new Date(u.created_at) >= new Date(twentyFourHoursAgo)) || [];
+    
     res.json({
-      totalUploads24h: uploads?.length || 0,
+      totalUploads24h: uploads24h.length,
       isTrialUser: isTrial,
       dailyLimit: isTrial ? TRIAL_DAILY_LIMIT : null,
-      remainingUploads: isTrial ? Math.max(0, TRIAL_DAILY_LIMIT - (uploads?.length || 0)) : null,
-      uploads: uploads || []
+      remainingUploads: isTrial ? Math.max(0, TRIAL_DAILY_LIMIT - uploads24h.length) : null,
+      uploads: uploads || [] // Return all uploads for gallery
     });
 
   } catch (err) {
