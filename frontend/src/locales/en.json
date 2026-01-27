@@ -218,5 +218,10 @@
     "twitter": "Twitter",
     "instagram": "Instagram",
     "discord": "Discord"
+  },
+  "trialWarning": {
+    "title": "Your trial period is about to expire",
+    "message": "Your trial expires in {days} {days, plural, one {day} other {days}}. Upgrade your plan to continue enjoying all features.",
+    "upgradeButton": "Upgrade Plan"
   }
 }
