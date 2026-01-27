@@ -179,9 +179,6 @@ router.get('/stats/:user_id', requireAuth, validateParams(getUploadStatsSchema),
   }
 
   try {
-    // Calcular fecha de hace 24 horas
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
     // Get all uploads (not just last 24h) for media gallery
     // For stats, we still want last 24h, but for gallery we want more
     const { data: uploads, error } = await supabase
