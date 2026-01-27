@@ -178,6 +178,26 @@ export async function getPasswordReminder(token) {
 }
 
 /**
+ * Upload file through backend (secure method using Service Role Key)
+ * @param {File} file - The file to upload
+ * @param {string} bucket - 'images' or 'videos' (optional, auto-detected)
+ * @returns {Promise} API response with upload info and URL
+ */
+export async function uploadFileThroughBackend(file, bucket) {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (bucket) {
+    formData.append('bucket', bucket);
+  }
+  
+  return apiClient.post('/upload/file', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+}
+
+/**
  * Register an upload in the backend
  * This should be called after successfully uploading a file to Supabase Storage
  * @param {Object} params
