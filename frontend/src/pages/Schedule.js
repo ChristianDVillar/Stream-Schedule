@@ -16,7 +16,8 @@ import {
   CheckCircle,
   AlertCircle,
   Paperclip,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Video
 } from 'lucide-react';
 
 const Schedule = ({ user, token }) => {
