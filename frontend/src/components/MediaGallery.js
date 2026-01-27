@@ -28,10 +28,10 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [] }) {
       setLoading(true);
       setError(null);
 
-      // Get upload stats which includes recent uploads
+      // Get upload stats which includes all uploads (not just 24h)
       const stats = await getUploadStats(user.id.toString());
       
-      if (stats && stats.uploads) {
+      if (stats && stats.uploads && stats.uploads.length > 0) {
         // Get URLs for each upload
         const filesWithUrls = await Promise.all(
           stats.uploads.map(async (upload) => {
