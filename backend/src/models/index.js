@@ -116,6 +116,12 @@ const User = sequelize.define('User', {
     allowNull: false,
     defaultValue: false
   },
+  trialExtensions: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+    comment: 'Number of times the trial has been extended (max 2)'
+  },
   lastPasswordChange: {
     type: DataTypes.DATE,
     allowNull: true

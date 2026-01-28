@@ -30,11 +30,26 @@ const PLANS = {
 
 // Create a Stripe checkout session
 router.post('/checkout', requireAuth, validateBody(checkoutSchema), async (req, res) => {
-  if (!stripe) return res.status(500).json({ error: 'Stripe is not configured. Please set STRIPE_SECRET_KEY in environment variables.' });
+  if (!stripe) {
+    return res.status(500).json({ 
+      error: 'Stripe is not configured. Please set STRIPE_SECRET_KEY in environment variables.',
+      details: 'Payments require STRIPE_SECRET_KEY to be set. Webhook (STRIPE_WEBHOOK_SECRET) is optional but recommended for automatic payment processing.'
+    });
+  }
   
   const licenseType = req.body.licenseType || LICENSE_TYPES.MONTHLY;
   const plan = PLANS[licenseType];
   if (!plan) return res.status(400).json({ error: 'Invalid licenseType' });
+  
+  // Warn if webhook is not configured (but allow payment to proceed)
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    logger.warn('Stripe checkout initiated without webhook secret configured', {
+      userId: req.user.id,
+      licenseType,
+      note: 'Payment will work but requires manual verification via /verify-session endpoint'
+    });
+  }
 
   try {
     // Create payment record
@@ -81,11 +96,24 @@ router.post('/checkout', requireAuth, validateBody(checkoutSchema), async (req, 
     payment.stripeSessionId = session.id;
     await payment.save();
 
-    res.json({
+    // Include warning if webhook is not configured
+    const webhookConfigured = !!process.env.STRIPE_WEBHOOK_SECRET;
+    const response = {
       sessionId: session.id,
       url: session.url,
       paymentId: payment.id,
-    });
+    };
+    
+    if (!webhookConfigured) {
+      response.warning = 'Webhook not configured. After payment, you will need to verify manually via /verify-session endpoint.';
+      logger.info('Checkout created without webhook - manual verification required', {
+        userId: req.user.id,
+        sessionId: session.id,
+        paymentId: payment.id
+      });
+    }
+    
+    res.json(response);
   } catch (error) {
     logger.error('Stripe checkout error', {
       error: error.message,
@@ -163,18 +191,28 @@ router.post('/verify-session', requireAuth, validateBody(verifySessionSchema), a
 });
 
 // Webhook endpoint for Stripe
+// Note: Webhook is optional - payments can work without it using manual verification
 router.post('/webhook', async (req, res) => {
   if (!stripe) {
-    logger.error('Stripe is not configured for webhook');
-    return res.status(500).json({ error: 'Stripe is not configured' });
+    logger.warn('Stripe webhook received but Stripe is not configured');
+    return res.status(500).json({ 
+      error: 'Stripe is not configured',
+      note: 'Set STRIPE_SECRET_KEY to enable webhook processing. Payments can still work via manual session verification.'
+    });
   }
 
   const sig = req.headers['stripe-signature'];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
   if (!webhookSecret) {
-    logger.error('STRIPE_WEBHOOK_SECRET is not set');
-    return res.status(500).json({ error: 'Webhook secret not configured' });
+    logger.warn('Stripe webhook received but STRIPE_WEBHOOK_SECRET is not set', {
+      ip: req.ip,
+      note: 'Webhook processing disabled. Payments will work via manual verification (/verify-session endpoint).'
+    });
+    return res.status(500).json({ 
+      error: 'Webhook secret not configured',
+      note: 'Set STRIPE_WEBHOOK_SECRET to enable automatic webhook processing. Payments can still work via manual session verification.'
+    });
   }
 
   let event;
@@ -244,6 +282,25 @@ router.post('/webhook', async (req, res) => {
   } else {
     res.json({ received: true });
   }
+});
+
+// Get Stripe configuration status (public endpoint for frontend to check)
+router.get('/config-status', async (req, res) => {
+  const stripeConfigured = !!stripe;
+  const webhookConfigured = !!process.env.STRIPE_WEBHOOK_SECRET;
+  
+  res.json({
+    stripeConfigured,
+    webhookConfigured,
+    paymentEnabled: stripeConfigured,
+    automaticProcessingEnabled: stripeConfigured && webhookConfigured,
+    manualVerificationRequired: stripeConfigured && !webhookConfigured,
+    message: stripeConfigured 
+      ? (webhookConfigured 
+          ? 'Stripe fully configured - automatic payment processing enabled'
+          : 'Stripe configured but webhook missing - payments work via manual verification')
+      : 'Stripe not configured - payments disabled'
+  });
 });
 
 router.get('/admin/stats', requireAdmin, async (req, res) => {

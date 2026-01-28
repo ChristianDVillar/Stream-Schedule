@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login, register, loginWithGoogle, loginWithTwitch, forgotPassword } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function Login({ setUser, setToken }) {
   const { t } = useLanguage();
@@ -17,6 +18,8 @@ export default function Login({ setUser, setToken }) {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
 
   // Check for OAuth error in URL params
@@ -218,29 +221,87 @@ export default function Login({ setUser, setToken }) {
         </div>
         <div className="mb-6">
           <label htmlFor="login-password" className="block text-gray-700 dark:text-gray-300 mb-2">{t('common.password')}</label>
-          <input
-            id="login-password"
-            name="password"
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            required
-          />
+          <div className="relative">
+            <input
+              id="login-password"
+              name="password"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setShowPassword(true);
+              }}
+              onMouseUp={(e) => {
+                e.preventDefault();
+                setShowPassword(false);
+              }}
+              onMouseLeave={(e) => {
+                e.preventDefault();
+                setShowPassword(false);
+              }}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                setShowPassword(true);
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                setShowPassword(false);
+              }}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 focus:outline-none select-none cursor-pointer"
+              tabIndex={-1}
+            >
+              <Eye className="w-5 h-5" />
+            </button>
+          </div>
         </div>
         {isRegister && (
           <>
             <div className="mb-6">
               <label htmlFor="login-confirm" className="block text-gray-700 dark:text-gray-300 mb-2">{t('common.confirmPassword')}</label>
-              <input
-                id="login-confirm"
-                name="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
+              <div className="relative">
+                <input
+                  id="login-confirm"
+                  name="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setShowConfirmPassword(true);
+                  }}
+                  onMouseUp={(e) => {
+                    e.preventDefault();
+                    setShowConfirmPassword(false);
+                  }}
+                  onMouseLeave={(e) => {
+                    e.preventDefault();
+                    setShowConfirmPassword(false);
+                  }}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    setShowConfirmPassword(true);
+                  }}
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    setShowConfirmPassword(false);
+                  }}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 focus:outline-none select-none cursor-pointer"
+                  tabIndex={-1}
+                >
+                  <Eye className="w-5 h-5" />
+                </button>
+              </div>
             </div>
             <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <label className="block text-gray-700 dark:text-gray-300 mb-3 font-semibold">{t('login.howToStart')}</label>
