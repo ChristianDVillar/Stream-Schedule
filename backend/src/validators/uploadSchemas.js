@@ -37,12 +37,14 @@ export const registerUploadSchema = Joi.object({
 
 // Get upload stats schema
 // Note: URL params are always strings, so we accept string that can be converted to number or UUID
+// Also accept plain strings for flexibility (in case user_id is stored as string in DB)
 export const getUploadStatsSchema = Joi.object({
   user_id: Joi.alternatives()
     .try(
       Joi.number().integer().positive(),
       Joi.string().uuid(),
-      Joi.string().pattern(/^\d+$/).message('User ID must be a number or valid UUID')
+      Joi.string().pattern(/^\d+$/),
+      Joi.string().min(1) // Accept any non-empty string as fallback
     )
     .required()
     .messages({

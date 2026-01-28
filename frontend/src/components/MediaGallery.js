@@ -5,14 +5,17 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Image, Video, X, Check } from 'lucide-react';
+import { Image, Video, X, Check, Trash2 } from 'lucide-react';
 import { supabase, getPublicImageUrl, getSignedVideoUrl } from '../utils/supabaseClient';
 import { getUploadStats } from '../utils/uploadHelper';
+import { deleteUpload } from '../api';
+import toast from 'react-hot-toast';
 
-export default function MediaGallery({ user, onSelect, selectedUrls = [] }) {
+export default function MediaGallery({ user, onSelect, selectedUrls = [], showDeleteButton = false, onDelete }) {
   const [mediaFiles, setMediaFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     loadMediaFiles();
@@ -81,6 +84,34 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [] }) {
     return selectedUrls.includes(url);
   };
 
+  const handleDelete = async (e, file) => {
+    e.stopPropagation(); // Prevent triggering selection
+    
+    if (!window.confirm(`¿Estás seguro de que quieres eliminar "${file.fileName}"?`)) {
+      return;
+    }
+
+    try {
+      setDeletingId(file.id);
+      await deleteUpload(file.id);
+      toast.success('Archivo eliminado exitosamente');
+      
+      // Remove from local state
+      setMediaFiles(prev => prev.filter(f => f.id !== file.id));
+      
+      // Notify parent component if callback provided
+      if (onDelete) {
+        onDelete(file);
+      }
+    } catch (err) {
+      console.error('Error deleting file:', err);
+      const errorMessage = err.response?.data?.error || 'Error al eliminar archivo';
+      toast.error(errorMessage);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center py-8">
@@ -129,13 +160,13 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [] }) {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {mediaFiles.map((file, index) => (
           <div
-            key={index}
+            key={file.id || index}
             onClick={() => handleSelect(file)}
             className={`relative group cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
               isSelected(file.url)
                 ? 'border-blue-500 ring-2 ring-blue-200'
                 : 'border-gray-200 dark:border-gray-700 hover:border-blue-400'
-            }`}
+            } ${deletingId === file.id ? 'opacity-50 pointer-events-none' : ''}`}
           >
             {file.bucket === 'images' ? (
               <div className="relative aspect-square">
@@ -166,6 +197,22 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [] }) {
                   <Check className="w-5 h-5 text-white" />
                 </div>
               </div>
+            )}
+
+            {/* Delete button */}
+            {showDeleteButton && (
+              <button
+                onClick={(e) => handleDelete(e, file)}
+                disabled={deletingId === file.id}
+                className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                title="Eliminar archivo"
+              >
+                {deletingId === file.id ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+              </button>
             )}
             
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
