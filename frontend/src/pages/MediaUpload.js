@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import FileUpload from '../components/FileUpload';
+import MediaGallery from '../components/MediaGallery';
 import { getUploadStats } from '../utils/uploadHelper';
 import { Image, Video, Upload, BarChart3 } from 'lucide-react';
 
@@ -36,6 +37,13 @@ export default function MediaUpload({ user, token }) {
 
   const handleUploadComplete = (url, bucket) => {
     // Reload stats after upload
+    if (user?.id) {
+      getUploadStats(user.id.toString()).then(setUploadStats).catch(console.error);
+    }
+  };
+
+  const handleFileDelete = () => {
+    // Reload stats after deletion
     if (user?.id) {
       getUploadStats(user.id.toString()).then(setUploadStats).catch(console.error);
     }
@@ -112,8 +120,20 @@ export default function MediaUpload({ user, token }) {
       )}
 
       {/* File Upload Component */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
         <FileUpload user={user} onUploadComplete={handleUploadComplete} />
+      </div>
+
+      {/* Media Gallery - Show uploaded files */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Archivos Subidos
+        </h2>
+        <MediaGallery 
+          user={user}
+          showDeleteButton={true}
+          onDelete={handleFileDelete}
+        />
       </div>
 
       {/* Instructions */}

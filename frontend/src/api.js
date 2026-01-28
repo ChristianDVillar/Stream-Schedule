@@ -234,3 +234,12 @@ export async function registerUpload({ user_id, bucket, file_path, isTrialUser }
 export async function getUploadStats(user_id) {
   return apiClient.get(`/upload/stats/${user_id}`);
 }
+
+/**
+ * Delete an uploaded file
+ * @param {string} upload_id - Upload record ID
+ * @returns {Promise} API response
+ */
+export async function deleteUpload(upload_id) {
+  return apiClient.delete(`/upload/${upload_id}`);
+}
