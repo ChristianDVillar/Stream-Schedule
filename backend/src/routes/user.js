@@ -21,7 +21,8 @@ import {
   adminUpdateLicenseSchema,
   adminChangeEmailSchema,
   adminResetPasswordSchema,
-  adminAssignTrialSchema
+  adminAssignTrialSchema,
+  extendTrialSchema
 } from '../validators/userSchemas.js';
 import logger from '../utils/logger.js';
 
@@ -356,11 +357,12 @@ router.post('/generate-license', requireAdmin, async (req, res) => {
 
 // List all users (admin only)
 router.get('/admin/users', requireAdmin, async (req, res) => {
-  const users = await User.findAll({ attributes: ['id', 'username', 'email', 'licenseKey', 'licenseType', 'licenseExpiresAt', 'isAdmin', 'hasUsedTrial'] });
+  const users = await User.findAll({ attributes: ['id', 'username', 'email', 'licenseKey', 'licenseType', 'licenseExpiresAt', 'isAdmin', 'hasUsedTrial', 'trialExtensions'] });
   const payload = users.map(user => {
     const summary = buildLicenseSummary(user);
     return {
       id: user.id,
+      trialExtensions: user.trialExtensions || 0,
       username: user.username,
       email: user.email,
       licenseKey: user.licenseKey,
@@ -368,7 +370,9 @@ router.get('/admin/users', requireAdmin, async (req, res) => {
       licenseExpiresAt: user.licenseExpiresAt,
       licenseAlert: summary.alert,
       licenseDaysLeft: summary.daysLeft,
-      isAdmin: user.isAdmin
+      isAdmin: user.isAdmin,
+      hasUsedTrial: user.hasUsedTrial,
+      trialExtensions: user.trialExtensions || 0
     };
   });
   res.json(payload);
@@ -506,6 +510,88 @@ router.post('/admin/assign-trial', requireAdmin, validateBody(adminAssignTrialSc
       stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Extend trial license (admin only - can extend up to 2 times per user, max 7 days per extension)
+router.post('/admin/extend-trial', requireAdmin, validateBody(extendTrialSchema), async (req, res) => {
+  const { userId, days } = req.body;
+  
+  try {
+    const user = await User.findByPk(userId);
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    
+    // Verificar que el usuario tenga una licencia trial activa
+    if (user.licenseType !== 'trial') {
+      return res.status(400).json({ 
+        error: 'Solo se puede extender una licencia trial activa' 
+      });
+    }
+    
+    // Verificar límite de extensiones (máximo 2 veces)
+    if (user.trialExtensions >= 2) {
+      return res.status(400).json({ 
+        error: 'Este usuario ya ha usado el máximo de extensiones permitidas (2 veces)' 
+      });
+    }
+    
+    // Validar que los días no excedan 7
+    if (days > 7) {
+      return res.status(400).json({ 
+        error: 'No se puede extender más de 7 días por vez' 
+      });
+    }
+    
+    // Calcular nueva fecha de expiración
+    const currentExpiry = user.licenseExpiresAt ? new Date(user.licenseExpiresAt) : new Date();
+    const newExpiry = new Date(currentExpiry);
+    newExpiry.setDate(newExpiry.getDate() + days);
+    
+    // Actualizar usuario
+    user.licenseExpiresAt = newExpiry;
+    user.trialExtensions = (user.trialExtensions || 0) + 1;
+    await user.save();
+    
+    // Reload user to get fresh data
+    await user.reload();
+    const updatedSummary = buildLicenseSummary(user);
+    
+    logger.info('Trial extended by admin', {
+      targetUserId: userId,
+      adminId: req.user.id,
+      daysAdded: days,
+      newExpiry: newExpiry,
+      extensionsUsed: user.trialExtensions,
+      ip: req.ip
+    });
+    
+    res.json({
+      message: `Trial extendido exitosamente por ${days} ${days === 1 ? 'día' : 'días'} para el usuario ${user.username}`,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        licenseType: user.licenseType,
+        licenseExpiresAt: user.licenseExpiresAt,
+        trialExtensions: user.trialExtensions
+      },
+      licenseType: user.licenseType,
+      licenseExpiresAt: user.licenseExpiresAt,
+      trialExtensions: user.trialExtensions,
+      remainingExtensions: 2 - user.trialExtensions,
+      licenseAlert: updatedSummary.alert,
+      licenseDaysLeft: updatedSummary.daysLeft
+    });
+  } catch (err) {
+    logger.error('Error extending trial', {
+      error: err.message,
+      targetUserId: userId,
+      adminId: req.user?.id,
+      days,
+      ip: req.ip,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+    res.status(500).json({ error: 'Error al extender el trial' });
   }
 });
 

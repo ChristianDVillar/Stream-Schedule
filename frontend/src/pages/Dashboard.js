@@ -30,7 +30,8 @@ import {
   Eye,
   Copy,
   RefreshCw,
-  X
+  X,
+  CalendarPlus
 } from 'lucide-react';
 
 const Dashboard = ({ user, token, ...props }) => {

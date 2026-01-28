@@ -122,6 +122,23 @@ export const adminAssignTrialSchema = Joi.object({
   userId: Joi.number().integer().positive().required()
 }).required();
 
+// Extend trial schema (admin only)
+export const extendTrialSchema = Joi.object({
+  userId: Joi.number().integer().positive().required()
+    .messages({
+      'number.base': 'User ID must be a number',
+      'number.integer': 'User ID must be an integer',
+      'number.positive': 'User ID must be positive',
+      'any.required': 'User ID is required'
+    }),
+  days: Joi.number().integer().min(1).max(7).required()
+    .messages({
+      'number.min': 'Los días deben ser al menos 1',
+      'number.max': 'No puedes extender más de 7 días',
+      'any.required': 'El número de días es requerido'
+    })
+}).required();
+
 // Generate license schema (admin)
 export const generateLicenseSchema = Joi.object({
   userId: Joi.number().integer().positive().required(),

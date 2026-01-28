@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder } from '../api';
+import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const mockLogs = [
@@ -33,6 +33,8 @@ export default function AdminDashboard({ token, user, onLogout }) {
   const [licenseConfig, setLicenseConfig] = useState({ monthly: true, quarterly: false, lifetime: false, temporary: false });
   const [passwordReminders, setPasswordReminders] = useState([]);
   const [showLicenseConfig, setShowLicenseConfig] = useState(false);
+  const [extendingTrial, setExtendingTrial] = useState(null);
+  const [extendTrialDays, setExtendTrialDays] = useState({});
 
   useEffect(() => {
     fetchUsers();
@@ -110,6 +112,27 @@ export default function AdminDashboard({ token, user, onLogout }) {
       window.alert(errorMsg);
     } finally {
       setGenerating(prev => ({ ...prev, [userId]: false }));
+    }
+  }
+
+  async function handleExtendTrial(userId) {
+    const days = extendTrialDays[userId] || 7;
+    if (days < 1 || days > 7) {
+      window.alert('Los días deben estar entre 1 y 7');
+      return;
+    }
+    
+    setExtendingTrial(userId);
+    try {
+      const response = await adminExtendTrial({ userId, days, token });
+      window.alert(response.data.message || 'Trial extendido exitosamente');
+      setExtendTrialDays(prev => ({ ...prev, [userId]: 7 }));
+      setExtendingTrial(null);
+      await fetchUsers();
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || 'Error al extender el trial';
+      window.alert(errorMsg);
+      setExtendingTrial(null);
     }
   }
 
@@ -506,6 +529,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                   <th className="px-4 py-2 border">{t('admin.expiresAt')}</th>
                   <th className="px-4 py-2 border">{t('admin.alert')}</th>
                   <th className="px-4 py-2 border">{t('admin.isAdmin')}</th>
+                  <th className="px-4 py-2 border">Ext. Trial</th>
                   <th className="px-4 py-2 border">{t('admin.actions')}</th>
                 </tr>
               </thead>
@@ -550,7 +574,44 @@ export default function AdminDashboard({ token, user, onLogout }) {
                     </td>
                     <td className="px-4 py-2 border">{u.isAdmin ? t('common.yes') : t('common.no')}</td>
                     <td className="px-4 py-2 border">
+                      {u.licenseType === 'trial' ? (
+                        <span className="text-xs">
+                          {u.trialExtensions || 0} / 2
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 border">
                       <div className="flex flex-wrap gap-2 items-center">
+                        {/* Extend Trial Button - Only show for users with active trial */}
+                        {u.licenseType === 'trial' && u.licenseExpiresAt && (u.trialExtensions || 0) < 2 && (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min="1"
+                              max="7"
+                              value={extendTrialDays[u.id] || 7}
+                              onChange={(e) => {
+                                const value = parseInt(e.target.value) || 7;
+                                setExtendTrialDays(prev => ({ 
+                                  ...prev, 
+                                  [u.id]: Math.min(7, Math.max(1, value)) 
+                                }));
+                              }}
+                              className="w-12 px-1 py-1 text-xs border rounded bg-white dark:bg-gray-900"
+                              title="Días a extender (1-7)"
+                            />
+                            <button
+                              className="px-2 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={extendingTrial === u.id}
+                              onClick={() => handleExtendTrial(u.id)}
+                              title={`Extender trial (${u.trialExtensions || 0}/2 extensiones usadas)`}
+                            >
+                              {extendingTrial === u.id ? '...' : `Extender`}
+                            </button>
+                          </div>
+                        )}
                         {!u.licenseKey && (
                           <>
                             <button
