@@ -346,44 +346,58 @@ router.post('/file', requireAuth, upload.single('file'), async (req, res) => {
 /**
  * GET /api/upload/stats/:user_id
  * Obtiene estadísticas de uploads del usuario
+ * 
+ * @param {string} user_id - UUID del usuario (debe coincidir con el usuario autenticado)
  */
 router.get('/stats/:user_id', requireAuth, validateParams(getUploadStatsSchema), async (req, res) => {
   const { user_id } = req.params;
 
   // Verificar que el user_id coincida con el usuario autenticado (excepto admins)
   const authenticatedUserId = req.user.id.toString();
-  // Convert user_id from params to string for comparison
-  const paramUserId = user_id.toString();
+  // Convert user_id from params to string for comparison (handle UUID format)
+  const paramUserId = user_id.toString().trim();
+  
   if (paramUserId !== authenticatedUserId && !req.user.isAdmin) {
+    logger.warn('Unauthorized stats access attempt', {
+      requestedUserId: paramUserId,
+      authenticatedUserId,
+      ip: req.ip
+    });
     return res.status(403).json({ 
       error: 'No tienes permiso para ver estadísticas de otro usuario' 
     });
   }
 
   if (!supabase) {
+    logger.error('Supabase not configured for stats endpoint');
     return res.status(500).json({ 
       error: 'Supabase no está configurado' 
     });
   }
 
   try {
+    // Use authenticated user ID to ensure we're using the correct UUID format
+    const userIdToQuery = authenticatedUserId;
+
     // Get all uploads (not just last 24h) for media gallery
     // For stats, we still want last 24h, but for gallery we want more
     const { data: uploads, error } = await supabase
       .from('uploads')
       .select('id, bucket, file_path, created_at')
-      .eq('user_id', user_id.toString())
+      .eq('user_id', userIdToQuery) // Use UUID directly
       .order('created_at', { ascending: false })
       .limit(100); // Limit to last 100 uploads
 
     if (error) {
-      logger.error('Error getting upload stats', {
+      logger.error('Error getting upload stats from Supabase', {
         error: error.message,
-        userId: user_id,
+        errorCode: error.code,
+        userId: userIdToQuery,
         ip: req.ip
       });
       return res.status(500).json({ 
-        error: 'Error al obtener estadísticas' 
+        error: 'Error al obtener estadísticas',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
 
@@ -394,26 +408,38 @@ router.get('/stats/:user_id', requireAuth, validateParams(getUploadStatsSchema),
     }
 
     // Calculate 24h stats separately
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const uploads24h = uploads?.filter(u => new Date(u.created_at) >= new Date(twentyFourHoursAgo)) || [];
+    // Ensure we handle null/undefined uploads gracefully
+    const uploadsList = uploads || [];
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const uploads24h = uploadsList.filter(u => {
+      if (!u || !u.created_at) return false;
+      const uploadDate = new Date(u.created_at);
+      return uploadDate >= twentyFourHoursAgo;
+    });
     
+    // Return safe defaults - never return null/undefined that could cause frontend errors
     res.json({
-      totalUploads24h: uploads24h.length,
+      totalUploads24h: uploads24h.length || 0,
       isTrialUser: isTrial,
       dailyLimit: isTrial ? TRIAL_DAILY_LIMIT : null,
       remainingUploads: isTrial ? Math.max(0, TRIAL_DAILY_LIMIT - uploads24h.length) : null,
-      uploads: uploads || [] // Return all uploads for gallery (empty array if no uploads)
+      uploads: uploadsList // Always return an array, even if empty
     });
 
   } catch (err) {
     logger.error('Error in /api/upload/stats', {
       error: err.message,
+      errorStack: err.stack,
       userId: user_id,
+      authenticatedUserId,
       ip: req.ip,
       stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
+    
+    // Return safe error response that won't break frontend
     res.status(500).json({ 
-      error: 'Error interno del servidor' 
+      error: 'Error interno del servidor',
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
 });
