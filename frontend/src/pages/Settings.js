@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { apiClient, createCheckout, verifyPaymentSession, getLicenseStatus, getAvailableLicenses } from '../api';
+import { apiClient, createCheckout, verifyPaymentSession, getLicenseStatus, getAvailableLicenses, getPaymentConfigStatus } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { 
   User, 
@@ -25,6 +25,7 @@ const Settings = ({ user, token, setUser }) => {
   const [licenseInfo, setLicenseInfo] = useState(null);
   const [billingLoading, setBillingLoading] = useState(false);
   const [availableLicenses, setAvailableLicenses] = useState({ monthly: true, quarterly: false, lifetime: false, temporary: false });
+  const [paymentConfig, setPaymentConfig] = useState(null);
   
   // Profile settings
   const [profileData, setProfileData] = useState({
@@ -136,7 +137,22 @@ const Settings = ({ user, token, setUser }) => {
       fetchLicenseStatus();
     }
     fetchAvailableLicenses();
+    fetchPaymentConfig();
   }, [token]);
+
+  const fetchPaymentConfig = async () => {
+    try {
+      const res = await getPaymentConfigStatus();
+      setPaymentConfig(res.data);
+    } catch (error) {
+      console.error('Error fetching payment config:', error);
+      setPaymentConfig({ 
+        paymentEnabled: false, 
+        automaticProcessingEnabled: false,
+        manualVerificationRequired: false 
+      });
+    }
+  };
 
   const fetchAvailableLicenses = async () => {
     try {
@@ -314,12 +330,37 @@ const Settings = ({ user, token, setUser }) => {
       const checkout = await createCheckout({ licenseType, token });
       // Redirect to Stripe Checkout
       if (checkout.data.url) {
+        // Show warning if webhook is not configured
+        if (checkout.data.warning) {
+          toast.success('Redirecting to payment...', {
+            duration: 3000,
+            icon: '⚠️'
+          });
+          // Show additional info about manual verification
+          setTimeout(() => {
+            toast(checkout.data.warning, {
+              duration: 6000,
+              icon: 'ℹ️'
+            });
+          }, 1000);
+        }
         window.location.href = checkout.data.url;
       } else {
         toast.error('Failed to create checkout session');
+        setBillingLoading(false);
       }
     } catch (error) {
-      toast.error('Payment failed. Please try again.');
+      const errorMessage = error.response?.data?.error || 'Payment failed. Please try again.';
+      const errorDetails = error.response?.data?.details;
+      
+      if (errorDetails) {
+        toast.error(errorMessage, {
+          duration: 5000,
+          description: errorDetails
+        });
+      } else {
+        toast.error(errorMessage);
+      }
       setBillingLoading(false);
     }
   };
@@ -763,6 +804,46 @@ const Settings = ({ user, token, setUser }) => {
         return (
           <div className="space-y-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Licenses & Billing</h3>
+
+            {/* Payment Configuration Status */}
+            {paymentConfig && (
+              <div className={`p-4 rounded-lg ${
+                paymentConfig.paymentEnabled 
+                  ? (paymentConfig.automaticProcessingEnabled 
+                      ? 'bg-green-50 border border-green-200' 
+                      : 'bg-yellow-50 border border-yellow-200')
+                  : 'bg-red-50 border border-red-200'
+              }`}>
+                <div className="flex items-start space-x-3">
+                  <AlertTriangle className={`w-5 h-5 mt-0.5 ${
+                    paymentConfig.paymentEnabled 
+                      ? (paymentConfig.automaticProcessingEnabled ? 'text-green-600' : 'text-yellow-600')
+                      : 'text-red-600'
+                  }`} />
+                  <div className="flex-1">
+                    <h4 className={`text-sm font-medium mb-1 ${
+                      paymentConfig.paymentEnabled 
+                        ? (paymentConfig.automaticProcessingEnabled ? 'text-green-900' : 'text-yellow-900')
+                        : 'text-red-900'
+                    }`}>
+                      Estado de Pagos: {paymentConfig.paymentEnabled ? 'Habilitado' : 'Deshabilitado'}
+                    </h4>
+                    <p className={`text-sm ${
+                      paymentConfig.paymentEnabled 
+                        ? (paymentConfig.automaticProcessingEnabled ? 'text-green-800' : 'text-yellow-800')
+                        : 'text-red-800'
+                    }`}>
+                      {paymentConfig.message}
+                      {paymentConfig.manualVerificationRequired && (
+                        <span className="block mt-1 text-xs">
+                          ⚠️ Los pagos funcionarán pero requieren verificación manual después del pago.
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="p-4 bg-gray-50 rounded-lg">
               <h4 className="text-sm font-medium text-gray-900 mb-2">Current License</h4>

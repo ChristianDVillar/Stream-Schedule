@@ -149,12 +149,22 @@ export async function getPaymentStats(token) {
   });
 }
 
+export async function getPaymentConfigStatus() {
+  return apiClient.get('/payments/config-status');
+}
+
 export async function getAvailableLicenses() {
   return apiClient.get('/user/available-licenses');
 }
 
 export async function getLicenseConfig(token) {
   return apiClient.get('/user/admin/license-config', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function adminExtendTrial({ userId, days, token }) {
+  return apiClient.post('/user/admin/extend-trial', { userId, days }, {
     headers: { Authorization: `Bearer ${token}` }
   });
 }
