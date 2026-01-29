@@ -11,10 +11,7 @@ const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('⚠️  REACT_APP_SUPABASE_URL or REACT_APP_SUPABASE_ANON_KEY not set. Upload functionality will be disabled.');
-  console.warn('💡 To fix: Create a .env file in the frontend directory with:');
-  console.warn('   REACT_APP_SUPABASE_URL=https://your-project.supabase.co');
-  console.warn('   REACT_APP_SUPABASE_ANON_KEY=your-anon-key');
+  console.warn('⚠️ Supabase env vars missing');
 }
 
 export const supabase = supabaseUrl && supabaseAnonKey

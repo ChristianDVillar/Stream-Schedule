@@ -12,9 +12,7 @@ import { getUploadStats } from '../utils/uploadHelper';
 import { Image, Video, Upload, BarChart3 } from 'lucide-react';
 
 export default function MediaUpload({ user, token }) {
-  const { t } = useLanguage();
   const [uploadStats, setUploadStats] = useState(null);
-  const [loadingStats, setLoadingStats] = useState(true);
 
   // Load upload stats
   useEffect(() => {
@@ -25,11 +23,7 @@ export default function MediaUpload({ user, token }) {
           setUploadStats(stats);
         } catch (error) {
           console.error('Error loading upload stats:', error);
-        } finally {
-          setLoadingStats(false);
         }
-      } else {
-        setLoadingStats(false);
       }
     };
     loadStats();
