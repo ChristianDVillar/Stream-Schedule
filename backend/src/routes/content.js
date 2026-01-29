@@ -34,8 +34,12 @@ function buildOccurrences(baseDate, recurrence) {
 }
 
 // Create content
+// ⏱️ IMPORTANT: Always store dates in UTC in database
+// Frontend sends dates as ISO strings (UTC), Sequelize stores them correctly
+// Frontend will convert to user's local timezone for display
 router.post('/', validateBody(contentSchema), async (req, res) => {
   try {
+    // req.body.scheduledFor comes as ISO string (UTC) from frontend
     const scheduledFor = new Date(req.body.scheduledFor);
     const occurrences = buildOccurrences(scheduledFor, req.body.recurrence);
     
@@ -43,10 +47,11 @@ router.post('/', validateBody(contentSchema), async (req, res) => {
     const { mediaUrls, ...contentData } = req.body;
     const filesData = mediaUrls && mediaUrls.length > 0 ? { urls: mediaUrls } : null;
     
+    // Sequelize automatically stores dates in UTC
     const created = await Promise.all(
       occurrences.map(date => Content.create({
         ...contentData,
-        scheduledFor: date,
+        scheduledFor: date, // Stored as UTC in database
         userId: req.user.id,
         files: filesData
       }))

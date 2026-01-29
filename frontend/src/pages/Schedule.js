@@ -17,7 +17,8 @@ import {
   AlertCircle,
   Paperclip,
   Image as ImageIcon,
-  Video
+  Video,
+  Lightbulb
 } from 'lucide-react';
 
 const Schedule = ({ user, token }) => {
@@ -147,14 +148,17 @@ const Schedule = ({ user, token }) => {
     setLoading(true);
 
     try {
+      // Create date from user's local date/time selection
       const scheduledDateTime = new Date(`${formData.scheduledFor}T${formData.scheduledTime}`);
       
+      // ⏱️ IMPORTANT: Always send dates as ISO string (UTC) to backend
+      // Backend stores in UTC, frontend displays in user's local timezone
       const response = await apiClient.post('/content', {
         title: formData.title,
         content: formData.content,
         contentType: formData.contentType,
         platforms: formData.platforms,
-        scheduledFor: scheduledDateTime.toISOString(),
+        scheduledFor: scheduledDateTime.toISOString(), // Convert to UTC ISO string
         timezone: formData.timezone,
         mediaUrls: formData.mediaUrls, // Include media URLs
         recurrence: formData.recurrence
@@ -165,6 +169,41 @@ const Schedule = ({ user, token }) => {
 
       const createdCount = Array.isArray(response.data) ? response.data.length : 1;
       toast.success(`Content scheduled successfully! (${createdCount})`);
+      
+      // Suggest saving as template if form has meaningful content
+      if (formData.title && formData.platforms.length > 0 && !templates.find(t => 
+        t.title === formData.title && 
+        JSON.stringify(t.platforms) === JSON.stringify(formData.platforms)
+      )) {
+        setTimeout(() => {
+          toast((t) => (
+            <div className="flex flex-col space-y-2">
+              <p className="font-medium">💡 Do you want to save this as a template?</p>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => {
+                    setTemplateName(`${formData.title} Template`);
+                    toast.dismiss(t.id);
+                    setTimeout(() => {
+                      handleSaveTemplate();
+                    }, 100);
+                  }}
+                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                >
+                  Save Template
+                </button>
+                <button
+                  onClick={() => toast.dismiss(t.id)}
+                  className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300"
+                >
+                  Maybe later
+                </button>
+              </div>
+            </div>
+          ), { duration: 8000 });
+        }, 1000);
+      }
+      
       navigate('/dashboard');
     } catch (error) {
       console.error('Error scheduling content:', error);
@@ -202,25 +241,37 @@ const Schedule = ({ user, token }) => {
       toast.error('Template name is required');
       return;
     }
+    
+    // Check if template with same name already exists
+    if (templates.find(t => t.name.toLowerCase() === templateName.trim().toLowerCase())) {
+      toast.error('A template with this name already exists');
+      return;
+    }
+    
     const template = {
       id: Date.now(),
       name: templateName.trim(),
       title: formData.title,
       content: formData.content,
-      platforms: formData.platforms
+      platforms: formData.platforms,
+      contentType: formData.contentType,
+      scheduledTime: formData.scheduledTime
     };
     setTemplates(prev => [...prev, template]);
     setTemplateName('');
-    toast.success('Template saved');
+    toast.success(`Template "${template.name}" saved successfully!`);
   };
 
   const handleApplyTemplate = (template) => {
     setFormData(prev => ({
       ...prev,
-      title: template.title,
-      content: template.content,
-      platforms: template.platforms
+      title: template.title || '',
+      content: template.content || '',
+      platforms: template.platforms || [],
+      contentType: template.contentType || prev.contentType,
+      scheduledTime: template.scheduledTime || prev.scheduledTime
     }));
+    toast.success(`Template "${template.name}" applied`);
   };
 
   const handleMediaSelect = (url, bucket) => {
@@ -257,6 +308,52 @@ const Schedule = ({ user, token }) => {
     { id: 'instagram', name: 'Instagram', color: 'bg-pink-500' },
     { id: 'discord', name: 'Discord', color: 'bg-indigo-500' }
   ];
+
+  // Common timezones for easier selection
+  const commonTimezones = [
+    'America/New_York',
+    'America/Chicago',
+    'America/Denver',
+    'America/Los_Angeles',
+    'America/Mexico_City',
+    'America/Sao_Paulo',
+    'Europe/London',
+    'Europe/Paris',
+    'Europe/Madrid',
+    'Europe/Berlin',
+    'Europe/Rome',
+    'Europe/Moscow',
+    'Asia/Tokyo',
+    'Asia/Shanghai',
+    'Asia/Dubai',
+    'Asia/Kolkata',
+    'Australia/Sydney',
+    'Pacific/Auckland'
+  ];
+
+  // Dynamic tips based on form state
+  const getDynamicTip = () => {
+    if (!formData.title || formData.title.trim().length < 5) {
+      return '💡 Tip: Los títulos con emojis tienen más engagement';
+    }
+    if (!formData.content.includes('#') && !formData.content.match(/#\w+/g)) {
+      return '💡 Tip: Añade 3–5 hashtags para mejorar alcance';
+    }
+    if (formData.platforms.length === 0) {
+      return '💡 Tip: Selecciona múltiples plataformas para mayor alcance';
+    }
+    if (formData.platforms.length === 1) {
+      return '💡 Tip: Cross-post en múltiples plataformas aumenta tu visibilidad';
+    }
+    // Check if scheduled time is outside typical peak hours (19-22h local)
+    if (formData.scheduledTime) {
+      const hour = parseInt(formData.scheduledTime.split(':')[0]);
+      if (hour < 19 || hour > 22) {
+        return '💡 Tip: En tu zona horaria el pico suele ser 19–22h';
+      }
+    }
+    return '💡 Tip: Programa contenido consistente para construir audiencia';
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 dark:from-gray-900 dark:to-gray-900 py-8">
@@ -557,39 +654,41 @@ const Schedule = ({ user, token }) => {
           </form>
         </div>
 
-        {/* Help Section */}
-        <div className="mt-8 bg-blue-50 rounded-lg p-6">
-          <div className="flex items-start space-x-3">
-            <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <h3 className="text-sm font-medium text-blue-900 mb-2">Tips for better content</h3>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Use engaging titles that capture attention</li>
-                <li>• Include relevant hashtags for better discoverability</li>
-                <li>• Schedule during peak hours for maximum engagement</li>
-                <li>• Cross-post across multiple platforms for wider reach</li>
-              </ul>
-            </div>
+        {/* Additional Options Section */}
+        <div className="mt-8 space-y-6">
+          {/* Timezone */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <label htmlFor="timezone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Timezone
+            </label>
+            <select
+              id="timezone"
+              value={formData.timezone}
+              onChange={(e) => handleInputChange('timezone', e.target.value)}
+              className="w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {commonTimezones.map(tz => (
+                <option key={tz} value={tz}>{tz.replace(/_/g, ' ')}</option>
+              ))}
+              {!commonTimezones.includes(formData.timezone) && (
+                <option value={formData.timezone}>{formData.timezone.replace(/_/g, ' ')}</option>
+              )}
+            </select>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              All scheduled times will be shown in this timezone.
+            </p>
+          </div>
 
-            {/* Timezone */}
-            <div>
-              <label htmlFor="timezone" className="block text-sm font-medium text-gray-700 mb-2">
-                Timezone
-              </label>
-              <input
-                id="timezone"
-                type="text"
-                value={formData.timezone}
-                onChange={(e) => handleInputChange('timezone', e.target.value)}
-                className="w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <p className="text-xs text-gray-500 mt-1">Set the timezone used for this schedule.</p>
-            </div>
-
-            {/* Recurrence */}
-            <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-900 dark:border-gray-700">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-gray-900">Recurring schedule</h3>
+          {/* Recurring Schedule */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Recurring schedule</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Schedule content to repeat automatically (perfect for regular streams)
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
                   checked={formData.recurrence.enabled}
@@ -597,77 +696,104 @@ const Schedule = ({ user, token }) => {
                     ...formData.recurrence,
                     enabled: e.target.checked
                   })}
+                  className="sr-only peer"
                 />
-              </div>
-              {formData.recurrence.enabled && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Frequency</label>
-                    <select
-                      value={formData.recurrence.frequency}
-                      onChange={(e) => handleInputChange('recurrence', {
-                        ...formData.recurrence,
-                        frequency: e.target.value
-                      })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900"
-                    >
-                      <option value="daily">Daily</option>
-                      <option value="weekly">Weekly</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Occurrences</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="50"
-                      value={formData.recurrence.count}
-                      onChange={(e) => handleInputChange('recurrence', {
-                        ...formData.recurrence,
-                        count: Number(e.target.value)
-                      })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900"
-                    />
-                  </div>
-                </div>
-              )}
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+              </label>
             </div>
-
-            {/* Templates */}
-            <div className="border rounded-lg p-4 bg-white dark:bg-gray-800 dark:border-gray-700">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">Templates</h3>
-              <div className="flex flex-col md:flex-row gap-3 mb-3">
-                <input
-                  type="text"
-                  placeholder="Template name"
-                  value={templateName}
-                  onChange={(e) => setTemplateName(e.target.value)}
-                  className="flex-1 px-3 py-2 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700"
-                />
-                <button
-                  type="button"
-                  onClick={handleSaveTemplate}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Save Template
-                </button>
-              </div>
-              {templates.length === 0 ? (
-                <p className="text-sm text-gray-500">No templates yet.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {templates.map(template => (
-                    <button
-                      key={template.id}
-                      type="button"
-                      onClick={() => handleApplyTemplate(template)}
-                      className="px-3 py-1 border rounded-full text-sm hover:bg-gray-100"
-                    >
-                      {template.name}
-                    </button>
-                  ))}
+            {formData.recurrence.enabled && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Frequency</label>
+                  <select
+                    value={formData.recurrence.frequency}
+                    onChange={(e) => handleInputChange('recurrence', {
+                      ...formData.recurrence,
+                      frequency: e.target.value
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900"
+                  >
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                  </select>
                 </div>
-              )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Occurrences</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={formData.recurrence.count}
+                    onChange={(e) => handleInputChange('recurrence', {
+                      ...formData.recurrence,
+                      count: Number(e.target.value)
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Templates */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="mb-3">
+              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Templates</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Save reusable schedules (title, platforms, time) to speed up your workflow.
+              </p>
+            </div>
+            <div className="flex flex-col md:flex-row gap-3 mb-3">
+              <input
+                type="text"
+                placeholder="Template name"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                className="flex-1 px-3 py-2 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700"
+              />
+              <button
+                type="button"
+                onClick={handleSaveTemplate}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Save Template
+              </button>
+            </div>
+            {templates.length === 0 ? (
+              <div className="text-center py-4 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">No templates yet.</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">
+                  Fill out the form above and save it as a template for quick reuse.
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {templates.map(template => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => handleApplyTemplate(template)}
+                    className="px-3 py-1 border rounded-full text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    {template.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Dynamic Tips */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+            <div className="flex items-start space-x-3">
+              <Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-2">
+                  Tip profesional
+                </h3>
+                <p className="text-sm text-blue-800 dark:text-blue-300">
+                  {getDynamicTip()}
+                </p>
+              </div>
             </div>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
+import { formatDateUTC } from '../utils/dateUtils';
 
 const mockLogs = [
   { id: 1, action: 'User admin@example.com created', date: '2025-07-21 10:00' },
@@ -416,7 +417,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                     <span className="font-mono text-blue-900">{u.licenseKey}</span>
                     <span className="text-xs text-gray-600">
                       {u.licenseType === 'lifetime' ? t('admin.lifetime') : u.licenseType === 'trial' ? t('admin.trial') : t('admin.temporary')}
-                      {u.licenseExpiresAt ? ` · ${t('admin.expiresAt')} ${new Date(u.licenseExpiresAt).toLocaleDateString()}` : ''}
+                      {u.licenseExpiresAt ? ` · ${t('admin.expiresAt')} ${formatDateUTC(u.licenseExpiresAt)}` : ''}
                     </span>
                   </div>
                   <span className="text-sm text-gray-700">{u.username}</span>
@@ -467,7 +468,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                       {u.licenseType === 'trial' && 'Prueba 7 días'}
                       {!u.licenseType && '—'}
                     </td>
-                    <td className="px-4 py-2 border">{u.licenseExpiresAt ? new Date(u.licenseExpiresAt).toLocaleDateString() : '—'}</td>
+                    <td className="px-4 py-2 border">{u.licenseExpiresAt ? formatDateUTC(u.licenseExpiresAt) : '—'}</td>
                     <td className="px-4 py-2 border">
                       {u.licenseAlert === 'expired' && <span className="text-red-600 font-semibold">Vencida</span>}
                       {u.licenseAlert === '3_days' && <span className="text-red-600 font-semibold">3 días</span>}
@@ -564,7 +565,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                       {!u.licenseType && '—'}
                     </td>
                     <td className="px-4 py-2 border">
-                      {u.licenseExpiresAt ? new Date(u.licenseExpiresAt).toLocaleDateString() : '—'}
+                      {u.licenseExpiresAt ? formatDateUTC(u.licenseExpiresAt) : '—'}
                     </td>
                     <td className="px-4 py-2 border">
                       {u.licenseAlert === 'expired' && <span className="text-red-600 font-semibold">{t('admin.expired')}</span>}
