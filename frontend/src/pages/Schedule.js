@@ -12,7 +12,6 @@ import {
   Share2, 
   Save, 
   X, 
-  Info,
   CheckCircle,
   AlertCircle,
   Paperclip,
@@ -22,7 +21,6 @@ import {
 } from 'lucide-react';
 
 const Schedule = ({ user, token }) => {
-  const { t } = useLanguage();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     title: '',
