@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react';
 import { Upload, Image, Video, Loader2 } from 'lucide-react';
 import { handleUpload, getUploadStats } from '../utils/uploadHelper';
+import { formatDateTime } from '../utils/dateUtils';
 import toast from 'react-hot-toast';
 
 export default function FileUpload({ user, onUploadComplete }) {
@@ -178,7 +179,7 @@ export default function FileUpload({ user, onUploadComplete }) {
                     {file.fileName}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {file.uploadedAt.toLocaleString()}
+                    {formatDateTime(file.uploadedAt)}
                   </p>
                 </div>
               </div>
