@@ -20,6 +20,17 @@ import { cache } from '../utils/cache.js';
 
 const router = express.Router();
 
+// Test endpoint - MUST be first so /stats/:user_id does not capture "test"
+// GET /api/upload/test (no auth) - use this to verify upload routes are reachable
+router.get('/test', (req, res) => {
+  res.json({
+    ok: true,
+    message: 'Upload router is reachable',
+    path: req.path,
+    baseUrl: req.baseUrl
+  });
+});
+
 // Log all registered routes for debugging (development only)
 if (process.env.NODE_ENV === 'development') {
   router.use((req, res, next) => {
@@ -242,15 +253,6 @@ router.get('/video-url', requireAuth, async (req, res, next) => {
       details: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
-});
-
-// Test endpoint to verify routing works
-router.get('/test-video-url', (req, res) => {
-  res.json({ 
-    message: 'Test endpoint works',
-    path: req.path,
-    query: req.query 
-  });
 });
 
 /**
@@ -956,6 +958,7 @@ router.delete('/:upload_id', requireAuth, async (req, res) => {
 if (process.env.NODE_ENV === 'development') {
   logger.info('Upload routes registered', {
     routes: [
+      'GET /test',
       'GET /video-url',
       'POST /',
       'POST /file',
