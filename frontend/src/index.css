@@ -2,13 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Responsive: prevent horizontal scroll and ensure touch-friendly */
+html {
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
+  min-width: 0;
+  overflow-x: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Responsive: ensure scrollable areas work on mobile */
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
 }
 
 html.dark body {
@@ -258,4 +271,27 @@ html.dark .rbc-addons-dnd-drag-preview {
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+/* react-big-calendar: responsive toolbar on small screens */
+@media (max-width: 640px) {
+  .rbc-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .rbc-toolbar-label {
+    text-align: center;
+    font-size: 0.9rem;
+  }
+  .rbc-btn-group {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+  }
+  .rbc-btn-group button {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
 } 

@@ -410,15 +410,15 @@ const Schedule = ({ user, token }) => {
         }}
       />
       
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 min-w-0">
       {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('schedule.scheduleTitle')}</h1>
-          <p className="text-gray-600">{t('schedule.scheduleSubtitle')}</p>
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('schedule.scheduleTitle')}</h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">{t('schedule.scheduleSubtitle')}</p>
         </div>
 
         {/* Form */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 sm:p-6 lg:p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Title */}
             <div className="title-input">
@@ -666,28 +666,28 @@ const Schedule = ({ user, token }) => {
               </div>
 
               {/* Actions */}
-            <div className="flex justify-end space-x-4 pt-6 border-t">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 sm:gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <button
                   type="button"
                   onClick={() => navigate('/dashboard')}
-                className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2"
+                className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center space-x-2 w-full sm:w-auto"
                 >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4 flex-shrink-0" />
                 <span>{t('schedule.cancel')}</span>
                 </button>
                 <button
                   type="submit"
                 disabled={loading}
-                className="submit-button px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="submit-button px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto min-h-[44px]"
                 >
                   {loading ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
                     <span>{t('schedule.scheduling')}</span>
                   </>
                   ) : (
                     <>
-                    <Save className="w-4 h-4" />
+                    <Save className="w-4 h-4 flex-shrink-0" />
                     <span>{t('schedule.scheduleContent')}</span>
                     </>
                   )}
