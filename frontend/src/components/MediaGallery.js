@@ -58,15 +58,20 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
                     throw new Error('No signedUrl in response');
                   }
                 } catch (backendError) {
-                  console.error('Backend video URL generation failed:', {
-                    filePath: upload.file_path,
-                    error: backendError.response?.data || backendError.message,
-                    status: backendError.response?.status
-                  });
-                  
-                  // If file doesn't exist (404), remove orphaned DB record and filter out
-                  if (backendError.response?.status === 404) {
-                    console.warn('Video file not found in Storage, skipping:', upload.file_path);
+                  const status = backendError.response?.status;
+                  const data = backendError.response?.data;
+                  const isHtml = typeof data === 'string' && (data.includes('<!DOCTYPE') || data.includes('<html'));
+                  if (!isHtml) {
+                    console.error('Backend video URL generation failed:', {
+                      filePath: upload.file_path,
+                      error: typeof data === 'object' ? data : data,
+                      status
+                    });
+                  }
+                  if (status === 404) {
+                    if (!isHtml) {
+                      console.warn('Video file not found in Storage, skipping:', upload.file_path);
+                    }
                     if (upload.id) {
                       deleteUpload(upload.id).catch(() => {});
                     }
