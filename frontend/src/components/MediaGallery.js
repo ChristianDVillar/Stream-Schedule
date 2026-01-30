@@ -58,26 +58,36 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
                     throw new Error('No signedUrl in response');
                   }
                 } catch (backendError) {
-                  console.error('Backend video URL generation failed:', {
-                    filePath: upload.file_path,
-                    error: backendError.response?.data || backendError.message,
-                    status: backendError.response?.status
-                  });
-                  
-                  // If file doesn't exist (404), remove orphaned DB record and filter out
-                  if (backendError.response?.status === 404) {
+                  const status = backendError.response?.status;
+                  const data = backendError.response?.data;
+                  const isOurApi404 = status === 404 && typeof data === 'object' && data !== null && (data.error || data.orphaned !== undefined);
+                  const looksLikeHtml = typeof data === 'string' && (data.includes('<!DOCTYPE') || data.includes('<html') || data.includes('GET /api/upload'));
+                  const backendUnreachable = status === 404 && (looksLikeHtml || !data);
+                  if (!backendUnreachable && !isOurApi404) {
+                    console.error('Backend video URL generation failed:', {
+                      filePath: upload.file_path,
+                      error: typeof data === 'object' ? data : data,
+                      status
+                    });
+                  }
+                  if (status === 404 && isOurApi404) {
                     console.warn('Video file not found in Storage, skipping:', upload.file_path);
                     if (upload.id) {
                       deleteUpload(upload.id).catch(() => {});
                     }
                     return null;
                   }
-                  
-                  // For other errors (e.g. 401), try frontend method as fallback
+                  if (backendUnreachable) {
+                    console.warn('Backend unreachable (404), trying frontend signed URL fallback');
+                  }
                   try {
                     const { getSignedVideoUrl } = await import('../utils/supabaseClient');
                     url = await getSignedVideoUrl(upload.file_path, 3600);
-                    console.log('Video URL generated from frontend (fallback):', { filePath: upload.file_path });
+                    if (backendUnreachable) {
+                      console.log('Video URL from frontend fallback (backend was unreachable):', upload.file_path);
+                    } else {
+                      console.log('Video URL generated from frontend (fallback):', { filePath: upload.file_path });
+                    }
                   } catch (frontendError) {
                     console.error('Frontend video URL generation also failed:', frontendError);
                     throw frontendError;
