@@ -12,6 +12,7 @@ import { getUploadStats } from '../utils/uploadHelper';
 import { Image, Video, Upload, BarChart3 } from 'lucide-react';
 
 export default function MediaUpload({ user, token }) {
+  const { t } = useLanguage();
   const [uploadStats, setUploadStats] = useState(null);
 
   // Load upload stats
@@ -47,10 +48,10 @@ export default function MediaUpload({ user, token }) {
     <div className="max-w-4xl mx-auto p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-          Subir Archivos / Upload Files
+          {t('media.title')}
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
-          Sube imagenes y videos para usar en tus publicaciones
+          {t('media.subtitle')}
         </p>
       </div>
 
@@ -60,7 +61,7 @@ export default function MediaUpload({ user, token }) {
           <div className="flex items-center space-x-2 mb-4">
             <BarChart3 className="w-5 h-5 text-blue-500" />
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Estadisticas de Uploads
+              {t('media.uploadStats')}
             </h2>
           </div>
           
@@ -69,7 +70,7 @@ export default function MediaUpload({ user, token }) {
               <div className="flex items-center space-x-2 mb-2">
                 <Image className="w-4 h-4 text-blue-500" />
                 <span className="text-sm font-medium text-blue-900 dark:text-blue-200">
-                  Imagenes
+                  {t('media.images')}
                 </span>
               </div>
               <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
@@ -81,7 +82,7 @@ export default function MediaUpload({ user, token }) {
               <div className="flex items-center space-x-2 mb-2">
                 <Video className="w-4 h-4 text-purple-500" />
                 <span className="text-sm font-medium text-purple-900 dark:text-purple-200">
-                  Videos
+                  {t('media.videos')}
                 </span>
               </div>
               <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
@@ -93,7 +94,7 @@ export default function MediaUpload({ user, token }) {
               <div className="flex items-center space-x-2 mb-2">
                 <Upload className="w-4 h-4 text-gray-500" />
                 <span className="text-sm font-medium text-gray-900 dark:text-gray-200">
-                  Total (24h)
+                  {t('media.total24h')}
                 </span>
               </div>
               <p className="text-2xl font-bold text-gray-600 dark:text-gray-300">
@@ -105,8 +106,8 @@ export default function MediaUpload({ user, token }) {
           {uploadStats.isTrialUser && (
             <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
               <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                <strong>Plan Trial:</strong> Tienes {uploadStats.remainingUploads} uploads restantes hoy
-                (Limite: {uploadStats.dailyLimit} por dia)
+                <strong>{t('media.trialPlan')}:</strong> {t('media.remainingUploads', { count: uploadStats.remainingUploads })}
+                ({t('media.dailyLimit', { limit: uploadStats.dailyLimit })})
               </p>
             </div>
           )}
@@ -121,7 +122,7 @@ export default function MediaUpload({ user, token }) {
       {/* Media Gallery - Show uploaded files */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Archivos Subidos
+          {t('media.uploadedFiles')}
         </h2>
         <MediaGallery 
           user={user}
@@ -133,13 +134,13 @@ export default function MediaUpload({ user, token }) {
       {/* Instructions */}
       <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
         <h3 className="font-semibold text-blue-900 dark:text-blue-200 mb-2">
-          Instrucciones / Instructions
+          {t('media.instructions')}
         </h3>
         <ul className="text-sm text-blue-800 dark:text-blue-300 space-y-1 list-disc list-inside">
-          <li>Las imagenes son publicas y accesibles por URL directa</li>
-          <li>Los videos son privados y requieren URL firmada (valida por 5 minutos)</li>
-          <li>Usuarios trial: 1 upload por dia</li>
-          <li>Usuarios pro: uploads ilimitados</li>
+          <li>{t('media.instructionsImagePublic')}</li>
+          <li>{t('media.instructionsVideoPrivate')}</li>
+          <li>{t('media.instructionsTrialLimit')}</li>
+          <li>{t('media.instructionsProUnlimited')}</li>
         </ul>
       </div>
     </div>

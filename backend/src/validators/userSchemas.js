@@ -18,11 +18,35 @@ const passwordSchema = Joi.string()
   .pattern(/[A-Z]/)
   .pattern(/[0-9]/)
   .pattern(/[a-z]/)
+  .custom((value, helpers) => {
+    // Additional security: reject potentially dangerous patterns
+    // This is a preventive measure - passwords are hashed, so JS injection is not possible
+    // But we validate to prevent any edge cases
+    const dangerousPatterns = [
+      /<script/i,
+      /javascript:/i,
+      /onerror=/i,
+      /onclick=/i,
+      /onload=/i,
+      /onmouseover=/i,
+      /<iframe/i,
+      /<object/i,
+      /<embed/i
+    ];
+    
+    for (const pattern of dangerousPatterns) {
+      if (pattern.test(value)) {
+        return helpers.error('string.invalid', { message: 'Password contains invalid characters' });
+      }
+    }
+    return value;
+  })
   .required()
   .messages({
     'string.min': 'Password must be at least 8 characters long',
     'string.max': 'Password must not exceed 128 characters',
     'string.pattern.base': 'Password must contain at least one uppercase letter, one lowercase letter, and one number',
+    'string.invalid': 'Password contains invalid characters',
     'any.required': 'Password is required'
   });
 

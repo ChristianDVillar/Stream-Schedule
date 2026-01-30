@@ -86,6 +86,38 @@ app.get('/', (req, res) => {
   });
 });
 
+// 404 handler - Always return JSON, never HTML
+app.use((req, res) => {
+  logger.warn('404 - Endpoint not found', {
+    path: req.path,
+    originalUrl: req.originalUrl,
+    method: req.method,
+    query: req.query
+  });
+  res.status(404).json({
+    error: 'Endpoint not found',
+    path: req.path,
+    originalUrl: req.originalUrl,
+    method: req.method
+  });
+});
+
+// Error handler - Always return JSON
+app.use((err, req, res, next) => {
+  logger.error('Unhandled error', {
+    error: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+    ip: req.ip
+  });
+  
+  res.status(err.status || 500).json({
+    error: 'Internal server error',
+    details: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
+
 const PORT = process.env.PORT || 5000;
 const enableLogging = process.env.ENABLE_LOGGING === 'true';
 const logLevel = process.env.LOG_LEVEL || 'info';

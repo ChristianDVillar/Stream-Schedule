@@ -31,7 +31,9 @@ export function authenticateToken(req, res, next) {
         if (!user) {
           req.user = null;
         } else {
-          req.user = user;
+          // Convert Sequelize instance to plain object to ensure all properties are accessible
+          // This prevents issues with property access in route handlers
+          req.user = user.get({ plain: true });
         }
         next();
       })

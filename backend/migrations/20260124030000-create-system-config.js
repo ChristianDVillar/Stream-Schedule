@@ -29,18 +29,26 @@ export default {
     });
 
     // Initialize default license configuration
-    await queryInterface.bulkInsert('SystemConfigs', [{
-      key: 'availableLicenseTypes',
-      value: {
-        monthly: true,
-        quarterly: false,
-        lifetime: false,
-        temporary: false
-      },
-      description: 'Available license types for users to purchase',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }]);
+    // Check if record already exists before inserting
+    const [results] = await queryInterface.sequelize.query(
+      `SELECT key FROM "SystemConfigs" WHERE key = 'availableLicenseTypes'`
+    );
+    
+    if (results.length === 0) {
+      // Convert object to JSON string for JSONB field
+      await queryInterface.bulkInsert('SystemConfigs', [{
+        key: 'availableLicenseTypes',
+        value: Sequelize.literal(`'${JSON.stringify({
+          monthly: true,
+          quarterly: false,
+          lifetime: false,
+          temporary: false
+        })}'::jsonb`),
+        description: 'Available license types for users to purchase',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }]);
+    }
   },
 
   async down (queryInterface, Sequelize) {
