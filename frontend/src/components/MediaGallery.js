@@ -89,6 +89,14 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
                       console.log('Video URL generated from frontend (fallback):', { filePath: upload.file_path });
                     }
                   } catch (frontendError) {
+                    const msg = (frontendError && (frontendError.message || frontendError.error_description)) ? String(frontendError.message || frontendError.error_description) : '';
+                    const isObjectNotFound = /object not found|not found|404/i.test(msg);
+                    if (isObjectNotFound) {
+                      if (upload.id) {
+                        deleteUpload(upload.id).catch(() => {});
+                      }
+                      return null;
+                    }
                     console.error('Frontend video URL generation also failed:', frontendError);
                     throw frontendError;
                   }
