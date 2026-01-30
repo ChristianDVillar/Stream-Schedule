@@ -125,6 +125,22 @@ const User = sequelize.define('User', {
   lastPasswordChange: {
     type: DataTypes.DATE,
     allowNull: true
+  },
+  stripeCustomerId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Stripe Customer ID for subscriptions'
+  },
+  stripeSubscriptionId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Stripe Subscription ID for recurring payments'
+  },
+  subscriptionStatus: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: null,
+    comment: 'Subscription status: active, canceled, past_due, etc.'
   }
 });
 
@@ -255,6 +271,17 @@ const Payment = sequelize.define('Payment', {
   },
   paidAt: {
     type: DataTypes.DATE
+  },
+  stripeSubscriptionId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Stripe Subscription ID if this payment is part of a subscription'
+  },
+  isRecurring: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    comment: 'Whether this payment is part of a recurring subscription'
   }
 });
 

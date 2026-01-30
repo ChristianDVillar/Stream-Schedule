@@ -8,9 +8,11 @@ import { useState, useEffect } from 'react';
 import { Upload, Image, Video, Loader2 } from 'lucide-react';
 import { handleUpload, getUploadStats } from '../utils/uploadHelper';
 import { formatDateTime } from '../utils/dateUtils';
+import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
 
 export default function FileUpload({ user, onUploadComplete }) {
+  const { t } = useLanguage();
   const [uploading, setUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [uploadStats, setUploadStats] = useState(null);
@@ -27,7 +29,7 @@ export default function FileUpload({ user, onUploadComplete }) {
     const isVideo = file.type.startsWith('video/');
 
     if (!isImage && !isVideo) {
-      toast.error('Solo se permiten archivos de imagen o video');
+      toast.error(t('media.invalidFileType'));
       return;
     }
 
@@ -37,7 +39,7 @@ export default function FileUpload({ user, onUploadComplete }) {
     const maxSize = isImage ? maxImageSize : maxVideoSize;
 
     if (file.size > maxSize) {
-      toast.error(`El archivo es demasiado grande. Maximo: ${isImage ? '10MB' : '100MB'}`);
+      toast.error(t('media.fileTooLarge', { maxSize: isImage ? '10MB' : '100MB' }));
       return;
     }
 
@@ -84,7 +86,7 @@ export default function FileUpload({ user, onUploadComplete }) {
 
     } catch (error) {
       console.error('Error in file upload:', error);
-      toast.error('Error subiendo archivo');
+      toast.error(t('media.uploadError'));
     } finally {
       setUploading(false);
       // Reset file input
@@ -119,10 +121,10 @@ export default function FileUpload({ user, onUploadComplete }) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                Uploads restantes hoy: {uploadStats.remainingUploads} / {uploadStats.dailyLimit}
+                {t('media.remainingToday', { remaining: uploadStats.remainingUploads, limit: uploadStats.dailyLimit })}
               </p>
               <p className="text-xs text-yellow-600 dark:text-yellow-300 mt-1">
-                Total uploads en las ultimas 24h: {uploadStats.totalUploads24h}
+                {t('media.total24hCount', { count: uploadStats.totalUploads24h })}
               </p>
             </div>
           </div>
@@ -141,10 +143,10 @@ export default function FileUpload({ user, onUploadComplete }) {
           </div>
           <div className="text-center">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {uploading ? 'Subiendo archivo...' : 'Haz clic para subir o arrastra un archivo'}
+              {uploading ? t('media.uploading') : t('media.clickToUpload')}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Imagenes (max 10MB) o Videos (max 100MB)
+              {t('media.fileTypes')}
             </p>
           </div>
           <input
@@ -161,7 +163,7 @@ export default function FileUpload({ user, onUploadComplete }) {
       {uploadedFiles.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Archivos subidos:
+            {t('media.uploadedFilesList')}
           </h3>
           {uploadedFiles.map((file, index) => (
             <div
@@ -189,7 +191,7 @@ export default function FileUpload({ user, onUploadComplete }) {
                 rel="noopener noreferrer"
                 className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
               >
-                Ver
+                {t('media.view')}
               </a>
             </div>
           ))}

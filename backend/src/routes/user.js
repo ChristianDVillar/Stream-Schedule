@@ -1,6 +1,5 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as TwitchStrategy } from 'passport-twitch';
@@ -10,6 +9,7 @@ import checkLicense from '../middleware/checkLicense.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { normalizeLicenseType, resolveLicenseExpiry, buildLicenseSummary } from '../utils/licenseUtils.js';
 import { generateLicenseKey, generateTemporaryPassword, generateUsernameSuffix } from '../utils/cryptoUtils.js';
+import { generateAuthData, buildUserResponse } from '../utils/authUtils.js';
 import { validateBody } from '../middleware/validate.js';
 import {
   registerSchema,
@@ -28,37 +28,14 @@ import logger from '../utils/logger.js';
 
 const router = express.Router();
 
-const jwtSecret = process.env.JWT_SECRET || 'dev-jwt-secret';
-const JWT_EXPIRY = process.env.JWT_EXPIRY || '7d'; // Default 7 days
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
-// Helper function to generate JWT and return user data
+// Helper function to generate JWT and redirect for OAuth callbacks
 const generateAuthResponse = (user, res) => {
-  const token = jwt.sign(
-    { 
-      id: user.id, 
-      email: user.email,
-      username: user.username,
-      isAdmin: user.isAdmin
-    }, 
-    jwtSecret, 
-    { expiresIn: JWT_EXPIRY }
-  );
-  const licenseSummary = buildLicenseSummary(user);
+  const authData = generateAuthData(user);
   
   // Redirect to frontend with token
-  const redirectUrl = `${FRONTEND_URL}/auth/callback?token=${token}&user=${encodeURIComponent(JSON.stringify({
-    id: user.id,
-    username: user.username,
-    email: user.email,
-    licenseKey: user.licenseKey,
-    licenseExpiresAt: user.licenseExpiresAt,
-    licenseType: user.licenseType,
-    licenseAlert: licenseSummary.alert,
-    licenseDaysLeft: licenseSummary.daysLeft,
-    isAdmin: user.isAdmin,
-    merchandisingLink: user.merchandisingLink
-  }))}`;
+  const redirectUrl = `${FRONTEND_URL}/auth/callback?token=${authData.token}&user=${encodeURIComponent(JSON.stringify(authData.user))}`;
   
   res.redirect(redirectUrl);
 };
@@ -220,35 +197,14 @@ router.post('/register', validateBody(registerSchema), async (req, res) => {
     // If neither trial nor monthly, user starts with no license (can purchase later)
     
     const user = await User.create(userData);
-    const licenseSummary = buildLicenseSummary(user);
     
-    // Generate JWT token for immediate login after registration
-    const token = jwt.sign(
-      { 
-        id: user.id, 
-        email: user.email,
-        username: user.username,
-        isAdmin: user.isAdmin
-      }, 
-      jwtSecret, 
-      { expiresIn: JWT_EXPIRY }
-    );
+    // Generate authentication data (token + user response)
+    const authData = generateAuthData(user);
     
     res.status(201).json({ 
       message: 'User registered', 
-      token,
-      user: { 
-        id: user.id, 
-        username, 
-        email,
-        licenseType: user.licenseType,
-        licenseExpiresAt: user.licenseExpiresAt,
-        licenseKey: user.licenseKey,
-        licenseAlert: licenseSummary.alert,
-        licenseDaysLeft: licenseSummary.daysLeft,
-        isAdmin: user.isAdmin,
-        merchandisingLink: user.merchandisingLink
-      } 
+      token: authData.token,
+      user: authData.user
     });
   } catch (err) {
     logger.error('Registration failed', {
@@ -288,33 +244,10 @@ router.post('/login', validateBody(loginSchema), async (req, res) => {
     // Update lastPasswordChange if it's the first time or password was changed
     // This will be updated when password is actually changed via the change password endpoint
     
-    // Generate JWT token with user info
-    const token = jwt.sign(
-      { 
-        id: user.id, 
-        email: user.email,
-        username: user.username,
-        isAdmin: user.isAdmin
-      }, 
-      jwtSecret, 
-      { expiresIn: JWT_EXPIRY }
-    );
-    const licenseSummary = buildLicenseSummary(user);
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        licenseKey: user.licenseKey,
-        licenseExpiresAt: user.licenseExpiresAt,
-        licenseType: user.licenseType,
-        licenseAlert: licenseSummary.alert,
-        licenseDaysLeft: licenseSummary.daysLeft,
-        isAdmin: user.isAdmin,
-        merchandisingLink: user.merchandisingLink
-      }
-    });
+    // Generate authentication data (token + user response)
+    const authData = generateAuthData(user);
+    
+    res.json(authData);
   } catch (err) {
     logger.error('Login error', {
       error: err.message,

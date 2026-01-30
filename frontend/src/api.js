@@ -153,6 +153,30 @@ export async function getPaymentConfigStatus() {
   return apiClient.get('/payments/config-status');
 }
 
+export async function createSubscription({ licenseType, token }) {
+  return apiClient.post('/payments/subscribe', { licenseType }, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function getSubscriptionStatus(token) {
+  return apiClient.get('/payments/subscription', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function cancelSubscription(token) {
+  return apiClient.post('/payments/subscription/cancel', {}, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function getPaymentHistory(token) {
+  return apiClient.get('/payments/history', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
 export async function getAvailableLicenses() {
   return apiClient.get('/user/available-licenses');
 }
@@ -242,4 +266,20 @@ export async function getUploadStats(user_id) {
  */
 export async function deleteUpload(upload_id) {
   return apiClient.delete(`/upload/${upload_id}`);
+}
+
+/**
+ * Get a signed URL for a video file
+ * @param {string} file_path - Path to the video file in storage
+ * @param {number} expiresIn - Expiration time in seconds (default: 3600)
+ * @returns {Promise} API response with signedUrl
+ */
+export async function getVideoSignedUrl(file_path, expiresIn = 3600) {
+  // Use query parameters instead of path parameters to avoid routing issues
+  return apiClient.get('/upload/video-url', {
+    params: { 
+      file_path: file_path, // Axios will encode this automatically
+      expiresIn 
+    }
+  });
 }
