@@ -7,8 +7,9 @@ import { LICENSE_TYPES } from '../constants/licenseTypes.js';
 import { PAYMENT_STATUS } from '../constants/paymentStatus.js';
 import { generateLicenseKey } from '../utils/cryptoUtils.js';
 import { validateBody } from '../middleware/validate.js';
-import { checkoutSchema, verifySessionSchema } from '../validators/paymentSchemas.js';
+import { checkoutSchema, verifySessionSchema, subscribeSchema } from '../validators/paymentSchemas.js';
 import logger from '../utils/logger.js';
+import { sendPaymentSuccessNotification, sendPaymentFailedNotification } from '../utils/notifications.js';
 
 const router = express.Router();
 
@@ -23,7 +24,8 @@ const PLANS = {
   [LICENSE_TYPES.MONTHLY]: { amount: 5.99, currency: 'USD', durationDays: 30 },
   [LICENSE_TYPES.QUARTERLY]: { amount: 13.98, currency: 'USD', durationDays: 90 },
   [LICENSE_TYPES.LIFETIME]: { amount: 99.0, currency: 'USD', durationDays: null },
-  [LICENSE_TYPES.TEMPORARY]: { amount: 9.99, currency: 'USD', durationDays: 30 }
+  // Temporary plan removed - was more expensive than monthly for same duration
+  // If needed, use monthly plan instead
 };
 
 // requireAdmin is now imported from middleware/auth.js
@@ -52,6 +54,45 @@ router.post('/checkout', requireAuth, validateBody(checkoutSchema), async (req, 
   }
 
   try {
+    // Check for existing pending payment for this user and license type
+    const existingPending = await Payment.findOne({
+      where: {
+        userId: req.user.id,
+        licenseType,
+        status: PAYMENT_STATUS.PENDING
+      },
+      order: [['createdAt', 'DESC']]
+    });
+
+    if (existingPending) {
+      // Check if session is still valid (not expired)
+      if (existingPending.stripeSessionId) {
+        try {
+          const existingSession = await stripe.checkout.sessions.retrieve(existingPending.stripeSessionId);
+          if (existingSession.status === 'open') {
+            // Return existing session
+            logger.info('Returning existing checkout session', {
+              userId: req.user.id,
+              sessionId: existingSession.id,
+              paymentId: existingPending.id
+            });
+            return res.json({
+              sessionId: existingSession.id,
+              url: existingSession.url,
+              paymentId: existingPending.id,
+              existing: true
+            });
+          }
+        } catch (err) {
+          // Session expired or invalid, continue to create new one
+          logger.debug('Existing session invalid, creating new one', {
+            userId: req.user.id,
+            error: err.message
+          });
+        }
+      }
+    }
+
     // Create payment record
     const payment = await Payment.create({
       userId: req.user.id,
@@ -81,6 +122,7 @@ router.post('/checkout', requireAuth, validateBody(checkoutSchema), async (req, 
         },
       ],
       mode: 'payment',
+      locale: 'en', // Set checkout page language to English
       success_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/settings?payment=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/settings?payment=cancelled`,
       client_reference_id: payment.id.toString(),
@@ -227,11 +269,63 @@ router.post('/webhook', async (req, res) => {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Handle the event
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
-    
-    try {
+  // Handle different event types
+  try {
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      
+      // Handle subscription checkout
+      if (session.mode === 'subscription' && session.subscription) {
+        const subscription = await stripe.subscriptions.retrieve(session.subscription);
+        const userId = parseInt(session.metadata?.userId);
+        const licenseType = session.metadata?.licenseType;
+        
+        if (userId && licenseType) {
+          const user = await User.findByPk(userId);
+          if (user) {
+            // Update user with subscription info
+            user.stripeCustomerId = subscription.customer;
+            user.stripeSubscriptionId = subscription.id;
+            user.subscriptionStatus = subscription.status;
+            
+            // Assign license
+            const licenseKey = generateLicenseKey('', 16);
+            const expiryResult = resolveLicenseExpiry({ licenseType });
+            const expiresAt = expiryResult.value;
+            user.licenseKey = licenseKey;
+            user.licenseType = licenseType;
+            user.licenseExpiresAt = expiresAt;
+            await user.save();
+            
+            // Create payment record for subscription
+            const plan = PLANS[licenseType];
+            if (plan) {
+              await Payment.create({
+                userId: user.id,
+                licenseType,
+                amount: plan.amount,
+                currency: plan.currency,
+                status: PAYMENT_STATUS.COMPLETED,
+                provider: 'stripe',
+                stripeCustomerId: subscription.customer,
+                stripeSubscriptionId: subscription.id,
+                isRecurring: true,
+                paidAt: new Date()
+              });
+            }
+            
+            logger.info('Subscription created via webhook', {
+              userId,
+              subscriptionId: subscription.id,
+              licenseType
+            });
+          }
+        }
+        
+        return res.json({ received: true });
+      }
+      
+      // Handle one-time payment checkout
       const payment = await Payment.findOne({ 
         where: { stripeSessionId: session.id } 
       });
@@ -260,27 +354,306 @@ router.post('/webhook', async (req, res) => {
       const user = await User.findByPk(userId);
       
       if (user) {
-        const licenseKey = Math.random().toString(36).substr(2, 16).toUpperCase();
+        // Use consistent license key generation
+        const licenseKey = generateLicenseKey('', 16);
         const expiryResult = resolveLicenseExpiry({ licenseType: payment.licenseType });
         const expiresAt = expiryResult.value;
         user.licenseKey = licenseKey;
         user.licenseType = payment.licenseType;
         user.licenseExpiresAt = expiresAt;
         await user.save();
+        
+        logger.info('License assigned via webhook', {
+          userId,
+          licenseType: payment.licenseType,
+          expiresAt,
+          paymentId: payment.id
+        });
+        
+        // Send success notification
+        try {
+          await sendPaymentSuccessNotification(user, payment);
+        } catch (error) {
+          logger.error('Failed to send payment success notification', {
+            userId,
+            error: error.message
+          });
+        }
       }
 
       res.json({ received: true });
-    } catch (error) {
-      logger.error('Error processing webhook', {
-        error: error.message,
-        eventType: event.type,
-        ip: req.ip,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      });
-      res.status(500).json({ error: 'Error processing webhook' });
     }
-  } else {
-    res.json({ received: true });
+    else if (event.type === 'checkout.session.completed' && event.data.object.mode === 'subscription') {
+      // Handle subscription checkout completion
+      const session = event.data.object;
+      const subscriptionId = session.subscription;
+      
+      if (subscriptionId) {
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        const userId = parseInt(session.metadata?.userId);
+        const licenseType = session.metadata?.licenseType;
+        
+        if (userId && licenseType) {
+          const user = await User.findByPk(userId);
+          if (user) {
+            // Update user with subscription info
+            user.stripeCustomerId = subscription.customer;
+            user.stripeSubscriptionId = subscription.id;
+            user.subscriptionStatus = subscription.status;
+            
+            // Assign license
+            const licenseKey = generateLicenseKey('', 16);
+            const expiryResult = resolveLicenseExpiry({ licenseType });
+            const expiresAt = expiryResult.value;
+            user.licenseKey = licenseKey;
+            user.licenseType = licenseType;
+            user.licenseExpiresAt = expiresAt;
+            await user.save();
+            
+            // Create payment record for subscription
+            const plan = PLANS[licenseType];
+            if (plan) {
+              await Payment.create({
+                userId: user.id,
+                licenseType,
+                amount: plan.amount,
+                currency: plan.currency,
+                status: PAYMENT_STATUS.COMPLETED,
+                provider: 'stripe',
+                stripeCustomerId: subscription.customer,
+                stripeSubscriptionId: subscription.id,
+                isRecurring: true,
+                paidAt: new Date()
+              });
+            }
+            
+            logger.info('Subscription created via webhook', {
+              userId,
+              subscriptionId: subscription.id,
+              licenseType
+            });
+          }
+        }
+      }
+      
+      res.json({ received: true });
+    }
+    else if (event.type === 'customer.subscription.updated') {
+      const subscription = event.data.object;
+      const user = await User.findOne({ where: { stripeSubscriptionId: subscription.id } });
+      
+      if (user) {
+        user.subscriptionStatus = subscription.status;
+        
+        // If subscription is active, extend license
+        if (subscription.status === 'active') {
+          const licenseType = subscription.metadata?.licenseType || user.licenseType;
+          const expiryResult = resolveLicenseExpiry({ licenseType });
+          user.licenseExpiresAt = expiryResult.value;
+        }
+        
+        await user.save();
+        
+        logger.info('Subscription updated', {
+          userId: user.id,
+          subscriptionId: subscription.id,
+          status: subscription.status
+        });
+      }
+      
+      res.json({ received: true });
+    }
+    else if (event.type === 'customer.subscription.deleted') {
+      const subscription = event.data.object;
+      const user = await User.findOne({ where: { stripeSubscriptionId: subscription.id } });
+      
+      if (user) {
+        user.stripeSubscriptionId = null;
+        user.subscriptionStatus = 'canceled';
+        await user.save();
+        
+        logger.info('Subscription canceled', {
+          userId: user.id,
+          subscriptionId: subscription.id
+        });
+      }
+      
+      res.json({ received: true });
+    }
+    else if (event.type === 'invoice.paid') {
+      const invoice = event.data.object;
+      
+      if (invoice.subscription) {
+        const user = await User.findOne({ where: { stripeSubscriptionId: invoice.subscription } });
+        
+        if (user) {
+          // Create payment record for recurring payment
+          const licenseType = user.licenseType;
+          const plan = PLANS[licenseType];
+          
+          if (plan) {
+            await Payment.create({
+              userId: user.id,
+              licenseType,
+              amount: plan.amount,
+              currency: plan.currency,
+              status: PAYMENT_STATUS.COMPLETED,
+              provider: 'stripe',
+              stripeCustomerId: invoice.customer,
+              stripeSubscriptionId: invoice.subscription,
+              isRecurring: true,
+              paidAt: new Date()
+            });
+            
+            // Extend license
+            const expiryResult = resolveLicenseExpiry({ licenseType });
+            user.licenseExpiresAt = expiryResult.value;
+            await user.save();
+            
+            logger.info('Recurring payment processed', {
+              userId: user.id,
+              subscriptionId: invoice.subscription,
+              invoiceId: invoice.id
+            });
+          }
+        }
+      }
+      
+      res.json({ received: true });
+    }
+    else if (event.type === 'invoice.payment_failed') {
+      const invoice = event.data.object;
+      
+      if (invoice.subscription) {
+        const user = await User.findOne({ where: { stripeSubscriptionId: invoice.subscription } });
+        
+        if (user) {
+          user.subscriptionStatus = 'past_due';
+          await user.save();
+          
+          logger.warn('Subscription payment failed', {
+            userId: user.id,
+            subscriptionId: invoice.subscription,
+            invoiceId: invoice.id
+          });
+          
+          // Send notification email to user
+          try {
+            await sendPaymentFailedNotification(user, invoice.subscription);
+          } catch (error) {
+            logger.error('Failed to send payment failed notification', {
+              userId: user.id,
+              error: error.message
+            });
+          }
+        }
+      }
+      
+      res.json({ received: true });
+    }
+    else if (event.type === 'invoice.paid') {
+      const invoice = event.data.object;
+      
+      if (invoice.subscription) {
+        const user = await User.findOne({ where: { stripeSubscriptionId: invoice.subscription } });
+        
+        if (user) {
+          // Create payment record for recurring payment
+          const licenseType = user.licenseType;
+          const plan = PLANS[licenseType];
+          
+          if (plan) {
+            const payment = await Payment.create({
+              userId: user.id,
+              licenseType,
+              amount: plan.amount,
+              currency: plan.currency,
+              status: PAYMENT_STATUS.COMPLETED,
+              provider: 'stripe',
+              stripeCustomerId: invoice.customer,
+              stripeSubscriptionId: invoice.subscription,
+              isRecurring: true,
+              paidAt: new Date()
+            });
+            
+            // Extend license
+            const expiryResult = resolveLicenseExpiry({ licenseType });
+            user.licenseExpiresAt = expiryResult.value;
+            await user.save();
+            
+            logger.info('Recurring payment processed', {
+              userId: user.id,
+              subscriptionId: invoice.subscription,
+              invoiceId: invoice.id
+            });
+            
+            // Send success notification
+            try {
+              await sendPaymentSuccessNotification(user, payment);
+            } catch (error) {
+              logger.error('Failed to send payment success notification', {
+                userId: user.id,
+                error: error.message
+              });
+            }
+          }
+        }
+      }
+      
+      res.json({ received: true });
+    }
+    else if (event.type === 'charge.refunded') {
+      // Handle refunds - revoke license
+      const charge = event.data.object;
+      
+      const payment = await Payment.findOne({
+        where: { stripePaymentIntentId: charge.payment_intent }
+      });
+
+      if (payment && payment.status === PAYMENT_STATUS.COMPLETED) {
+        // Update payment status
+        payment.status = PAYMENT_STATUS.REFUNDED;
+        await payment.save();
+
+        // Revoke license if still active
+        const user = await User.findByPk(payment.userId);
+        if (user && user.licenseType === payment.licenseType) {
+          // Only revoke if this payment's license is still active
+          const now = new Date();
+          const expiresAt = user.licenseExpiresAt ? new Date(user.licenseExpiresAt) : null;
+          
+          if (!expiresAt || expiresAt > now) {
+            // License is still active, revoke it
+            user.licenseType = LICENSE_TYPES.NONE;
+            user.licenseKey = null;
+            user.licenseExpiresAt = null;
+            await user.save();
+            
+            logger.info('License revoked due to refund', {
+              userId: user.id,
+              paymentId: payment.id,
+              chargeId: charge.id
+            });
+          }
+        }
+
+        res.json({ received: true });
+      } else {
+        res.json({ received: true });
+      }
+    }
+    else {
+      // Acknowledge other events
+      res.json({ received: true });
+    }
+  } catch (error) {
+    logger.error('Error processing webhook', {
+      error: error.message,
+      eventType: event.type,
+      ip: req.ip,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+    res.status(500).json({ error: 'Error processing webhook' });
   }
 });
 
@@ -303,10 +676,388 @@ router.get('/config-status', async (req, res) => {
   });
 });
 
+// Create subscription (recurring payment)
+router.post('/subscribe', requireAuth, validateBody(subscribeSchema), async (req, res) => {
+  if (!stripe) {
+    logger.error('Stripe not configured for subscription', {
+      hasStripeSecret: !!process.env.STRIPE_SECRET_KEY
+    });
+    return res.status(500).json({ 
+      error: 'Stripe is not configured. Please set STRIPE_SECRET_KEY in environment variables.'
+    });
+  }
+
+  const licenseType = req.body.licenseType;
+  logger.debug('Subscription request received', {
+    userId: req.user?.id,
+    licenseType,
+    availablePlans: Object.keys(PLANS)
+  });
+  
+  const plan = PLANS[licenseType];
+  
+  if (!plan) {
+    logger.warn('Invalid license type for subscription', {
+      userId: req.user?.id,
+      licenseType,
+      availableTypes: Object.keys(PLANS)
+    });
+    return res.status(400).json({ 
+      error: 'Invalid license type for subscription. Only monthly and quarterly plans support subscriptions.',
+      availableTypes: Object.keys(PLANS)
+    });
+  }
+  
+  if (licenseType === LICENSE_TYPES.LIFETIME) {
+    return res.status(400).json({ 
+      error: 'Invalid license type for subscription. Only monthly and quarterly plans support subscriptions.' 
+    });
+  }
+
+  try {
+    // Ensure we have the latest user data with subscription fields
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Log user data for debugging
+    logger.debug('User data for subscription', {
+      userId: user.id,
+      hasStripeCustomerId: !!user.stripeCustomerId,
+      hasStripeSubscriptionId: !!user.stripeSubscriptionId,
+      userKeys: Object.keys(user.toJSON ? user.toJSON() : user)
+    });
+
+    // Check if user already has an active subscription
+    const existingSubscriptionId = user.stripeSubscriptionId;
+
+    if (existingSubscriptionId) {
+      try {
+        const existingSubscription = await stripe.subscriptions.retrieve(existingSubscriptionId);
+        if (existingSubscription.status === 'active' || existingSubscription.status === 'trialing') {
+          return res.status(400).json({ 
+            error: 'You already have an active subscription',
+            subscriptionId: existingSubscription.id,
+            status: existingSubscription.status
+          });
+        }
+      } catch (err) {
+        // Subscription doesn't exist or is invalid, continue
+        logger.debug('Existing subscription invalid, creating new one', {
+          userId: user.id,
+          error: err.message
+        });
+      }
+    }
+
+    // Get or create Stripe customer
+    let customerId = user.stripeCustomerId;
+    
+    logger.debug('Stripe customer check', {
+      userId: user.id,
+      existingCustomerId: customerId
+    });
+    
+    if (!customerId) {
+      logger.debug('Creating new Stripe customer', {
+        userId: user.id,
+        email: user.email
+      });
+      
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: {
+          userId: user.id.toString(),
+          username: user.username
+        }
+      });
+      customerId = customer.id;
+      
+      logger.debug('Stripe customer created', {
+        userId: user.id,
+        customerId
+      });
+      
+      // Save customer ID to user
+      user.stripeCustomerId = customerId;
+      await user.save();
+      
+      logger.debug('Customer ID saved to user', {
+        userId: user.id,
+        customerId
+      });
+    }
+
+    // Create Stripe Checkout Session for subscription
+    logger.debug('Creating Stripe checkout session', {
+      userId: user.id,
+      licenseType,
+      customerId,
+      planAmount: plan.amount,
+      planCurrency: plan.currency
+    });
+    
+    // Build session config - only include customer_email if we don't have a customer ID
+    const sessionConfig = {
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: plan.currency.toLowerCase(),
+            product_data: {
+              name: `Subscription - ${licenseType.charAt(0).toUpperCase() + licenseType.slice(1)}`,
+              description: `Recurring ${plan.durationDays}-day license subscription`,
+            },
+            unit_amount: Math.round(plan.amount * 100),
+            recurring: {
+              interval: licenseType === LICENSE_TYPES.MONTHLY ? 'month' : 'month',
+              interval_count: licenseType === LICENSE_TYPES.MONTHLY ? 1 : 3,
+            },
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'subscription',
+      locale: 'en', // Set checkout page language to English
+      success_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/settings?subscription=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/settings?subscription=cancelled`,
+      metadata: {
+        userId: user.id.toString(),
+        licenseType: licenseType,
+      },
+    };
+    
+    // Only include customer OR customer_email, not both
+    if (customerId) {
+      sessionConfig.customer = customerId;
+    } else {
+      sessionConfig.customer_email = user.email;
+    }
+    
+    logger.debug('Stripe session config', {
+      config: JSON.stringify(sessionConfig, null, 2)
+    });
+    
+    const session = await stripe.checkout.sessions.create(sessionConfig);
+
+    logger.info('Subscription checkout session created', {
+      userId: user.id,
+      licenseType,
+      sessionId: session.id,
+      customerId
+    });
+
+    res.json({
+      sessionId: session.id,
+      url: session.url,
+      type: 'subscription'
+    });
+  } catch (error) {
+    // Log full error details
+    logger.error('Stripe subscription checkout error', {
+      error: error.message,
+      userId: req.user?.id,
+      licenseType,
+      ip: req.ip,
+      stack: error.stack,
+      errorName: error.name,
+      errorCode: error.code,
+      errorType: error.constructor?.name,
+      errorResponse: error.response?.data,
+      errorStatus: error.status,
+      errorStatusText: error.statusText
+    });
+    
+    // Provide more detailed error in development
+    const errorDetails = process.env.NODE_ENV === 'development' 
+      ? {
+          message: error.message,
+          name: error.name,
+          code: error.code,
+          type: error.type,
+          status: error.status,
+          statusText: error.statusText,
+          response: error.response?.data,
+          stack: error.stack?.split('\n').slice(0, 10).join('\n') // First 10 lines of stack
+        }
+      : undefined;
+    
+    // Check for specific Stripe errors
+    if (error.type === 'StripeInvalidRequestError') {
+      return res.status(400).json({ 
+        error: 'Invalid Stripe request', 
+        details: errorDetails || error.message
+      });
+    }
+    
+    if (error.type === 'StripeAuthenticationError') {
+      return res.status(500).json({ 
+        error: 'Stripe authentication failed. Please check STRIPE_SECRET_KEY configuration.',
+        details: errorDetails
+      });
+    }
+    
+    res.status(500).json({ 
+      error: 'Failed to create subscription checkout session', 
+      details: errorDetails
+    });
+  }
+});
+
+// Get subscription status
+router.get('/subscription', requireAuth, async (req, res) => {
+  if (!stripe) {
+    return res.status(500).json({ error: 'Stripe is not configured' });
+  }
+
+  try {
+    // Get latest user data to ensure we have subscription fields
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const subscriptionId = user.stripeSubscriptionId;
+
+    if (!subscriptionId) {
+      return res.json({
+        hasSubscription: false,
+        subscription: null
+      });
+    }
+
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    
+    res.json({
+      hasSubscription: true,
+      subscription: {
+        id: subscription.id,
+        status: subscription.status,
+        currentPeriodStart: new Date(subscription.current_period_start * 1000).toISOString(),
+        currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null
+      }
+    });
+  } catch (error) {
+    // Subscription might not exist anymore
+    if (error.code === 'resource_missing') {
+      // Clear subscription ID from user
+      const userToUpdate = await User.findByPk(req.user.id);
+      if (userToUpdate) {
+        userToUpdate.stripeSubscriptionId = null;
+        userToUpdate.subscriptionStatus = null;
+        await userToUpdate.save();
+      }
+      
+      return res.json({
+        hasSubscription: false,
+        subscription: null
+      });
+    }
+    
+    logger.error('Error retrieving subscription', {
+      error: error.message,
+      errorCode: error.code,
+      userId: req.user?.id,
+      subscriptionId: user?.stripeSubscriptionId
+    });
+    
+    res.status(500).json({ 
+      error: 'Failed to retrieve subscription', 
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Cancel subscription
+router.post('/subscription/cancel', requireAuth, async (req, res) => {
+  if (!stripe) {
+    return res.status(500).json({ error: 'Stripe is not configured' });
+  }
+
+  try {
+    // Get latest user data
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const subscriptionId = user.stripeSubscriptionId;
+
+    if (!subscriptionId) {
+      return res.status(404).json({ error: 'No active subscription found' });
+    }
+
+    const subscription = await stripe.subscriptions.update(subscriptionId, {
+      cancel_at_period_end: true
+    });
+
+    // Update user subscription status
+    user.subscriptionStatus = subscription.status;
+    await user.save();
+
+    logger.info('Subscription cancellation scheduled', {
+      userId: req.user.id,
+      subscriptionId: subscription.id,
+      cancelAtPeriodEnd: subscription.cancel_at_period_end
+    });
+
+    res.json({
+      message: 'Subscription will be canceled at the end of the current billing period',
+      subscription: {
+        id: subscription.id,
+        status: subscription.status,
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error('Error canceling subscription', {
+      error: error.message,
+      userId: req.user.id,
+      subscriptionId: req.user.stripeSubscriptionId
+    });
+    res.status(500).json({ error: 'Failed to cancel subscription', details: error.message });
+  }
+});
+
+// Get user payment history
+router.get('/history', requireAuth, async (req, res) => {
+  try {
+    const payments = await Payment.findAll({
+      where: { userId: req.user.id },
+      order: [['createdAt', 'DESC']],
+      limit: 50
+    });
+
+    res.json({
+      payments: payments.map(p => ({
+        id: p.id,
+        licenseType: p.licenseType,
+        amount: p.amount,
+        currency: p.currency,
+        status: p.status,
+        isRecurring: p.isRecurring,
+        paidAt: p.paidAt,
+        createdAt: p.createdAt
+      }))
+    });
+  } catch (error) {
+    logger.error('Error fetching payment history', {
+      error: error.message,
+      userId: req.user.id
+    });
+    res.status(500).json({ error: 'Failed to fetch payment history' });
+  }
+});
+
 router.get('/admin/stats', requireAdmin, async (req, res) => {
   const payments = await Payment.findAll({ where: { status: PAYMENT_STATUS.COMPLETED } });
   const totals = {};
   let totalPaid = 0;
+  let recurringRevenue = 0;
 
   payments.forEach(payment => {
     const date = payment.paidAt || payment.createdAt;
@@ -314,6 +1065,9 @@ router.get('/admin/stats', requireAdmin, async (req, res) => {
     const monthKey = new Date(date).toISOString().slice(0, 7);
     const amount = Number(payment.amount) || 0;
     totalPaid += amount;
+    if (payment.isRecurring) {
+      recurringRevenue += amount;
+    }
     totals[monthKey] = (totals[monthKey] || 0) + amount;
   });
 
@@ -327,6 +1081,8 @@ router.get('/admin/stats', requireAdmin, async (req, res) => {
   res.json({
     currency: 'USD',
     totalPaid,
+    recurringRevenue,
+    oneTimeRevenue: totalPaid - recurringRevenue,
     currentMonthAmount,
     monthlyTotals
   });

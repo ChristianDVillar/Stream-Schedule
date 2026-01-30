@@ -6,12 +6,14 @@
 
 import { useState, useEffect } from 'react';
 import { Image, Video, X, Check, Trash2 } from 'lucide-react';
-import { supabase, getPublicImageUrl, getSignedVideoUrl } from '../utils/supabaseClient';
+import { supabase, getPublicImageUrl } from '../utils/supabaseClient';
 import { getUploadStats } from '../utils/uploadHelper';
-import { deleteUpload } from '../api';
+import { deleteUpload, getVideoSignedUrl } from '../api';
+import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
 
 export default function MediaGallery({ user, onSelect, selectedUrls = [], showDeleteButton = false, onDelete }) {
+  const { t } = useLanguage();
   const [mediaFiles, setMediaFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -43,7 +45,50 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
               if (upload.bucket === 'images') {
                 url = getPublicImageUrl(upload.file_path);
               } else {
-                url = await getSignedVideoUrl(upload.file_path, 3600);
+                // Get signed URL for videos from backend (uses Service Role Key)
+                try {
+                  const response = await getVideoSignedUrl(upload.file_path, 3600);
+                  if (response.data && response.data.signedUrl) {
+                    url = response.data.signedUrl;
+                    console.log('Video URL generated from backend:', { 
+                      filePath: upload.file_path, 
+                      url: url?.substring(0, 50) + '...' 
+                    });
+                  } else {
+                    throw new Error('No signedUrl in response');
+                  }
+                } catch (backendError) {
+                  console.error('Backend video URL generation failed:', {
+                    filePath: upload.file_path,
+                    error: backendError.response?.data || backendError.message,
+                    status: backendError.response?.status
+                  });
+                  
+                  // If file doesn't exist (404), return null to filter it out
+                  if (backendError.response?.status === 404) {
+                    console.warn('Video file not found in Storage, skipping:', upload.file_path);
+                    return {
+                      ...upload,
+                      url: null,
+                      fileName: upload.file_path.split('/').pop() || upload.file_path,
+                      error: 'File not found in Storage'
+                    };
+                  }
+                  
+                  // For other errors, try frontend method as fallback
+                  try {
+                    const { getSignedVideoUrl } = await import('../utils/supabaseClient');
+                    url = await getSignedVideoUrl(upload.file_path, 3600);
+                    console.log('Video URL generated from frontend (fallback):', { filePath: upload.file_path });
+                  } catch (frontendError) {
+                    console.error('Frontend video URL generation also failed:', frontendError);
+                    throw frontendError;
+                  }
+                }
+              }
+              if (!url) {
+                console.warn('No URL generated for file:', upload.file_path, upload.bucket);
+                return null;
               }
               return {
                 ...upload,
@@ -51,16 +96,42 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
                 fileName: upload.file_path.split('/').pop() || upload.file_path
               };
             } catch (err) {
-              console.error('Error getting URL for file:', upload.file_path, err);
-              return null;
+              console.error('Error getting URL for file:', upload.file_path, upload.bucket, err);
+              // Don't filter out videos completely - return with error flag so we can show a message
+              return {
+                ...upload,
+                url: null,
+                fileName: upload.file_path.split('/').pop() || upload.file_path,
+                error: err.message
+              };
             }
           })
         );
 
-        // Filter out nulls and sort by date (newest first)
+        // Filter out nulls and files without URLs, sort by date (newest first)
         const validFiles = filesWithUrls
-          .filter(f => f !== null)
+          .filter(f => f !== null && f.url) // Only include files with valid URLs
           .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        
+        // Log any files that were filtered out
+        const failedFiles = filesWithUrls.filter(f => f !== null && !f.url);
+        if (failedFiles.length > 0) {
+          console.warn('Some files could not be loaded:', failedFiles.map(f => ({ 
+            fileName: f.fileName, 
+            bucket: f.bucket, 
+            error: f.error,
+            filePath: f.file_path
+          })));
+          
+          // Show a toast notification if there are orphaned files
+          const orphanedFiles = failedFiles.filter(f => f.error && f.error.includes('not found'));
+          if (orphanedFiles.length > 0) {
+            toast.error(
+              `${orphanedFiles.length} archivo(s) no encontrado(s) en Storage. Los registros pueden estar huérfanos.`,
+              { duration: 5000 }
+            );
+          }
+        }
 
         setMediaFiles(validFiles);
       } else {
@@ -68,7 +139,7 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
       }
     } catch (err) {
       console.error('Error loading media files:', err);
-      setError('Error cargando archivos');
+      setError(t('media.errorLoading'));
     } finally {
       setLoading(false);
     }
@@ -87,14 +158,14 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
   const handleDelete = async (e, file) => {
     e.stopPropagation(); // Prevent triggering selection
     
-    if (!window.confirm(`¿Estás seguro de que quieres eliminar "${file.fileName}"?`)) {
+    if (!window.confirm(t('media.deleteConfirm', { fileName: file.fileName }))) {
       return;
     }
 
     try {
       setDeletingId(file.id);
       await deleteUpload(file.id);
-      toast.success('Archivo eliminado exitosamente');
+      toast.success(t('media.fileDeleted'));
       
       // Remove from local state
       setMediaFiles(prev => prev.filter(f => f.id !== file.id));
@@ -105,7 +176,7 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
       }
     } catch (err) {
       console.error('Error deleting file:', err);
-      const errorMessage = err.response?.data?.error || 'Error al eliminar archivo';
+      const errorMessage = err.response?.data?.error || t('media.deleteError');
       toast.error(errorMessage);
     } finally {
       setDeletingId(null);
@@ -116,7 +187,7 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
     return (
       <div className="text-center py-8">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <p className="mt-2 text-sm text-gray-500">Cargando archivos...</p>
+        <p className="mt-2 text-sm text-gray-500">{t('media.loadingFiles')}</p>
       </div>
     );
   }
@@ -129,7 +200,7 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
           onClick={loadMediaFiles}
           className="mt-2 text-sm text-blue-600 hover:underline"
         >
-          Reintentar
+          {t('media.retry')}
         </button>
       </div>
     );
@@ -138,7 +209,7 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
   if (mediaFiles.length === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-500">No hay archivos disponibles. Sube archivos para usarlos en tus posts.</p>
+        <p className="text-gray-500">{t('media.noFiles')}</p>
       </div>
     );
   }
@@ -147,13 +218,13 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Archivos disponibles ({mediaFiles.length})
+          {t('media.availableFiles')} ({mediaFiles.length})
         </h3>
         <button
           onClick={loadMediaFiles}
           className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
         >
-          Actualizar
+          {t('media.refresh')}
         </button>
       </div>
       
@@ -183,9 +254,46 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
                 </div>
               </div>
             ) : (
-              <div className="relative aspect-square bg-gray-900 flex items-center justify-center">
-                <Video className="w-8 h-8 text-white" />
-                <div className="absolute top-2 left-2">
+              <div className="relative aspect-square bg-gray-900 overflow-hidden group/video">
+                {file.url ? (
+                  <video
+                    src={file.url}
+                    className="w-full h-full object-cover"
+                    controls
+                    preload="metadata"
+                    playsInline
+                    onError={(e) => {
+                      console.error('Error loading video:', file.fileName, file.url, e);
+                      // Show fallback if video fails to load
+                      e.target.style.display = 'none';
+                      const fallback = e.target.parentElement.querySelector('.video-fallback');
+                      if (fallback) {
+                        fallback.style.display = 'flex';
+                        const errorMsg = fallback.querySelector('.error-msg');
+                        if (errorMsg) errorMsg.textContent = 'Error loading video';
+                      }
+                    }}
+                    onLoadedMetadata={() => {
+                      console.log('Video loaded successfully:', file.fileName);
+                    }}
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                ) : (
+                  <div className="video-fallback absolute inset-0 flex flex-col items-center justify-center">
+                    <Video className="w-8 h-8 text-white mb-2" />
+                    <p className="text-xs text-white/80 text-center px-2 error-msg">
+                      {file.error || 'Video unavailable'}
+                    </p>
+                  </div>
+                )}
+                <div className="video-fallback absolute inset-0 flex flex-col items-center justify-center bg-gray-900/80 opacity-0 group-hover/video:opacity-100 transition-opacity" style={{ display: file.url ? 'none' : 'flex' }}>
+                  <Video className="w-8 h-8 text-white mb-2" />
+                  <p className="text-xs text-white/80 text-center px-2 error-msg">
+                    {file.error || 'Video unavailable'}
+                  </p>
+                </div>
+                <div className="absolute top-2 left-2 z-10">
                   <Video className="w-4 h-4 text-white drop-shadow-lg" />
                 </div>
               </div>
@@ -205,7 +313,7 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
                 onClick={(e) => handleDelete(e, file)}
                 disabled={deletingId === file.id}
                 className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
-                title="Eliminar archivo"
+                title={t('media.deleteFile')}
               >
                 {deletingId === file.id ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>

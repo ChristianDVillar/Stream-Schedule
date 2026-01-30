@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { apiClient, createCheckout, verifyPaymentSession, getLicenseStatus, getAvailableLicenses, getPaymentConfigStatus } from '../api';
+import { apiClient, createCheckout, verifyPaymentSession, getLicenseStatus, getAvailableLicenses, getPaymentConfigStatus, createSubscription, getSubscriptionStatus, cancelSubscription, getPaymentHistory } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { 
   User, 
@@ -26,6 +26,9 @@ const Settings = ({ user, token, setUser }) => {
   const [billingLoading, setBillingLoading] = useState(false);
   const [availableLicenses, setAvailableLicenses] = useState({ monthly: true, quarterly: false, lifetime: false, temporary: false });
   const [paymentConfig, setPaymentConfig] = useState(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState(null);
+  const [paymentHistory, setPaymentHistory] = useState([]);
+  const [loadingSubscription, setLoadingSubscription] = useState(false);
   
   // Profile settings
   const [profileData, setProfileData] = useState({
@@ -135,6 +138,8 @@ const Settings = ({ user, token, setUser }) => {
   useEffect(() => {
     if (token) {
       fetchLicenseStatus();
+      fetchSubscriptionStatus();
+      fetchPaymentHistory();
     }
     fetchAvailableLicenses();
     fetchPaymentConfig();
@@ -169,6 +174,41 @@ const Settings = ({ user, token, setUser }) => {
       setLicenseInfo(res.data);
     } catch (error) {
       setLicenseInfo(null);
+    }
+  };
+
+  const fetchSubscriptionStatus = async () => {
+    try {
+      const res = await getSubscriptionStatus(token);
+      setSubscriptionStatus(res.data);
+    } catch (error) {
+      setSubscriptionStatus(null);
+    }
+  };
+
+  const fetchPaymentHistory = async () => {
+    try {
+      const res = await getPaymentHistory(token);
+      setPaymentHistory(res.data.payments || []);
+    } catch (error) {
+      setPaymentHistory([]);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!window.confirm('Are you sure you want to cancel your subscription? It will remain active until the end of the current billing period.')) {
+      return;
+    }
+
+    setLoadingSubscription(true);
+    try {
+      await cancelSubscription(token);
+      toast.success('Subscription cancellation scheduled');
+      await fetchSubscriptionStatus();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to cancel subscription');
+    } finally {
+      setLoadingSubscription(false);
     }
   };
 
@@ -325,26 +365,33 @@ const Settings = ({ user, token, setUser }) => {
   };
 
   const handlePurchase = async (licenseType) => {
+    // Use subscription for monthly/quarterly, one-time payment for lifetime
+    const useSubscription = licenseType === 'monthly' || licenseType === 'quarterly';
+    
     setBillingLoading(true);
     try {
-      const checkout = await createCheckout({ licenseType, token });
-      // Redirect to Stripe Checkout
-      if (checkout.data.url) {
-        // Show warning if webhook is not configured
-        if (checkout.data.warning) {
+      let response;
+      if (useSubscription) {
+        response = await createSubscription({ licenseType, token });
+      } else {
+        response = await createCheckout({ licenseType, token });
+      }
+      
+      if (response.data.url) {
+        // Show warning if webhook is not configured (only for one-time payments)
+        if (!useSubscription && response.data.warning) {
           toast.success('Redirecting to payment...', {
             duration: 3000,
             icon: '⚠️'
           });
-          // Show additional info about manual verification
           setTimeout(() => {
-            toast(checkout.data.warning, {
+            toast(response.data.warning, {
               duration: 6000,
               icon: 'ℹ️'
             });
           }, 1000);
         }
-        window.location.href = checkout.data.url;
+        window.location.href = response.data.url;
       } else {
         toast.error('Failed to create checkout session');
         setBillingLoading(false);
@@ -365,26 +412,31 @@ const Settings = ({ user, token, setUser }) => {
     }
   };
 
-  // Check for payment success on component mount
+  // Check for payment/subscription success on component mount
   useEffect(() => {
     const checkPaymentStatus = async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const paymentStatus = urlParams.get('payment');
+      const subscriptionStatus = urlParams.get('subscription');
       const sessionId = urlParams.get('session_id');
 
-      if (paymentStatus === 'success' && sessionId && token) {
+      if ((paymentStatus === 'success' || subscriptionStatus === 'success') && sessionId && token) {
         try {
           const result = await verifyPaymentSession({ sessionId, token });
           if (result.data.status === 'paid') {
-            toast.success('Payment completed and license activated!');
+            toast.success(subscriptionStatus === 'success' 
+              ? 'Subscription activated successfully!' 
+              : 'Payment completed and license activated!');
             await fetchLicenseStatus();
+            await fetchSubscriptionStatus();
+            await fetchPaymentHistory();
             // Clean URL
             window.history.replaceState({}, document.title, '/settings');
           }
         } catch (error) {
           toast.error('Failed to verify payment. Please contact support.');
         }
-      } else if (paymentStatus === 'cancelled') {
+      } else if (paymentStatus === 'cancelled' || subscriptionStatus === 'cancelled') {
         toast.error('Payment was cancelled');
         window.history.replaceState({}, document.title, '/settings');
       }
@@ -874,43 +926,115 @@ const Settings = ({ user, token, setUser }) => {
               )}
             </div>
 
+            {/* Subscription Status */}
+            {subscriptionStatus?.hasSubscription && (
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h4 className="text-sm font-medium text-blue-900 mb-2">Active Subscription</h4>
+                    <div className="space-y-1 text-sm text-blue-800">
+                      <p>
+                        Status: <span className="font-medium capitalize">{subscriptionStatus.subscription.status}</span>
+                      </p>
+                      <p>
+                        Current Period: {new Date(subscriptionStatus.subscription.currentPeriodStart).toLocaleDateString()} - {new Date(subscriptionStatus.subscription.currentPeriodEnd).toLocaleDateString()}
+                      </p>
+                      {subscriptionStatus.subscription.cancelAtPeriodEnd && (
+                        <p className="text-yellow-700 font-medium">
+                          ⚠️ Subscription will cancel at end of period
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {subscriptionStatus.subscription.status === 'active' && !subscriptionStatus.subscription.cancelAtPeriodEnd && (
+                    <button
+                      onClick={handleCancelSubscription}
+                      disabled={loadingSubscription}
+                      className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {loadingSubscription ? 'Processing...' : 'Cancel Subscription'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Payment History */}
+            <div className="p-4 bg-white rounded-lg border">
+              <h4 className="text-sm font-medium text-gray-900 mb-4">Payment History</h4>
+              {paymentHistory.length > 0 ? (
+                <div className="space-y-3">
+                  {paymentHistory.map((payment) => (
+                    <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-medium text-gray-900 capitalize">{payment.licenseType}</span>
+                          {payment.isRecurring && (
+                            <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded">Recurring</span>
+                          )}
+                          <span className={`px-2 py-0.5 text-xs rounded capitalize ${
+                            payment.status === 'completed' ? 'bg-green-100 text-green-800' :
+                            payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            payment.status === 'failed' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {payment.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1">
+                          {payment.paidAt ? new Date(payment.paidAt).toLocaleDateString() : new Date(payment.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-gray-900">
+                          {payment.currency} ${payment.amount}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-600">No payment history available</p>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {availableLicenses.monthly && (
                 <div className="p-4 bg-white rounded-lg border">
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Renovación mensual</h4>
-                  <p className="text-sm text-gray-600 mb-4">Licencia mensual con renovación automática. Alertas a 7 y 3 días.</p>
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Monthly Subscription</h4>
+                  <p className="text-sm text-gray-600 mb-4">Recurring monthly license with automatic renewal.</p>
                   <button
                     onClick={() => handlePurchase('monthly')}
                     disabled={billingLoading}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 w-full"
                   >
-                    {billingLoading ? 'Procesando...' : 'Comprar $5.99 / mes'}
+                    {billingLoading ? 'Processing...' : 'Subscribe $5.99 / month'}
                   </button>
                 </div>
               )}
               {availableLicenses.quarterly && (
                 <div className="p-4 bg-white rounded-lg border">
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Renovación cada 3 meses</h4>
-                  <p className="text-sm text-gray-600 mb-4">Facturación trimestral: $4.66/mes (total $13.98).</p>
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Quarterly Subscription</h4>
+                  <p className="text-sm text-gray-600 mb-4">Recurring every 3 months: $4.66/month (total $13.98).</p>
                   <button
                     onClick={() => handlePurchase('quarterly')}
                     disabled={billingLoading}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 w-full"
                   >
-                    {billingLoading ? 'Procesando...' : 'Comprar $13.98'}
+                    {billingLoading ? 'Processing...' : 'Subscribe $13.98'}
                   </button>
                 </div>
               )}
               {availableLicenses.lifetime && (
                 <div className="p-4 bg-white rounded-lg border">
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Licencia de por vida</h4>
-                  <p className="text-sm text-gray-600 mb-4">Acceso ilimitado sin vencimiento.</p>
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Lifetime License</h4>
+                  <p className="text-sm text-gray-600 mb-4">One-time payment for unlimited access.</p>
                   <button
                     onClick={() => handlePurchase('lifetime')}
                     disabled={billingLoading}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 w-full"
                   >
-                    {billingLoading ? 'Procesando...' : 'Comprar $99.00'}
+                    {billingLoading ? 'Processing...' : 'Purchase $99.00'}
                   </button>
                 </div>
               )}

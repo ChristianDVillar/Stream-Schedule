@@ -16,8 +16,24 @@ import { requireAuth } from '../middleware/auth.js';
 import { validateBody, validateParams } from '../middleware/validate.js';
 import { registerUploadSchema, getUploadStatsSchema } from '../validators/uploadSchemas.js';
 import logger from '../utils/logger.js';
+import { cache } from '../utils/cache.js';
 
 const router = express.Router();
+
+// Log all registered routes for debugging (development only)
+if (process.env.NODE_ENV === 'development') {
+  router.use((req, res, next) => {
+    if (req.path === '/video-url') {
+      logger.debug('Video URL route matched', {
+        method: req.method,
+        path: req.path,
+        originalUrl: req.originalUrl,
+        query: req.query
+      });
+    }
+    next();
+  });
+}
 
 // Configure multer for memory storage (we'll upload directly to Supabase)
 const upload = multer({
@@ -65,6 +81,177 @@ const handleMulterError = (err, req, res, next) => {
 
 // Límite diario para usuarios trial
 const TRIAL_DAILY_LIMIT = 1;
+
+/**
+ * GET /api/upload/video-url
+ * Get a signed URL for a video file
+ * IMPORTANT: This route must be defined BEFORE /stats/:user_id to avoid route conflicts
+ * 
+ * @query {string} file_path - Path to the video file in storage (URL-encoded)
+ * @query {number} expiresIn - Expiration time in seconds (default: 3600)
+ */
+router.get('/video-url', requireAuth, async (req, res, next) => {
+  // Log that this endpoint was hit - this should appear in server logs
+  logger.info('Video URL endpoint hit', {
+    path: req.path,
+    fullPath: req.originalUrl,
+    query: req.query,
+    method: req.method,
+    ip: req.ip,
+    hasUser: !!req.user
+  });
+  
+  try {
+    // Get file_path from query parameter (more reliable for special characters)
+    const file_path = req.query.file_path;
+    const expiresIn = parseInt(req.query.expiresIn) || 3600;
+
+    if (!file_path) {
+      logger.warn('Video URL endpoint called without file_path', {
+        query: req.query,
+        ip: req.ip
+      });
+      return res.status(400).json({ 
+        error: 'file_path query parameter is required' 
+      });
+    }
+
+    // Validate user object
+    if (!req.user || !req.user.id) {
+      logger.error('Invalid user object in /api/upload/video-url GET', {
+        hasUser: !!req.user,
+        hasUserId: !!(req.user && req.user.id),
+        ip: req.ip
+      });
+      return res.status(401).json({ error: 'Usuario no autenticado correctamente' });
+    }
+
+    if (!supabase) {
+      logger.error('Supabase not configured for video URL endpoint');
+      return res.status(500).json({ 
+        error: 'Supabase no está configurado' 
+      });
+    }
+
+    const authenticatedUserId = req.user.id.toString();
+
+    logger.debug('Video URL request', {
+      file_path,
+      userId: authenticatedUserId,
+      expiresIn,
+      ip: req.ip
+    });
+
+    // Verify that the file belongs to the user
+    const { data: uploadRecord, error: fetchError } = await supabase
+      .from('uploads')
+      .select('id, user_id, bucket, file_path')
+      .eq('file_path', file_path)
+      .eq('bucket', 'videos')
+      .single();
+
+    if (fetchError || !uploadRecord) {
+      logger.warn('Video file record not found in database', {
+        file_path,
+        userId: authenticatedUserId,
+        error: fetchError?.message,
+        ip: req.ip
+      });
+      return res.status(404).json({ 
+        error: 'Archivo de video no encontrado en la base de datos',
+        details: process.env.NODE_ENV === 'development' ? fetchError?.message : undefined
+      });
+    }
+
+    // Verify ownership
+    if (uploadRecord.user_id !== authenticatedUserId) {
+      logger.warn('Unauthorized access attempt to video file', {
+        file_path,
+        ownerId: uploadRecord.user_id,
+        requesterId: authenticatedUserId,
+        ip: req.ip
+      });
+      return res.status(403).json({ 
+        error: 'No tienes permiso para acceder a este archivo' 
+      });
+    }
+
+    // Generate signed URL using Service Role Key (backend has full access)
+    const { data: signedData, error: signedError } = await supabase.storage
+      .from('videos')
+      .createSignedUrl(uploadRecord.file_path, expiresIn);
+
+    if (signedError) {
+      // Check if the error is because the file doesn't exist
+      if (signedError.message && (
+        signedError.message.includes('not found') || 
+        signedError.message.includes('Object not found') ||
+        signedError.statusCode === 400
+      )) {
+        logger.warn('Video file not found in Storage (orphaned record)', {
+          file_path: uploadRecord.file_path,
+          userId: authenticatedUserId,
+          uploadId: uploadRecord.id,
+          ip: req.ip
+        });
+        return res.status(404).json({ 
+          error: 'El archivo de video no existe en Storage',
+          details: process.env.NODE_ENV === 'development' 
+            ? `File path: ${uploadRecord.file_path}. This record may be orphaned (file deleted but record remains in database).` 
+            : undefined,
+          orphaned: true
+        });
+      }
+      
+      logger.error('Error creating signed URL for video', {
+        error: signedError.message,
+        file_path: uploadRecord.file_path,
+        userId: authenticatedUserId,
+        ip: req.ip
+      });
+      return res.status(500).json({ 
+        error: 'Error al generar URL firmada',
+        details: process.env.NODE_ENV === 'development' ? signedError.message : undefined
+      });
+    }
+
+    logger.info('Video signed URL generated successfully', {
+      file_path: uploadRecord.file_path,
+      userId: authenticatedUserId,
+      expiresIn,
+      ip: req.ip
+    });
+
+    res.json({
+      signedUrl: signedData.signedUrl,
+      expiresIn,
+      file_path: uploadRecord.file_path
+    });
+  } catch (err) {
+    logger.error('Unexpected error in /api/upload/video-url GET', {
+      error: err.message,
+      file_path: req.query.file_path,
+      userId: req.user?.id,
+      ip: req.ip,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+    
+    // Always return JSON, never HTML
+    res.status(500).json({ 
+      error: 'Error interno del servidor',
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+});
+
+// Test endpoint to verify routing works
+router.get('/test-video-url', (req, res) => {
+  res.json({ 
+    message: 'Test endpoint works',
+    path: req.path,
+    query: req.query 
+  });
+});
 
 /**
  * POST /api/upload
@@ -186,6 +373,14 @@ router.post('/', requireAuth, validateBody(registerUploadSchema), async (req, re
       });
     }
 
+    // Invalidate cache for this user's stats
+    const statsCacheKey = `stats:${finalUserId}`;
+    cache.delete(statsCacheKey);
+    logger.debug('Stats cache invalidated', {
+      userId: finalUserId,
+      cacheKey: statsCacheKey
+    });
+
     // Respuesta exitosa
     logger.info('Upload registered', {
       userId: finalUserId,
@@ -301,8 +496,19 @@ router.post('/file', requireAuth, (req, res, next) => {
 
     // Determine if user is trial
     // Handle case where licenseType might be undefined/null
-    const isTrial = req.user?.licenseType === LICENSE_TYPES.TRIAL;
+    const userLicenseType = req.user?.licenseType || null;
+    const isTrial = userLicenseType === LICENSE_TYPES.TRIAL;
     let uploads = null; // Initialize uploads variable outside the if block
+    
+    // Log user info for debugging (only in development)
+    if (process.env.NODE_ENV === 'development') {
+      logger.debug('User license info', {
+        userId: authenticatedUserId,
+        licenseType: userLicenseType,
+        isTrial,
+        hasLicenseType: 'licenseType' in (req.user || {})
+      });
+    }
 
     // Check trial limits before uploading
     if (isTrial) {
@@ -394,10 +600,16 @@ router.post('/file', requireAuth, (req, res, next) => {
     // Get URL for the uploaded file
     let url;
     if (bucket === 'images') {
-      const { data: urlData } = supabase.storage
+      const urlData = supabase.storage
         .from('images')
         .getPublicUrl(uploadData.path);
-      url = urlData.publicUrl;
+      url = urlData?.data?.publicUrl || null;
+      if (!url) {
+        logger.warn('Could not generate public URL for image', {
+          filePath: uploadData.path,
+          urlData
+        });
+      }
     } else {
       const { data: signedData, error: signedError } = await supabase.storage
         .from('videos')
@@ -407,10 +619,19 @@ router.post('/file', requireAuth, (req, res, next) => {
           error: signedError.message,
           filePath: uploadData.path
         });
+        url = null;
       } else {
-        url = signedData.signedUrl;
+        url = signedData?.signedUrl || null;
       }
     }
+
+    // Invalidate cache for this user's stats
+    const statsCacheKey = `stats:${authenticatedUserId}`;
+    cache.delete(statsCacheKey);
+    logger.debug('Stats cache invalidated after file upload', {
+      userId: authenticatedUserId,
+      cacheKey: statsCacheKey
+    });
 
     logger.info('File uploaded successfully', {
       userId: authenticatedUserId,
@@ -501,13 +722,26 @@ router.get('/stats/:user_id', requireAuth, validateParams(getUploadStatsSchema),
     // Use authenticated user ID to ensure we're using the correct UUID format
     const userIdToQuery = authenticatedUserId;
 
+    // Check cache first
+    const cacheKey = `stats:${userIdToQuery}`;
+    const cachedStats = cache.get(cacheKey);
+
+    if (cachedStats) {
+      logger.debug('Stats cache hit', {
+        userId: userIdToQuery,
+        cacheKey
+      });
+      return res.json(cachedStats);
+    }
+
+    // Cache miss - fetch from database
+    logger.debug('Stats cache miss - querying Supabase', {
+      userId: userIdToQuery,
+      cacheKey
+    });
+
     // Get all uploads (not just last 24h) for media gallery
     // For stats, we still want last 24h, but for gallery we want more
-    logger.debug('Querying Supabase for uploads', {
-      userId: userIdToQuery,
-      userIdType: typeof userIdToQuery
-    });
-    
     const { data: uploads, error } = await supabase
       .from('uploads')
       .select('id, bucket, file_path, created_at')
@@ -542,14 +776,26 @@ router.get('/stats/:user_id', requireAuth, validateParams(getUploadStatsSchema),
       return uploadDate >= twentyFourHoursAgo;
     });
     
-    // Return safe defaults - never return null/undefined that could cause frontend errors
-    res.json({
+    // Build response object
+    const statsResponse = {
       totalUploads24h: uploads24h.length || 0,
       isTrialUser: isTrial,
       dailyLimit: isTrial ? TRIAL_DAILY_LIMIT : null,
       remainingUploads: isTrial ? Math.max(0, TRIAL_DAILY_LIMIT - uploads24h.length) : null,
       uploads: uploadsList // Always return an array, even if empty
+    };
+
+    // Cache the response for 30 seconds
+    cache.set(cacheKey, statsResponse, 30);
+
+    logger.debug('Stats cached', {
+      userId: userIdToQuery,
+      cacheKey,
+      ttl: 30
     });
+    
+    // Return safe defaults - never return null/undefined that could cause frontend errors
+    res.json(statsResponse);
 
   } catch (err) {
     logger.error('Error in /api/upload/stats', {
@@ -665,6 +911,14 @@ router.delete('/:upload_id', requireAuth, async (req, res) => {
       });
     }
 
+    // Invalidate cache for this user's stats
+    const statsCacheKey = `stats:${authenticatedUserId}`;
+    cache.delete(statsCacheKey);
+    logger.debug('Stats cache invalidated after file deletion', {
+      userId: authenticatedUserId,
+      cacheKey: statsCacheKey
+    });
+
     logger.info('File deleted successfully', {
       upload_id,
       userId: authenticatedUserId,
@@ -697,5 +951,18 @@ router.delete('/:upload_id', requireAuth, async (req, res) => {
     });
   }
 });
+
+// Log registered routes in development
+if (process.env.NODE_ENV === 'development') {
+  logger.info('Upload routes registered', {
+    routes: [
+      'GET /video-url',
+      'POST /',
+      'POST /file',
+      'GET /stats/:user_id',
+      'DELETE /:upload_id'
+    ]
+  });
+}
 
 export default router;

@@ -8,7 +8,8 @@
     "dev": "nodemon src/app.js",
     "migrate": "node src/scripts/runMigrations.js",
     "migrate:status": "node src/scripts/checkMigrations.js",
-    "validate:performance": "node src/scripts/validatePerformance.js"
+    "validate:performance": "node src/scripts/validatePerformance.js",
+    "check:expirations": "node src/scripts/checkLicenseExpirations.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.93.1",
