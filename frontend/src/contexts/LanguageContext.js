@@ -12,7 +12,7 @@ const translations = {
 export function LanguageProvider({ children }) {
   const [language, setLanguage] = useState(() => {
     const saved = localStorage.getItem('app_language');
-    return saved || 'es'; // Default to Spanish
+    return saved || 'en'; // Default to English
   });
 
   useEffect(() => {
