@@ -60,28 +60,30 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
                 } catch (backendError) {
                   const status = backendError.response?.status;
                   const data = backendError.response?.data;
-                  const isHtml404 = status === 404 && typeof data === 'string' && (data.includes('<!DOCTYPE') || data.includes('<html'));
-                  if (!isHtml404) {
+                  const isOurApi404 = status === 404 && typeof data === 'object' && data !== null && (data.error || data.orphaned !== undefined);
+                  const looksLikeHtml = typeof data === 'string' && (data.includes('<!DOCTYPE') || data.includes('<html') || data.includes('GET /api/upload'));
+                  const backendUnreachable = status === 404 && (looksLikeHtml || !data);
+                  if (!backendUnreachable && !isOurApi404) {
                     console.error('Backend video URL generation failed:', {
                       filePath: upload.file_path,
                       error: typeof data === 'object' ? data : data,
                       status
                     });
                   }
-                  if (status === 404 && !isHtml404) {
+                  if (status === 404 && isOurApi404) {
                     console.warn('Video file not found in Storage, skipping:', upload.file_path);
                     if (upload.id) {
                       deleteUpload(upload.id).catch(() => {});
                     }
                     return null;
                   }
-                  if (status === 404 && isHtml404) {
-                    console.warn('Backend unreachable (404 HTML), trying frontend signed URL fallback');
+                  if (backendUnreachable) {
+                    console.warn('Backend unreachable (404), trying frontend signed URL fallback');
                   }
                   try {
                     const { getSignedVideoUrl } = await import('../utils/supabaseClient');
                     url = await getSignedVideoUrl(upload.file_path, 3600);
-                    if (isHtml404) {
+                    if (backendUnreachable) {
                       console.log('Video URL from frontend fallback (backend was unreachable):', upload.file_path);
                     } else {
                       console.log('Video URL generated from frontend (fallback):', { filePath: upload.file_path });
