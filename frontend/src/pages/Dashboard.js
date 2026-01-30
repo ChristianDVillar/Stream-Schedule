@@ -23,7 +23,6 @@ import {
   Twitch,
   Twitter,
   Instagram,
-  MessageCircle,
   Search,
   Filter,
   Download,
@@ -31,8 +30,14 @@ import {
   Copy,
   RefreshCw,
   X,
-  CalendarPlus
+  CalendarPlus,
+  Image as ImageIcon,
+  Video,
+  Paperclip
 } from 'lucide-react';
+
+// Discord icon - Icons8 id 30888
+const DISCORD_ICON_URL = 'https://img.icons8.com/?size=100&id=30888&format=png&color=000000';
 
 const Dashboard = ({ user, token, ...props }) => {
   const { t } = useLanguage();
@@ -70,19 +75,31 @@ const Dashboard = ({ user, token, ...props }) => {
     }
   };
 
-  const getPlatformIcon = (platform) => {
+  const getPlatformIcon = (platform, size = 'w-5 h-5') => {
+    const className = `${size}`;
     switch (platform) {
       case 'twitch':
-        return <Twitch className="w-4 h-4" />;
+        return <Twitch className={className} />;
       case 'twitter':
-        return <Twitter className="w-4 h-4" />;
+        return <Twitter className={className} />;
       case 'instagram':
-        return <Instagram className="w-4 h-4" />;
+        return <Instagram className={className} />;
       case 'discord':
-        return <MessageCircle className="w-4 h-4" />;
+        return (
+          <img
+            src={DISCORD_ICON_URL}
+            alt="Discord"
+            className={`${className} object-contain dark:invert`}
+          />
+        );
       default:
         return null;
     }
+  };
+
+  const getPlatformLabel = (platform) => {
+    const labels = { twitch: 'Twitch', twitter: 'Twitter', instagram: 'Instagram', discord: 'Discord' };
+    return labels[platform] || platform;
   };
 
   const getStatusIcon = (status) => {
@@ -116,13 +133,18 @@ const Dashboard = ({ user, token, ...props }) => {
 
   const handleDuplicateContent = async (content) => {
     try {
+      const items = content.files?.items ?? (content.files?.urls ? content.files.urls.map((url) => ({ url })) : []);
       const newContent = {
-        ...content,
         title: `${content.title} (Copy)`,
-        scheduledFor: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // Tomorrow
+        content: content.content,
+        contentType: content.contentType,
+        platforms: content.platforms,
+        scheduledFor: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
+        timezone: content.timezone,
+        recurrence: content.recurrence,
+        ...(items.length > 0 && { mediaItems: items })
       };
-      delete newContent.id;
-      
+
       await apiClient.post('/content', newContent, {
         headers: { Authorization: `Bearer ${token}` },
         withCredentials: true
@@ -457,10 +479,10 @@ const Dashboard = ({ user, token, ...props }) => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex space-x-1">
+                        <div className="flex flex-wrap gap-1">
                               {Array.isArray(content.platforms)
                                 ? content.platforms.map((platform) => (
-                            <div key={platform} className="p-1 bg-gray-100 dark:bg-gray-700 rounded">
+                            <div key={platform} className="p-1.5 bg-gray-100 dark:bg-gray-700 rounded inline-flex items-center" title={getPlatformLabel(platform)}>
                               {getPlatformIcon(platform)}
                                     </div>
                                   ))
@@ -536,12 +558,12 @@ const Dashboard = ({ user, token, ...props }) => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Platforms</h3>
-                    <div className="flex space-x-2">
+                    <div className="flex flex-wrap gap-2">
                       {Array.isArray(selectedContent.platforms)
                         ? selectedContent.platforms.map((platform) => (
                             <div key={platform} className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center space-x-2">
-                              {getPlatformIcon(platform)}
-                              <span className="text-sm capitalize text-gray-900 dark:text-gray-100">{platform}</span>
+                              {getPlatformIcon(platform, 'w-5 h-5')}
+                              <span className="text-sm text-gray-900 dark:text-gray-100">{getPlatformLabel(platform)}</span>
                             </div>
                           ))
                         : null}
@@ -557,10 +579,62 @@ const Dashboard = ({ user, token, ...props }) => {
                   </div>
                 </div>
                 
-                <div>
-                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Scheduled For</h3>
-                  <p className="text-gray-900 dark:text-gray-100">{formatDate(selectedContent.scheduledFor)}</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('dashboard.scheduledFor')}</h3>
+                    <p className="text-gray-900 dark:text-gray-100">{formatDate(selectedContent.scheduledFor)}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('dashboard.createdAt')}</h3>
+                    <p className="text-gray-900 dark:text-gray-100">{formatDate(selectedContent.createdAt)}</p>
+                  </div>
                 </div>
+
+                {(() => {
+                  const files = selectedContent.files;
+                  const items = files?.items ?? (files?.urls ? files.urls.map((url) => ({ url })) : []);
+                  if (!items || items.length === 0) return null;
+                  const formatDuration = (sec) => {
+                    if (sec == null || sec < 0) return null;
+                    const m = Math.floor(sec / 60);
+                    const s = Math.floor(sec % 60);
+                    return `${m}:${String(s).padStart(2, '0')}`;
+                  };
+                  return (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                        <Paperclip className="w-4 h-4" />
+                        {t('dashboard.attachedFiles')}
+                      </h3>
+                      <ul className="space-y-2">
+                        {items.map((file, idx) => {
+                          const url = typeof file === 'string' ? file : file.url;
+                          const type = typeof file === 'object' && file.type ? file.type : (url && url.includes('videos') ? 'video' : 'image');
+                          const name = typeof file === 'object' && file.fileName ? file.fileName : (url ? url.split('/').pop() || t('dashboard.file') : t('dashboard.file'));
+                          const duration = typeof file === 'object' && file.durationSeconds != null ? formatDuration(file.durationSeconds) : null;
+                          return (
+                            <li key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                              <div className="flex items-center gap-3 min-w-0">
+                                {type === 'video' ? (
+                                  <Video className="w-5 h-5 text-purple-500 flex-shrink-0" />
+                                ) : (
+                                  <ImageIcon className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                                )}
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate" title={name}>{name}</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    {t(`dashboard.${type}`)}
+                                    {type === 'video' && duration != null && ` · ${t('dashboard.duration')}: ${duration}`}
+                                  </p>
+                                </div>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  );
+                })()}
               </div>
               
               <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
