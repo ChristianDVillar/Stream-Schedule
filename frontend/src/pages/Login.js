@@ -157,8 +157,8 @@ export default function Login({ setUser, setToken }) {
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-      <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-8 rounded shadow-md w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 py-6">
+      <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-5 sm:p-8 rounded-lg shadow-md w-full max-w-sm min-w-0">
         <h1 className="text-2xl font-bold mb-6 text-center text-gray-900 dark:text-gray-100">{isRegister ? t('login.createAccount') : t('login.title')}</h1>
         {error && <div className="mb-4 text-red-600 dark:text-red-400 text-center">{error}</div>}
         {notice && <div className="mb-4 text-yellow-700 dark:text-yellow-400 text-center">{notice}</div>}
@@ -373,8 +373,8 @@ export default function Login({ setUser, setToken }) {
         
         {/* Forgot Password Modal */}
         {showForgotPassword && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md mx-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
               <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">{t('login.resetPassword')}</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 {t('login.resetPasswordInstructions') || 'Enter your email address and we will reset your password.'}
@@ -392,10 +392,10 @@ export default function Login({ setUser, setToken }) {
                     required
                   />
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3">
                   <button
                     type="submit"
-                    className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                    className="flex-1 bg-blue-600 text-white py-2.5 rounded hover:bg-blue-700 disabled:opacity-50 transition-colors min-h-[44px]"
                     disabled={resetLoading}
                   >
                     {resetLoading ? t('common.loading') || 'Loading...' : t('login.resetPassword') || 'Reset Password'}
@@ -407,7 +407,7 @@ export default function Login({ setUser, setToken }) {
                       setResetEmail('');
                       setError(null);
                     }}
-                    className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 py-2 rounded hover:bg-gray-400 dark:hover:bg-gray-700 transition-colors"
+                    className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 py-2.5 rounded hover:bg-gray-400 dark:hover:bg-gray-700 transition-colors min-h-[44px]"
                   >
                     {t('common.cancel')}
                   </button>

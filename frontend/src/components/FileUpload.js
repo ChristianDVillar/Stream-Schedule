@@ -20,6 +20,19 @@ export default function FileUpload({ user, onUploadComplete }) {
   // Determine if user is trial
   const isTrialUser = user?.licenseType === 'trial';
 
+  const getVideoDuration = (file) => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(video.src);
+        resolve(Math.round(video.duration) || 0);
+      };
+      video.onerror = () => resolve(0);
+      video.src = URL.createObjectURL(file);
+    });
+  };
+
   const handleFileSelect = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -61,12 +74,24 @@ export default function FileUpload({ user, onUploadComplete }) {
         return;
       }
 
+      let durationSeconds;
+      if (isVideo) {
+        durationSeconds = await getVideoDuration(file);
+      }
+
+      const meta = {
+        fileName: file.name,
+        type: isImage ? 'image' : 'video',
+        ...(durationSeconds !== undefined && { durationSeconds })
+      };
+
       // Add to uploaded files list
       setUploadedFiles(prev => [...prev, {
         url: result.url,
         bucket,
         fileName: file.name,
-        uploadedAt: new Date()
+        uploadedAt: new Date(),
+        ...(durationSeconds !== undefined && { durationSeconds })
       }]);
 
       // Update stats after successful upload
@@ -79,9 +104,9 @@ export default function FileUpload({ user, onUploadComplete }) {
         }
       }
 
-      // Notify parent component
+      // Notify parent component (url, bucket, meta)
       if (onUploadComplete) {
-        onUploadComplete(result.url, bucket);
+        onUploadComplete(result.url, bucket, meta);
       }
 
     } catch (error) {
