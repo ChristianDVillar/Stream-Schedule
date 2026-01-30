@@ -19,7 +19,7 @@ export function LanguageProvider({ children }) {
     localStorage.setItem('app_language', language);
   }, [language]);
 
-  const t = (key) => {
+  const t = (key, params = {}) => {
     const keys = key.split('.');
     let value = translations[language];
     
@@ -29,6 +29,13 @@ export function LanguageProvider({ children }) {
         console.warn(`Translation key not found: ${key}`);
         return key;
       }
+    }
+    
+    // Replace placeholders with params (e.g., {count} -> params.count)
+    if (typeof value === 'string' && Object.keys(params).length > 0) {
+      return value.replace(/\{(\w+)\}/g, (match, paramKey) => {
+        return params[paramKey] !== undefined ? params[paramKey] : match;
+      });
     }
     
     return value;

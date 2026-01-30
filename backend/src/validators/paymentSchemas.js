@@ -28,3 +28,14 @@ export const verifySessionSchema = Joi.object({
       'any.required': 'Session ID is required'
     })
 }).required();
+
+// Create subscription schema (only monthly and quarterly can be subscriptions)
+export const subscribeSchema = Joi.object({
+  licenseType: Joi.string()
+    .valid('monthly', 'quarterly')
+    .required()
+    .messages({
+      'any.only': 'Subscription license type must be monthly or quarterly',
+      'any.required': 'License type is required for subscription'
+    })
+}).required();

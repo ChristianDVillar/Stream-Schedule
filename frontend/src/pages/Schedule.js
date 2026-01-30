@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 
 const Schedule = ({ user, token }) => {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     title: '',
@@ -104,31 +105,31 @@ const Schedule = ({ user, token }) => {
     const newErrors = {};
     
     if (!formData.title.trim()) {
-      newErrors.title = 'Title is required';
+      newErrors.title = t('schedule.validationTitleRequired');
     } else if (formData.title.length < 3) {
-      newErrors.title = 'Title must be at least 3 characters';
+      newErrors.title = t('schedule.validationTitleMin');
     }
     
     if (!formData.content.trim()) {
-      newErrors.content = 'Content is required';
+      newErrors.content = t('schedule.validationContentRequired');
     } else if (formData.content.length < 10) {
-      newErrors.content = 'Content must be at least 10 characters';
+      newErrors.content = t('schedule.validationContentMin');
     }
     
     if (!formData.contentType) {
-      newErrors.contentType = 'Content type is required';
+      newErrors.contentType = t('schedule.validationContentTypeRequired');
     }
     
     if (formData.platforms.length === 0) {
-      newErrors.platforms = 'Select at least one platform';
+      newErrors.platforms = t('schedule.validationPlatformsRequired');
     }
     
     if (!formData.scheduledFor) {
-      newErrors.scheduledFor = 'Date is required';
+      newErrors.scheduledFor = t('schedule.validationDateRequired');
     }
     
     if (!formData.scheduledTime) {
-      newErrors.scheduledTime = 'Time is required';
+      newErrors.scheduledTime = t('schedule.validationTimeRequired');
     }
 
     setErrors(newErrors);
@@ -139,7 +140,7 @@ const Schedule = ({ user, token }) => {
     e.preventDefault();
     
     if (!validateForm()) {
-      toast.error('Please fix the errors before submitting');
+      toast.error(t('schedule.fixErrors'));
       return;
     }
 
@@ -166,7 +167,7 @@ const Schedule = ({ user, token }) => {
       });
 
       const createdCount = Array.isArray(response.data) ? response.data.length : 1;
-      toast.success(`Content scheduled successfully! (${createdCount})`);
+      toast.success(t('schedule.scheduledSuccess', { count: createdCount }));
       
       // Suggest saving as template if form has meaningful content
       if (formData.title && formData.platforms.length > 0 && !templates.find(t => 
@@ -174,27 +175,27 @@ const Schedule = ({ user, token }) => {
         JSON.stringify(t.platforms) === JSON.stringify(formData.platforms)
       )) {
         setTimeout(() => {
-          toast((t) => (
+          toast((toastInstance) => (
             <div className="flex flex-col space-y-2">
-              <p className="font-medium">💡 Do you want to save this as a template?</p>
+              <p className="font-medium">💡 {t('schedule.saveTemplatePrompt')}</p>
               <div className="flex space-x-2">
                 <button
                   onClick={() => {
                     setTemplateName(`${formData.title} Template`);
-                    toast.dismiss(t.id);
+                    toast.dismiss(toastInstance.id);
                     setTimeout(() => {
                       handleSaveTemplate();
                     }, 100);
                   }}
                   className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
                 >
-                  Save Template
+                  {t('schedule.saveTemplateButton')}
                 </button>
                 <button
-                  onClick={() => toast.dismiss(t.id)}
+                  onClick={() => toast.dismiss(toastInstance.id)}
                   className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300"
                 >
-                  Maybe later
+                  {t('schedule.maybeLater')}
                 </button>
               </div>
             </div>
@@ -205,7 +206,7 @@ const Schedule = ({ user, token }) => {
       navigate('/dashboard');
     } catch (error) {
       console.error('Error scheduling content:', error);
-      const errorMessage = error.response?.data?.details || error.response?.data?.error || error.message || 'Failed to schedule content. Please try again.';
+      const errorMessage = error.response?.data?.details || error.response?.data?.error || error.message || t('schedule.scheduleError');
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -236,13 +237,13 @@ const Schedule = ({ user, token }) => {
 
   const handleSaveTemplate = () => {
     if (!templateName.trim()) {
-      toast.error('Template name is required');
+      toast.error(t('schedule.templateNameRequired'));
       return;
     }
     
     // Check if template with same name already exists
-    if (templates.find(t => t.name.toLowerCase() === templateName.trim().toLowerCase())) {
-      toast.error('A template with this name already exists');
+    if (templates.find(tmpl => tmpl.name.toLowerCase() === templateName.trim().toLowerCase())) {
+      toast.error(t('schedule.templateExists'));
       return;
     }
     
@@ -257,7 +258,7 @@ const Schedule = ({ user, token }) => {
     };
     setTemplates(prev => [...prev, template]);
     setTemplateName('');
-    toast.success(`Template "${template.name}" saved successfully!`);
+    toast.success(t('schedule.templateSaved', { name: template.name }));
   };
 
   const handleApplyTemplate = (template) => {
@@ -269,7 +270,7 @@ const Schedule = ({ user, token }) => {
       contentType: template.contentType || prev.contentType,
       scheduledTime: template.scheduledTime || prev.scheduledTime
     }));
-    toast.success(`Template "${template.name}" applied`);
+    toast.success(t('schedule.templateApplied', { name: template.name }));
   };
 
   const handleMediaSelect = (url, bucket) => {
@@ -297,7 +298,7 @@ const Schedule = ({ user, token }) => {
       ...prev,
       mediaUrls: [...(prev.mediaUrls || []), url]
     }));
-    toast.success('Archivo subido y agregado al post');
+    toast.success(t('schedule.fileAdded'));
   };
 
   const platforms = [
@@ -332,25 +333,25 @@ const Schedule = ({ user, token }) => {
   // Dynamic tips based on form state
   const getDynamicTip = () => {
     if (!formData.title || formData.title.trim().length < 5) {
-      return '💡 Tip: Los títulos con emojis tienen más engagement';
+      return `💡 ${t('schedule.tipTitleShort')}`;
     }
     if (!formData.content.includes('#') && !formData.content.match(/#\w+/g)) {
-      return '💡 Tip: Añade 3–5 hashtags para mejorar alcance';
+      return `💡 ${t('schedule.tipHashtags')}`;
     }
     if (formData.platforms.length === 0) {
-      return '💡 Tip: Selecciona múltiples plataformas para mayor alcance';
+      return `💡 ${t('schedule.tipPlatforms')}`;
     }
     if (formData.platforms.length === 1) {
-      return '💡 Tip: Cross-post en múltiples plataformas aumenta tu visibilidad';
+      return `💡 ${t('schedule.tipCrossPost')}`;
     }
     // Check if scheduled time is outside typical peak hours (19-22h local)
     if (formData.scheduledTime) {
       const hour = parseInt(formData.scheduledTime.split(':')[0]);
       if (hour < 19 || hour > 22) {
-        return '💡 Tip: En tu zona horaria el pico suele ser 19–22h';
+        return `💡 ${t('schedule.tipPeakHours')}`;
       }
     }
-    return '💡 Tip: Programa contenido consistente para construir audiencia';
+    return `💡 ${t('schedule.tipConsistent')}`;
   };
 
   return (
@@ -373,8 +374,8 @@ const Schedule = ({ user, token }) => {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Schedule New Content</h1>
-          <p className="text-gray-600">Create and schedule your content across multiple platforms</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('schedule.scheduleTitle')}</h1>
+          <p className="text-gray-600">{t('schedule.scheduleSubtitle')}</p>
         </div>
 
         {/* Form */}
@@ -383,7 +384,7 @@ const Schedule = ({ user, token }) => {
             {/* Title */}
             <div className="title-input">
               <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
-                Content Title <span className="text-red-500">*</span>
+                {t('schedule.contentTitle')} <span className="text-red-500">*</span>
                     </label>
               <div className="relative">
                     <input
@@ -394,7 +395,7 @@ const Schedule = ({ user, token }) => {
                   className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                     errors.title ? 'border-red-500' : 'border-gray-300'
                   }`}
-                  placeholder="Enter a catchy title..."
+                  placeholder={t('schedule.contentPlaceholder')}
                 />
                 {errors.title && (
                   <div className="absolute right-3 top-3">
@@ -410,7 +411,7 @@ const Schedule = ({ user, token }) => {
             {/* Content */}
             <div className="content-textarea">
               <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-2">
-                Content <span className="text-red-500">*</span>
+                {t('schedule.contentLabel')} <span className="text-red-500">*</span>
                     </label>
               <div className="relative">
                     <textarea
@@ -421,7 +422,7 @@ const Schedule = ({ user, token }) => {
                   className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
                     errors.content ? 'border-red-500' : 'border-gray-300'
                   }`}
-                      placeholder="Write your content here..."
+                      placeholder={t('schedule.contentPlaceholderText')}
                     />
                 {errors.content && (
                   <div className="absolute right-3 top-3">
@@ -445,7 +446,7 @@ const Schedule = ({ user, token }) => {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   <div className="flex items-center space-x-2">
                     <Paperclip className="w-4 h-4" />
-                    <span>Archivos e Imagenes</span>
+                    <span>{t('schedule.mediaFiles')}</span>
                   </div>
                 </label>
                 <button
@@ -453,7 +454,7 @@ const Schedule = ({ user, token }) => {
                   onClick={() => setShowMediaSection(!showMediaSection)}
                   className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  {showMediaSection ? 'Ocultar' : 'Mostrar'}
+                  {showMediaSection ? t('schedule.hide') : t('schedule.show')}
                 </button>
               </div>
 
@@ -463,7 +464,7 @@ const Schedule = ({ user, token }) => {
                   <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center">
                       <ImageIcon className="w-4 h-4 mr-2" />
-                      Subir nuevo archivo
+                      {t('schedule.uploadNewFile')}
                     </h4>
                     <FileUpload 
                       user={user} 
@@ -474,7 +475,7 @@ const Schedule = ({ user, token }) => {
                   {/* Media Gallery */}
                   <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                      Archivos disponibles
+                      {t('schedule.availableFiles')}
                     </h4>
                     <MediaGallery 
                       user={user}
@@ -487,7 +488,7 @@ const Schedule = ({ user, token }) => {
                   {formData.mediaUrls && formData.mediaUrls.length > 0 && (
                     <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-900/20">
                       <h4 className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-2">
-                        Archivos seleccionados ({formData.mediaUrls.length})
+                        {t('schedule.selectedMedia')} ({formData.mediaUrls.length})
                       </h4>
                       <div className="flex flex-wrap gap-2">
                         {formData.mediaUrls.map((url, index) => (
@@ -577,10 +578,10 @@ const Schedule = ({ user, token }) => {
                     
             {/* Date and Time */}
             <div className="datetime-section grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
+              <div>
                 <label htmlFor="scheduledFor" className="block text-sm font-medium text-gray-700 mb-2">
-                  Date <span className="text-red-500">*</span>
-                      </label>
+                  {t('schedule.date')} <span className="text-red-500">*</span>
+                </label>
                 <div className="relative">
                       <input
                     id="scheduledFor"
@@ -601,7 +602,7 @@ const Schedule = ({ user, token }) => {
 
               <div>
                 <label htmlFor="scheduledTime" className="block text-sm font-medium text-gray-700 mb-2">
-                  Time <span className="text-red-500">*</span>
+                  {t('schedule.time')} <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -629,7 +630,7 @@ const Schedule = ({ user, token }) => {
                 className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2"
                 >
                 <X className="w-4 h-4" />
-                <span>Cancel</span>
+                <span>{t('schedule.cancel')}</span>
                 </button>
                 <button
                   type="submit"
@@ -639,12 +640,12 @@ const Schedule = ({ user, token }) => {
                   {loading ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Scheduling...</span>
+                    <span>{t('schedule.scheduling')}</span>
                   </>
                   ) : (
                     <>
                     <Save className="w-4 h-4" />
-                    <span>Schedule Content</span>
+                    <span>{t('schedule.scheduleContent')}</span>
                     </>
                   )}
                 </button>
@@ -657,7 +658,7 @@ const Schedule = ({ user, token }) => {
           {/* Timezone */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <label htmlFor="timezone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Timezone
+              {t('schedule.timezone')}
             </label>
             <select
               id="timezone"
@@ -673,7 +674,7 @@ const Schedule = ({ user, token }) => {
               )}
             </select>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-              All scheduled times will be shown in this timezone.
+              {t('schedule.timezoneDescription')}
             </p>
           </div>
 
@@ -681,9 +682,9 @@ const Schedule = ({ user, token }) => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Recurring schedule</h3>
+                <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('schedule.recurringSchedule')}</h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Schedule content to repeat automatically (perfect for regular streams)
+                  {t('schedule.recurringDescription')}
                 </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -702,7 +703,7 @@ const Schedule = ({ user, token }) => {
             {formData.recurrence.enabled && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Frequency</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('schedule.frequency')}</label>
                   <select
                     value={formData.recurrence.frequency}
                     onChange={(e) => handleInputChange('recurrence', {
@@ -711,12 +712,12 @@ const Schedule = ({ user, token }) => {
                     })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900"
                   >
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
+                    <option value="daily">{t('schedule.daily')}</option>
+                    <option value="weekly">{t('schedule.weekly')}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Occurrences</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('schedule.occurrences')}</label>
                   <input
                     type="number"
                     min="1"
@@ -736,15 +737,15 @@ const Schedule = ({ user, token }) => {
           {/* Templates */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <div className="mb-3">
-              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Templates</h3>
+              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">{t('schedule.templates')}</h3>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Save reusable schedules (title, platforms, time) to speed up your workflow.
+                {t('schedule.templatesDescription')}
               </p>
             </div>
             <div className="flex flex-col md:flex-row gap-3 mb-3">
               <input
                 type="text"
-                placeholder="Template name"
+                placeholder={t('schedule.templateName')}
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
                 className="flex-1 px-3 py-2 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700"
@@ -754,14 +755,14 @@ const Schedule = ({ user, token }) => {
                 onClick={handleSaveTemplate}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
-                Save Template
+                {t('schedule.saveTemplate')}
               </button>
             </div>
             {templates.length === 0 ? (
               <div className="text-center py-4 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">No templates yet.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{t('schedule.noTemplates')}</p>
                 <p className="text-xs text-gray-400 dark:text-gray-500">
-                  Fill out the form above and save it as a template for quick reuse.
+                  {t('schedule.noTemplatesHelp')}
                 </p>
               </div>
             ) : (
@@ -786,7 +787,7 @@ const Schedule = ({ user, token }) => {
               <Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
               <div className="flex-1">
                 <h3 className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-2">
-                  Tip profesional
+                  {t('schedule.professionalTip')}
                 </h3>
                 <p className="text-sm text-blue-800 dark:text-blue-300">
                   {getDynamicTip()}

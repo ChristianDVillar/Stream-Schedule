@@ -125,7 +125,10 @@ async function executeMigration(filename) {
     if (error.message && (
       error.message.includes('already exists') ||
       error.message.includes('duplicate') ||
-      error.code === '42701' // PostgreSQL duplicate column
+      error.message.includes('unique constraint') ||
+      error.message.includes('unique violation') ||
+      error.code === '42701' || // PostgreSQL duplicate column
+      error.code === '23505'     // PostgreSQL unique constraint violation
     )) {
       console.log(`⚠️  Skipped (already exists): ${filename}`);
       // Still record as executed since the change is already in place
