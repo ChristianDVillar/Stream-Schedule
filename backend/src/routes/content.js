@@ -43,9 +43,14 @@ router.post('/', validateBody(contentSchema), async (req, res) => {
     const scheduledFor = new Date(req.body.scheduledFor);
     const occurrences = buildOccurrences(scheduledFor, req.body.recurrence);
     
-    // Extract mediaUrls and store in files field
-    const { mediaUrls, ...contentData } = req.body;
-    const filesData = mediaUrls && mediaUrls.length > 0 ? { urls: mediaUrls } : null;
+    // Extract mediaItems or mediaUrls and store in files field (items: { url, fileName?, type?, durationSeconds? }[])
+    const { mediaUrls, mediaItems, ...contentData } = req.body;
+    let filesData = null;
+    if (mediaItems && mediaItems.length > 0) {
+      filesData = { items: mediaItems };
+    } else if (mediaUrls && mediaUrls.length > 0) {
+      filesData = { items: mediaUrls.map((url) => ({ url })) };
+    }
     
     // Sequelize automatically stores dates in UTC
     const created = await Promise.all(
@@ -92,7 +97,17 @@ router.put('/:id', validateBody(updateContentSchema), async (req, res) => {
   const content = await Content.findOne({ where: { id: req.params.id, userId: req.user.id } });
   if (!content) return res.status(404).json({ error: 'Not found' });
   try {
-    await content.update(req.body);
+    const { mediaUrls, mediaItems, ...updateData } = req.body;
+    let filesData = content.files;
+    if (mediaItems && mediaItems.length >= 0) {
+      filesData = mediaItems.length > 0 ? { items: mediaItems } : null;
+    } else if (mediaUrls && mediaUrls.length >= 0) {
+      filesData = mediaUrls.length > 0 ? { items: mediaUrls.map((url) => ({ url })) } : null;
+    }
+    if (filesData !== undefined) {
+      updateData.files = filesData;
+    }
+    await content.update(updateData);
     logger.info('Content updated', {
       userId: req.user.id,
       contentId: req.params.id

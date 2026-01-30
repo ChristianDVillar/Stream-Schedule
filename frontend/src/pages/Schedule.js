@@ -17,8 +17,14 @@ import {
   Paperclip,
   Image as ImageIcon,
   Video,
-  Lightbulb
+  Lightbulb,
+  Twitch,
+  Twitter,
+  Instagram
 } from 'lucide-react';
+
+// Discord icon - Icons8 id 30888 (https://icons8.com/icon/30888/discord)
+const DISCORD_ICON_URL = 'https://img.icons8.com/?size=100&id=30888&format=png&color=000000';
 
 const Schedule = ({ user, token }) => {
   const { t } = useLanguage();
@@ -31,7 +37,7 @@ const Schedule = ({ user, token }) => {
     scheduledFor: '',
     scheduledTime: '',
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    mediaUrls: [], // Array of media URLs to attach
+    mediaItems: [], // Array of { url, fileName?, type?, durationSeconds? }
     recurrence: {
       enabled: false,
       frequency: 'weekly',
@@ -159,7 +165,7 @@ const Schedule = ({ user, token }) => {
         platforms: formData.platforms,
         scheduledFor: scheduledDateTime.toISOString(), // Convert to UTC ISO string
         timezone: formData.timezone,
-        mediaUrls: formData.mediaUrls, // Include media URLs
+        mediaItems: normalizeMediaItems(formData.mediaItems), // Include media with metadata
         recurrence: formData.recurrence
       }, {
         headers: { Authorization: `Bearer ${token}` },
@@ -273,32 +279,65 @@ const Schedule = ({ user, token }) => {
     toast.success(t('schedule.templateApplied', { name: template.name }));
   };
 
-  const handleMediaSelect = (url, bucket) => {
-    setFormData(prev => {
-      const currentUrls = prev.mediaUrls || [];
-      if (currentUrls.includes(url)) {
-        // Deselect if already selected
-        return {
-          ...prev,
-          mediaUrls: currentUrls.filter(u => u !== url)
-        };
-      } else {
-        // Select if not selected
-        return {
-          ...prev,
-          mediaUrls: [...currentUrls, url]
-        };
-      }
+  const normalizeMediaItems = (items) => {
+    if (!items || !items.length) return [];
+    return items.map((item) => {
+      if (typeof item === 'string') return { url: item };
+      return {
+        url: item.url,
+        ...(item.fileName && { fileName: item.fileName }),
+        ...(item.type && { type: item.type }),
+        ...(item.durationSeconds !== undefined && { durationSeconds: item.durationSeconds })
+      };
     });
   };
 
-  const handleUploadComplete = (url, bucket) => {
-    // Automatically add uploaded file to selected media
+  const handleMediaSelect = (url, bucket) => {
+    setFormData(prev => {
+      const items = prev.mediaItems || [];
+      const exists = items.some((item) => (typeof item === 'string' ? item : item.url) === url);
+      if (exists) {
+        return {
+          ...prev,
+          mediaItems: items.filter((item) => (typeof item === 'string' ? item : item.url) !== url)
+        };
+      }
+      return {
+        ...prev,
+        mediaItems: [...items, { url, type: bucket === 'videos' ? 'video' : 'image' }]
+      };
+    });
+  };
+
+  const handleUploadComplete = (url, bucket, meta) => {
+    const item = {
+      url,
+      type: meta?.type || (bucket === 'videos' ? 'video' : 'image'),
+      ...(meta?.fileName && { fileName: meta.fileName }),
+      ...(meta?.durationSeconds !== undefined && { durationSeconds: meta.durationSeconds })
+    };
     setFormData(prev => ({
       ...prev,
-      mediaUrls: [...(prev.mediaUrls || []), url]
+      mediaItems: [...(prev.mediaItems || []), item]
     }));
     toast.success(t('schedule.fileAdded'));
+  };
+
+  const getPlatformIcon = (platformId, discordSelected = false) => {
+    switch (platformId) {
+      case 'twitch': return <Twitch className="w-6 h-6" />;
+      case 'twitter': return <Twitter className="w-6 h-6" />;
+      case 'instagram': return <Instagram className="w-6 h-6" />;
+      case 'discord':
+        return (
+          <img
+            src={DISCORD_ICON_URL}
+            alt="Discord"
+            className={`w-6 h-6 object-contain ${discordSelected ? 'invert' : ''}`}
+          />
+        );
+      default: return <Share2 className="w-6 h-6" />;
+    }
   };
 
   const platforms = [
@@ -371,15 +410,15 @@ const Schedule = ({ user, token }) => {
         }}
       />
       
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 min-w-0">
       {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('schedule.scheduleTitle')}</h1>
-          <p className="text-gray-600">{t('schedule.scheduleSubtitle')}</p>
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('schedule.scheduleTitle')}</h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">{t('schedule.scheduleSubtitle')}</p>
         </div>
 
         {/* Form */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 sm:p-6 lg:p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Title */}
             <div className="title-input">
@@ -480,27 +519,30 @@ const Schedule = ({ user, token }) => {
                     <MediaGallery 
                       user={user}
                       onSelect={handleMediaSelect}
-                      selectedUrls={formData.mediaUrls || []}
+                      selectedUrls={(formData.mediaItems || []).map((m) => (typeof m === 'string' ? m : m.url))}
                     />
                   </div>
 
                   {/* Selected Media Preview */}
-                  {formData.mediaUrls && formData.mediaUrls.length > 0 && (
+                  {formData.mediaItems && formData.mediaItems.length > 0 && (
                     <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-900/20">
                       <h4 className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-2">
-                        {t('schedule.selectedMedia')} ({formData.mediaUrls.length})
+                        {t('schedule.selectedMedia')} ({formData.mediaItems.length})
                       </h4>
                       <div className="flex flex-wrap gap-2">
-                        {formData.mediaUrls.map((url, index) => (
+                        {formData.mediaItems.map((item, index) => {
+                          const url = typeof item === 'string' ? item : item.url;
+                          const isVideo = typeof item === 'object' && item.type === 'video';
+                          return (
                           <div
                             key={index}
                             className="relative group"
                           >
                             <div className="w-16 h-16 rounded border-2 border-blue-500 bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
-                              {url.includes('images') ? (
+                              {!isVideo && (url.includes('images') || (typeof item === 'object' && item.type === 'image')) ? (
                                 <img 
                                   src={url} 
-                                  alt={`Media ${index + 1}`}
+                                  alt={typeof item === 'object' && item.fileName ? item.fileName : `Media ${index + 1}`}
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
@@ -509,13 +551,14 @@ const Schedule = ({ user, token }) => {
                             </div>
                             <button
                               type="button"
-                              onClick={() => handleMediaSelect(url)}
+                              onClick={() => handleMediaSelect(url, isVideo || url.includes('videos') ? 'videos' : 'images')}
                               className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                             >
                               <X className="w-3 h-3" />
                             </button>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -559,11 +602,11 @@ const Schedule = ({ user, token }) => {
                     onClick={() => handlePlatformToggle(platform.id)}
                     className={`p-4 rounded-lg border-2 transition-all duration-200 flex flex-col items-center space-y-2 ${
                       formData.platforms.includes(platform.id)
-                        ? `${platform.color} border-transparent text-white shadow-lg transform scale-105`
-                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                        ? `${platform.color} border-transparent text-white shadow-lg transform scale-105 dark:border-transparent`
+                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
                     }`}
                   >
-                    <Share2 className="w-6 h-6" />
+                    {getPlatformIcon(platform.id, formData.platforms.includes(platform.id))}
                     <span className="text-sm font-medium">{platform.name}</span>
                     {formData.platforms.includes(platform.id) && (
                       <CheckCircle className="w-4 h-4" />
@@ -623,28 +666,28 @@ const Schedule = ({ user, token }) => {
               </div>
 
               {/* Actions */}
-            <div className="flex justify-end space-x-4 pt-6 border-t">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 sm:gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <button
                   type="button"
                   onClick={() => navigate('/dashboard')}
-                className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2"
+                className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center space-x-2 w-full sm:w-auto"
                 >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4 flex-shrink-0" />
                 <span>{t('schedule.cancel')}</span>
                 </button>
                 <button
                   type="submit"
                 disabled={loading}
-                className="submit-button px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="submit-button px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto min-h-[44px]"
                 >
                   {loading ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
                     <span>{t('schedule.scheduling')}</span>
                   </>
                   ) : (
                     <>
-                    <Save className="w-4 h-4" />
+                    <Save className="w-4 h-4 flex-shrink-0" />
                     <span>{t('schedule.scheduleContent')}</span>
                     </>
                   )}

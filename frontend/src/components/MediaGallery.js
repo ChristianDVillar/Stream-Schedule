@@ -64,18 +64,16 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
                     status: backendError.response?.status
                   });
                   
-                  // If file doesn't exist (404), return null to filter it out
+                  // If file doesn't exist (404), remove orphaned DB record and filter out
                   if (backendError.response?.status === 404) {
                     console.warn('Video file not found in Storage, skipping:', upload.file_path);
-                    return {
-                      ...upload,
-                      url: null,
-                      fileName: upload.file_path.split('/').pop() || upload.file_path,
-                      error: 'File not found in Storage'
-                    };
+                    if (upload.id) {
+                      deleteUpload(upload.id).catch(() => {});
+                    }
+                    return null;
                   }
                   
-                  // For other errors, try frontend method as fallback
+                  // For other errors (e.g. 401), try frontend method as fallback
                   try {
                     const { getSignedVideoUrl } = await import('../utils/supabaseClient');
                     url = await getSignedVideoUrl(upload.file_path, 3600);
@@ -113,7 +111,13 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
           .filter(f => f !== null && f.url) // Only include files with valid URLs
           .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         
-        // Log any files that were filtered out
+        const removedOrphanedCount = filesWithUrls.filter(f => f === null).length;
+        if (removedOrphanedCount > 0) {
+          toast(
+            `${removedOrphanedCount} registro(s) de archivos no encontrados en Storage se eliminaron de la lista.`,
+            { duration: 4000, icon: '🧹' }
+          );
+        }
         const failedFiles = filesWithUrls.filter(f => f !== null && !f.url);
         if (failedFiles.length > 0) {
           console.warn('Some files could not be loaded:', failedFiles.map(f => ({ 
@@ -122,15 +126,6 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
             error: f.error,
             filePath: f.file_path
           })));
-          
-          // Show a toast notification if there are orphaned files
-          const orphanedFiles = failedFiles.filter(f => f.error && f.error.includes('not found'));
-          if (orphanedFiles.length > 0) {
-            toast.error(
-              `${orphanedFiles.length} archivo(s) no encontrado(s) en Storage. Los registros pueden estar huérfanos.`,
-              { duration: 5000 }
-            );
-          }
         }
 
         setMediaFiles(validFiles);

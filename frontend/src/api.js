@@ -41,16 +41,14 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     // Handle 401 Unauthorized (token expired or invalid)
-    if (error.response?.status === 401) {
-      // Clear authentication data
+    // Do NOT clear auth or redirect when the failed request was login/register – let the form show the error
+    const isLoginOrRegister = error.config?.url?.includes('/user/login') || error.config?.url?.includes('/user/register');
+    if (error.response?.status === 401 && !isLoginOrRegister) {
       clearAuth();
-      
-      // Redirect to login if not already there
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
     }
-    
     return Promise.reject(error);
   }
 );
