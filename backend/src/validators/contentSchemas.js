@@ -55,6 +55,17 @@ export const contentSchema = Joi.object({
       'array.base': 'Media URLs must be an array',
       'string.uri': 'Each media URL must be a valid URI'
     }),
+  mediaItems: Joi.array()
+    .items(Joi.object({
+      url: Joi.string().uri().required(),
+      fileName: Joi.string().allow('', null).optional(),
+      type: Joi.string().valid('image', 'video').optional(),
+      durationSeconds: Joi.number().min(0).optional()
+    }))
+    .optional()
+    .messages({
+      'array.base': 'Media items must be an array'
+    }),
   recurrence: recurrenceSchema
 }).required();
 
@@ -80,6 +91,14 @@ export const updateContentSchema = Joi.object({
       'array.base': 'Media URLs must be an array',
       'string.uri': 'Each media URL must be a valid URI'
     }),
+  mediaItems: Joi.array()
+    .items(Joi.object({
+      url: Joi.string().uri().required(),
+      fileName: Joi.string().allow('', null).optional(),
+      type: Joi.string().valid('image', 'video').optional(),
+      durationSeconds: Joi.number().min(0).optional()
+    }))
+    .optional(),
   recurrence: recurrenceSchema,
   status: Joi.string()
     .valid('draft', 'scheduled', 'published', 'failed', 'cancelled')
