@@ -58,26 +58,26 @@ function Header({ user, onLogout, onMenuClick }) {
   if (!user) return null;
   return (
     <header className="bg-white dark:bg-gray-800 shadow-sm border-b mb-4">
-      <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-16">
-        <div className="flex items-center space-x-4">
-          <button className="md:hidden" onClick={onMenuClick} aria-label="Open menu">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 flex items-center justify-between h-14 sm:h-16 min-h-[44px] gap-2">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+          <button className="md:hidden flex-shrink-0 p-2 -ml-1" onClick={onMenuClick} aria-label="Open menu">
             <Menu className="w-6 h-6 text-primary-700" />
           </button>
-          <span className="font-bold text-primary-700">Streamer Scheduler</span>
-          <span className="text-gray-600 dark:text-gray-300">{user.isAdmin ? t('common.admin') : t('common.user')}: <span className="font-semibold">{user.username}</span></span>
+          <span className="font-bold text-primary-700 truncate text-sm sm:text-base">Streamer Scheduler</span>
+          <span className="hidden sm:inline text-gray-600 dark:text-gray-300 truncate text-sm">{user.isAdmin ? t('common.admin') : t('common.user')}: <span className="font-semibold">{user.username}</span></span>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
           <button
             onClick={toggleLanguage}
-            className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center space-x-2"
+            className="p-2 sm:px-3 sm:py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-1 sm:gap-2"
             title={language === 'es' ? 'Switch to English' : 'Cambiar a Español'}
           >
             <Globe className="w-5 h-5" />
-            <span className="text-sm font-medium">{language.toUpperCase()}</span>
+            <span className="hidden sm:inline text-sm font-medium">{language.toUpperCase()}</span>
           </button>
           <button
             onClick={() => { onLogout(); navigate('/login'); }}
-            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            className="px-3 py-2 sm:px-4 bg-red-600 text-white rounded hover:bg-red-700 text-sm whitespace-nowrap"
           >
             {t('common.logout')}
           </button>
@@ -90,12 +90,24 @@ function Header({ user, onLogout, onMenuClick }) {
 function Sidebar({ user, open, onClose }) {
   const { t } = useLanguage();
   return (
-    <div className={`fixed inset-0 z-40 md:static md:inset-auto md:translate-x-0 transition-transform duration-200 ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 bg-white dark:bg-gray-800 md:bg-transparent shadow-lg md:shadow-none w-64 md:w-56 h-full md:h-auto flex flex-col`}>
-      <div className="flex items-center justify-between px-4 py-4 md:hidden">
-        <span className="font-bold text-primary-700">{t('common.menu')}</span>
-        <button onClick={onClose} aria-label="Close menu"><X className="w-6 h-6" /></button>
-      </div>
-      <nav className="flex-1 px-4 py-2 space-y-2">
+    <>
+      {/* Mobile overlay: tap to close sidebar */}
+      {open && (
+        <div
+          className="fixed inset-0 z-30 bg-black/50 md:hidden"
+          onClick={onClose}
+          onKeyDown={(e) => e.key === 'Escape' && onClose()}
+          role="button"
+          tabIndex={0}
+          aria-label="Close menu"
+        />
+      )}
+      <div className={`fixed inset-y-0 left-0 z-40 md:static md:inset-auto md:translate-x-0 transition-transform duration-200 ease-out ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 bg-white dark:bg-gray-800 md:bg-transparent shadow-xl md:shadow-none w-64 max-w-[85vw] md:w-56 h-full md:h-auto flex flex-col safe-area-inset-left`}>
+        <div className="flex items-center justify-between px-4 py-4 md:hidden border-b border-gray-200 dark:border-gray-700">
+          <span className="font-bold text-primary-700">{t('common.menu')}</span>
+          <button onClick={onClose} className="p-2 -mr-2" aria-label="Close menu"><X className="w-6 h-6" /></button>
+        </div>
+        <nav className="flex-1 px-4 py-2 space-y-2 overflow-y-auto">
         <Link to={user?.isAdmin ? "/admin" : "/dashboard"} className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('dashboard.title')}</Link>
         {!user?.isAdmin && <Link to="/schedule" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('schedule.newPost')}</Link>}
         {!user?.isAdmin && <Link to="/media" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">Media / Archivos</Link>}
@@ -104,6 +116,7 @@ function Sidebar({ user, open, onClose }) {
         {user?.isAdmin && <Link to="/admin" className="block px-3 py-2 rounded hover:bg-purple-100 dark:hover:bg-gray-700 font-medium">{t('admin.title')}</Link>}
       </nav>
     </div>
+    </>
   );
 }
 
@@ -181,9 +194,9 @@ const App = () => {
     <LanguageProvider>
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Toaster position="top-right" />
-        <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900 min-w-0">
           {user && <Sidebar user={user} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
             <Header user={user} onLogout={handleLogout} onMenuClick={() => setSidebarOpen(true)} />
             <div className="flex-1">
               <Routes>
@@ -234,13 +247,13 @@ const App = () => {
                 href={user.merchandisingLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="fixed bottom-6 right-6 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg transition-all duration-300 hover:scale-110 flex items-center justify-center"
+                className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 sm:p-4 shadow-lg transition-all duration-300 hover:scale-110 flex items-center justify-center min-w-[44px] min-h-[44px]"
                 aria-label="Ir a página de merchandising"
               >
-                <ShoppingBag className="w-6 h-6" />
+                <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
               </a>
             )}
-            <footer className="text-center text-gray-500 py-4 border-t bg-white dark:bg-gray-800">© 2025 Christian - Develop</footer>
+            <footer className="text-center text-gray-500 py-3 sm:py-4 px-4 text-sm border-t bg-white dark:bg-gray-800">© 2025 Christian - Develop</footer>
           </div>
         </div>
       </Router>

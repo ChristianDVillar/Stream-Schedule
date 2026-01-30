@@ -233,41 +233,41 @@ export default function AdminDashboard({ token, user, onLogout }) {
   const expiringUsers = users.filter(u => u.licenseAlert === '7_days' || u.licenseAlert === '3_days' || u.licenseAlert === 'expired');
 
   return (
-    <div className="max-w-6xl mx-auto py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-blue-900">{t('admin.title')}</h1>
+    <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8 min-w-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-blue-900 dark:text-blue-100">{t('admin.title')}</h1>
         {onLogout && (
-          <button onClick={onLogout} className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded hover:from-blue-700 hover:to-purple-700">{t('common.logout')}</button>
+          <button onClick={onLogout} className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded hover:from-blue-700 hover:to-purple-700 text-sm w-full sm:w-auto">{t('common.logout')}</button>
         )}
       </div>
-      <div className="mb-8 p-6 rounded-lg shadow-lg bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-900 border border-blue-100 dark:border-gray-700">
-        <h2 className="text-xl font-semibold text-blue-800 mb-2">{t('admin.welcome')}, <span className="font-bold">{user?.username}</span></h2>
-        <p className="text-gray-700">{t('admin.manageDescription') || 'Manage users, licenses and review system logs.'}</p>
+      <div className="mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg shadow-lg bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-900 border border-blue-100 dark:border-gray-700">
+        <h2 className="text-lg sm:text-xl font-semibold text-blue-800 dark:text-blue-200 mb-2">{t('admin.welcome')}, <span className="font-bold">{user?.username}</span></h2>
+        <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300">{t('admin.manageDescription') || 'Manage users, licenses and review system logs.'}</p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8">
-        <div className="bg-white rounded-lg shadow p-4 border-t-4 border-blue-400">
-          <p className="text-sm text-gray-500">{t('admin.totalUsers')}</p>
-          <p className="text-2xl font-bold text-blue-900">{stats.totalUsers}</p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 sm:gap-4 mb-6 sm:mb-8">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 sm:p-4 border-t-4 border-blue-400">
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">{t('admin.totalUsers')}</p>
+          <p className="text-xl sm:text-2xl font-bold text-blue-900 dark:text-blue-100">{stats.totalUsers}</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-t-4 border-purple-400">
-          <p className="text-sm text-gray-500">{t('admin.admins')}</p>
-          <p className="text-2xl font-bold text-purple-900">{stats.admins}</p>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 sm:p-4 border-t-4 border-purple-400">
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">{t('admin.admins')}</p>
+          <p className="text-xl sm:text-2xl font-bold text-purple-900 dark:text-purple-100">{stats.admins}</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-t-4 border-green-400">
-          <p className="text-sm text-gray-500">{t('admin.licensed')}</p>
-          <p className="text-2xl font-bold text-green-900">{stats.licensed}</p>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 sm:p-4 border-t-4 border-green-400">
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">{t('admin.licensed')}</p>
+          <p className="text-xl sm:text-2xl font-bold text-green-900 dark:text-green-100">{stats.licensed}</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-t-4 border-yellow-400">
-          <p className="text-sm text-gray-500">{t('admin.expiringSoon')}</p>
-          <p className="text-2xl font-bold text-yellow-700">{stats.expiringSoon}</p>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 sm:p-4 border-t-4 border-yellow-400">
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">{t('admin.expiringSoon')}</p>
+          <p className="text-xl sm:text-2xl font-bold text-yellow-700 dark:text-yellow-200">{stats.expiringSoon}</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-t-4 border-red-400">
-          <p className="text-sm text-gray-500">{t('admin.expired')}</p>
-          <p className="text-2xl font-bold text-red-700">{stats.expired}</p>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 sm:p-4 border-t-4 border-red-400">
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">{t('admin.expired')}</p>
+          <p className="text-xl sm:text-2xl font-bold text-red-700 dark:text-red-200">{stats.expired}</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-t-4 border-emerald-400">
-          <p className="text-sm text-gray-500">{t('admin.monthlyRevenue')}</p>
-          <p className="text-2xl font-bold text-emerald-700">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 sm:p-4 border-t-4 border-emerald-400">
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">{t('admin.monthlyRevenue')}</p>
+          <p className="text-xl sm:text-2xl font-bold text-emerald-700 dark:text-emerald-200">
             {revenue.currency} {stats.monthlyRevenue.toFixed(2)}
           </p>
         </div>
@@ -313,8 +313,8 @@ export default function AdminDashboard({ token, user, onLogout }) {
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Enable or disable license types that users can purchase. Only enabled types will appear in user settings.
             </p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <label className="flex items-center space-x-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+              <label className="flex items-center space-x-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={licenseConfig.monthly}

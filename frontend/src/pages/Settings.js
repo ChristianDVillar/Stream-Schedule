@@ -1048,32 +1048,32 @@ const Settings = ({ user, token, setUser }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-4 sm:py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-w-0">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-          <p className="text-gray-600">Manage your account settings and preferences</p>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Manage your account settings and preferences</p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-          <div className="grid grid-cols-1 md:grid-cols-4">
-            {/* Sidebar */}
-            <div className="md:col-span-1 border-r border-gray-200 dark:border-gray-700">
-              <nav className="p-4 space-y-2">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <div className="flex flex-col md:grid md:grid-cols-4">
+            {/* Tabs: horizontal scroll on mobile, sidebar on desktop */}
+            <div className="md:col-span-1 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
+              <nav className="flex md:flex-col overflow-x-auto md:overflow-x-visible gap-1 p-2 md:p-4 md:space-y-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600" style={{ scrollbarWidth: 'thin' }}>
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
                   return (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`w-full flex items-center space-x-3 px-4 py-3 text-left rounded-lg transition-colors ${
+                      className={`flex-shrink-0 md:w-full flex items-center gap-2 md:space-x-3 px-3 py-2.5 md:px-4 md:py-3 text-left rounded-lg transition-colors whitespace-nowrap ${
                         activeTab === tab.id
-                          ? 'bg-blue-50 dark:bg-gray-900 text-blue-700 border-r-2 border-blue-700'
-                          : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900'
+                          ? 'bg-blue-100 dark:bg-gray-800 text-blue-700 dark:text-blue-400 md:border-r-2 md:border-blue-700'
+                          : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100'
                       }`}
                     >
-                      <Icon className="w-5 h-5" />
+                      <Icon className="w-5 h-5 flex-shrink-0" />
                       <span className="text-sm font-medium">{tab.name}</span>
                     </button>
                   );
@@ -1082,7 +1082,7 @@ const Settings = ({ user, token, setUser }) => {
             </div>
 
             {/* Content */}
-            <div className="md:col-span-3 p-6">
+            <div className="md:col-span-3 p-4 sm:p-6 min-w-0 overflow-x-hidden">
               {renderTabContent()}
               
               {/* Save buttons for applicable tabs */}
