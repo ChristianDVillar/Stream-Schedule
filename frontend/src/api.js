@@ -6,6 +6,9 @@ import { supabase } from './utils/supabaseClient';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const API_BASE_URL = `${API_URL}/api`;
 
+// Base URL for OAuth redirects: use explicit production URL when set, else current origin (avoids redirect to localhost in prod)
+const FRONTEND_BASE_URL = process.env.REACT_APP_FRONTEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000, // 10 seconds timeout
@@ -67,24 +70,33 @@ export async function forgotPassword({ email }) {
 }
 
 /**
- * Login with Google via Supabase OAuth.
- * Redirects to Google, then back to /auth/callback where session is sent to backend.
+ * Login or register with Google via Supabase OAuth.
+ * Works from both "Iniciar sesion" and "Crear usuario"; new users are created with trial in backend.
+ * @param {boolean} [isSignUp] - true when user clicked from "Crear usuario" (same flow, backend creates account if new)
  */
-export async function loginWithGoogle() {
+export async function loginWithGoogle(isSignUp = false) {
   if (supabase) {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin + '/auth/callback',
+    const redirectTo = FRONTEND_BASE_URL ? `${FRONTEND_BASE_URL.replace(/\/$/, '')}/auth/callback` : `${window.location.origin}/auth/callback`;
+    const options = {
+      redirectTo,
+      queryParams: {
+        prompt: 'select_account',
       },
+    };
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options,
     });
     if (error) {
-      console.error('Google login error:', error);
+      console.error('Google OAuth error:', error);
       throw error;
     }
-    return;
+    if (data?.url) {
+      window.location.href = data.url;
+      return;
+    }
+    throw new Error('Could not start Google sign in');
   }
-  // Fallback: redirect to backend Passport OAuth
   window.location.href = `${apiClient.defaults.baseURL}/user/auth/google`;
 }
 
