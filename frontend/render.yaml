@@ -9,3 +9,4 @@ startCommand: npx serve -s build -l $PORT
 envVars:
   - NODE_ENV=production
   - REACT_APP_API_URL=https://stream-schedule-api.onrender.com
+  - REACT_APP_FRONTEND_URL=https://stream-schedule-v1.onrender.com
