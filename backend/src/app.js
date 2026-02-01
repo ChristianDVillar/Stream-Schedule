@@ -10,7 +10,7 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import passport from 'passport';
-import userRoutes from './routes/user.js';
+import userRoutes, { googleLoginHandler } from './routes/user.js';
 import contentRoutes from './routes/content.js';
 import platformsRoutes from './routes/platforms.js';
 import paymentsRoutes from './routes/payments.js';
@@ -48,6 +48,9 @@ app.use(passport.initialize());
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
 app.use(express.json());
+
+// Google login via Supabase: register before authenticateToken so the route is always hit (no 404)
+app.post('/api/user/google-login', googleLoginHandler);
 
 // JWT authentication middleware - attaches user to req.user if token is valid
 app.use(authenticateToken);
