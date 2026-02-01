@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { isTokenExpired, clearAuth } from './utils/auth';
+import { supabase } from './utils/supabaseClient';
 
 // Get API URL from environment variable, fallback to localhost for development
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
@@ -42,7 +43,7 @@ apiClient.interceptors.response.use(
   (error) => {
     // Handle 401 Unauthorized (token expired or invalid)
     // Do NOT clear auth or redirect when the failed request was login/register – let the form show the error
-    const isLoginOrRegister = error.config?.url?.includes('/user/login') || error.config?.url?.includes('/user/register');
+    const isLoginOrRegister = error.config?.url?.includes('/user/login') || error.config?.url?.includes('/user/register') || error.config?.url?.includes('/user/google-login');
     if (error.response?.status === 401 && !isLoginOrRegister) {
       clearAuth();
       if (window.location.pathname !== '/login') {
@@ -65,9 +66,48 @@ export async function forgotPassword({ email }) {
   return apiClient.post('/user/forgot-password', { email });
 }
 
+/**
+ * Login with Google via Supabase OAuth.
+ * Redirects to Google, then back to /auth/callback where session is sent to backend.
+ */
 export async function loginWithGoogle() {
-  // Redirect to backend OAuth endpoint
+  if (supabase) {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin + '/auth/callback',
+      },
+    });
+    if (error) {
+      console.error('Google login error:', error);
+      throw error;
+    }
+    return;
+  }
+  // Fallback: redirect to backend Passport OAuth
   window.location.href = `${apiClient.defaults.baseURL}/user/auth/google`;
+}
+
+/**
+ * Send Supabase session to backend to get JWT and user. Call this from /auth/callback after Supabase OAuth.
+ * @param {string} accessToken - session.access_token from Supabase
+ * @returns {Promise<{ data: { token, user } }>}
+ */
+export async function loginBackendWithSupabaseToken(accessToken) {
+  const res = await fetch(`${API_BASE_URL}/user/google-login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    const err = new Error(data.error || 'Google login failed');
+    err.response = { data, status: res.status };
+    throw err;
+  }
+  return { data: { token: data.token, user: data.user } };
 }
 
 export async function loginWithTwitch() {
