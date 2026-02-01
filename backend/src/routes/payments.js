@@ -13,6 +13,16 @@ import { sendPaymentSuccessNotification, sendPaymentFailedNotification } from '.
 
 const router = express.Router();
 
+const FRONTEND_URL_DEFAULT = 'http://localhost:3000';
+
+function getFrontendUrl() {
+  const url = process.env.FRONTEND_URL || FRONTEND_URL_DEFAULT;
+  if (process.env.NODE_ENV === 'production' && url.includes('localhost')) {
+    logger.warn('FRONTEND_URL is localhost in production. Set FRONTEND_URL in Render to your frontend URL (e.g. https://stream-schedule-v1.onrender.com) so Stripe redirects correctly.');
+  }
+  return url.replace(/\/$/, ''); // strip trailing slash
+}
+
 // Initialize Stripe
 const stripe = process.env.STRIPE_SECRET_KEY 
   ? new Stripe(process.env.STRIPE_SECRET_KEY, {
@@ -123,8 +133,8 @@ router.post('/checkout', requireAuth, validateBody(checkoutSchema), async (req, 
       ],
       mode: 'payment',
       locale: 'en', // Set checkout page language to English
-      success_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/settings?payment=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/settings?payment=cancelled`,
+      success_url: `${getFrontendUrl()}/settings?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${getFrontendUrl()}/settings?payment=cancelled`,
       client_reference_id: payment.id.toString(),
       customer_email: req.user.email,
       metadata: {
@@ -820,8 +830,8 @@ router.post('/subscribe', requireAuth, validateBody(subscribeSchema), async (req
       ],
       mode: 'subscription',
       locale: 'en', // Set checkout page language to English
-      success_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/settings?subscription=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/settings?subscription=cancelled`,
+      success_url: `${getFrontendUrl()}/settings?subscription=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${getFrontendUrl()}/settings?subscription=cancelled`,
       metadata: {
         userId: user.id.toString(),
         licenseType: licenseType,

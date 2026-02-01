@@ -99,19 +99,20 @@ export default function Login({ setUser, setToken }) {
     }
   };
 
-  const handleOAuthLogin = (provider) => {
+  const handleOAuthLogin = async (provider) => {
     setLoading(true);
     setError(null);
     setNotice(null);
-    
-    if (provider === 'google') {
-      loginWithGoogle();
-    } else if (provider === 'twitch') {
-      loginWithTwitch();
+    try {
+      if (provider === 'google') {
+        await loginWithGoogle(isRegister);
+      } else if (provider === 'twitch') {
+        loginWithTwitch();
+      }
+    } catch (err) {
+      setError(err?.message || err?.response?.data?.error || t('login.oauthFailed') || 'OAuth failed. Please try again.');
+      setLoading(false);
     }
-    // Note: The OAuth flow will redirect the user to the provider
-    // and then back to the app. The backend should handle the callback
-    // and redirect to the dashboard with the token.
   };
 
   const handleForgotPassword = async (e) => {
@@ -190,7 +191,7 @@ export default function Login({ setUser, setToken }) {
             <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">{t('login.orContinueWith')}</span>
+            <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">{isRegister ? t('login.orCompleteForm') : t('login.orContinueWith')}</span>
           </div>
         </div>
         {isRegister && (
