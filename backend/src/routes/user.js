@@ -10,6 +10,7 @@ import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { normalizeLicenseType, resolveLicenseExpiry, buildLicenseSummary } from '../utils/licenseUtils.js';
 import { generateLicenseKey, generateTemporaryPassword, generateUsernameSuffix } from '../utils/cryptoUtils.js';
 import { generateAuthData, buildUserResponse } from '../utils/authUtils.js';
+import { supabase as supabaseAdmin } from '../utils/supabaseClient.js';
 import { validateBody } from '../middleware/validate.js';
 import {
   registerSchema,
@@ -145,7 +146,95 @@ if (process.env.TWITCH_CLIENT_ID && process.env.TWITCH_CLIENT_SECRET) {
   }));
 }
 
-// OAuth Routes
+// Google Login via Supabase (frontend uses Supabase OAuth, then sends token here)
+// Exported so app.js can register it before authenticateToken middleware (avoids 404)
+export async function googleLoginHandler(req, res) {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      return res.status(401).json({ error: 'No token' });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Supabase not configured' });
+    }
+
+    // 1) Verify token with Supabase (getUser(jwt) returns { data: { user }, error } or { data: user, error })
+    const { data, error } = await supabaseAdmin.auth.getUser(token);
+
+    if (error) {
+      logger.warn('Google login: invalid Supabase token', { error: error.message });
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const supabaseUser = data?.user ?? data;
+    if (!supabaseUser?.email) {
+      return res.status(401).json({ error: 'Invalid token or missing email' });
+    }
+
+    const email = supabaseUser.email;
+    const rawName = supabaseUser.user_metadata?.full_name ?? supabaseUser.user_metadata?.name ?? supabaseUser.email?.split('@')[0] ?? 'User';
+    const fullName = typeof rawName === 'string' ? rawName : (rawName && typeof rawName === 'object' ? [rawName.given_name, rawName.family_name].filter(Boolean).join(' ') : 'User') || 'User';
+    const supabaseId = supabaseUser.id;
+
+    // 2) Find or create user in DB
+    let dbUser = await User.findOne({
+      where: {
+        [Op.or]: [
+          { email },
+          { oauthId: supabaseId, oauthProvider: 'google' },
+        ],
+      },
+    });
+
+    if (dbUser) {
+      if (!dbUser.oauthId) {
+        dbUser.oauthId = supabaseId;
+        dbUser.oauthProvider = 'google';
+        await dbUser.save();
+      }
+    } else {
+      const baseUsername = (fullName || 'user').replace(/\s+/g, '').toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
+      const username = baseUsername + generateUsernameSuffix(3);
+      const expiryResult = resolveLicenseExpiry({ licenseType: normalizeLicenseType('trial') });
+      const licenseExpiresAt = expiryResult.error ? null : expiryResult.value;
+      dbUser = await User.create({
+        username,
+        email,
+        passwordHash: null,
+        oauthProvider: 'google',
+        oauthId: supabaseId,
+        licenseType: normalizeLicenseType('trial'),
+        licenseKey: generateLicenseKey('TRIAL', 12),
+        licenseExpiresAt,
+        hasUsedTrial: true,
+      });
+    }
+
+    // 3) Return JWT and user
+    const authResponse = generateAuthData(dbUser);
+    res.json({
+      token: authResponse.token,
+      user: authResponse.user,
+    });
+  } catch (err) {
+    logger.error('Google login failed', {
+      error: err.message,
+      stack: err.stack,
+      name: err.name,
+    });
+    const isDev = process.env.NODE_ENV === 'development';
+    res.status(500).json({
+      error: 'Google login failed',
+      ...(isDev && { details: err.message }),
+    });
+  }
+}
+
+router.post('/google-login', googleLoginHandler);
+
+// OAuth Routes (Passport fallback)
 router.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
 router.get('/auth/google/callback', 
