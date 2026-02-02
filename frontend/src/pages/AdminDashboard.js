@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial } from '../api';
+import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatDateUTC } from '../utils/dateUtils';
 
@@ -36,6 +36,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
   const [showLicenseConfig, setShowLicenseConfig] = useState(false);
   const [extendingTrial, setExtendingTrial] = useState(null);
   const [extendTrialDays, setExtendTrialDays] = useState({});
+  const [deletingUserId, setDeletingUserId] = useState(null);
 
   useEffect(() => {
     fetchUsers();
@@ -96,6 +97,21 @@ export default function AdminDashboard({ token, user, onLogout }) {
       window.alert(t('admin.licenseGenerateError') || 'Error generating license');
     } finally {
       setGenerating(prev => ({ ...prev, [userId]: false }));
+    }
+  }
+
+  async function handleDeleteUser(userId) {
+    if (!window.confirm(t('admin.deleteUserConfirm'))) return;
+    setDeletingUserId(userId);
+    try {
+      await adminDeleteUser({ userId, token });
+      window.alert(t('admin.deleteUserSuccess'));
+      await fetchUsers();
+    } catch (err) {
+      const msg = err.response?.data?.error || t('admin.deleteUserError') || 'Error deleting user';
+      window.alert(msg);
+    } finally {
+      setDeletingUserId(null);
     }
   }
 
@@ -525,6 +541,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                   <th className="px-4 py-2 border">{t('admin.id')}</th>
                   <th className="px-4 py-2 border">{t('common.username')}</th>
                   <th className="px-4 py-2 border">{t('common.email')}</th>
+                  <th className="px-4 py-2 border">{t('admin.lastUpload')}</th>
                   <th className="px-4 py-2 border">{t('admin.licenseKey')}</th>
                   <th className="px-4 py-2 border">{t('admin.licenseType')}</th>
                   <th className="px-4 py-2 border">{t('admin.expiresAt')}</th>
@@ -554,6 +571,9 @@ export default function AdminDashboard({ token, user, onLogout }) {
                       ) : (
                         <span>{u.email}</span>
                       )}
+                    </td>
+                    <td className="px-4 py-2 border text-sm text-gray-600 dark:text-gray-400" title={u.lastUploadAt ? formatDateUTC(u.lastUploadAt) : ''}>
+                      {u.lastUploadAt ? formatDateUTC(u.lastUploadAt) : <span className="text-gray-400">{t('admin.never')}</span>}
                     </td>
                     <td className="px-4 py-2 border font-mono">{u.licenseKey || <span className="text-gray-400">{t('common.none') || 'None'}</span>}</td>
                     <td className="px-4 py-2 border">
@@ -684,6 +704,14 @@ export default function AdminDashboard({ token, user, onLogout }) {
                           title="Resetear contraseña"
                         >
                           {resetting === u.id ? '...' : '🔑'}
+                        </button>
+                        <button
+                          className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={deletingUserId === u.id || u.id === user?.id}
+                          onClick={() => handleDeleteUser(u.id)}
+                          title={u.id === user?.id ? 'No puedes eliminarte a ti mismo' : t('admin.deleteUser')}
+                        >
+                          {deletingUserId === u.id ? '...' : t('admin.deleteUser')}
                         </button>
                       </div>
                     </td>
