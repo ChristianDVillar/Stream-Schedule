@@ -6,9 +6,6 @@ import { supabase } from './utils/supabaseClient';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const API_BASE_URL = `${API_URL}/api`;
 
-// Base URL for OAuth redirects: use explicit production URL when set, else current origin (avoids redirect to localhost in prod)
-const FRONTEND_BASE_URL = process.env.REACT_APP_FRONTEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
-
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000, // 10 seconds timeout
@@ -72,11 +69,16 @@ export async function forgotPassword({ email }) {
 /**
  * Login or register with Google via Supabase OAuth.
  * Works from both "Iniciar sesion" and "Crear usuario"; new users are created with trial in backend.
+ * Redirect URL is always the current origin so production (e.g. Render) redirects back correctly.
+ * In Supabase Dashboard: Authentication > URL Configuration, add your production URL to "Redirect URLs"
+ * (e.g. https://your-app.onrender.com/auth/callback) and set "Site URL" to your production origin.
  * @param {boolean} [isSignUp] - true when user clicked from "Crear usuario" (same flow, backend creates account if new)
  */
 export async function loginWithGoogle(isSignUp = false) {
   if (supabase) {
-    const redirectTo = FRONTEND_BASE_URL ? `${FRONTEND_BASE_URL.replace(/\/$/, '')}/auth/callback` : `${window.location.origin}/auth/callback`;
+    // Always use current origin at runtime so OAuth redirects back to the same domain (avoids localhost in production)
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const redirectTo = origin ? `${origin.replace(/\/$/, '')}/auth/callback` : '/auth/callback';
     const options = {
       redirectTo,
       queryParams: {
@@ -115,15 +117,39 @@ export async function loginBackendWithSupabaseToken(accessToken) {
   });
   const data = await res.json();
   if (!res.ok) {
-    const err = new Error(data.error || 'Google login failed');
+    const message = [data.error, data.details].filter(Boolean).join(' - ') || 'OAuth login failed';
+    const err = new Error(message);
     err.response = { data, status: res.status };
     throw err;
   }
   return { data: { token: data.token, user: data.user } };
 }
 
+/**
+ * Login or register with Twitch via Supabase OAuth.
+ * Same flow as Google: Supabase redirects to /auth/callback, then backend creates/links user.
+ * Requires Twitch app redirect URL: https://<project-ref>.supabase.co/auth/v1/callback
+ * and Twitch provider configured in Supabase Dashboard (Authentication > Providers).
+ */
 export async function loginWithTwitch() {
-  // Redirect to backend OAuth endpoint
+  if (supabase) {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const redirectTo = origin ? `${origin.replace(/\/$/, '')}/auth/callback` : '/auth/callback';
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'twitch',
+      options: { redirectTo },
+    });
+    if (error) {
+      console.error('Twitch OAuth error', error);
+      throw error;
+    }
+    if (data?.url) {
+      window.location.href = data.url;
+      return;
+    }
+    throw new Error('Could not start Twitch sign in');
+  }
+  // Fallback: backend Passport (if Supabase not configured)
   window.location.href = `${apiClient.defaults.baseURL}/user/auth/twitch`;
 }
 
@@ -135,6 +161,12 @@ export async function generateLicense({ userId, token }) {
 
 export async function getAllUsers(token) {
   return apiClient.get('/user/admin/users', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function adminDeleteUser({ userId, token }) {
+  return apiClient.delete(`/user/admin/users/${userId}`, {
     headers: { Authorization: `Bearer ${token}` }
   });
 }
