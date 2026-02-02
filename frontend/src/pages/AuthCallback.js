@@ -23,7 +23,9 @@ export default function AuthCallback({ setUser, setToken }) {
           window.history.replaceState(null, '', window.location.pathname + window.location.search);
           navigate('/dashboard');
         } catch (error) {
-          console.error('Google login backend error:', error);
+          console.error('OAuth login backend error:', error);
+          const msg = error?.message || error?.response?.data?.error || 'OAuth login failed';
+          window.alert(msg);
           navigate('/login?error=oauth_failed');
         }
         return;

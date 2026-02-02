@@ -4,7 +4,7 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as TwitchStrategy } from 'passport-twitch';
 import { Op } from 'sequelize';
-import { User, Content, SystemConfig } from '../models/index.js';
+import { User, Content, Media, SystemConfig, sequelize } from '../models/index.js';
 import checkLicense from '../middleware/checkLicense.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { normalizeLicenseType, resolveLicenseExpiry, buildLicenseSummary } from '../utils/licenseUtils.js';
@@ -146,7 +146,7 @@ if (process.env.TWITCH_CLIENT_ID && process.env.TWITCH_CLIENT_SECRET) {
   }));
 }
 
-// Google Login via Supabase (frontend uses Supabase OAuth, then sends token here)
+// OAuth Login via Supabase (frontend uses Supabase OAuth for Google/Twitch, then sends token here)
 // Exported so app.js can register it before authenticateToken middleware (avoids 404)
 export async function googleLoginHandler(req, res) {
   try {
@@ -164,7 +164,7 @@ export async function googleLoginHandler(req, res) {
     const { data, error } = await supabaseAdmin.auth.getUser(token);
 
     if (error) {
-      logger.warn('Google login: invalid Supabase token', { error: error.message });
+      logger.warn('OAuth login: invalid Supabase token', { error: error.message });
       return res.status(401).json({ error: 'Invalid token' });
     }
 
@@ -174,16 +174,22 @@ export async function googleLoginHandler(req, res) {
     }
 
     const email = supabaseUser.email;
-    const rawName = supabaseUser.user_metadata?.full_name ?? supabaseUser.user_metadata?.name ?? supabaseUser.email?.split('@')[0] ?? 'User';
+    const provider = supabaseUser.app_metadata?.provider ?? 'google';
+    const isTwitch = provider === 'twitch';
+    // Twitch: preferred_username or user_name; Google: full_name / name
+    const rawName = isTwitch
+      ? (supabaseUser.user_metadata?.preferred_username ?? supabaseUser.user_metadata?.user_name ?? supabaseUser.user_metadata?.name ?? email?.split('@')[0])
+      : (supabaseUser.user_metadata?.full_name ?? supabaseUser.user_metadata?.name ?? supabaseUser.email?.split('@')[0] ?? 'User');
     const fullName = typeof rawName === 'string' ? rawName : (rawName && typeof rawName === 'object' ? [rawName.given_name, rawName.family_name].filter(Boolean).join(' ') : 'User') || 'User';
     const supabaseId = supabaseUser.id;
 
-    // 2) Find or create user in DB
+    // 2) Find or create user in DB (oauthProvider: 'google' | 'twitch')
+    const oauthProvider = isTwitch ? 'twitch' : 'google';
     let dbUser = await User.findOne({
       where: {
         [Op.or]: [
           { email },
-          { oauthId: supabaseId, oauthProvider: 'google' },
+          { oauthId: supabaseId, oauthProvider },
         ],
       },
     });
@@ -191,7 +197,7 @@ export async function googleLoginHandler(req, res) {
     if (dbUser) {
       if (!dbUser.oauthId) {
         dbUser.oauthId = supabaseId;
-        dbUser.oauthProvider = 'google';
+        dbUser.oauthProvider = oauthProvider;
         await dbUser.save();
       }
     } else {
@@ -203,7 +209,7 @@ export async function googleLoginHandler(req, res) {
         username,
         email,
         passwordHash: null,
-        oauthProvider: 'google',
+        oauthProvider,
         oauthId: supabaseId,
         licenseType: normalizeLicenseType('trial'),
         licenseKey: generateLicenseKey('TRIAL', 12),
@@ -219,14 +225,14 @@ export async function googleLoginHandler(req, res) {
       user: authResponse.user,
     });
   } catch (err) {
-    logger.error('Google login failed', {
+    logger.error('OAuth login failed', {
       error: err.message,
       stack: err.stack,
       name: err.name,
     });
     const isDev = process.env.NODE_ENV === 'development';
     res.status(500).json({
-      error: 'Google login failed',
+      error: 'OAuth login failed',
       ...(isDev && { details: err.message }),
     });
   }
@@ -377,11 +383,33 @@ router.post('/generate-license', requireAdmin, async (req, res) => {
   }
 });
 
-// List all users (admin only)
+// List all users (admin only), with lastUploadAt = latest of Content.createdAt or Media.createdAt per user
 router.get('/admin/users', requireAdmin, async (req, res) => {
   const users = await User.findAll({ attributes: ['id', 'username', 'email', 'licenseKey', 'licenseType', 'licenseExpiresAt', 'isAdmin', 'hasUsedTrial', 'trialExtensions'] });
+  const userIds = users.map(u => u.id);
+  const lastContentByUser = userIds.length
+    ? await Content.findAll({
+        attributes: ['userId', [sequelize.fn('MAX', sequelize.col('createdAt')), 'lastAt']],
+        where: { userId: { [Op.in]: userIds } },
+        group: ['userId'],
+        raw: true
+      })
+    : [];
+  const lastMediaByUser = userIds.length
+    ? await Media.findAll({
+        attributes: ['userId', [sequelize.fn('MAX', sequelize.col('createdAt')), 'lastAt']],
+        where: { userId: { [Op.in]: userIds } },
+        group: ['userId'],
+        raw: true
+      })
+    : [];
+  const lastContentMap = Object.fromEntries(lastContentByUser.map(r => [r.userId, r.lastAt]));
+  const lastMediaMap = Object.fromEntries(lastMediaByUser.map(r => [r.userId, r.lastAt]));
   const payload = users.map(user => {
     const summary = buildLicenseSummary(user);
+    const contentAt = lastContentMap[user.id] ? new Date(lastContentMap[user.id]).getTime() : 0;
+    const mediaAt = lastMediaMap[user.id] ? new Date(lastMediaMap[user.id]).getTime() : 0;
+    const lastUploadAt = contentAt || mediaAt ? new Date(Math.max(contentAt, mediaAt)).toISOString() : null;
     return {
       id: user.id,
       trialExtensions: user.trialExtensions || 0,
@@ -394,10 +422,41 @@ router.get('/admin/users', requireAdmin, async (req, res) => {
       licenseDaysLeft: summary.daysLeft,
       isAdmin: user.isAdmin,
       hasUsedTrial: user.hasUsedTrial,
-      trialExtensions: user.trialExtensions || 0
+      trialExtensions: user.trialExtensions || 0,
+      lastUploadAt
     };
   });
   res.json(payload);
+});
+
+// Delete user (admin only). Cannot delete the last admin. Cascades Content, Media, Payment, Platform.
+router.delete('/admin/users/:userId', requireAdmin, async (req, res) => {
+  const { userId } = req.params;
+  const id = parseInt(userId, 10);
+  if (Number.isNaN(id)) {
+    return res.status(400).json({ error: 'Invalid user id' });
+  }
+  if (id === req.user.id) {
+    return res.status(400).json({ error: 'Cannot delete your own account' });
+  }
+  try {
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (user.isAdmin) {
+      const adminCount = await User.count({ where: { isAdmin: true } });
+      if (adminCount <= 1) {
+        return res.status(400).json({ error: 'Cannot delete the last admin' });
+      }
+    }
+    await user.destroy();
+    logger.info('User deleted by admin', { deletedUserId: id, adminId: req.user.id, email: user.email });
+    res.json({ message: 'User deleted' });
+  } catch (err) {
+    logger.error('Error deleting user', { error: err.message, userId: id, adminId: req.user?.id });
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
 });
 
 // Generate license for any user (admin only)
