@@ -160,7 +160,7 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
 
   const handleSelect = (file) => {
     if (onSelect) {
-      onSelect(file.url, file.bucket);
+      onSelect(file.url, file.bucket, { file_path: file.file_path, fileName: file.fileName });
     }
   };
 
@@ -296,14 +296,14 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
                   <div className="video-fallback absolute inset-0 flex flex-col items-center justify-center">
                     <Video className="w-8 h-8 text-white mb-2" />
                     <p className="text-xs text-white/80 text-center px-2 error-msg">
-                      {file.error || 'Video unavailable'}
+                      {typeof file.error === 'string' ? file.error : 'Video unavailable'}
                     </p>
                   </div>
                 )}
                 <div className="video-fallback absolute inset-0 flex flex-col items-center justify-center bg-gray-900/80 opacity-0 group-hover/video:opacity-100 transition-opacity" style={{ display: file.url ? 'none' : 'flex' }}>
                   <Video className="w-8 h-8 text-white mb-2" />
                   <p className="text-xs text-white/80 text-center px-2 error-msg">
-                    {file.error || 'Video unavailable'}
+                    {typeof file.error === 'string' ? file.error : 'Video unavailable'}
                   </p>
                 </div>
                 <div className="absolute top-2 left-2 z-10">

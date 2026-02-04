@@ -1,15 +1,20 @@
+import { createRequire } from 'module';
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as TwitchStrategy } from 'passport-twitch';
 import { Op } from 'sequelize';
+
+const require = createRequire(import.meta.url);
+const DiscordStrategy = require('passport-discord').Strategy;
 import { User, Content, Media, SystemConfig, sequelize } from '../models/index.js';
 import checkLicense from '../middleware/checkLicense.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { normalizeLicenseType, resolveLicenseExpiry, buildLicenseSummary } from '../utils/licenseUtils.js';
 import { generateLicenseKey, generateTemporaryPassword, generateUsernameSuffix } from '../utils/cryptoUtils.js';
-import { generateAuthData, buildUserResponse } from '../utils/authUtils.js';
+import jwt from 'jsonwebtoken';
+import { generateAuthData, buildUserResponse, createLinkState, verifyLinkState } from '../utils/authUtils.js';
 import { supabase as supabaseAdmin } from '../utils/supabaseClient.js';
 import { validateBody } from '../middleware/validate.js';
 import {
@@ -23,13 +28,15 @@ import {
   adminChangeEmailSchema,
   adminResetPasswordSchema,
   adminAssignTrialSchema,
-  extendTrialSchema
+  extendTrialSchema,
+  linkSupabaseSchema
 } from '../validators/userSchemas.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 
 // Helper function to generate JWT and redirect for OAuth callbacks
 const generateAuthResponse = (user, res) => {
@@ -57,32 +64,33 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         return done(new Error('No email provided by Google'), null);
       }
 
-      // Find or create user
-      let user = await User.findOne({ 
-        where: { 
+      // Find or create user (by email or any linked Google id)
+      let user = await User.findOne({
+        where: {
           [Op.or]: [
             { email },
-            { oauthId: profile.id, oauthProvider: 'google' }
-          ]
-        }
+            { googleId: profile.id },
+            { oauthId: profile.id, oauthProvider: 'google' },
+          ],
+        },
       });
 
       if (user) {
-        // Update OAuth info if not set
+        user.googleId = profile.id;
         if (!user.oauthId) {
           user.oauthId = profile.id;
           user.oauthProvider = 'google';
-          await user.save();
         }
+        await user.save();
       } else {
-        // Create new user
         user = await User.create({
-          username: displayName.replace(/\s+/g, '').toLowerCase() + generateUsernameSuffix(3),
+          username: displayName.replace(/\s+/g, '').toLowerCase().replace(/[^a-z0-9]/g, '') + generateUsernameSuffix(3),
           email,
-          passwordHash: null, // OAuth users don't need password
+          passwordHash: null,
           oauthProvider: 'google',
           oauthId: profile.id,
-          licenseType: normalizeLicenseType('none')
+          googleId: profile.id,
+          licenseType: normalizeLicenseType('none'),
         });
       }
 
@@ -93,8 +101,15 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   }));
 }
 
+// Twitch OAuth validation function
+const isTwitchConfigured = () => {
+  const id = (process.env.TWITCH_CLIENT_ID || '').trim();
+  const secret = (process.env.TWITCH_CLIENT_SECRET || '').trim();
+  return id.length > 0 && secret.length > 0 && id !== 'your-twitch-client-id' && secret !== 'your-twitch-client-secret';
+};
+
 // Configure Twitch OAuth Strategy
-if (process.env.TWITCH_CLIENT_ID && process.env.TWITCH_CLIENT_SECRET) {
+if (isTwitchConfigured()) {
   passport.use(new TwitchStrategy({
     clientID: process.env.TWITCH_CLIENT_ID,
     clientSecret: process.env.TWITCH_CLIENT_SECRET,
@@ -103,42 +118,155 @@ if (process.env.TWITCH_CLIENT_ID && process.env.TWITCH_CLIENT_SECRET) {
   },
   async (accessToken, refreshToken, profile, done) => {
     try {
-      const email = profile.email;
+      logger.debug('Twitch OAuth profile received', { 
+        profileId: profile.id,
+        profileKeys: Object.keys(profile),
+        hasEmail: !!profile.email,
+        displayName: profile.display_name,
+        login: profile.login
+      });
+      
+      let email = profile.email;
       const displayName = profile.display_name || profile.login || 'User';
       
+      // If email is not in profile, fetch it from Twitch API
+      if (!email && accessToken) {
+        try {
+          logger.info('Email not in profile, fetching from Twitch API', { profileId: profile.id });
+          const response = await fetch('https://api.twitch.tv/helix/users', {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Client-Id': process.env.TWITCH_CLIENT_ID
+            }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.data && data.data.length > 0 && data.data[0].email) {
+              email = data.data[0].email;
+              logger.info('Email retrieved from Twitch API', { profileId: profile.id, hasEmail: !!email });
+            }
+          } else {
+            logger.warn('Failed to fetch email from Twitch API', { 
+              status: response.status,
+              statusText: response.statusText 
+            });
+          }
+        } catch (apiError) {
+          logger.error('Error fetching email from Twitch API', { error: apiError.message });
+        }
+      }
+      
       if (!email) {
-        return done(new Error('No email provided by Twitch'), null);
+        logger.error('Twitch OAuth: No email provided', { 
+          profileId: profile.id,
+          profileKeys: Object.keys(profile),
+          hasAccessToken: !!accessToken,
+          profileData: JSON.stringify(profile, null, 2)
+        });
+        return done(new Error('No email provided by Twitch. Please ensure your Twitch account has a verified email and the OAuth app has the user:read:email scope.'), null);
       }
 
-      // Find or create user
-      let user = await User.findOne({ 
-        where: { 
+      // Find or create user (by email or any linked Twitch id)
+      const twitchIdStr = profile.id.toString();
+      let user = await User.findOne({
+        where: {
           [Op.or]: [
             { email },
-            { oauthId: profile.id.toString(), oauthProvider: 'twitch' }
-          ]
-        }
+            { twitchId: twitchIdStr },
+            { oauthId: twitchIdStr, oauthProvider: 'twitch' },
+          ],
+        },
       });
 
       if (user) {
-        // Update OAuth info if not set
+        user.twitchId = twitchIdStr;
         if (!user.oauthId) {
-          user.oauthId = profile.id.toString();
+          user.oauthId = twitchIdStr;
           user.oauthProvider = 'twitch';
-          await user.save();
         }
+        await user.save();
       } else {
-        // Create new user
         user = await User.create({
-          username: displayName.replace(/\s+/g, '').toLowerCase() + generateUsernameSuffix(3),
+          username: displayName.replace(/\s+/g, '').toLowerCase().replace(/[^a-z0-9]/g, '') + generateUsernameSuffix(3),
           email,
-          passwordHash: null, // OAuth users don't need password
+          passwordHash: null,
           oauthProvider: 'twitch',
-          oauthId: profile.id.toString(),
-          licenseType: normalizeLicenseType('none')
+          oauthId: twitchIdStr,
+          twitchId: twitchIdStr,
+          licenseType: normalizeLicenseType('none'),
         });
       }
 
+      logger.info('Twitch OAuth user processed successfully', { userId: user.id, email: user.email });
+      return done(null, user);
+    } catch (error) {
+      logger.error('Twitch OAuth error in strategy', { 
+        error: error.message,
+        stack: error.stack 
+      });
+      return done(error, null);
+    }
+  }));
+}
+
+// Discord Client ID must be a numeric snowflake (e.g. 1467906951827423305), not a placeholder
+const isDiscordConfigured = () => {
+  const id = (process.env.DISCORD_CLIENT_ID || '').trim();
+  const secret = (process.env.DISCORD_CLIENT_SECRET || '').trim();
+  return id.length >= 16 && /^\d+$/.test(id) && secret.length > 0;
+};
+
+// Configure Discord OAuth Strategy (user token stored for guild listing; bot token only in env, never in DB)
+if (isDiscordConfigured()) {
+  passport.use(new DiscordStrategy({
+    clientID: (process.env.DISCORD_CLIENT_ID || '').trim(),
+    clientSecret: (process.env.DISCORD_CLIENT_SECRET || '').trim(),
+    callbackURL: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/user/auth/discord/callback`,
+    scope: ['identify', 'email', 'guilds'],
+  }, async (accessToken, refreshToken, profile, done) => {
+    try {
+      const email = profile.email || `discord_${profile.id}@placeholder.local`;
+      const displayName = (profile.username || profile.global_name || `user${profile.id}`).toString();
+
+      // Find or create user (by email or any linked Discord id)
+      let user = await User.findOne({
+        where: {
+          [Op.or]: [
+            { email },
+            { discordId: profile.id },
+            { oauthId: profile.id, oauthProvider: 'discord' },
+          ],
+        },
+      });
+
+      if (user) {
+        user.discordId = profile.id;
+        user.discordAccessToken = accessToken;
+        user.discordRefreshToken = refreshToken;
+        if (!user.oauthId) {
+          user.oauthId = profile.id;
+          user.oauthProvider = 'discord';
+        }
+        await user.save();
+      } else {
+        const expiryResult = resolveLicenseExpiry({ licenseType: normalizeLicenseType('trial') });
+        const baseUsername = (displayName || 'user').replace(/\s+/g, '').toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
+        user = await User.create({
+          username: baseUsername + generateUsernameSuffix(3),
+          email,
+          passwordHash: null,
+          oauthProvider: 'discord',
+          oauthId: profile.id,
+          discordId: profile.id,
+          discordAccessToken: accessToken,
+          discordRefreshToken: refreshToken,
+          licenseType: normalizeLicenseType('trial'),
+          licenseKey: generateLicenseKey('TRIAL', 12),
+          licenseExpiresAt: expiryResult.error ? null : expiryResult.value,
+          hasUsedTrial: true,
+        });
+      }
       return done(null, user);
     } catch (error) {
       return done(error, null);
@@ -173,7 +301,10 @@ export async function googleLoginHandler(req, res) {
       return res.status(401).json({ error: 'Invalid token or missing email' });
     }
 
-    const email = supabaseUser.email;
+    const email = String(supabaseUser.email).trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(401).json({ error: 'Invalid token or missing email' });
+    }
     const provider = supabaseUser.app_metadata?.provider ?? 'google';
     const isTwitch = provider === 'twitch';
     // Twitch: preferred_username or user_name; Google: full_name / name
@@ -183,39 +314,55 @@ export async function googleLoginHandler(req, res) {
     const fullName = typeof rawName === 'string' ? rawName : (rawName && typeof rawName === 'object' ? [rawName.given_name, rawName.family_name].filter(Boolean).join(' ') : 'User') || 'User';
     const supabaseId = supabaseUser.id;
 
-    // 2) Find or create user in DB (oauthProvider: 'google' | 'twitch')
+    // 2) Find or create user in DB (by email or any linked Google/Twitch id)
     const oauthProvider = isTwitch ? 'twitch' : 'google';
     let dbUser = await User.findOne({
       where: {
         [Op.or]: [
           { email },
-          { oauthId: supabaseId, oauthProvider },
+          ...(isTwitch ? [{ twitchId: supabaseId }, { oauthId: supabaseId, oauthProvider: 'twitch' }] : [{ googleId: supabaseId }, { oauthId: supabaseId, oauthProvider: 'google' }]),
         ],
       },
     });
 
     if (dbUser) {
+      if (isTwitch) {
+        dbUser.twitchId = supabaseId;
+      } else {
+        dbUser.googleId = supabaseId;
+      }
       if (!dbUser.oauthId) {
         dbUser.oauthId = supabaseId;
         dbUser.oauthProvider = oauthProvider;
-        await dbUser.save();
       }
+      await dbUser.save();
     } else {
-      const baseUsername = (fullName || 'user').replace(/\s+/g, '').toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
-      const username = baseUsername + generateUsernameSuffix(3);
+      const baseUsername = ((fullName || 'user').replace(/\s+/g, '').toLowerCase().replace(/[^a-z0-9]/g, '') || 'user').slice(0, 20);
       const expiryResult = resolveLicenseExpiry({ licenseType: normalizeLicenseType('trial') });
       const licenseExpiresAt = expiryResult.error ? null : expiryResult.value;
-      dbUser = await User.create({
-        username,
-        email,
-        passwordHash: null,
-        oauthProvider,
-        oauthId: supabaseId,
-        licenseType: normalizeLicenseType('trial'),
-        licenseKey: generateLicenseKey('TRIAL', 12),
-        licenseExpiresAt,
-        hasUsedTrial: true,
-      });
+      let username = baseUsername + generateUsernameSuffix(3);
+      for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+          dbUser = await User.create({
+            username: attempt === 0 ? username : baseUsername + generateUsernameSuffix(5 + attempt),
+            email,
+            passwordHash: null,
+            oauthProvider,
+            oauthId: supabaseId,
+            ...(isTwitch ? { twitchId: supabaseId } : { googleId: supabaseId }),
+            licenseType: normalizeLicenseType('trial'),
+            licenseKey: generateLicenseKey('TRIAL', 12),
+            licenseExpiresAt,
+            hasUsedTrial: true,
+          });
+          break;
+        } catch (createErr) {
+          const isUsernameConflict = createErr.name === 'SequelizeUniqueConstraintError' &&
+            (createErr.fields?.username !== undefined || (Array.isArray(createErr.fields) && createErr.fields.includes('username')) || createErr.message?.includes('username'));
+          if (isUsernameConflict && attempt < 4) continue;
+          throw createErr;
+        }
+      }
     }
 
     // 3) Return JWT and user
@@ -229,11 +376,17 @@ export async function googleLoginHandler(req, res) {
       error: err.message,
       stack: err.stack,
       name: err.name,
+      errors: err.errors,
     });
     const isDev = process.env.NODE_ENV === 'development';
+    const isValidation = err.name === 'SequelizeValidationError';
+    const isUnique = err.name === 'SequelizeUniqueConstraintError';
+    const details = isDev
+      ? (isValidation && err.errors?.length ? err.errors.map((e) => `${e.path}: ${e.message}`).join('; ') : err.message)
+      : (isValidation || isUnique ? 'Invalid or duplicate user data. Try logging in with the same provider you used to sign up.' : undefined);
     res.status(500).json({
       error: 'OAuth login failed',
-      ...(isDev && { details: err.message }),
+      ...(details && { details }),
     });
   }
 }
@@ -250,14 +403,334 @@ router.get('/auth/google/callback',
   }
 );
 
-router.get('/auth/twitch', passport.authenticate('twitch', { scope: ['user:read:email'] }));
+router.get('/auth/twitch', (req, res, next) => {
+  if (!isTwitchConfigured()) {
+    logger.warn('Twitch OAuth login attempted but Twitch is not configured');
+    return res.redirect(`${FRONTEND_URL}/login?error=twitch_not_configured`);
+  }
+  logger.info('Initiating Twitch OAuth flow');
+  passport.authenticate('twitch', { scope: ['user:read:email'] })(req, res, next);
+});
 
 router.get('/auth/twitch/callback',
-  passport.authenticate('twitch', { session: false, failureRedirect: `${FRONTEND_URL}/login?error=oauth_failed` }),
+  (req, res, next) => {
+    if (!isTwitchConfigured()) {
+      logger.warn('Twitch OAuth callback attempted but Twitch is not configured');
+      return res.redirect(`${FRONTEND_URL}/login?error=twitch_not_configured`);
+    }
+    // Log callback attempt for debugging
+    logger.info('Twitch OAuth callback received', { 
+      query: req.query,
+      hasCode: !!req.query.code,
+      hasError: !!req.query.error 
+    });
+    
+    if (req.query.error) {
+      logger.error('Twitch OAuth callback error', { 
+        error: req.query.error,
+        errorDescription: req.query.error_description 
+      });
+      return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=${encodeURIComponent(req.query.error_description || req.query.error)}`);
+    }
+    
+    passport.authenticate('twitch', { session: false, failureRedirect: `${FRONTEND_URL}/login?error=oauth_failed` })(req, res, next);
+  },
   (req, res) => {
+    if (!req.user) {
+      logger.error('Twitch OAuth callback: user not found after authentication');
+      return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=user_not_found`);
+    }
+    logger.info('Twitch OAuth callback successful', { userId: req.user.id, email: req.user.email });
     generateAuthResponse(req.user, res);
   }
 );
+
+// Discord OAuth routes - using exported functions for consistency
+router.get('/auth/discord', discordAuth);
+
+router.get('/auth/discord/callback', discordCallback);
+
+// Export for app.js: register these BEFORE authenticateToken so Discord/Twitch OAuth works without JWT
+export { isDiscordConfigured, isTwitchConfigured };
+export const discordAuth = (req, res, next) => {
+  if (!isDiscordConfigured()) {
+    return res.redirect(`${FRONTEND_URL}/login?error=discord_not_configured`);
+  }
+  const returnTo = (req.query.returnTo || '').trim() || undefined;
+  passport.authenticate('discord', { scope: ['identify', 'email', 'guilds'], state: returnTo })(req, res, next);
+};
+export const discordCallback = (req, res, next) => {
+  if (!isDiscordConfigured()) {
+    return res.redirect(`${FRONTEND_URL}/login?error=discord_not_configured`);
+  }
+  passport.authenticate('discord', { session: false, failureRedirect: `${FRONTEND_URL}/login?error=oauth_failed` })(req, res, (err) => {
+    if (err) return next(err);
+    // Use generateAuthResponse for consistency, but handle returnTo state
+    const returnTo = (req.query.state || '').trim() || undefined;
+    if (returnTo) {
+      const authData = generateAuthData(req.user);
+      const redirectUrl = `${FRONTEND_URL}/auth/callback?token=${authData.token}&user=${encodeURIComponent(JSON.stringify(authData.user))}&returnTo=${encodeURIComponent(returnTo)}`;
+      return res.redirect(redirectUrl);
+    }
+    // Standard OAuth callback - use generateAuthResponse
+    generateAuthResponse(req.user, res);
+  });
+};
+
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
+
+/** Start Discord link flow: token in query, redirect to Discord OAuth with state=userId. Register before authenticateToken. */
+export const discordLinkStart = async (req, res) => {
+  if (!isDiscordConfigured()) {
+    logger.warn('Discord link start: Discord not configured');
+    return res.redirect(`${FRONTEND_URL}/login?error=discord_not_configured`);
+  }
+  const token = (req.query.token || '').trim();
+  if (!token) {
+    logger.warn('Discord link start: missing token');
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_token_missing`);
+  }
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    const stateToken = createLinkState(payload.id, 'link_discord');
+    const clientId = (process.env.DISCORD_CLIENT_ID || '').trim();
+    const redirectUri = `${BACKEND_URL}/api/user/auth/discord/link/callback`;
+    const scope = 'identify email guilds';
+    const url = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(stateToken)}`;
+    
+    logger.info('Discord link start: redirecting to Discord OAuth', {
+      userId: payload.id,
+      redirectUri,
+      clientIdLength: clientId.length,
+      stateTokenLength: stateToken.length
+    });
+    
+    res.redirect(url);
+  } catch (err) {
+    logger.error('Discord link start: token verification failed', { 
+      error: err.message,
+      hasToken: !!token 
+    });
+    res.redirect(`${FRONTEND_URL}/settings?error=link_token_invalid`);
+  }
+};
+
+/** Discord link callback: exchange code for token, attach Discord to user by state userId. Register before authenticateToken. */
+export const discordLinkCallback = async (req, res) => {
+  const { code, state, error, error_description } = req.query;
+  
+  // Handle Discord OAuth errors
+  if (error) {
+    logger.warn('Discord OAuth error in callback', { 
+      error, 
+      error_description,
+      query: req.query 
+    });
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=${encodeURIComponent(error_description || error)}`);
+  }
+  
+  if (!code || !state) {
+    logger.warn('Discord link callback: missing code or state', { 
+      hasCode: !!code, 
+      hasState: !!state,
+      query: req.query 
+    });
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=missing_code_or_state`);
+  }
+  
+  logger.info('Discord link callback received', { 
+    hasCode: !!code, 
+    hasState: !!state,
+    stateLength: state?.length 
+  });
+  
+  const parsed = verifyLinkState(state, 'link_discord');
+  if (!parsed) {
+    logger.warn('Discord link callback: invalid state token', { 
+      stateLength: state?.length,
+      statePreview: state?.substring(0, 50) 
+    });
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_state_invalid`);
+  }
+  
+  const clientId = (process.env.DISCORD_CLIENT_ID || '').trim();
+  const clientSecret = (process.env.DISCORD_CLIENT_SECRET || '').trim();
+  const redirectUri = `${BACKEND_URL}/api/user/auth/discord/link/callback`;
+  
+  if (!clientId || !clientSecret) {
+    logger.error('Discord link callback: Discord credentials not configured');
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=discord_not_configured`);
+  }
+  
+  try {
+    logger.debug('Discord link callback: exchanging code for token', { 
+      redirectUri,
+      clientIdLength: clientId.length 
+    });
+    
+    const body = new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: redirectUri,
+    });
+    
+    const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    });
+    
+    if (!tokenRes.ok) {
+      const errText = await tokenRes.text();
+      logger.error('Discord link token exchange failed', { 
+        status: tokenRes.status, 
+        statusText: tokenRes.statusText,
+        body: errText,
+        redirectUri,
+        codeLength: code?.length 
+      });
+      return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=token_exchange_failed`);
+    }
+    
+    const data = await tokenRes.json();
+    if (!data.access_token) {
+      logger.error('Discord link: no access_token in response', { responseKeys: Object.keys(data) });
+      return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=no_access_token`);
+    }
+    
+    logger.info('Discord link: token exchange successful', { userId: parsed.userId });
+    
+    const user = await User.findByPk(parsed.userId);
+    if (!user) {
+      logger.error('Discord link callback: user not found', { userId: parsed.userId });
+      return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=user_not_found`);
+    }
+    
+    // Get Discord user ID
+    const discordUserRes = await fetch('https://discord.com/api/v10/users/@me', {
+      headers: { Authorization: `Bearer ${data.access_token}` },
+    });
+    
+    if (!discordUserRes.ok) {
+      const errText = await discordUserRes.text();
+      logger.error('Discord link: failed to get user info', { 
+        status: discordUserRes.status,
+        body: errText 
+      });
+      return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=user_info_failed`);
+    }
+    
+    const discordUser = await discordUserRes.json();
+    const discordUserId = discordUser.id;
+    
+    if (!discordUserId) {
+      logger.error('Discord link: no user ID in Discord response', { responseKeys: Object.keys(discordUser) });
+      return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=no_discord_user_id`);
+    }
+    
+    // Update user with Discord info
+    user.discordId = discordUserId;
+    user.discordAccessToken = data.access_token;
+    user.discordRefreshToken = data.refresh_token || user.discordRefreshToken;
+    
+    if (!user.oauthId) {
+      user.oauthId = discordUserId;
+      user.oauthProvider = 'discord';
+    }
+    
+    await user.save();
+    
+    logger.info('Discord link: successfully linked Discord account', { 
+      userId: parsed.userId,
+      discordUserId 
+    });
+    
+    res.redirect(`${FRONTEND_URL}/settings?linked=discord`);
+  } catch (err) {
+    logger.error('Discord link callback error', { 
+      error: err.message,
+      stack: err.stack,
+      userId: parsed?.userId 
+    });
+    res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=${encodeURIComponent(err.message)}`);
+  }
+};
+
+/** POST /link-google - link Google (Supabase OAuth) to current user. Requires JWT + body.supabaseAccessToken. */
+export async function linkGoogleHandler(req, res) {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Supabase not configured' });
+    }
+    const supabaseToken = req.body.supabaseAccessToken;
+    const { data, error } = await supabaseAdmin.auth.getUser(supabaseToken);
+    if (error) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    const supabaseUser = data?.user ?? data;
+    if (!supabaseUser?.email) {
+      return res.status(401).json({ error: 'Invalid token or missing email' });
+    }
+    const provider = supabaseUser.app_metadata?.provider ?? 'google';
+    if (provider !== 'google') {
+      return res.status(400).json({ error: 'Token is not from Google. Use link-twitch for Twitch.' });
+    }
+    const supabaseId = supabaseUser.id;
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    user.googleId = supabaseId;
+    if (!user.oauthId) {
+      user.oauthId = supabaseId;
+      user.oauthProvider = 'google';
+    }
+    await user.save();
+    res.json({ message: 'Google account linked' });
+  } catch (err) {
+    logger.error('Link Google error', { error: err.message });
+    res.status(500).json({ error: 'Server error' });
+  }
+}
+
+/** POST /link-twitch - link Twitch (Supabase OAuth) to current user. Requires JWT + body.supabaseAccessToken. */
+export async function linkTwitchHandler(req, res) {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Supabase not configured' });
+    }
+    const supabaseToken = req.body.supabaseAccessToken;
+    const { data, error } = await supabaseAdmin.auth.getUser(supabaseToken);
+    if (error) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    const supabaseUser = data?.user ?? data;
+    if (!supabaseUser?.email) {
+      return res.status(401).json({ error: 'Invalid token or missing email' });
+    }
+    const provider = supabaseUser.app_metadata?.provider ?? 'twitch';
+    if (provider !== 'twitch') {
+      return res.status(400).json({ error: 'Token is not from Twitch. Use link-google for Google.' });
+    }
+    const supabaseId = supabaseUser.id;
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    user.twitchId = supabaseId;
+    if (!user.oauthId) {
+      user.oauthId = supabaseId;
+      user.oauthProvider = 'twitch';
+    }
+    await user.save();
+    res.json({ message: 'Twitch account linked' });
+  } catch (err) {
+    logger.error('Link Twitch error', { error: err.message });
+    res.status(500).json({ error: 'Server error' });
+  }
+}
 
 // Register
 router.post('/register', validateBody(registerSchema), async (req, res) => {
@@ -355,6 +828,188 @@ router.post('/login', validateBody(loginSchema), async (req, res) => {
   }
 });
 
+/** GET /connected-accounts - which OAuth providers and email are linked to the current user. Exported for explicit registration in app.js if needed. */
+export async function connectedAccountsHandler(req, res) {
+  try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: ['googleId', 'twitchId', 'discordId', 'passwordHash', 'oauthProvider', 'oauthId', 'discordAccessToken', 'discordRefreshToken'],
+    });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const u = user.get ? user.get({ plain: true }) : user;
+    
+    // Check if Discord is connected: must have discordId AND (discordAccessToken OR discordRefreshToken)
+    // This ensures Discord is only shown as connected if it can actually be used (has tokens)
+    // Note: oauthProvider === 'discord' alone is not enough - need actual tokens for API calls
+    const discordConnected = !!(u.discordId && (u.discordAccessToken || u.discordRefreshToken));
+    const googleConnected = !!(u.googleId || (u.oauthProvider === 'google' && u.oauthId));
+    const twitchConnected = !!(u.twitchId || (u.oauthProvider === 'twitch' && u.oauthId));
+    
+    res.json({
+      google: googleConnected,
+      twitch: twitchConnected,
+      discord: discordConnected,
+      email: !!u.passwordHash,
+    });
+  } catch (err) {
+    logger.error('Connected accounts error', { error: err.message });
+    res.status(500).json({ error: 'Server error' });
+  }
+}
+
+router.get('/connected-accounts', requireAuth, connectedAccountsHandler);
+
+/** Ensure user has at least one login method (password or any OAuth). */
+function hasAnyLoginMethod(u) {
+  return !!(u.passwordHash || u.googleId || u.twitchId || u.discordId);
+}
+
+/** POST /disconnect-google - remove Google from current account. */
+router.post('/disconnect-google', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, { attributes: ['id', 'googleId', 'twitchId', 'discordId', 'passwordHash', 'oauthProvider', 'oauthId'] });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user.googleId) return res.status(400).json({ error: 'Google is not connected' });
+    const u = user.get ? user.get({ plain: true }) : user;
+    u.googleId = null;
+    if (!hasAnyLoginMethod(u)) return res.status(400).json({ error: 'You must keep at least one sign-in method' });
+    user.googleId = null;
+    if (user.oauthProvider === 'google') {
+      user.oauthProvider = user.twitchId ? 'twitch' : user.discordId ? 'discord' : null;
+      user.oauthId = user.twitchId || user.discordId || null;
+    }
+    await user.save();
+    res.json({ message: 'Google disconnected' });
+  } catch (err) {
+    logger.error('Disconnect Google error', { error: err.message });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/** POST /disconnect-twitch - remove Twitch from current account. */
+router.post('/disconnect-twitch', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, { attributes: ['id', 'googleId', 'twitchId', 'discordId', 'passwordHash', 'oauthProvider', 'oauthId'] });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user.twitchId) return res.status(400).json({ error: 'Twitch is not connected' });
+    const u = user.get ? user.get({ plain: true }) : user;
+    u.twitchId = null;
+    if (!hasAnyLoginMethod(u)) return res.status(400).json({ error: 'You must keep at least one sign-in method' });
+    user.twitchId = null;
+    if (user.oauthProvider === 'twitch') {
+      user.oauthProvider = user.googleId ? 'google' : user.discordId ? 'discord' : null;
+      user.oauthId = user.googleId || user.discordId || null;
+    }
+    await user.save();
+    res.json({ message: 'Twitch disconnected' });
+  } catch (err) {
+    logger.error('Disconnect Twitch error', { error: err.message });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/** POST /disconnect-discord - remove Discord from current account. */
+router.post('/disconnect-discord', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, { attributes: ['id', 'googleId', 'twitchId', 'discordId', 'passwordHash', 'oauthProvider', 'oauthId', 'discordAccessToken', 'discordRefreshToken'] });
+    if (!user) {
+      logger.warn('Disconnect Discord: User not found', { userId: req.user.id });
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const hasDiscord = user.discordId || (user.oauthProvider === 'discord' && user.oauthId);
+    if (!hasDiscord) {
+      logger.warn('Disconnect Discord: Discord not connected', { 
+        userId: req.user.id,
+        discordId: user.discordId,
+        oauthProvider: user.oauthProvider,
+        oauthId: user.oauthId
+      });
+      return res.status(400).json({ error: 'Discord is not connected' });
+    }
+    
+    // Store original discordId before clearing it (needed for edge case check)
+    const originalDiscordId = user.discordId;
+    const wasDiscordPrimary = user.oauthProvider === 'discord';
+    
+    // Check if user will have at least one login method after disconnecting Discord
+    const u = user.get ? user.get({ plain: true }) : user;
+    u.discordId = null;
+    if (wasDiscordPrimary) {
+      u.oauthProvider = user.googleId ? 'google' : user.twitchId ? 'twitch' : null;
+      u.oauthId = user.googleId || user.twitchId || null;
+    }
+    
+    const hasLoginMethod = hasAnyLoginMethod(u);
+    if (!hasLoginMethod) {
+      logger.warn('Disconnect Discord: Would leave user without login method', {
+        userId: req.user.id,
+        googleId: user.googleId,
+        twitchId: user.twitchId,
+        passwordHash: !!user.passwordHash,
+        discordId: originalDiscordId
+      });
+      return res.status(400).json({ error: 'You must keep at least one sign-in method' });
+    }
+    
+    // Update the user model
+    user.discordId = null;
+    user.discordAccessToken = null;
+    user.discordRefreshToken = null;
+    
+    // If Discord was the primary OAuth provider, switch to another or clear it
+    if (wasDiscordPrimary) {
+      user.oauthProvider = user.googleId ? 'google' : user.twitchId ? 'twitch' : null;
+      user.oauthId = user.googleId || user.twitchId || null;
+    } else if (user.oauthId && originalDiscordId && user.oauthId === originalDiscordId) {
+      // Edge case: oauthId matches discordId but oauthProvider is not discord
+      // This shouldn't happen normally, but we clean it up just in case
+      if (!user.googleId && !user.twitchId) {
+        user.oauthId = null;
+      } else {
+        user.oauthId = user.googleId || user.twitchId || null;
+      }
+    }
+    
+    await user.save();
+    
+    // Verify the disconnect worked
+    const savedUser = await User.findByPk(req.user.id, {
+      attributes: ['discordId', 'oauthProvider', 'oauthId', 'googleId', 'twitchId']
+    });
+    const stillConnected = savedUser.discordId || (savedUser.oauthProvider === 'discord' && savedUser.oauthId);
+    if (stillConnected) {
+      logger.error('Discord disconnect verification failed - Discord still appears connected', { 
+        userId: req.user.id,
+        discordId: savedUser.discordId,
+        oauthProvider: savedUser.oauthProvider,
+        oauthId: savedUser.oauthId,
+        googleId: savedUser.googleId,
+        twitchId: savedUser.twitchId
+      });
+      // Try to fix it
+      savedUser.discordId = null;
+      if (savedUser.oauthProvider === 'discord') {
+        savedUser.oauthProvider = savedUser.googleId ? 'google' : savedUser.twitchId ? 'twitch' : null;
+        savedUser.oauthId = savedUser.googleId || savedUser.twitchId || null;
+      }
+      await savedUser.save();
+    }
+    
+    res.json({ message: 'Discord disconnected' });
+  } catch (err) {
+    logger.error('Disconnect Discord error', { error: err.message });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/** POST /link-google - link Google (Supabase) to current account. Body: { supabaseAccessToken }. */
+router.post('/link-google', requireAuth, validateBody(linkSupabaseSchema), linkGoogleHandler);
+
+/** POST /link-twitch - link Twitch (Supabase) to current account. Body: { supabaseAccessToken }. */
+router.post('/link-twitch', requireAuth, validateBody(linkSupabaseSchema), linkTwitchHandler);
+
 // Generate license (for demo, not secure)
 router.post('/generate-license', requireAdmin, async (req, res) => {
   const { userId } = req.body;
@@ -385,7 +1040,27 @@ router.post('/generate-license', requireAdmin, async (req, res) => {
 
 // List all users (admin only), with lastUploadAt = latest of Content.createdAt or Media.createdAt per user
 router.get('/admin/users', requireAdmin, async (req, res) => {
-  const users = await User.findAll({ attributes: ['id', 'username', 'email', 'licenseKey', 'licenseType', 'licenseExpiresAt', 'isAdmin', 'hasUsedTrial', 'trialExtensions'] });
+  const users = await User.findAll({ 
+    attributes: [
+      'id', 
+      'username', 
+      'email', 
+      'licenseKey', 
+      'licenseType', 
+      'licenseExpiresAt', 
+      'isAdmin', 
+      'hasUsedTrial', 
+      'trialExtensions',
+      'googleId',
+      'twitchId',
+      'discordId',
+      'discordAccessToken',
+      'discordRefreshToken',
+      'passwordHash',
+      'oauthProvider',
+      'oauthId'
+    ] 
+  });
   const userIds = users.map(u => u.id);
   const lastContentByUser = userIds.length
     ? await Content.findAll({
@@ -410,6 +1085,7 @@ router.get('/admin/users', requireAdmin, async (req, res) => {
     const contentAt = lastContentMap[user.id] ? new Date(lastContentMap[user.id]).getTime() : 0;
     const mediaAt = lastMediaMap[user.id] ? new Date(lastMediaMap[user.id]).getTime() : 0;
     const lastUploadAt = contentAt || mediaAt ? new Date(Math.max(contentAt, mediaAt)).toISOString() : null;
+    const u = user.get ? user.get({ plain: true }) : user;
     return {
       id: user.id,
       trialExtensions: user.trialExtensions || 0,
@@ -423,7 +1099,14 @@ router.get('/admin/users', requireAdmin, async (req, res) => {
       isAdmin: user.isAdmin,
       hasUsedTrial: user.hasUsedTrial,
       trialExtensions: user.trialExtensions || 0,
-      lastUploadAt
+      lastUploadAt,
+      connectedPlatforms: {
+        google: !!(u.googleId || (u.oauthProvider === 'google' && u.oauthId)),
+        twitch: !!(u.twitchId || (u.oauthProvider === 'twitch' && u.oauthId)),
+        // Discord requires both discordId AND tokens (accessToken or refreshToken) to be considered connected
+        discord: !!(u.discordId && (u.discordAccessToken || u.discordRefreshToken)),
+        email: !!u.passwordHash
+      }
     };
   });
   res.json(payload);

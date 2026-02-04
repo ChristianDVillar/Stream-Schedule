@@ -3,36 +3,22 @@
  * Tests critical queries to ensure indexes are being used
  */
 
-import dotenv from 'dotenv';
 import { sequelize, User, Content, Payment, Platform, Media } from '../models/index.js';
-import path from 'path';
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Load environment variables
-// For local development: loads from .env file
-// For Render/production: uses Environment Variables from Render dashboard
-dotenv.config({ path: path.resolve(__dirname, '../../', '.env') });
-const nodeEnv = process.env.NODE_ENV || 'development';
-
-const databaseUrl = process.env.DATABASE_URL;
-const usePostgres = Boolean(databaseUrl);
+import { usePostgres } from '../config/database.js';
+import logger from '../utils/logger.js';
 
 async function checkIndexes() {
-  console.log('🔍 Checking database indexes...\n');
+  logger.info('Checking database indexes');
   
   if (!usePostgres) {
-    console.log('⚠️  Index validation is only available for PostgreSQL');
+    logger.warn('Index validation is only available for PostgreSQL');
     await sequelize.close();
     return;
   }
 
   try {
     await sequelize.authenticate();
-    console.log('✅ Database connection established\n');
+    logger.info('Database connection established');
 
     // Check critical indexes
     const indexes = [
@@ -62,51 +48,55 @@ async function checkIndexes() {
 
     const existingIndexes = results.map(r => r.indexname);
     
-    console.log('📊 Index Status:\n');
+    logger.info('Index Status');
     let allPresent = true;
+    const indexStatus = [];
     
     for (const index of indexes) {
       const exists = existingIndexes.includes(index.name);
-      const status = exists ? '✅' : '❌';
       const type = index.unique ? 'UNIQUE' : 'INDEX';
-      console.log(`${status} ${index.table}.${index.name} (${type} on ${index.columns.join(', ')})`);
+      indexStatus.push({
+        table: index.table,
+        name: index.name,
+        type,
+        columns: index.columns,
+        exists
+      });
       if (!exists) allPresent = false;
     }
+    
+    logger.info('Index check results', { indexes: indexStatus, allPresent });
 
-    console.log('\n📈 Query Performance Tests:\n');
+    logger.info('Query Performance Tests');
 
     // Test 1: Content by scheduled date
-    console.log('1. Testing: Content queries by scheduledFor...');
     const start1 = Date.now();
     await Content.findAll({
       where: { scheduledFor: { [sequelize.Op.gte]: new Date() } },
       limit: 100
     });
     const time1 = Date.now() - start1;
-    console.log(`   ⏱️  Query time: ${time1}ms`);
+    logger.info('Content queries by scheduledFor', { queryTime: `${time1}ms` });
 
     // Test 2: Content by status
-    console.log('2. Testing: Content queries by status...');
     const start2 = Date.now();
     await Content.findAll({
       where: { status: 'scheduled' },
       limit: 100
     });
     const time2 = Date.now() - start2;
-    console.log(`   ⏱️  Query time: ${time2}ms`);
+    logger.info('Content queries by status', { queryTime: `${time2}ms` });
 
     // Test 3: Payments by status
-    console.log('3. Testing: Payment queries by status...');
     const start3 = Date.now();
     await Payment.findAll({
       where: { status: 'completed' },
       limit: 100
     });
     const time3 = Date.now() - start3;
-    console.log(`   ⏱️  Query time: ${time3}ms`);
+    logger.info('Payment queries by status', { queryTime: `${time3}ms` });
 
     // Test 4: Users with expiring licenses
-    console.log('4. Testing: Users with expiring licenses...');
     const start4 = Date.now();
     await User.findAll({
       where: {
@@ -117,16 +107,16 @@ async function checkIndexes() {
       limit: 100
     });
     const time4 = Date.now() - start4;
-    console.log(`   ⏱️  Query time: ${time4}ms`);
+    logger.info('Users with expiring licenses', { queryTime: `${time4}ms` });
 
-    console.log('\n✅ Performance validation complete!');
+    logger.info('Performance validation complete', { allIndexesPresent: allPresent });
     if (!allPresent) {
-      console.log('\n⚠️  Some indexes are missing. Run migrations to create them.');
+      logger.warn('Some indexes are missing. Run migrations to create them.');
     }
 
     await sequelize.close();
   } catch (error) {
-    console.error('❌ Error:', error.message);
+    logger.error('Error validating performance', { error: error.message, stack: error.stack });
     await sequelize.close();
     process.exit(1);
   }

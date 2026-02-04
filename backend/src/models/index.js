@@ -12,52 +12,8 @@ import { CONTENT_STATUS, CONTENT_STATUS_VALUES } from '../constants/contentStatu
 import { CONTENT_TYPES, CONTENT_TYPE_VALUES } from '../constants/contentTypes.js';
 import { PLATFORMS, PLATFORM_VALUES } from '../constants/platforms.js';
 import { PAYMENT_STATUS, PAYMENT_STATUS_VALUES } from '../constants/paymentStatus.js';
-
-const databaseUrl = process.env.DATABASE_URL;
-const usePostgres = Boolean(databaseUrl);
-const nodeEnv = process.env.NODE_ENV || 'development';
-const enableLogging = process.env.ENABLE_LOGGING === 'true';
-const isProduction = nodeEnv === 'production';
-const requireSSL = isProduction || process.env.DATABASE_SSL === 'true';
-
-// In production, DATABASE_URL and SSL are required
-if (isProduction && !databaseUrl) {
-  throw new Error('DATABASE_URL is required in production environment');
-}
-
-if (isProduction && !requireSSL) {
-  throw new Error('DATABASE_SSL=true is required in production environment');
-}
-
-const sequelize = usePostgres
-  ? new Sequelize(databaseUrl, {
-      dialect: 'postgres',
-      logging: enableLogging ? console.log : false,
-      protocol: 'postgres',
-      dialectOptions: {
-        ssl: requireSSL
-          ? {
-              require: true,
-              rejectUnauthorized: false, // Supabase uses self-signed certificates
-            }
-          : false,
-        // Supabase pooler compatibility
-        ...(databaseUrl.includes('pooler.supabase.com') && {
-          application_name: 'streamer-scheduler',
-        }),
-      },
-      pool: {
-        max: 5,
-        min: 0,
-        acquire: 30000,
-        idle: 10000,
-      },
-    })
-  : new Sequelize({
-      dialect: 'sqlite',
-      storage: process.env.SQLITE_STORAGE || path.resolve(process.cwd(), 'database.sqlite'),
-      logging: enableLogging ? console.log : false,
-    });
+// Import database configuration from centralized config
+import { sequelize, usePostgres, nodeEnv, enableLogging, isProduction, requireSSL } from '../config/database.js';
 
 // 👤 User
 const User = sequelize.define('User', {
@@ -80,12 +36,37 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: true,
     validate: {
-      isIn: [['google', 'twitch', null]]
+      isIn: [['google', 'twitch', 'discord', null]]
     }
   },
   oauthId: {
     type: DataTypes.STRING,
     allowNull: true
+  },
+  googleId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Google OAuth user id (for account linking)'
+  },
+  twitchId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Twitch OAuth user id (for account linking)'
+  },
+  discordId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Discord OAuth user id (for account linking)'
+  },
+  discordAccessToken: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Discord OAuth access token (user token, for listing guilds). Never expose to frontend.'
+  },
+  discordRefreshToken: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Discord OAuth refresh token. Never expose to frontend.'
   },
   licenseKey: {
     type: DataTypes.STRING,
@@ -188,12 +169,32 @@ const Content = sequelize.define('Content', {
     type: DataTypes.INTEGER,
     allowNull: false
   },
+  discordGuildId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Discord server (guild) ID when platforms includes discord'
+  },
+  discordChannelId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Discord channel ID where to publish when platforms includes discord'
+  },
   status: {
     type: DataTypes.STRING,
     defaultValue: CONTENT_STATUS.SCHEDULED,
     validate: {
       isIn: [CONTENT_STATUS_VALUES]
     }
+  },
+  publishedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'When the content was successfully published'
+  },
+  publishError: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Error message when publication failed'
   }
 });
 
