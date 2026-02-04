@@ -78,7 +78,10 @@ export function buildUserResponse(user) {
     licenseAlert: licenseSummary.alert,
     licenseDaysLeft: licenseSummary.daysLeft,
     isAdmin: userPlain.isAdmin,
-    merchandisingLink: userPlain.merchandisingLink
+    merchandisingLink: userPlain.merchandisingLink,
+    dashboardShowTwitchSubs: userPlain.dashboardShowTwitchSubs !== false,
+    dashboardShowTwitchBits: userPlain.dashboardShowTwitchBits !== false,
+    dashboardShowTwitchDonations: userPlain.dashboardShowTwitchDonations === true
   };
 }
 
