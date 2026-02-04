@@ -103,11 +103,18 @@ export default function MediaUpload({ user, token }) {
             </div>
           </div>
 
-          {uploadStats.isTrialUser && (
+          {uploadStats.isTrialUser && uploadStats.dailyLimit == null && (
             <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
               <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                <strong>{t('media.trialPlan')}:</strong> {t('media.remainingUploads', { count: uploadStats.remainingUploads })}
-                ({t('media.dailyLimit', { limit: uploadStats.dailyLimit })})
+                <strong>{t('media.trialPlan')}:</strong> {t('media.unlimitedUploads')}
+              </p>
+            </div>
+          )}
+          {uploadStats.dailyLimit != null && (
+            <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                {t('media.remainingUploads', { count: uploadStats.remainingUploads ?? 0 })}
+                {' '}({t('media.dailyLimit', { limit: uploadStats.dailyLimit })})
               </p>
             </div>
           )}

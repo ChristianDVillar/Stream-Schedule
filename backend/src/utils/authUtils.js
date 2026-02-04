@@ -11,6 +11,36 @@ const jwtSecret = process.env.JWT_SECRET || 'dev-jwt-secret';
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '7d';
 
 /**
+ * Create a short-lived state token for OAuth link flow (userId in state)
+ * @param {number} userId - User id to link the provider to
+ * @param {string} purpose - e.g. 'link_discord', 'link_google'
+ * @returns {string} JWT state token
+ */
+export function createLinkState(userId, purpose) {
+  return jwt.sign(
+    { userId, purpose },
+    jwtSecret,
+    { expiresIn: '10m' }
+  );
+}
+
+/**
+ * Verify link state token and return userId
+ * @param {string} stateToken - JWT from OAuth state
+ * @param {string} purpose - expected purpose
+ * @returns {{ userId: number }|null}
+ */
+export function verifyLinkState(stateToken, purpose) {
+  try {
+    const payload = jwt.verify(stateToken, jwtSecret);
+    if (payload.purpose !== purpose) return null;
+    return { userId: payload.userId };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Generate JWT token for a user
  * @param {Object} user - User object with id, email, username, isAdmin
  * @returns {string} JWT token

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiClient } from '../api';
+import { apiClient, getDiscordGuilds, getDiscordChannels } from '../api';
 import toast from 'react-hot-toast';
 import { useLanguage } from '../contexts/LanguageContext';
 import Joyride, { STATUS } from 'react-joyride';
@@ -20,7 +20,9 @@ import {
   Lightbulb,
   Twitch,
   Twitter,
-  Instagram
+  Instagram,
+  Server,
+  Hash
 } from 'lucide-react';
 
 // Discord icon - Icons8 id 30888 (https://icons8.com/icon/30888/discord)
@@ -42,8 +44,14 @@ const Schedule = ({ user, token }) => {
       enabled: false,
       frequency: 'weekly',
       count: 1
-    }
+    },
+    discordGuildId: '',
+    discordChannelId: ''
   });
+  const [discordGuilds, setDiscordGuilds] = useState([]);
+  const [discordChannels, setDiscordChannels] = useState([]);
+  const [loadingDiscordGuilds, setLoadingDiscordGuilds] = useState(false);
+  const [loadingDiscordChannels, setLoadingDiscordChannels] = useState(false);
   const [showMediaSection, setShowMediaSection] = useState(false);
   const [templates, setTemplates] = useState(() => {
     try {
@@ -57,6 +65,9 @@ const Schedule = ({ user, token }) => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [showTour, setShowTour] = useState(false);
+
+  /** Ensure we never render an object as React child (API may return { field, message }). */
+  const errStr = (v) => (typeof v === 'string' ? v : (v && typeof v.message === 'string' ? v.message : ''));
 
   // Tour steps
   const steps = [
@@ -99,6 +110,64 @@ const Schedule = ({ user, token }) => {
     localStorage.setItem('contentTemplates', JSON.stringify(templates));
   }, [templates]);
 
+  // Load Discord guilds when Discord platform is selected
+  useEffect(() => {
+    if (!formData.platforms.includes('discord')) {
+      setDiscordGuilds([]);
+      setDiscordChannels([]);
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      setLoadingDiscordGuilds(true);
+      try {
+        const data = await getDiscordGuilds();
+        if (!cancelled) setDiscordGuilds(data.guilds || []);
+      } catch (err) {
+        if (!cancelled) {
+          const data = err.response?.data || {};
+          const details = data.details || data.error || err.message;
+          if (err.response?.status === 400) {
+            toast.error(details || (t('schedule.discordConnectFirst') || 'Connect or reconnect Discord in Settings to list servers.'));
+          } else {
+            toast.error(details || 'Failed to load Discord servers');
+          }
+          setDiscordGuilds([]);
+        }
+      } finally {
+        if (!cancelled) setLoadingDiscordGuilds(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [formData.platforms.includes('discord')]);
+
+  // Load Discord channels when guild is selected
+  useEffect(() => {
+    if (!formData.discordGuildId) {
+      setDiscordChannels([]);
+      return;
+    }
+    let cancelled = false;
+    const guildId = formData.discordGuildId;
+    setLoadingDiscordChannels(true);
+    setDiscordChannels([]);
+    getDiscordChannels(guildId)
+      .then((data) => {
+        if (!cancelled) setDiscordChannels(data.channels || []);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          toast.error(err.response?.data?.error || err.message || 'Failed to load channels');
+          setDiscordChannels([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingDiscordChannels(false);
+      });
+    return () => { cancelled = true; };
+  }, [formData.discordGuildId]);
+
   const handleTourCallback = (data) => {
     const { status } = data;
     if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
@@ -138,6 +207,10 @@ const Schedule = ({ user, token }) => {
       newErrors.scheduledTime = t('schedule.validationTimeRequired');
     }
 
+    if (formData.platforms.includes('discord') && !formData.discordChannelId?.trim()) {
+      newErrors.discordChannel = t('schedule.discordChannelRequired') || 'Select a Discord server and channel';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -158,7 +231,7 @@ const Schedule = ({ user, token }) => {
       
       // ⏱️ IMPORTANT: Always send dates as ISO string (UTC) to backend
       // Backend stores in UTC, frontend displays in user's local timezone
-      const response = await apiClient.post('/content', {
+      const payload = {
         title: formData.title,
         content: formData.content,
         contentType: formData.contentType,
@@ -167,7 +240,12 @@ const Schedule = ({ user, token }) => {
         timezone: formData.timezone,
         mediaItems: normalizeMediaItems(formData.mediaItems), // Include media with metadata
         recurrence: formData.recurrence
-      }, {
+      };
+      if (formData.platforms.includes('discord') && formData.discordChannelId) {
+        payload.discordGuildId = formData.discordGuildId || null;
+        payload.discordChannelId = formData.discordChannelId;
+      }
+      const response = await apiClient.post('/content', payload, {
         headers: { Authorization: `Bearer ${token}` },
         withCredentials: true
       });
@@ -212,8 +290,21 @@ const Schedule = ({ user, token }) => {
       navigate('/dashboard');
     } catch (error) {
       console.error('Error scheduling content:', error);
-      const errorMessage = error.response?.data?.details || error.response?.data?.error || error.message || t('schedule.scheduleError');
-      toast.error(errorMessage);
+      const data = error.response?.data;
+      const details = data?.details;
+      let errorMessage = data?.error || error.message || t('schedule.scheduleError');
+      if (Array.isArray(details) && details.length > 0) {
+        const messages = details.map((d) => (d && typeof d.message === 'string' ? d.message : (d?.field ? `${d.field}: invalid` : '')).trim()).filter(Boolean);
+        if (messages.length > 0) errorMessage = messages.join('. ');
+        const errs = {};
+        details.forEach((d) => {
+          if (d && d.field && typeof d.message === 'string') errs[d.field] = d.message;
+        });
+        if (Object.keys(errs).length > 0) setErrors((prev) => ({ ...prev, ...errs }));
+      } else if (details && typeof details === 'string') {
+        errorMessage = details;
+      }
+      toast.error(typeof errorMessage === 'string' ? errorMessage : t('schedule.scheduleError'));
     } finally {
       setLoading(false);
     }
@@ -229,16 +320,19 @@ const Schedule = ({ user, token }) => {
   };
 
   const handlePlatformToggle = (platform) => {
-    setFormData(prev => ({
-      ...prev,
-      platforms: prev.platforms.includes(platform)
+    setFormData(prev => {
+      const nextPlatforms = prev.platforms.includes(platform)
         ? prev.platforms.filter(p => p !== platform)
-        : [...prev.platforms, platform]
-    }));
-    
-    if (errors.platforms) {
-      setErrors(prev => ({ ...prev, platforms: '' }));
-    }
+        : [...prev.platforms, platform];
+      const next = { ...prev, platforms: nextPlatforms };
+      if (platform === 'discord' && !nextPlatforms.includes('discord')) {
+        next.discordGuildId = '';
+        next.discordChannelId = '';
+      }
+      return next;
+    });
+    if (errors.platforms) setErrors(prev => ({ ...prev, platforms: '' }));
+    if (errors.discordChannel) setErrors(prev => ({ ...prev, discordChannel: '' }));
   };
 
   const handleSaveTemplate = () => {
@@ -287,12 +381,13 @@ const Schedule = ({ user, token }) => {
         url: item.url,
         ...(item.fileName && { fileName: item.fileName }),
         ...(item.type && { type: item.type }),
-        ...(item.durationSeconds !== undefined && { durationSeconds: item.durationSeconds })
+        ...(item.durationSeconds !== undefined && { durationSeconds: item.durationSeconds }),
+        ...(item.file_path && { file_path: item.file_path })
       };
     });
   };
 
-  const handleMediaSelect = (url, bucket) => {
+  const handleMediaSelect = (url, bucket, extra = {}) => {
     setFormData(prev => {
       const items = prev.mediaItems || [];
       const exists = items.some((item) => (typeof item === 'string' ? item : item.url) === url);
@@ -304,7 +399,7 @@ const Schedule = ({ user, token }) => {
       }
       return {
         ...prev,
-        mediaItems: [...items, { url, type: bucket === 'videos' ? 'video' : 'image' }]
+        mediaItems: [...items, { url, type: bucket === 'videos' ? 'video' : 'image', ...(extra?.file_path && { file_path: extra.file_path }), ...(extra?.fileName && { fileName: extra.fileName }) }]
       };
     });
   };
@@ -314,7 +409,8 @@ const Schedule = ({ user, token }) => {
       url,
       type: meta?.type || (bucket === 'videos' ? 'video' : 'image'),
       ...(meta?.fileName && { fileName: meta.fileName }),
-      ...(meta?.durationSeconds !== undefined && { durationSeconds: meta.durationSeconds })
+      ...(meta?.durationSeconds !== undefined && { durationSeconds: meta.durationSeconds }),
+      ...(meta?.file_path && { file_path: meta.file_path })
     };
     setFormData(prev => ({
       ...prev,
@@ -443,7 +539,7 @@ const Schedule = ({ user, token }) => {
                 )}
               </div>
               {errors.title && (
-                <p className="mt-1 text-sm text-red-600">{errors.title}</p>
+                <p className="mt-1 text-sm text-red-600">{errStr(errors.title)}</p>
               )}
                   </div>
                   
@@ -471,7 +567,7 @@ const Schedule = ({ user, token }) => {
                     </div>
               <div className="flex justify-between items-center mt-1">
                 {errors.content && (
-                  <p className="text-sm text-red-600">{errors.content}</p>
+                  <p className="text-sm text-red-600">{errStr(errors.content)}</p>
                 )}
                 <p className="text-sm text-gray-500 ml-auto">
                   {formData.content.length}/500 characters
@@ -585,7 +681,7 @@ const Schedule = ({ user, token }) => {
                 <option value="reel">Reel</option>
               </select>
               {errors.contentType && (
-                <p className="mt-1 text-sm text-red-600">{errors.contentType}</p>
+                <p className="mt-1 text-sm text-red-600">{errStr(errors.contentType)}</p>
               )}
             </div>
                   
@@ -615,12 +711,53 @@ const Schedule = ({ user, token }) => {
                 ))}
               </div>
               {errors.platforms && (
-                <p className="mt-1 text-sm text-red-600">{errors.platforms}</p>
+                <p className="mt-1 text-sm text-red-600">{errStr(errors.platforms)}</p>
+              )}
+              {formData.platforms.includes('discord') && (
+                <div className="mt-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <Server className="w-4 h-4 inline mr-1" />
+                    {t('schedule.discordServer') || 'Discord server'}
+                  </label>
+                  <select
+                    value={formData.discordGuildId}
+                    onChange={(e) => setFormData(prev => ({ ...prev, discordGuildId: e.target.value, discordChannelId: '' }))}
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 focus:ring-2 focus:ring-indigo-500 mb-4"
+                  >
+                    <option value="">{loadingDiscordGuilds ? (t('common.loading') || 'Loading...') : (t('schedule.discordChooseServer') || 'Choose server')}</option>
+                    {discordGuilds.map((g) => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <Hash className="w-4 h-4 inline mr-1" />
+                    {t('schedule.discordChannel') || 'Discord channel'}
+                  </label>
+                  <select
+                    value={formData.discordChannelId}
+                    onChange={(e) => setFormData(prev => ({ ...prev, discordChannelId: e.target.value }))}
+                    className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 focus:ring-2 focus:ring-indigo-500 ${errors.discordChannel ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+                    disabled={!formData.discordGuildId || loadingDiscordChannels}
+                  >
+                    <option value="">{loadingDiscordChannels ? (t('common.loading') || 'Loading...') : (t('schedule.discordChooseChannel') || 'Choose channel')}</option>
+                    {discordChannels.filter((c) => c.type === 0).map((c) => (
+                      <option key={c.id} value={c.id}>#{c.name}</option>
+                    ))}
+                  </select>
+                  {errors.discordChannel && (
+                    <p className="mt-1 text-sm text-red-600">{errStr(errors.discordChannel)}</p>
+                  )}
+                </div>
               )}
                     </div>
                     
             {/* Date and Time */}
             <div className="datetime-section grid grid-cols-1 md:grid-cols-2 gap-6">
+              <p className="col-span-full text-sm text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2">
+                {t('schedule.timezoneHint') || 'La fecha y hora que eliges son en tu zona horaria (tu navegador).'} {formData.timezone && (
+                  <span className="font-medium">{formData.timezone.replace(/_/g, ' ')}</span>
+                )}
+              </p>
               <div>
                 <label htmlFor="scheduledFor" className="block text-sm font-medium text-gray-700 mb-2">
                   {t('schedule.date')} <span className="text-red-500">*</span>
@@ -639,7 +776,7 @@ const Schedule = ({ user, token }) => {
                   <Calendar className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
                 </div>
                 {errors.scheduledFor && (
-                  <p className="mt-1 text-sm text-red-600">{errors.scheduledFor}</p>
+                  <p className="mt-1 text-sm text-red-600">{errStr(errors.scheduledFor)}</p>
                 )}
               </div>
 
@@ -660,7 +797,7 @@ const Schedule = ({ user, token }) => {
                   <Clock className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
                 </div>
                 {errors.scheduledTime && (
-                  <p className="mt-1 text-sm text-red-600">{errors.scheduledTime}</p>
+                  <p className="mt-1 text-sm text-red-600">{errStr(errors.scheduledTime)}</p>
                 )}
               </div>
               </div>

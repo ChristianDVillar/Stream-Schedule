@@ -12,6 +12,7 @@ out/
 
 # Environment variables
 .env
+.env.*
 .env.local
 .env.*.local
 # Note: .env.example should be committed as documentation
@@ -114,6 +115,13 @@ public/uploads/
 *.sqlite
 *.sqlite3
 
+# Video/media files (test files)
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+
 # Redis dump files
 dump.rdb
 
@@ -148,3 +156,11 @@ __pycache__/
 
 # Local development files
 .local/
+
+# Video files (test files, should not be committed)
+*.mp4
+*.mov
+*.avi
+*.mkv
+testvideo.*
+output_*.mp4
