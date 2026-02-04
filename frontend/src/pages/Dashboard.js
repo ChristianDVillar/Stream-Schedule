@@ -9,7 +9,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import toast from 'react-hot-toast';
-import { formatDate } from '../utils/dateUtils';
+import { formatDate, formatDateWithUTC } from '../utils/dateUtils';
 import TrialWarning from '../components/TrialWarning';
 import { 
   Calendar as CalendarIcon, 
@@ -106,7 +106,7 @@ const Dashboard = ({ user, token, ...props }) => {
     switch (status) {
       case 'published':
         return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'pending':
+      case 'scheduled':
         return <Clock className="w-4 h-4 text-yellow-500" />;
       case 'failed':
         return <XCircle className="w-4 h-4 text-red-500" />;
@@ -376,7 +376,7 @@ const Dashboard = ({ user, token, ...props }) => {
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="all">All Status</option>
-                        <option value="pending">Pending</option>
+                        <option value="scheduled">Scheduled</option>
                         <option value="published">Published</option>
                         <option value="failed">Failed</option>
                       </select>
@@ -490,8 +490,9 @@ const Dashboard = ({ user, token, ...props }) => {
                                 : null}
                         </div>
                       </td>
-                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 hidden sm:table-cell">
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 hidden sm:table-cell" title={content.scheduledFor ? formatDateWithUTC(content.scheduledFor).utc + ' (UTC)' : ''}>
                             {formatDate(content.scheduledFor)}
+                            <span className="block text-xs text-gray-500 dark:text-gray-400">{t('dashboard.localTime') || 'hora local'}</span>
                       </td>
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
@@ -577,6 +578,16 @@ const Dashboard = ({ user, token, ...props }) => {
                       {getStatusIcon(selectedContent.status)}
                       <span className="ml-2 text-sm capitalize text-gray-900 dark:text-gray-100">{selectedContent.status}</span>
                     </div>
+                    {selectedContent.status === 'published' && selectedContent.publishedAt && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Published at: {formatDate(selectedContent.publishedAt)}
+                      </p>
+                    )}
+                    {selectedContent.status === 'failed' && selectedContent.publishError && (
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-1" title={selectedContent.publishError}>
+                        Error: {selectedContent.publishError}
+                      </p>
+                    )}
                   </div>
                 </div>
                 
@@ -584,6 +595,9 @@ const Dashboard = ({ user, token, ...props }) => {
                   <div>
                     <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('dashboard.scheduledFor')}</h3>
                     <p className="text-gray-900 dark:text-gray-100">{formatDate(selectedContent.scheduledFor)}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {t('dashboard.yourLocalTime') || 'Tu hora local'} · UTC: {selectedContent.scheduledFor ? formatDateWithUTC(selectedContent.scheduledFor).utc : '—'}
+                    </p>
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('dashboard.createdAt')}</h3>

@@ -4,6 +4,7 @@
  */
 
 import Joi from 'joi';
+import { CONTENT_TYPE_VALUES } from '../constants/contentTypes.js';
 
 // Recurrence schema
 const recurrenceSchema = Joi.object({
@@ -25,10 +26,10 @@ export const contentSchema = Joi.object({
     'any.required': 'Content is required'
   }),
   contentType: Joi.string()
-    .valid('post', 'story', 'reel', 'video', 'tweet')
+    .valid(...CONTENT_TYPE_VALUES)
     .required()
     .messages({
-      'any.only': 'Content type must be one of: post, story, reel, video, tweet',
+      'any.only': `Content type must be one of: ${CONTENT_TYPE_VALUES.join(', ')}`,
       'any.required': 'Content type is required'
     }),
   scheduledFor: Joi.date().iso().required().messages({
@@ -57,16 +58,20 @@ export const contentSchema = Joi.object({
     }),
   mediaItems: Joi.array()
     .items(Joi.object({
-      url: Joi.string().uri().required(),
+      url: Joi.string().uri().optional(),
+      file_path: Joi.string().max(500).optional(),
       fileName: Joi.string().allow('', null).optional(),
       type: Joi.string().valid('image', 'video').optional(),
       durationSeconds: Joi.number().min(0).optional()
-    }))
+    }).or('url', 'file_path'))
     .optional()
     .messages({
-      'array.base': 'Media items must be an array'
+      'array.base': 'Media items must be an array',
+      'object.missing': 'Each media item must have url or file_path'
     }),
-  recurrence: recurrenceSchema
+  recurrence: recurrenceSchema,
+  discordGuildId: Joi.string().max(100).allow('', null).optional(),
+  discordChannelId: Joi.string().max(100).allow('', null).optional()
 }).required();
 
 // Update content schema (all fields optional)
@@ -74,7 +79,7 @@ export const updateContentSchema = Joi.object({
   title: Joi.string().min(1).max(500).optional(),
   content: Joi.string().min(1).max(10000).optional(),
   contentType: Joi.string()
-    .valid('post', 'story', 'reel', 'video', 'tweet')
+    .valid(...CONTENT_TYPE_VALUES)
     .optional(),
   scheduledFor: Joi.date().iso().optional(),
   platforms: Joi.array()
@@ -93,13 +98,16 @@ export const updateContentSchema = Joi.object({
     }),
   mediaItems: Joi.array()
     .items(Joi.object({
-      url: Joi.string().uri().required(),
+      url: Joi.string().uri().optional(),
+      file_path: Joi.string().max(500).optional(),
       fileName: Joi.string().allow('', null).optional(),
       type: Joi.string().valid('image', 'video').optional(),
       durationSeconds: Joi.number().min(0).optional()
-    }))
+    }).or('url', 'file_path'))
     .optional(),
   recurrence: recurrenceSchema,
+  discordGuildId: Joi.string().max(100).allow('', null).optional(),
+  discordChannelId: Joi.string().max(100).allow('', null).optional(),
   status: Joi.string()
     .valid('draft', 'scheduled', 'published', 'failed', 'cancelled')
     .optional()

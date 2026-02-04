@@ -11,15 +11,30 @@ export const apiClient = axios.create({
   timeout: 10000, // 10 seconds timeout
 });
 
+// Requests where we should NOT clear session or redirect on 401 (let the caller show error and user stay on page)
+function shouldSkipLogoutOn401(config) {
+  const url = config?.url || '';
+  const method = (config?.method || '').toUpperCase();
+  if (url.includes('/user/login') || url.includes('/user/register') || url.includes('/user/google-login')) return true;
+  if (method === 'POST' && url.includes('/upload/file')) return true;
+  if (method === 'POST' && url.includes('/content') && !url.match(/\/content\/\d+/)) return true; // POST /content (create), not PUT /content/:id
+  if (method === 'GET' && url.includes('/upload/stats')) return true;
+  if (method === 'GET' && url.includes('/discord/guilds')) return true; // list guilds and guild channels
+  return false;
+}
+
 // Request interceptor: Add token to all requests
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('auth_token');
     
-    // Check if token is expired before making request
-    if (token && isTokenExpired(token)) {
-      // Token expired, clear auth and redirect will happen in response interceptor
+    // If token is expired: for "protected" URLs (upload, schedule, discord guilds, stats) still send the request
+    // so the caller can show an error without being logged out. For other URLs, clear and reject so we redirect on next 401 or via response.
+    if (token && isTokenExpired(token) && !shouldSkipLogoutOn401(config)) {
       clearAuth();
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
       return Promise.reject(new Error('Token expired'));
     }
     
@@ -44,7 +59,8 @@ apiClient.interceptors.response.use(
     // Handle 401 Unauthorized (token expired or invalid)
     // Do NOT clear auth or redirect when the failed request was login/register – let the form show the error
     const isLoginOrRegister = error.config?.url?.includes('/user/login') || error.config?.url?.includes('/user/register') || error.config?.url?.includes('/user/google-login');
-    if (error.response?.status === 401 && !isLoginOrRegister) {
+    const skipLogout = isLoginOrRegister || shouldSkipLogoutOn401(error.config);
+    if (error.response?.status === 401 && !skipLogout) {
       clearAuth();
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
@@ -132,25 +148,142 @@ export async function loginBackendWithSupabaseToken(accessToken) {
  * and Twitch provider configured in Supabase Dashboard (Authentication > Providers).
  */
 export async function loginWithTwitch() {
-  if (supabase) {
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const redirectTo = origin ? `${origin.replace(/\/$/, '')}/auth/callback` : '/auth/callback';
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'twitch',
-      options: { redirectTo },
-    });
-    if (error) {
-      console.error('Twitch OAuth error', error);
-      throw error;
+  try {
+    if (supabase) {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const redirectTo = origin ? `${origin.replace(/\/$/, '')}/auth/callback` : '/auth/callback';
+      console.log('Initiating Twitch OAuth via Supabase', { redirectTo });
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'twitch',
+        options: { 
+          redirectTo,
+          skipBrowserRedirect: false
+        },
+      });
+      
+      if (error) {
+        console.error('Twitch OAuth error', error);
+        throw error;
+      }
+      
+      if (data?.url) {
+        console.log('Redirecting to Twitch OAuth', { url: data.url.substring(0, 100) });
+        // Use window.location.replace to avoid adding to history
+        window.location.replace(data.url);
+        return;
+      }
+      throw new Error('Could not start Twitch sign in');
     }
-    if (data?.url) {
-      window.location.href = data.url;
-      return;
-    }
-    throw new Error('Could not start Twitch sign in');
+    
+    // Fallback: backend Passport (if Supabase not configured)
+    console.log('Using backend Passport for Twitch OAuth');
+    const backendUrl = `${apiClient.defaults.baseURL}/user/auth/twitch`;
+    window.location.replace(backendUrl);
+  } catch (error) {
+    console.error('Error initiating Twitch login', error);
+    throw error;
   }
-  // Fallback: backend Passport (if Supabase not configured)
-  window.location.href = `${apiClient.defaults.baseURL}/user/auth/twitch`;
+}
+
+/**
+ * Login with Discord via backend OAuth (Passport). Redirects to backend; callback returns to /auth/callback with token.
+ * Bot token is never sent to frontend; backend uses it only for listing channels and posting.
+ */
+export function loginWithDiscord() {
+  window.location.href = `${apiClient.defaults.baseURL}/user/auth/discord`;
+}
+
+/** GET /discord/guilds - guilds where user is member and bot is in. Requires Discord OAuth login first. */
+export async function getDiscordGuilds() {
+  const res = await apiClient.get('/discord/guilds');
+  return res.data;
+}
+
+/** GET /discord/guilds/:guildId/channels - text channels in guild. Uses bot token in backend. */
+export async function getDiscordChannels(guildId) {
+  const res = await apiClient.get(`/discord/guilds/${guildId}/channels`);
+  return res.data;
+}
+
+/** POST /discord/channels/:channelId/messages - send message. Uses bot token in backend only. */
+export async function postDiscordMessage(channelId, { content, embeds } = {}) {
+  const res = await apiClient.post(`/discord/channels/${channelId}/messages`, { content, embeds });
+  return res.data;
+}
+
+/** GET /user/connected-accounts - which providers are linked (google, twitch, discord, email). */
+export async function getConnectedAccounts() {
+  const res = await apiClient.get('/user/connected-accounts');
+  return res.data;
+}
+
+/** Start Discord link flow (add Discord to current account). Pass token; redirects to backend. */
+export function startDiscordLink(token) {
+  const base = apiClient.defaults.baseURL;
+  window.location.href = `${base}/user/auth/discord/link?token=${encodeURIComponent(token)}`;
+}
+
+/** Link Google to current account: send Supabase access token to backend. Used from AuthCallback when oauthLinkMode=google. */
+export async function linkGoogleWithSupabaseToken(accessToken) {
+  const res = await apiClient.post('/user/link-google', { supabaseAccessToken: accessToken });
+  return res.data;
+}
+
+/** Link Twitch to current account: send Supabase access token to backend. Used from AuthCallback when oauthLinkMode=twitch. */
+export async function linkTwitchWithSupabaseToken(accessToken) {
+  const res = await apiClient.post('/user/link-twitch', { supabaseAccessToken: accessToken });
+  return res.data;
+}
+
+const OAUTH_LINK_MODE_KEY = 'oauthLinkMode';
+
+/** Start Google link: set link mode and redirect to Supabase Google OAuth. After callback, AuthCallback will call link-google and redirect to Settings. */
+export function startGoogleLink() {
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.setItem(OAUTH_LINK_MODE_KEY, 'google');
+  }
+  loginWithGoogle();
+}
+
+/** Start Twitch link: set link mode and redirect to Supabase Twitch OAuth. After callback, AuthCallback will call link-twitch and redirect to Settings. */
+export function startTwitchLink() {
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.setItem(OAUTH_LINK_MODE_KEY, 'twitch');
+  }
+  loginWithTwitch();
+}
+
+/** Clear OAuth link mode (used after AuthCallback finishes link flow). */
+export function clearOAuthLinkMode() {
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.removeItem(OAUTH_LINK_MODE_KEY);
+  }
+}
+
+/** Get current OAuth link mode ('google' | 'twitch' | null). */
+export function getOAuthLinkMode() {
+  if (typeof sessionStorage === 'undefined') return null;
+  const mode = sessionStorage.getItem(OAUTH_LINK_MODE_KEY);
+  return mode === 'google' || mode === 'twitch' ? mode : null;
+}
+
+/** POST /user/disconnect-google - remove Google from current account. */
+export async function disconnectGoogle() {
+  const res = await apiClient.post('/user/disconnect-google');
+  return res.data;
+}
+
+/** POST /user/disconnect-twitch - remove Twitch from current account. */
+export async function disconnectTwitch() {
+  const res = await apiClient.post('/user/disconnect-twitch');
+  return res.data;
+}
+
+/** POST /user/disconnect-discord - remove Discord from current account. */
+export async function disconnectDiscord() {
+  const res = await apiClient.post('/user/disconnect-discord');
+  return res.data;
 }
 
 export async function generateLicense({ userId, token }) {
@@ -309,7 +442,8 @@ export async function uploadFileThroughBackend(file, bucket) {
   return apiClient.post('/upload/file', formData, {
     headers: {
       'Content-Type': 'multipart/form-data'
-    }
+    },
+    timeout: 5 * 60 * 1000 // 5 minutes (compression + upload can take a long time for videos)
   });
 }
 

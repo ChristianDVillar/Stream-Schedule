@@ -43,9 +43,17 @@ export async function handleUpload({ file, bucket, userId, isTrialUser }) {
       };
     } catch (uploadError) {
       console.error('Error uploading through backend:', uploadError);
-      const errorMessage = uploadError.response?.data?.error || uploadError.message || 'Error al subir archivo';
-      toast.error(errorMessage);
-      return { url: null, error: new Error(errorMessage) };
+      const data = uploadError.response?.data;
+      const details = data?.details;
+      let errorMessage = data?.error || uploadError.message || 'Error al subir archivo';
+      if (Array.isArray(details) && details.length > 0) {
+        const first = details[0];
+        errorMessage = (first && typeof first.message === 'string' ? first.message : null) || errorMessage;
+      } else if (details && typeof details === 'string') {
+        errorMessage = details;
+      }
+      toast.error(typeof errorMessage === 'string' ? errorMessage : 'Error al subir archivo');
+      return { url: null, error: new Error(typeof errorMessage === 'string' ? errorMessage : 'Error al subir archivo') };
     }
   } catch (error) {
     console.error('Error en handleUpload:', error);

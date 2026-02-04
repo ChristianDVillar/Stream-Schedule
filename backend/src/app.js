@@ -10,14 +10,16 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import passport from 'passport';
-import userRoutes, { googleLoginHandler } from './routes/user.js';
+import userRoutes, { googleLoginHandler, discordAuth, discordCallback, discordLinkStart, discordLinkCallback, connectedAccountsHandler } from './routes/user.js';
 import contentRoutes from './routes/content.js';
 import platformsRoutes from './routes/platforms.js';
 import paymentsRoutes from './routes/payments.js';
 import uploadsRoutes from './routes/uploads.js';
+import discordRoutes from './routes/discord.js';
 import { sequelize } from './models/index.js';
-import { authenticateToken } from './middleware/auth.js';
+import { authenticateToken, requireAuth } from './middleware/auth.js';
 import logger from './utils/logger.js';
+import { startScheduler } from './services/scheduler.js';
 
 // Load environment variables
 // For local development: loads from .env file
@@ -49,14 +51,20 @@ app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
 app.use(express.json());
 
-// Google login via Supabase: register before authenticateToken so the route is always hit (no 404)
+// OAuth routes: register before authenticateToken so login works without JWT
 app.post('/api/user/google-login', googleLoginHandler);
+app.get('/api/user/auth/discord', discordAuth);
+app.get('/api/user/auth/discord/callback', discordCallback);
+app.get('/api/user/auth/discord/link', discordLinkStart);
+app.get('/api/user/auth/discord/link/callback', discordLinkCallback);
 
 // JWT authentication middleware - attaches user to req.user if token is valid
 app.use(authenticateToken);
 
-// API Routes
+// API Routes - register connected-accounts explicitly so GET /api/user/connected-accounts is always available
+app.get('/api/user/connected-accounts', requireAuth, connectedAccountsHandler);
 app.use('/api/user', userRoutes);
+app.use('/api/discord', discordRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/platforms', platformsRoutes);
 app.use('/api/payments', paymentsRoutes);
@@ -160,7 +168,7 @@ async function initServer() {
       environment: nodeEnv,
       logLevel
     });
-    
+    startScheduler();
     if (nodeEnv === 'production') {
       logger.warn('Production mode - ensure SSL is enabled for database connections');
     }

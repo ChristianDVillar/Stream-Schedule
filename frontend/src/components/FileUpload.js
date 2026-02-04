@@ -82,7 +82,8 @@ export default function FileUpload({ user, onUploadComplete }) {
       const meta = {
         fileName: file.name,
         type: isImage ? 'image' : 'video',
-        ...(durationSeconds !== undefined && { durationSeconds })
+        ...(durationSeconds !== undefined && { durationSeconds }),
+        ...(result.path && { file_path: result.path })
       };
 
       // Add to uploaded files list
@@ -104,7 +105,7 @@ export default function FileUpload({ user, onUploadComplete }) {
         }
       }
 
-      // Notify parent component (url, bucket, meta)
+      // Notify parent component (url, bucket, meta) - meta includes file_path for backend to get fresh signed URL when publishing
       if (onUploadComplete) {
         onUploadComplete(result.url, bucket, meta);
       }
@@ -140,13 +141,13 @@ export default function FileUpload({ user, onUploadComplete }) {
 
   return (
     <div className="space-y-4">
-      {/* Upload Stats */}
-      {uploadStats && isTrialUser && (
+      {/* Upload Stats: solo mostrar límite si aplica (no trial = 1 subida/día; trial por ahora sin límite) */}
+      {uploadStats && uploadStats.dailyLimit != null && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                {t('media.remainingToday', { remaining: uploadStats.remainingUploads, limit: uploadStats.dailyLimit })}
+                {t('media.remainingToday', { remaining: uploadStats.remainingUploads ?? 0, limit: uploadStats.dailyLimit })}
               </p>
               <p className="text-xs text-yellow-600 dark:text-yellow-300 mt-1">
                 {t('media.total24hCount', { count: uploadStats.totalUploads24h })}

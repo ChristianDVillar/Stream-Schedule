@@ -126,6 +126,20 @@ Ver `backend/env.example` para todas las variables requeridas.
 - `REACT_APP_SUPABASE_URL` – URL del proyecto Supabase
 - `REACT_APP_SUPABASE_ANON_KEY` – Clave anónima de Supabase
 
+### OAuth: "redirect_uri no válido"
+
+Si ves **redirect_uri de OAuth2 no válido**, el URI de redirección no coincide con el configurado en el proveedor. Hay que añadir **exactamente** las mismas URLs en cada panel:
+
+- **Supabase** (Google/Twitch desde el frontend): **Authentication** → **URL Configuration** → **Redirect URLs** y **Site URL**. Añade `http://localhost:3000/auth/callback` (local) y tu URL de producción + `/auth/callback`.
+- **Discord**: **Developer Portal** → Tu aplicación → **OAuth2** → **Redirects**. Añade **ambas**:  
+  `http://localhost:5000/api/user/auth/discord/callback` y  
+  `http://localhost:5000/api/user/auth/discord/link/callback`  
+  (y las equivalentes con tu `BACKEND_URL` en producción).
+
+Lista completa de redirect URIs por proveedor: ver comentarios en **`backend/env.example`** (sección "OAUTH2 REDIRECT URIs").
+
+**Nota:** Los mensajes que aparecen en la consola al abrir la página de Discord (p. ej. "AnalyticsTrackImpressionContext", "¡Espera! Si alguien te dijo...") son de **discord.com**, no de esta aplicación; no se pueden eliminar desde aquí.
+
 ### Producción: OAuth (Google / Twitch) en Render
 
 Para que el login con Google o Twitch no redirija a localhost:

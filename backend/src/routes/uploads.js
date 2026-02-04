@@ -17,6 +17,7 @@ import { validateBody, validateParams } from '../middleware/validate.js';
 import { registerUploadSchema, getUploadStatsSchema } from '../validators/uploadSchemas.js';
 import logger from '../utils/logger.js';
 import { cache } from '../utils/cache.js';
+import { compressVideo, compressImage } from '../utils/compressMedia.js';
 
 const router = express.Router();
 
@@ -90,8 +91,8 @@ const handleMulterError = (err, req, res, next) => {
   next();
 };
 
-// Límite diario para usuarios trial
-const TRIAL_DAILY_LIMIT = 1;
+// Límite diario: 1 subida por día (solo aplica a usuarios no trial; trial por ahora sin límite)
+const DAILY_UPLOAD_LIMIT = 1;
 
 /**
  * GET /api/upload/video-url
@@ -313,13 +314,9 @@ router.post('/', requireAuth, validateBody(registerUploadSchema), async (req, re
       isTrial = req.user?.licenseType === LICENSE_TYPES.TRIAL;
     }
 
-    // Si es usuario trial, verificar límite diario
-    if (isTrial) {
-      // Calcular fecha de hace 24 horas
+    // Límite diario: solo 1 subida por día para usuarios NO trial (trial por ahora sin límite)
+    if (!isTrial) {
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
-      // Contar uploads en las últimas 24 horas
-      // Convert user_id to string for Supabase (it stores as text/uuid)
       const { data: uploadsData, error: countError } = await supabase
         .from('uploads')
         .select('id')
@@ -337,12 +334,11 @@ router.post('/', requireAuth, validateBody(registerUploadSchema), async (req, re
         });
       }
 
-      uploads = uploadsData; // Assign to the outer variable
+      uploads = uploadsData;
 
-      // Verificar si alcanzó el límite
-      if (uploads && uploads.length >= TRIAL_DAILY_LIMIT) {
+      if (uploads && uploads.length >= DAILY_UPLOAD_LIMIT) {
         return res.status(403).json({ 
-          error: `Has alcanzado el límite diario de trial (${TRIAL_DAILY_LIMIT} upload por día)` 
+          error: `Has alcanzado el límite diario (${DAILY_UPLOAD_LIMIT} upload por día)` 
         });
       }
     }
@@ -389,14 +385,14 @@ router.post('/', requireAuth, validateBody(registerUploadSchema), async (req, re
       bucket,
       file_path,
       isTrialUser: isTrial,
-      remainingUploads: isTrial ? Math.max(0, TRIAL_DAILY_LIMIT - (uploads?.length || 0) - 1) : null
+      remainingUploads: !isTrial && uploads ? Math.max(0, DAILY_UPLOAD_LIMIT - uploads.length - 1) : null
     });
     
     res.json({ 
       message: 'Upload registrado exitosamente', 
       upload: data[0],
       isTrialUser: isTrial,
-      remainingUploads: isTrial ? Math.max(0, TRIAL_DAILY_LIMIT - (uploads?.length || 0) - 1) : null
+      remainingUploads: !isTrial && uploads ? Math.max(0, DAILY_UPLOAD_LIMIT - uploads.length - 1) : null
     });
 
   } catch (err) {
@@ -512,8 +508,8 @@ router.post('/file', requireAuth, (req, res, next) => {
       });
     }
 
-    // Check trial limits before uploading
-    if (isTrial) {
+    // Límite diario: 1 subida por día solo para usuarios NO trial (trial por ahora sin límite)
+    if (!isTrial) {
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const { data: uploadsData, error: countError } = await supabase
         .from('uploads')
@@ -532,28 +528,64 @@ router.post('/file', requireAuth, (req, res, next) => {
         });
       }
 
-      uploads = uploadsData; // Assign to the outer variable
+      uploads = uploadsData;
 
-      if (uploads && uploads.length >= TRIAL_DAILY_LIMIT) {
+      if (uploads && uploads.length >= DAILY_UPLOAD_LIMIT) {
         return res.status(403).json({ 
-          error: `Has alcanzado el límite diario de trial (${TRIAL_DAILY_LIMIT} upload por día)` 
+          error: `Has alcanzado el límite diario (${DAILY_UPLOAD_LIMIT} upload por día)` 
         });
+      }
+    }
+
+    // Comprimir vídeos (y opcionalmente imágenes grandes) antes de subir
+    let bufferToUpload = file.buffer;
+    let contentTypeToUse = file.mimetype;
+    let finalFileName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+
+    if (bucket === 'videos' && file.buffer.length > 8 * 1024 * 1024) {
+      logger.info('Compressing video before upload', {
+        userId: authenticatedUserId,
+        originalSizeMB: (file.buffer.length / 1024 / 1024).toFixed(2),
+      });
+      const compressed = await compressVideo(file.buffer);
+      if (compressed && compressed.length > 0) {
+        bufferToUpload = compressed;
+        contentTypeToUse = 'video/mp4';
+        if (!finalFileName.toLowerCase().endsWith('.mp4')) {
+          finalFileName = finalFileName.replace(/\.[^.]+$/, '') + '.mp4';
+        }
+        logger.info('Video compressed for upload', {
+          userId: authenticatedUserId,
+          resultSizeMB: (compressed.length / 1024 / 1024).toFixed(2),
+        });
+      } else {
+        logger.warn('Video compression failed or unavailable, uploading original', {
+          userId: authenticatedUserId,
+        });
+      }
+    } else if (bucket === 'images' && file.buffer.length > 4 * 1024 * 1024) {
+      const compressed = await compressImage(file.buffer);
+      if (compressed && compressed.length > 0) {
+        bufferToUpload = compressed;
+        contentTypeToUse = 'image/jpeg';
+        if (!finalFileName.toLowerCase().match(/\.(jpe?g|webp)$/)) {
+          finalFileName = finalFileName.replace(/\.[^.]+$/, '') + '.jpg';
+        }
       }
     }
 
     // Generate unique file path
     const timestamp = Date.now();
-    const sanitizedFileName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const fileName = `${timestamp}-${sanitizedFileName}`;
+    const fileName = `${timestamp}-${finalFileName}`;
     const filePath = `${authenticatedUserId}/${fileName}`;
 
     // Upload file to Supabase Storage using Service Role Key
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(bucket)
-      .upload(filePath, file.buffer, {
+      .upload(filePath, bufferToUpload, {
         cacheControl: '3600',
         upsert: false,
-        contentType: file.mimetype
+        contentType: contentTypeToUse
       });
 
     if (uploadError) {
@@ -640,7 +672,7 @@ router.post('/file', requireAuth, (req, res, next) => {
       bucket,
       file_path: uploadData.path,
       isTrialUser: isTrial,
-      remainingUploads: isTrial ? Math.max(0, TRIAL_DAILY_LIMIT - (uploads?.length || 0) - 1) : null
+      remainingUploads: !isTrial && uploads ? Math.max(0, DAILY_UPLOAD_LIMIT - uploads.length - 1) : null
     });
 
     res.json({
@@ -650,7 +682,7 @@ router.post('/file', requireAuth, (req, res, next) => {
       bucket,
       file_path: uploadData.path,
       isTrialUser: isTrial,
-      remainingUploads: isTrial ? Math.max(0, TRIAL_DAILY_LIMIT - (uploads?.length || 0) - 1) : null
+      remainingUploads: !isTrial && uploads ? Math.max(0, DAILY_UPLOAD_LIMIT - uploads.length - 1) : null
     });
 
   } catch (err) {
@@ -782,8 +814,8 @@ router.get('/stats/:user_id', requireAuth, validateParams(getUploadStatsSchema),
     const statsResponse = {
       totalUploads24h: uploads24h.length || 0,
       isTrialUser: isTrial,
-      dailyLimit: isTrial ? TRIAL_DAILY_LIMIT : null,
-      remainingUploads: isTrial ? Math.max(0, TRIAL_DAILY_LIMIT - uploads24h.length) : null,
+      dailyLimit: !isTrial ? DAILY_UPLOAD_LIMIT : null,
+      remainingUploads: !isTrial ? Math.max(0, DAILY_UPLOAD_LIMIT - uploads24h.length) : null,
       uploads: uploadsList // Always return an array, even if empty
     };
 
