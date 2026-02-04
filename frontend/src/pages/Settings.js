@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { apiClient, createCheckout, verifyPaymentSession, getLicenseStatus, getAvailableLicenses, getPaymentConfigStatus, createSubscription, getSubscriptionStatus, cancelSubscription, getPaymentHistory } from '../api';
+import { apiClient, createCheckout, verifyPaymentSession, getLicenseStatus, getAvailableLicenses, getPaymentConfigStatus, createSubscription, getSubscriptionStatus, cancelSubscription, getPaymentHistory, getConnectedAccounts, startDiscordLink, startGoogleLink, startTwitchLink, disconnectGoogle, disconnectTwitch, disconnectDiscord } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { 
   User, 
@@ -19,6 +19,7 @@ import {
 const Settings = ({ user, token, setUser }) => {
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -29,6 +30,9 @@ const Settings = ({ user, token, setUser }) => {
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [loadingSubscription, setLoadingSubscription] = useState(false);
+  const [connectedAccounts, setConnectedAccounts] = useState(null);
+  const [connectedAccountsLoading, setConnectedAccountsLoading] = useState(false);
+  const [disconnectingKey, setDisconnectingKey] = useState(null);
   
   // Profile settings
   const [profileData, setProfileData] = useState({
@@ -47,14 +51,6 @@ const Settings = ({ user, token, setUser }) => {
     scheduledReminders: true,
     platformUpdates: false,
     weeklyReports: true
-  });
-
-  // Platform settings
-  const [platformSettings, setPlatformSettings] = useState({
-    twitch: { enabled: true, autoPost: false },
-    twitter: { enabled: true, autoPost: true },
-    instagram: { enabled: false, autoPost: false },
-    discord: { enabled: true, autoPost: true }
   });
 
   // Security settings
@@ -140,10 +136,42 @@ const Settings = ({ user, token, setUser }) => {
       fetchLicenseStatus();
       fetchSubscriptionStatus();
       fetchPaymentHistory();
+      fetchConnectedAccounts();
     }
     fetchAvailableLicenses();
     fetchPaymentConfig();
   }, [token]);
+
+  const fetchConnectedAccounts = async () => {
+    if (!token) return;
+    setConnectedAccountsLoading(true);
+    try {
+      const data = await getConnectedAccounts();
+      setConnectedAccounts(data);
+    } catch {
+      setConnectedAccounts({ google: false, twitch: false, discord: false, email: false });
+    } finally {
+      setConnectedAccountsLoading(false);
+    }
+  };
+
+  // Handle ?linked= and ?error= from OAuth link callbacks
+  useEffect(() => {
+    const linked = searchParams.get('linked');
+    const errorParam = searchParams.get('error');
+    if (linked) {
+      setActiveTab('platforms');
+      toast.success(t(`settings.linked${linked.charAt(0).toUpperCase() + linked.slice(1)}`) || `Linked ${linked}`);
+      setSearchParams({}, { replace: true });
+      if (token) fetchConnectedAccounts();
+    }
+    if (errorParam) {
+      setActiveTab('platforms');
+      const msg = t(`settings.error${errorParam.replace(/-/g, '_')}`) || t('settings.linkFailed');
+      toast.error(msg);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams]);
 
   const fetchPaymentConfig = async () => {
     try {
@@ -267,21 +295,6 @@ const Settings = ({ user, token, setUser }) => {
       toast.success('Notification settings saved!');
     } catch (error) {
       toast.error('Failed to save notification settings');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePlatformSave = async () => {
-    setLoading(true);
-    try {
-      await apiClient.put('/user/platforms', platformSettings, {
-        headers: { Authorization: `Bearer ${token}` },
-        withCredentials: true
-      });
-      toast.success('Platform settings saved!');
-    } catch (error) {
-      toast.error('Failed to save platform settings');
     } finally {
       setLoading(false);
     }
@@ -594,58 +607,75 @@ const Settings = ({ user, token, setUser }) => {
       case 'platforms':
         return (
           <div className="space-y-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Platform Configuration</h3>
-            
-            <div className="space-y-4">
-              {Object.entries(platformSettings).map(([platform, settings]) => (
-                <div key={platform} className="p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <Globe className="w-5 h-5 text-gray-600" />
-                      <h4 className="text-sm font-medium text-gray-900 capitalize">{platform}</h4>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+              {t('settings.platformsConnectTitle') || 'Connect platforms'}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              {t('settings.connectedAccountsDescription') || 'Link sign-in methods to this account. Connect each platform to use it for login; if already connected, it will show as connected.'}
+            </p>
+            {connectedAccountsLoading ? (
+              <p className="text-sm text-gray-500">{t('common.loading') || 'Loading...'}</p>
+            ) : connectedAccounts ? (
+              <div className="space-y-4">
+                {[
+                  { key: 'google', label: 'Google', connected: connectedAccounts.google, connect: () => startGoogleLink(), disconnect: () => disconnectGoogle() },
+                  { key: 'twitch', label: 'Twitch', connected: connectedAccounts.twitch, connect: () => startTwitchLink(), disconnect: () => disconnectTwitch() },
+                  { key: 'discord', label: 'Discord', connected: connectedAccounts.discord, connect: () => startDiscordLink(token), disconnect: () => disconnectDiscord() },
+                  { key: 'email', label: t('settings.emailPassword') || 'Email & password', connected: connectedAccounts.email, connect: null, disconnect: null },
+                ].map(({ key, label, connected, connect, disconnect }) => (
+                  <div key={key} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Globe className="w-5 h-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</span>
+                      <span className={`px-2 py-0.5 text-xs rounded ${connected ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
+                        {connected ? (t('settings.connected') || 'Connected') : (t('settings.notConnected') || 'Not connected')}
+                      </span>
                     </div>
-                    <button
-                      onClick={() => setPlatformSettings(prev => ({
-                        ...prev,
-                        [platform]: { ...prev[platform], enabled: !settings.enabled }
-                      }))}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        settings.enabled ? 'bg-blue-600' : 'bg-gray-200'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          settings.enabled ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-        </div>
-                  
-                  {settings.enabled && (
-                    <div className="ml-8 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Auto-post content</span>
-                        <button
-                          onClick={() => setPlatformSettings(prev => ({
-                            ...prev,
-                            [platform]: { ...prev[platform], autoPost: !settings.autoPost }
-                          }))}
-                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                            settings.autoPost ? 'bg-green-600' : 'bg-gray-200'
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-                              settings.autoPost ? 'translate-x-5' : 'translate-x-1'
-                            }`}
-                          />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+                    {connect && !connected && (
+                      <button
+                        type="button"
+                        onClick={connect}
+                        className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      >
+                        {t('settings.connect') || 'Connect'}
+                      </button>
+                    )}
+                    {disconnect && connected && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!window.confirm(t('settings.disconnectConfirm') || 'Disconnect this platform? You can reconnect later.')) return;
+                          setDisconnectingKey(key);
+                          try {
+                            await disconnect();
+                            // Refresh connected accounts from server to ensure accurate state
+                            await fetchConnectedAccounts();
+                            toast.success(t('settings.disconnected') || 'Disconnected');
+                          } catch (err) {
+                            toast.error(err.response?.data?.error || t('settings.linkFailed'));
+                            // Refresh anyway to get accurate state
+                            await fetchConnectedAccounts();
+                          } finally {
+                            setDisconnectingKey(null);
+                          }
+                        }}
+                        disabled={disconnectingKey !== null}
+                        className="px-4 py-2 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50"
+                      >
+                        {disconnectingKey === key ? (t('common.loading') || '...') : (t('settings.disconnect') || 'Disconnect')}
+                      </button>
+                    )}
+                    {key === 'email' && !connected && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {t('settings.setPasswordInSecurity') || 'Set a password in Security tab.'}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">{t('settings.couldNotLoadAccounts') || 'Could not load connected accounts.'}</p>
+            )}
           </div>
         );
 
@@ -1086,13 +1116,12 @@ const Settings = ({ user, token, setUser }) => {
               {renderTabContent()}
               
               {/* Save buttons for applicable tabs */}
-              {['profile', 'notifications', 'platforms'].includes(activeTab) && (
+              {['profile', 'notifications'].includes(activeTab) && (
                 <div className="mt-8 pt-6 border-t border-gray-200">
                   <button
                     onClick={
                       activeTab === 'profile' ? handleProfileSave :
-                      activeTab === 'notifications' ? handleNotificationSave :
-                      handlePlatformSave
+                      handleNotificationSave
                     }
                     disabled={loading}
                     className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"

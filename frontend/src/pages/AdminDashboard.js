@@ -546,6 +546,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                   <th className="px-4 py-2 border">{t('admin.licenseType')}</th>
                   <th className="px-4 py-2 border">{t('admin.expiresAt')}</th>
                   <th className="px-4 py-2 border">{t('admin.alert')}</th>
+                  <th className="px-4 py-2 border">{t('admin.connectedPlatforms') || 'Plataformas'}</th>
                   <th className="px-4 py-2 border">{t('admin.isAdmin')}</th>
                   <th className="px-4 py-2 border">Ext. Trial</th>
                   <th className="px-4 py-2 border">{t('admin.actions')}</th>
@@ -592,6 +593,33 @@ export default function AdminDashboard({ token, user, onLogout }) {
                       {u.licenseAlert === '3_days' && <span className="text-red-600 font-semibold">{t('admin.days3')}</span>}
                       {u.licenseAlert === '7_days' && <span className="text-yellow-600 font-semibold">{t('admin.days7')}</span>}
                       {(!u.licenseAlert || u.licenseAlert === 'none') && <span className="text-gray-500">—</span>}
+                    </td>
+                    <td className="px-4 py-2 border">
+                      <div className="flex flex-wrap gap-1 items-center justify-center">
+                        {u.connectedPlatforms?.google && (
+                          <span className="px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded border border-red-300 dark:border-red-700" title="Google">
+                            🔴 Google
+                          </span>
+                        )}
+                        {u.connectedPlatforms?.twitch && (
+                          <span className="px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded border border-purple-300 dark:border-purple-700" title="Twitch">
+                            🟣 Twitch
+                          </span>
+                        )}
+                        {u.connectedPlatforms?.discord && (
+                          <span className="px-2 py-1 text-xs font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200 rounded border border-indigo-300 dark:border-indigo-700" title="Discord">
+                            🔵 Discord
+                          </span>
+                        )}
+                        {u.connectedPlatforms?.email && (
+                          <span className="px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 rounded border border-gray-300 dark:border-gray-600" title="Email/Password">
+                            ✉️ Email
+                          </span>
+                        )}
+                        {(!u.connectedPlatforms?.google && !u.connectedPlatforms?.twitch && !u.connectedPlatforms?.discord && !u.connectedPlatforms?.email) && (
+                          <span className="text-gray-400 text-xs">—</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-2 border">{u.isAdmin ? t('common.yes') : t('common.no')}</td>
                     <td className="px-4 py-2 border">

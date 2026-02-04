@@ -227,6 +227,7 @@ const App = () => {
                     <Schedule user={user} token={token} />
                   </PrivateRoute>
                 } />
+                <Route path="/discord" element={<Navigate to="/schedule" replace />} />
                 <Route path="/media" element={
                   <PrivateRoute user={user}>
                     <MediaUpload user={user} token={token} />

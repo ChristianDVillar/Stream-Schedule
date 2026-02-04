@@ -172,3 +172,10 @@ export const generateLicenseSchema = Joi.object({
   expiresAt: Joi.date().optional(),
   durationDays: Joi.number().integer().positive().max(3650).optional()
 }).required();
+
+// Link OAuth account (Google/Twitch via Supabase token)
+export const linkSupabaseSchema = Joi.object({
+  supabaseAccessToken: Joi.string().required().messages({
+    'any.required': 'Supabase access token is required'
+  })
+}).required();

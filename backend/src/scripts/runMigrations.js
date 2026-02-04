@@ -3,59 +3,15 @@
  * This script loads environment variables and runs all pending migrations
  */
 
-import dotenv from 'dotenv';
-import { Sequelize } from 'sequelize';
 import { readdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import { sequelize, usePostgres, nodeEnv } from '../config/database.js';
+import logger from '../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-// Load environment variables
-// For local development: loads from .env file
-// For Render/production: uses Environment Variables from Render dashboard
-dotenv.config({ path: path.resolve(__dirname, '../../', '.env') });
-const nodeEnv = process.env.NODE_ENV || 'development';
-
-// Database configuration
-const databaseUrl = process.env.DATABASE_URL;
-const usePostgres = Boolean(databaseUrl);
-const enableLogging = process.env.ENABLE_LOGGING === 'true';
-const isProduction = nodeEnv === 'production';
-const requireSSL = isProduction || process.env.DATABASE_SSL === 'true';
-
-if (isProduction && !databaseUrl) {
-  console.error('❌ DATABASE_URL is required in production environment');
-  process.exit(1);
-}
-
-const sequelize = usePostgres
-  ? new Sequelize(databaseUrl, {
-      dialect: 'postgres',
-      logging: enableLogging ? console.log : false,
-      protocol: 'postgres',
-      dialectOptions: {
-        ssl: requireSSL
-          ? {
-              require: true,
-              rejectUnauthorized: false, // Supabase uses self-signed certificates
-            }
-          : false,
-      },
-      pool: {
-        max: 5,
-        min: 0,
-        acquire: 30000,
-        idle: 10000,
-      },
-    })
-  : new Sequelize({
-      dialect: 'sqlite',
-      storage: process.env.SQLITE_STORAGE || path.resolve(process.cwd(), 'database.sqlite'),
-      logging: enableLogging ? console.log : false,
-    });
 
 // Create SequelizeMeta table if it doesn't exist
 async function ensureMetaTable() {
@@ -72,7 +28,7 @@ async function ensureMetaTable() {
         primaryKey: true,
       },
     });
-    console.log('✅ Created SequelizeMeta table');
+    logger.info('Created SequelizeMeta table');
   }
 }
 
@@ -106,7 +62,7 @@ async function executeMigration(filename) {
       migration = module.default || module;
     }
   } catch (e) {
-    console.error(`Error loading migration ${filename}:`, e.message);
+    logger.error(`Error loading migration ${filename}`, { error: e.message });
     throw e;
   }
 
@@ -130,7 +86,7 @@ async function executeMigration(filename) {
       error.code === '42701' || // PostgreSQL duplicate column
       error.code === '23505'     // PostgreSQL unique constraint violation
     )) {
-      console.log(`⚠️  Skipped (already exists): ${filename}`);
+      logger.warn(`Skipped (already exists): ${filename}`);
       // Still record as executed since the change is already in place
     } else {
       throw error;
@@ -141,19 +97,20 @@ async function executeMigration(filename) {
   const tableName = usePostgres ? '"SequelizeMeta"' : 'SequelizeMeta';
   await sequelize.query(
     `INSERT INTO ${tableName} (name) VALUES ($1)`,
-    { bind: [filename] }
+    { replacements: [filename], type: sequelize.QueryTypes.INSERT }
   );
   
-  console.log(`✅ Executed: ${filename}`);
+  logger.info(`Executed: ${filename}`);
 }
 
 async function runMigrations() {
   try {
-    console.log(`🔧 Running migrations in ${nodeEnv} environment...`);
-    console.log(`📊 Database: ${usePostgres ? 'PostgreSQL' : 'SQLite'}`);
+    logger.info(`Running migrations in ${nodeEnv} environment`, {
+      database: usePostgres ? 'PostgreSQL' : 'SQLite'
+    });
     
     await sequelize.authenticate();
-    console.log('✅ Database connection established');
+    logger.info('Database connection established');
 
     // Get all migration files
     const migrationsDir = path.join(__dirname, '../../migrations');
@@ -164,29 +121,35 @@ async function runMigrations() {
 
     // Get executed migrations
     const executed = await getExecutedMigrations();
-    console.log(`📋 Found ${executed.length} executed migrations`);
+    logger.info(`Found ${executed.length} executed migrations`, {
+      executedCount: executed.length
+    });
 
     // Find pending migrations
     const pending = migrationFiles.filter((f) => !executed.includes(f));
 
     if (pending.length === 0) {
-      console.log('✅ All migrations are up to date');
+      logger.info('All migrations are up to date');
       await sequelize.close();
       return;
     }
 
-    console.log(`🔄 Found ${pending.length} pending migration(s):`);
-    pending.forEach((f) => console.log(`   - ${f}`));
+    logger.info(`Found ${pending.length} pending migration(s)`, {
+      pendingCount: pending.length,
+      pendingMigrations: pending
+    });
 
     // Execute pending migrations
     for (const file of pending) {
       await executeMigration(file);
     }
 
-    console.log(`\n✅ Successfully executed ${pending.length} migration(s)`);
+    logger.info(`Successfully executed ${pending.length} migration(s)`, {
+      executedCount: pending.length
+    });
     await sequelize.close();
   } catch (error) {
-    console.error('❌ Migration failed:', error);
+    logger.error('Migration failed', { error: error.message, stack: error.stack });
     await sequelize.close();
     process.exit(1);
   }
