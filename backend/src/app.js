@@ -16,8 +16,14 @@ import platformsRoutes from './routes/platforms.js';
 import paymentsRoutes from './routes/payments.js';
 import uploadsRoutes from './routes/uploads.js';
 import discordRoutes from './routes/discord.js';
+import healthRoutes from './routes/health.js';
+import templatesRoutes from './routes/templates.js';
 import { sequelize } from './models/index.js';
 import { authenticateToken, requireAuth } from './middleware/auth.js';
+import { authLimiter, apiLimiter, uploadLimiter } from './middleware/rateLimit.js';
+import { csrfProtection, getCsrfToken } from './middleware/csrf.js';
+import { metricsMiddleware, metrics } from './utils/metrics.js';
+import { setupSwagger } from './app-swagger.js';
 import logger from './utils/logger.js';
 import { startScheduler } from './services/scheduler.js';
 
@@ -36,14 +42,30 @@ app.use((req, res, next) => {
   next();
 });
 const jwtSecret = process.env.JWT_SECRET || 'dev-jwt-secret';
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 300
-});
 
-app.use(helmet());
-app.use(limiter);
-app.use(cors({ origin: true, credentials: true }));
+// CORS must be before rate limiter to ensure CORS headers are sent even on rate limit errors
+// Handle preflight OPTIONS requests first
+app.options('*', cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+}));
+
+app.use(cors({ 
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+}));
+
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false,
+}));
+
+// Rate limiter after CORS so CORS headers are always sent
+app.use(apiLimiter);
 app.use(passport.initialize());
 
 // Stripe webhook must be before JSON parsing middleware
@@ -51,9 +73,16 @@ app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
 app.use(express.json());
 
-// OAuth routes: register before authenticateToken so login works without JWT
-app.post('/api/user/google-login', googleLoginHandler);
-app.get('/api/user/auth/discord', discordAuth);
+// Metrics middleware (before routes)
+app.use(metricsMiddleware);
+
+// CSRF token endpoint (before auth, public)
+app.get('/api/csrf-token', getCsrfToken);
+
+// OAuth routes: register before authenticateToken so login works without JWT.
+// These must stay before app.use('/api/user', ...) so GET /api/user/auth/discord/link is matched here (not 404 from router).
+app.post('/api/user/google-login', authLimiter, googleLoginHandler);
+app.get('/api/user/auth/discord', authLimiter, discordAuth);
 app.get('/api/user/auth/discord/callback', discordCallback);
 app.get('/api/user/auth/discord/link', discordLinkStart);
 app.get('/api/user/auth/discord/link/callback', discordLinkCallback);
@@ -65,20 +94,25 @@ app.use(authenticateToken);
 app.get('/api/user/connected-accounts', requireAuth, connectedAccountsHandler);
 app.use('/api/user', userRoutes);
 app.use('/api/discord', discordRoutes);
+// CSRF disabled for content until frontend sends X-CSRF-Token (GET /api/csrf-token)
 app.use('/api/content', contentRoutes);
 app.use('/api/platforms', platformsRoutes);
 app.use('/api/payments', paymentsRoutes);
-app.use('/api/upload', uploadsRoutes);
+app.use('/api/upload', uploadLimiter, uploadsRoutes);
+// CSRF disabled for templates until frontend sends X-CSRF-Token
+app.use('/api/templates', templatesRoutes);
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    environment: nodeEnv,
-    service: 'stream-schedule-api'
-  });
+// Enhanced health check endpoint
+app.use('/api/health', healthRoutes);
+
+// Metrics endpoint (Prometheus format)
+app.get('/api/metrics', (req, res) => {
+  res.set('Content-Type', 'text/plain');
+  res.send(metrics.export());
 });
+
+// Swagger documentation (if available)
+setupSwagger(app);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -162,17 +196,28 @@ async function initServer() {
     process.exit(1);
   }
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, async () => {
     logger.info('Server started', {
       port: PORT,
       environment: nodeEnv,
       logLevel
     });
     startScheduler();
+    
+    // Initialize WebSocket if available
+    try {
+      const { initWebSocket } = await import('./services/websocketService.js');
+      initWebSocket(server);
+    } catch (error) {
+      logger.debug('WebSocket not initialized', { error: error.message });
+    }
+    
     if (nodeEnv === 'production') {
       logger.warn('Production mode - ensure SSL is enabled for database connections');
     }
   });
+  
+  return server;
 }
 
 initServer();

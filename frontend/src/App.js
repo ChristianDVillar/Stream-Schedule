@@ -10,8 +10,8 @@ import AuthCallback from './pages/AuthCallback';
 import AdminDashboard from './pages/AdminDashboard';
 import { ShieldOff, UserX, Menu, X, ShoppingBag, Globe } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
-import { isTokenExpired, getStoredAuth } from './utils/auth';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
+import { AuthProvider, useAuth } from './store/authStore';
 
 function PrivateRoute({ user, children }) {
   if (!user) return <Navigate to="/login" replace />;
@@ -120,27 +120,8 @@ function Sidebar({ user, open, onClose }) {
   );
 }
 
-const App = () => {
-  // Initialize auth state from localStorage, but validate token
-  const [user, setUser] = useState(() => {
-    const { user: storedUser, token: storedToken } = getStoredAuth();
-    // If token is expired, clear auth
-    if (storedToken && isTokenExpired(storedToken)) {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('auth_user');
-      return null;
-    }
-    return storedUser;
-  });
-  const [token, setToken] = useState(() => {
-    const { token: storedToken } = getStoredAuth();
-    // If token is expired, clear it
-    if (storedToken && isTokenExpired(storedToken)) {
-      localStorage.removeItem('auth_token');
-      return null;
-    }
-    return storedToken;
-  });
+function AppContent() {
+  const { user, token, setAuth, clearAuth, setUser } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -169,97 +150,82 @@ const App = () => {
     };
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('auth_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('auth_user');
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (token) {
-      localStorage.setItem('auth_token', token);
-    } else {
-      localStorage.removeItem('auth_token');
-    }
-  }, [token]);
-
-  const handleLogout = () => {
-    setUser(null);
-    setToken(null);
-  };
-
   return (
-    <LanguageProvider>
-      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <Toaster position="top-right" />
-        <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900 min-w-0">
-          {user && <Sidebar user={user} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
-          <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
-            <Header user={user} onLogout={handleLogout} onMenuClick={() => setSidebarOpen(true)} />
-            <div className="flex-1">
-              <Routes>
-                <Route path="/login" element={<Login setUser={setUser} setToken={setToken} />} />
-                <Route path="/auth/callback" element={<AuthCallback setUser={setUser} setToken={setToken} />} />
-                <Route path="/dashboard" element={
-                  <UserRoute user={user}>
-                    <Dashboard user={user} token={token} />
-                  </UserRoute>
-                } />
-                <Route path="/admin" element={
-                  <AdminRoute user={user}>
-                    <AdminDashboard user={user} token={token} onLogout={handleLogout} />
-                  </AdminRoute>
-                } />
-                <Route path="/settings" element={
-                  <PrivateRoute user={user}>
-                    <Settings user={user} token={token} setUser={setUser} />
-                  </PrivateRoute>
-                } />
-                <Route path="/profile" element={
-                  <PrivateRoute user={user}>
-                    <Profile user={user} token={token} />
-                  </PrivateRoute>
-                } />
-                <Route path="/schedule" element={
-                  <PrivateRoute user={user}>
-                    <Schedule user={user} token={token} />
-                  </PrivateRoute>
-                } />
-                <Route path="/discord" element={<Navigate to="/schedule" replace />} />
-                <Route path="/media" element={
-                  <PrivateRoute user={user}>
-                    <MediaUpload user={user} token={token} />
-                  </PrivateRoute>
-                } />
-                <Route path="/" element={
-                  user
-                    ? user.isAdmin
-                      ? <Navigate to="/admin" replace />
-                      : <Navigate to="/dashboard" replace />
-                    : <Navigate to="/login" replace />
-                } />
-              </Routes>
-            </div>
-            {/* Icono de bolsa flotante para merchandising */}
-            {user && user.merchandisingLink && (
-              <a
-                href={user.merchandisingLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 sm:p-4 shadow-lg transition-all duration-300 hover:scale-110 flex items-center justify-center min-w-[44px] min-h-[44px]"
-                aria-label="Ir a página de merchandising"
-              >
-                <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
-              </a>
-            )}
-            <footer className="text-center text-gray-500 py-3 sm:py-4 px-4 text-sm border-t bg-white dark:bg-gray-800">© 2025 Christian - Develop</footer>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <Toaster position="top-right" />
+      <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900 min-w-0">
+        {user && <Sidebar user={user} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
+        <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
+          <Header user={user} onLogout={clearAuth} onMenuClick={() => setSidebarOpen(true)} />
+          <div className="flex-1">
+            <Routes>
+              <Route path="/login" element={<Login setAuth={setAuth} />} />
+              <Route path="/auth/callback" element={<AuthCallback setAuth={setAuth} />} />
+              <Route path="/dashboard" element={
+                <UserRoute user={user}>
+                  <Dashboard user={user} token={token} />
+                </UserRoute>
+              } />
+              <Route path="/admin" element={
+                <AdminRoute user={user}>
+                  <AdminDashboard user={user} token={token} onLogout={clearAuth} />
+                </AdminRoute>
+              } />
+              <Route path="/settings" element={
+                <PrivateRoute user={user}>
+                  <Settings user={user} token={token} setUser={setUser} />
+                </PrivateRoute>
+              } />
+              <Route path="/profile" element={
+                <PrivateRoute user={user}>
+                  <Profile user={user} token={token} />
+                </PrivateRoute>
+              } />
+              <Route path="/schedule" element={
+                <PrivateRoute user={user}>
+                  <Schedule user={user} token={token} />
+                </PrivateRoute>
+              } />
+              <Route path="/discord" element={<Navigate to="/schedule" replace />} />
+              <Route path="/media" element={
+                <PrivateRoute user={user}>
+                  <MediaUpload user={user} token={token} />
+                </PrivateRoute>
+              } />
+              <Route path="/" element={
+                user
+                  ? user.isAdmin
+                    ? <Navigate to="/admin" replace />
+                    : <Navigate to="/dashboard" replace />
+                  : <Navigate to="/login" replace />
+              } />
+            </Routes>
           </div>
+          {/* Icono de bolsa flotante para merchandising */}
+          {user && user.merchandisingLink && (
+            <a
+              href={user.merchandisingLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 sm:p-4 shadow-lg transition-all duration-300 hover:scale-110 flex items-center justify-center min-w-[44px] min-h-[44px]"
+              aria-label="Ir a página de merchandising"
+            >
+              <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
+            </a>
+          )}
+          <footer className="text-center text-gray-500 py-3 sm:py-4 px-4 text-sm border-t bg-white dark:bg-gray-800">© 2025 Christian - Develop</footer>
         </div>
-      </Router>
-    </LanguageProvider>
+      </div>
+    </Router>
   );
-};
+}
+
+const App = () => (
+  <LanguageProvider>
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  </LanguageProvider>
+);
 
 export default App; 

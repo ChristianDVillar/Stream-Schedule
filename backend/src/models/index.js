@@ -14,6 +14,8 @@ import { PLATFORMS, PLATFORM_VALUES } from '../constants/platforms.js';
 import { PAYMENT_STATUS, PAYMENT_STATUS_VALUES } from '../constants/paymentStatus.js';
 // Import database configuration from centralized config
 import { sequelize, usePostgres, nodeEnv, enableLogging, isProduction, requireSSL } from '../config/database.js';
+import AuditLog from './AuditLog.js';
+import ContentTemplate from './ContentTemplate.js';
 
 // 👤 User
 const User = sequelize.define('User', {
@@ -122,6 +124,24 @@ const User = sequelize.define('User', {
     allowNull: true,
     defaultValue: null,
     comment: 'Subscription status: active, canceled, past_due, etc.'
+  },
+  dashboardShowTwitchSubs: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+    comment: 'Show Twitch subscriptions on dashboard'
+  },
+  dashboardShowTwitchBits: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+    comment: 'Show Twitch bits on dashboard'
+  },
+  dashboardShowTwitchDonations: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    comment: 'Show Twitch donations on dashboard'
   }
 });
 
@@ -347,6 +367,9 @@ Payment.belongsTo(User, { foreignKey: 'userId' });
 User.hasMany(Media, { foreignKey: 'userId', onDelete: 'CASCADE' });
 Media.belongsTo(User, { foreignKey: 'userId' });
 
+User.hasMany(ContentTemplate, { foreignKey: 'userId', onDelete: 'CASCADE' });
+ContentTemplate.belongsTo(User, { foreignKey: 'userId' });
+
 // Many-to-Many: Content <-> Media
 Content.belongsToMany(Media, { 
   through: ContentMedia, 
@@ -379,4 +402,4 @@ const SystemConfig = sequelize.define('SystemConfig', {
   }
 });
 
-export { sequelize, User, Content, Platform, Payment, Media, ContentMedia, SystemConfig };
+export { sequelize, User, Content, Platform, Payment, Media, ContentMedia, SystemConfig, AuditLog, ContentTemplate };
