@@ -41,7 +41,10 @@ const Settings = ({ user, token, setUser }) => {
     bio: '',
     timezone: 'UTC',
     language: 'en',
-    merchandisingLink: user?.merchandisingLink || ''
+    merchandisingLink: user?.merchandisingLink || '',
+    dashboardShowTwitchSubs: user?.dashboardShowTwitchSubs !== false,
+    dashboardShowTwitchBits: user?.dashboardShowTwitchBits !== false,
+    dashboardShowTwitchDonations: user?.dashboardShowTwitchDonations === true
   });
 
   // Notification settings
@@ -110,7 +113,10 @@ const Settings = ({ user, token, setUser }) => {
         ...prev,
         username: user.username || '',
         email: user.email || '',
-        merchandisingLink: user.merchandisingLink || ''
+        merchandisingLink: user.merchandisingLink || '',
+        dashboardShowTwitchSubs: user.dashboardShowTwitchSubs !== false,
+        dashboardShowTwitchBits: user.dashboardShowTwitchBits !== false,
+        dashboardShowTwitchDonations: user.dashboardShowTwitchDonations === true
       }));
     }
   }, [user]);
@@ -561,6 +567,45 @@ const Settings = ({ user, token, setUser }) => {
                       <option key={lang.code} value={lang.code}>{lang.name}</option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              {/* Qué ver en el dashboard (Twitch) */}
+              <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                  {t('settings.dashboardVisibility') || 'Qué ver en el dashboard'}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  {t('settings.dashboardVisibilityDescription') || 'Activa o desactiva qué datos de Twitch se muestran en el dashboard (suscripciones, bits, donaciones).'}
+                </p>
+                <div className="space-y-4">
+                  {[
+                    { key: 'dashboardShowTwitchSubs', label: t('settings.dashboardTwitchSubs') || 'Suscripciones de Twitch', desc: t('settings.dashboardTwitchSubsDesc') || 'Mostrar suscripciones al canal' },
+                    { key: 'dashboardShowTwitchBits', label: t('settings.dashboardTwitchBits') || 'Bits de Twitch', desc: t('settings.dashboardTwitchBitsDesc') || 'Mostrar bits/cheers recibidos' },
+                    { key: 'dashboardShowTwitchDonations', label: t('settings.dashboardTwitchDonations') || 'Donaciones de Twitch', desc: t('settings.dashboardTwitchDonationsDesc') || 'Mostrar donaciones (si están conectadas)' }
+                  ].map(({ key, label, desc }) => (
+                    <div key={key} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{desc}</p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={profileData[key]}
+                        onClick={() => setProfileData(prev => ({ ...prev, [key]: !prev[key] }))}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                          profileData[key] ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition translate-x-1 ${
+                            profileData[key] ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
