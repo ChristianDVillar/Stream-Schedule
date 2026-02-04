@@ -247,7 +247,8 @@ const Schedule = ({ user, token }) => {
       }
       const response = await apiClient.post('/content', payload, {
         headers: { Authorization: `Bearer ${token}` },
-        withCredentials: true
+        withCredentials: true,
+        timeout: 30000, // 30s - content creation can take time with recurrence
       });
 
       const createdCount = Array.isArray(response.data) ? response.data.length : 1;
@@ -290,9 +291,23 @@ const Schedule = ({ user, token }) => {
       navigate('/dashboard');
     } catch (error) {
       console.error('Error scheduling content:', error);
+      
+      // Handle timeout errors specifically
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        toast.error(t('schedule.timeoutError') || 'La solicitud tardó demasiado. Por favor, intenta con menos ocurrencias de recurrencia o verifica tu conexión.');
+        return;
+      }
+      
+      // Handle network errors
+      if (error.code === 'ERR_NETWORK' || !error.response) {
+        toast.error(t('schedule.networkError') || 'Error de conexión. Verifica tu internet e intenta de nuevo.');
+        return;
+      }
+      
       const data = error.response?.data;
       const details = data?.details;
       let errorMessage = data?.error || error.message || t('schedule.scheduleError');
+      
       if (Array.isArray(details) && details.length > 0) {
         const messages = details.map((d) => (d && typeof d.message === 'string' ? d.message : (d?.field ? `${d.field}: invalid` : '')).trim()).filter(Boolean);
         if (messages.length > 0) errorMessage = messages.join('. ');
@@ -304,6 +319,42 @@ const Schedule = ({ user, token }) => {
       } else if (details && typeof details === 'string') {
         errorMessage = details;
       }
+      
+      // Handle specific HTTP status codes
+      if (error.response?.status === 400) {
+        errorMessage = errorMessage || t('schedule.validationError') || 'Datos inválidos. Por favor, revisa el formulario.';
+      } else if (error.response?.status === 401) {
+        errorMessage = t('schedule.authError') || 'Sesión expirada. Por favor, inicia sesión de nuevo.';
+      } else if (error.response?.status === 403) {
+        const data = error.response?.data;
+        errorMessage = data?.message || data?.error || t('schedule.licenseRequired') || 'Necesitas una licencia válida para programar contenido. Ve a Configuración para activar un trial o comprar una licencia.';
+        // Always show license/settings hint for 403 when scheduling (backend may send code or just error)
+        const isLicenseError = !data?.code || data?.code === 'LICENSE_EXPIRED' || data?.code === 'LICENSE_INVALID' || (data?.error && /license|licencia/i.test(String(data.error)));
+        if (isLicenseError) {
+          toast.error(
+            (toastId) => (
+              <div className="flex flex-col gap-2">
+                <span>{errorMessage}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigate('/settings');
+                    toast.dismiss(toastId);
+                  }}
+                  className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                >
+                  {t('schedule.goToSettings') || 'Ir a Configuración'}
+                </button>
+              </div>
+            ),
+            { duration: 10000 }
+          );
+          return;
+        }
+      } else if (error.response?.status === 429) {
+        errorMessage = t('schedule.rateLimitError') || 'Demasiadas solicitudes. Por favor, espera un momento.';
+      }
+      
       toast.error(typeof errorMessage === 'string' ? errorMessage : t('schedule.scheduleError'));
     } finally {
       setLoading(false);

@@ -11,6 +11,7 @@ const DiscordStrategy = require('passport-discord').Strategy;
 import { User, Content, Media, SystemConfig, sequelize } from '../models/index.js';
 import checkLicense from '../middleware/checkLicense.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { auditLog } from '../middleware/audit.js';
 import { normalizeLicenseType, resolveLicenseExpiry, buildLicenseSummary } from '../utils/licenseUtils.js';
 import { generateLicenseKey, generateTemporaryPassword, generateUsernameSuffix } from '../utils/cryptoUtils.js';
 import jwt from 'jsonwebtoken';
@@ -81,8 +82,17 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           user.oauthId = profile.id;
           user.oauthProvider = 'google';
         }
+        // Assign trial on first login if user has no license and never used trial
+        if ((!user.licenseKey || String(user.licenseKey).length < 10) && !user.hasUsedTrial) {
+          const expiryResult = resolveLicenseExpiry({ licenseType: normalizeLicenseType('trial') });
+          user.licenseType = normalizeLicenseType('trial');
+          user.licenseKey = generateLicenseKey('TRIAL', 12);
+          user.licenseExpiresAt = expiryResult.error ? null : expiryResult.value;
+          user.hasUsedTrial = true;
+        }
         await user.save();
       } else {
+        const expiryResult = resolveLicenseExpiry({ licenseType: normalizeLicenseType('trial') });
         user = await User.create({
           username: displayName.replace(/\s+/g, '').toLowerCase().replace(/[^a-z0-9]/g, '') + generateUsernameSuffix(3),
           email,
@@ -90,7 +100,10 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           oauthProvider: 'google',
           oauthId: profile.id,
           googleId: profile.id,
-          licenseType: normalizeLicenseType('none'),
+          licenseType: normalizeLicenseType('trial'),
+          licenseKey: generateLicenseKey('TRIAL', 12),
+          licenseExpiresAt: expiryResult.error ? null : expiryResult.value,
+          hasUsedTrial: true,
         });
       }
 
@@ -185,8 +198,17 @@ if (isTwitchConfigured()) {
           user.oauthId = twitchIdStr;
           user.oauthProvider = 'twitch';
         }
+        // Assign trial on first login if user has no license and never used trial
+        if ((!user.licenseKey || String(user.licenseKey).length < 10) && !user.hasUsedTrial) {
+          const expiryResult = resolveLicenseExpiry({ licenseType: normalizeLicenseType('trial') });
+          user.licenseType = normalizeLicenseType('trial');
+          user.licenseKey = generateLicenseKey('TRIAL', 12);
+          user.licenseExpiresAt = expiryResult.error ? null : expiryResult.value;
+          user.hasUsedTrial = true;
+        }
         await user.save();
       } else {
+        const expiryResult = resolveLicenseExpiry({ licenseType: normalizeLicenseType('trial') });
         user = await User.create({
           username: displayName.replace(/\s+/g, '').toLowerCase().replace(/[^a-z0-9]/g, '') + generateUsernameSuffix(3),
           email,
@@ -194,7 +216,10 @@ if (isTwitchConfigured()) {
           oauthProvider: 'twitch',
           oauthId: twitchIdStr,
           twitchId: twitchIdStr,
-          licenseType: normalizeLicenseType('none'),
+          licenseType: normalizeLicenseType('trial'),
+          licenseKey: generateLicenseKey('TRIAL', 12),
+          licenseExpiresAt: expiryResult.error ? null : expiryResult.value,
+          hasUsedTrial: true,
         });
       }
 
@@ -247,6 +272,14 @@ if (isDiscordConfigured()) {
         if (!user.oauthId) {
           user.oauthId = profile.id;
           user.oauthProvider = 'discord';
+        }
+        // Assign trial on first login if user has no license and never used trial
+        if ((!user.licenseKey || String(user.licenseKey).length < 10) && !user.hasUsedTrial) {
+          const expiryResult = resolveLicenseExpiry({ licenseType: normalizeLicenseType('trial') });
+          user.licenseType = normalizeLicenseType('trial');
+          user.licenseKey = generateLicenseKey('TRIAL', 12);
+          user.licenseExpiresAt = expiryResult.error ? null : expiryResult.value;
+          user.hasUsedTrial = true;
         }
         await user.save();
       } else {
@@ -334,6 +367,14 @@ export async function googleLoginHandler(req, res) {
       if (!dbUser.oauthId) {
         dbUser.oauthId = supabaseId;
         dbUser.oauthProvider = oauthProvider;
+      }
+      // Assign trial on first login if user has no license and never used trial
+      if ((!dbUser.licenseKey || String(dbUser.licenseKey).length < 10) && !dbUser.hasUsedTrial) {
+        const expiryResult = resolveLicenseExpiry({ licenseType: normalizeLicenseType('trial') });
+        dbUser.licenseType = normalizeLicenseType('trial');
+        dbUser.licenseKey = generateLicenseKey('TRIAL', 12);
+        dbUser.licenseExpiresAt = expiryResult.error ? null : expiryResult.value;
+        dbUser.hasUsedTrial = true;
       }
       await dbUser.save();
     } else {
@@ -445,13 +486,10 @@ router.get('/auth/twitch/callback',
   }
 );
 
-// Discord OAuth routes - using exported functions for consistency
-router.get('/auth/discord', discordAuth);
-
-router.get('/auth/discord/callback', discordCallback);
-
 // Export for app.js: register these BEFORE authenticateToken so Discord/Twitch OAuth works without JWT
 export { isDiscordConfigured, isTwitchConfigured };
+
+// Discord OAuth handlers - define before using in routes
 export const discordAuth = (req, res, next) => {
   if (!isDiscordConfigured()) {
     return res.redirect(`${FRONTEND_URL}/login?error=discord_not_configured`);
@@ -459,6 +497,7 @@ export const discordAuth = (req, res, next) => {
   const returnTo = (req.query.returnTo || '').trim() || undefined;
   passport.authenticate('discord', { scope: ['identify', 'email', 'guilds'], state: returnTo })(req, res, next);
 };
+
 export const discordCallback = (req, res, next) => {
   if (!isDiscordConfigured()) {
     return res.redirect(`${FRONTEND_URL}/login?error=discord_not_configured`);
@@ -476,6 +515,10 @@ export const discordCallback = (req, res, next) => {
     generateAuthResponse(req.user, res);
   });
 };
+
+// Discord OAuth routes - using exported functions for consistency
+router.get('/auth/discord', discordAuth);
+router.get('/auth/discord/callback', discordCallback);
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
 
@@ -1468,6 +1511,58 @@ router.get('/activity', requireAuth, checkLicense, async (req, res) => {
   res.json(activity);
 });
 
+/** GET /twitch-dashboard-stats - Twitch subs/bits/donations for dashboard. Requires Twitch connected. */
+router.get('/twitch-dashboard-stats', requireAuth, checkLicense, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, { attributes: ['id', 'twitchId'] });
+    const twitchConnected = !!(user && user.twitchId);
+    if (!twitchConnected) {
+      return res.json({
+        twitchConnected: false,
+        subscriptions: { total: 0, label: 'Suscripciones' },
+        bits: { total: 0, label: 'Bits' },
+        donations: { total: 0, label: 'Donaciones' }
+      });
+    }
+    
+    // Try to get real data from Twitch API
+    // Note: Requires user to have connected Twitch with proper scopes
+    // For now, return placeholder until user reconnects with scopes
+    let subscriptions = { total: 0, label: 'Suscripciones' };
+    let bits = { total: 0, label: 'Bits' };
+    
+    // Try to import Twitch service if available (requires axios)
+    try {
+      const twitchServiceModule = await import('../services/twitchService.js');
+      const { TwitchService } = twitchServiceModule;
+      const twitchService = new TwitchService();
+      
+      // If we had user access token with scopes, we could fetch real data:
+      // const subsData = await twitchService.getSubscriptions(user.twitchId, userAccessToken);
+      // subscriptions = { total: subsData.total, label: 'Suscripciones' };
+      
+      // const bitsData = await twitchService.getBitsLeaderboard(user.twitchId, userAccessToken);
+      // bits = { total: bitsData.total, label: 'Bits' };
+    } catch (importError) {
+      // Service not available (axios not installed or other error)
+      // Continue with placeholder data
+      logger.debug('Twitch service not available, using placeholder data', { 
+        error: importError.message 
+      });
+    }
+    
+    res.json({
+      twitchConnected: true,
+      subscriptions,
+      bits,
+      donations: { total: 0, label: 'Donaciones' } // External service needed
+    });
+  } catch (err) {
+    logger.error('Twitch dashboard stats error', { error: err.message, userId: req.user?.id });
+    res.status(500).json({ error: 'Failed to load Twitch stats' });
+  }
+});
+
 router.get('/license', requireAuth, async (req, res) => {
   const summary = buildLicenseSummary(req.user);
   res.json({
@@ -1480,8 +1575,8 @@ router.get('/license', requireAuth, async (req, res) => {
 });
 
 // Update user profile
-router.put('/profile', requireAuth, validateBody(updateProfileSchema), async (req, res) => {
-  const { username, email, merchandisingLink } = req.body;
+router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog('profile_updated', 'User'), async (req, res) => {
+  const { username, email, merchandisingLink, dashboardShowTwitchSubs, dashboardShowTwitchBits, dashboardShowTwitchDonations } = req.body;
   try {
     const user = await User.findByPk(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -1489,6 +1584,9 @@ router.put('/profile', requireAuth, validateBody(updateProfileSchema), async (re
     if (username !== undefined) user.username = username;
     if (email !== undefined) user.email = email;
     if (merchandisingLink !== undefined) user.merchandisingLink = merchandisingLink;
+    if (dashboardShowTwitchSubs !== undefined) user.dashboardShowTwitchSubs = dashboardShowTwitchSubs;
+    if (dashboardShowTwitchBits !== undefined) user.dashboardShowTwitchBits = dashboardShowTwitchBits;
+    if (dashboardShowTwitchDonations !== undefined) user.dashboardShowTwitchDonations = dashboardShowTwitchDonations;
     
     await user.save();
     const licenseSummary = buildLicenseSummary(user);
@@ -1504,7 +1602,10 @@ router.put('/profile', requireAuth, validateBody(updateProfileSchema), async (re
         licenseAlert: licenseSummary.alert,
         licenseDaysLeft: licenseSummary.daysLeft,
         isAdmin: user.isAdmin,
-        merchandisingLink: user.merchandisingLink
+        merchandisingLink: user.merchandisingLink,
+        dashboardShowTwitchSubs: user.dashboardShowTwitchSubs,
+        dashboardShowTwitchBits: user.dashboardShowTwitchBits,
+        dashboardShowTwitchDonations: user.dashboardShowTwitchDonations
       }
     });
   } catch (err) {
