@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatDateUTC } from '../utils/dateUtils';
+import { maskEmail } from '../utils/emailUtils';
 
 const mockLogs = [
   { id: 1, action: 'User admin@example.com created', date: '2025-07-21 10:00' },
@@ -211,7 +212,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
       const response = await adminCreateUser({ ...createData, token });
       setCreateData({ username: '', email: '', password: '', isAdmin: false });
       await fetchUsers();
-      window.alert(`${t('admin.userCreatedSuccess') || 'User created successfully!'}\n${t('common.email')}: ${response.data.email}\n${t('common.username')}: ${response.data.username}`);
+      window.alert(`${t('admin.userCreatedSuccess') || 'User created successfully!'}\n${t('common.email')}: ${maskEmail(response.data.email)}\n${t('common.username')}: ${response.data.username}`);
     } catch (err) {
       const errorMessage = err.response?.data?.error || err.message || (t('admin.userCreateError') || 'Error creating user');
       window.alert(`❌ ${errorMessage}`);
@@ -304,7 +305,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
               <div className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
                 {passwordReminders.filter(r => r.needsChange).map((reminder, idx) => (
                   <p key={idx} className="mb-1">
-                    {reminder.email}: {reminder.message}
+                    {maskEmail(reminder.email)}: {reminder.message}
                   </p>
                 ))}
               </div>
@@ -475,7 +476,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                 {expiringUsers.map(u => (
                   <tr key={u.id} className="hover:bg-yellow-50">
                     <td className="px-4 py-2 border">{u.username}</td>
-                    <td className="px-4 py-2 border">{u.email}</td>
+                    <td className="px-4 py-2 border" title={u.email}>{maskEmail(u.email)}</td>
                     <td className="px-4 py-2 border">
                       {u.licenseType === 'lifetime' && 'De por vida'}
                       {u.licenseType === 'monthly' && 'Mensual'}
@@ -570,7 +571,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                           <button onClick={handleCancelEdit} className="text-gray-500">{t('common.cancel')}</button>
                         </div>
                       ) : (
-                        <span>{u.email}</span>
+                        <span title={u.email}>{maskEmail(u.email)}</span>
                       )}
                     </td>
                     <td className="px-4 py-2 border text-sm text-gray-600 dark:text-gray-400" title={u.lastUploadAt ? formatDateUTC(u.lastUploadAt) : ''}>
