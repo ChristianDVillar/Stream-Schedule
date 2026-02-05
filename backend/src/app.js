@@ -44,15 +44,21 @@ app.use((req, res, next) => {
 const jwtSecret = process.env.JWT_SECRET || 'dev-jwt-secret';
 
 // CORS: allow FRONTEND_URL (single) or FRONTEND_URLS (comma-separated). Default localhost for dev.
+// In production, allow *.onrender.com if FRONTEND_URL/FRONTEND_URLS not set (fallback for Render).
 const corsOriginConfig = (() => {
   const urls = process.env.FRONTEND_URLS
     ? process.env.FRONTEND_URLS.split(',').map((u) => u.trim()).filter(Boolean)
     : process.env.FRONTEND_URL
       ? [process.env.FRONTEND_URL.trim()]
       : ['http://localhost:3000'];
+  const isProduction = process.env.NODE_ENV === 'production';
   return (origin, cb) => {
     if (!origin) return cb(null, true);
     if (urls.includes(origin)) return cb(null, origin);
+    // Production fallback: allow Render frontends when env not set
+    if (isProduction && (origin === 'https://stream-schedule-v1.onrender.com' || /^https:\/\/[\w-]+\.onrender\.com$/.test(origin))) {
+      return cb(null, origin);
+    }
     return cb(null, false);
   };
 })();
