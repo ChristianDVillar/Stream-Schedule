@@ -701,6 +701,10 @@ export const discordLinkCallback = async (req, res) => {
   }
 };
 
+// Discord link routes (must be registered so /api/user/* is handled by this router on Render)
+router.get('/auth/discord/link', discordLinkStart);
+router.get('/auth/discord/link/callback', discordLinkCallback);
+
 /** POST /link-google - link Google (Supabase OAuth) to current user. Requires JWT + body.supabaseAccessToken. */
 export async function linkGoogleHandler(req, res) {
   try {
