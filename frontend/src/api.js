@@ -20,6 +20,7 @@ function shouldSkipLogoutOn401(config) {
   if (method === 'POST' && url.includes('/content') && !url.match(/\/content\/\d+/)) return true; // POST /content (create), not PUT /content/:id
   if (method === 'GET' && url.includes('/upload/stats')) return true;
   if (method === 'GET' && url.includes('/discord/guilds')) return true; // list guilds and guild channels
+  if (method === 'GET' && url.includes('/user/connected-accounts')) return true; // let Settings show defaults on 401
   return false;
 }
 
@@ -215,6 +216,29 @@ export async function postDiscordMessage(channelId, { content, embeds } = {}) {
 /** GET /user/connected-accounts - which providers are linked (google, twitch, discord, email). */
 export async function getConnectedAccounts() {
   const res = await apiClient.get('/user/connected-accounts');
+  return res.data;
+}
+
+/** GET /user/twitch-dashboard-stats - Twitch subs/bits/donations for dashboard (requires Twitch connected). */
+export async function getTwitchDashboardStats() {
+  const res = await apiClient.get('/user/twitch-dashboard-stats');
+  return res.data;
+}
+
+/** GET /content - Get paginated content with filters */
+export async function getContent(options = {}) {
+  const params = new URLSearchParams();
+  if (options.page) params.append('page', options.page);
+  if (options.limit) params.append('limit', options.limit);
+  if (options.status) params.append('status', options.status);
+  if (options.platform) params.append('platform', options.platform);
+  if (options.dateFrom) params.append('dateFrom', options.dateFrom);
+  if (options.dateTo) params.append('dateTo', options.dateTo);
+  if (options.search) params.append('search', options.search);
+  if (options.orderBy) params.append('orderBy', options.orderBy);
+  if (options.order) params.append('order', options.order);
+  
+  const res = await apiClient.get(`/content?${params.toString()}`);
   return res.data;
 }
 
@@ -472,7 +496,9 @@ export async function registerUpload({ user_id, bucket, file_path, isTrialUser }
  * @returns {Promise} API response with upload stats
  */
 export async function getUploadStats(user_id) {
-  return apiClient.get(`/upload/stats/${user_id}`);
+  return apiClient.get(`/upload/stats/${user_id}`, {
+    timeout: 25000, // 25s - stats can be slow (cache/Supabase)
+  });
 }
 
 /**

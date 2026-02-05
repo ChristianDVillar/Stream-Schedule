@@ -8,7 +8,7 @@ import {
   clearOAuthLinkMode,
 } from '../api';
 
-export default function AuthCallback({ setUser, setToken }) {
+export default function AuthCallback({ setAuth }) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -72,9 +72,7 @@ export default function AuthCallback({ setUser, setToken }) {
         try {
           const res = await loginBackendWithSupabaseToken(accessToken);
           const { token, user } = res.data;
-          setToken(token);
-          setUser(user);
-          localStorage.setItem('auth_token', token);
+          setAuth(user, token);
           window.history.replaceState(null, '', window.location.pathname + window.location.search);
           navigate('/dashboard');
         } catch (error) {
@@ -105,9 +103,7 @@ export default function AuthCallback({ setUser, setToken }) {
         try {
           console.log('Processing Passport OAuth callback', { hasToken: !!token, hasUser: !!userParam });
           const user = JSON.parse(decodeURIComponent(userParam));
-          setToken(token);
-          setUser(user);
-          localStorage.setItem('auth_token', token);
+          setAuth(user, token);
           
           // Clean URL before navigation to prevent Chrome navigation issues
           window.history.replaceState(null, '', window.location.pathname);
@@ -140,7 +136,7 @@ export default function AuthCallback({ setUser, setToken }) {
     };
 
     run();
-  }, [searchParams, setUser, setToken, navigate]);
+  }, [searchParams, setAuth, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">

@@ -4,7 +4,7 @@ import { login, register, loginWithGoogle, loginWithTwitch, loginWithDiscord, fo
 import { useLanguage } from '../contexts/LanguageContext';
 import { Eye, EyeOff } from 'lucide-react';
 
-export default function Login({ setUser, setToken }) {
+export default function Login({ setAuth }) {
   const { t } = useLanguage();
   const [isRegister, setIsRegister] = useState(false);
   const [username, setUsername] = useState('');
@@ -63,8 +63,7 @@ export default function Login({ setUser, setToken }) {
         
         // If registration returns token, use it directly (no need to login again)
         if (registerRes.data.token && registerRes.data.user) {
-          setToken(registerRes.data.token);
-          setUser(registerRes.data.user);
+          setAuth(registerRes.data.user, registerRes.data.token);
           const alert = registerRes.data.user?.licenseAlert;
           const licenseType = registerRes.data.user?.licenseType;
           
@@ -83,8 +82,7 @@ export default function Login({ setUser, setToken }) {
       
       // Regular login flow (for existing users or if registration didn't return token)
       const res = await login({ email, password });
-      setToken(res.data.token);
-      setUser(res.data.user);
+      setAuth(res.data.user, res.data.token);
       const alert = res.data.user?.licenseAlert;
       const licenseType = res.data.user?.licenseType;
       

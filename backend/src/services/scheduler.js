@@ -8,9 +8,11 @@ import { Op } from 'sequelize';
 import { CONTENT_STATUS } from '../constants/contentStatus.js';
 import { postToDiscordChannel, postToDiscordChannelWithAttachments } from '../utils/discordPublish.js';
 import { supabase } from '../utils/supabaseClient.js';
+import { contentService } from './contentService.js';
+import { APP_CONFIG } from '../constants/app.js';
 import logger from '../utils/logger.js';
 
-const SIGNED_URL_EXPIRES_SEC = 3600;
+const SIGNED_URL_EXPIRES_SEC = APP_CONFIG.SIGNED_URL_EXPIRES_SEC;
 
 /**
  * Resolve media items to have a usable url. Prefer file_path (fresh signed URL from Supabase) over stored url (often expired).
@@ -63,21 +65,14 @@ const INTERVAL_MS = 60 * 1000; // 1 minute
  * Find content that is scheduled and due (scheduledFor <= now).
  */
 async function getDueContent() {
-  const now = new Date();
-  const rows = await Content.findAll({
-    where: {
-      status: CONTENT_STATUS.SCHEDULED,
-      scheduledFor: { [Op.lte]: now },
-    },
-    order: [['scheduledFor', 'ASC']],
-  });
-  return rows;
+  return await contentService.getDueContent();
 }
 
 /**
  * Publish one content item: Discord if configured, then mark published or failed.
+ * Exported for use in queue service.
  */
-async function publishContent(content) {
+export async function publishContent(content) {
   const platforms = Array.isArray(content.platforms) ? content.platforms : [];
   const hasDiscord = platforms.includes('discord');
   const channelId = content.discordChannelId || null;
@@ -115,6 +110,15 @@ async function publishContent(content) {
       content.status = CONTENT_STATUS.FAILED;
       content.publishError = err.message || String(err);
       await content.save();
+      
+      // Notify user via WebSocket
+      try {
+        const { notifyContentFailed } = await import('./websocketService.js');
+        notifyContentFailed(content.userId, content, err);
+      } catch (wsError) {
+        // WebSocket not available, ignore
+      }
+      
       return;
     }
   }
@@ -123,6 +127,94 @@ async function publishContent(content) {
   content.publishedAt = new Date();
   await content.save();
   logger.info('Scheduled content marked as published', { contentId: content.id, userId: content.userId });
+  
+  // Notify user via WebSocket
+  try {
+    const { notifyContentPublished } = await import('./websocketService.js');
+    notifyContentPublished(content.userId, content);
+  } catch (wsError) {
+    // WebSocket not available, ignore
+  }
+  
+  // Handle recurrence: create next occurrence if enabled
+  if (content.recurrence && content.recurrence.enabled) {
+    await processRecurringContent(content);
+  }
+}
+
+/**
+ * Process recurring content: create next occurrence after publishing
+ */
+async function processRecurringContent(content) {
+  try {
+    const recurrence = content.recurrence;
+    if (!recurrence || !recurrence.enabled) return;
+    
+    const frequency = recurrence.frequency || 'weekly';
+    const count = recurrence.count || 1;
+    const currentOccurrence = content.scheduledFor;
+    
+    // Calculate next occurrence date
+    const nextDate = new Date(currentOccurrence);
+    if (frequency === 'daily') {
+      nextDate.setDate(nextDate.getDate() + 1);
+    } else if (frequency === 'weekly') {
+      nextDate.setDate(nextDate.getDate() + 7);
+    } else if (frequency === 'monthly') {
+      nextDate.setMonth(nextDate.getMonth() + 1);
+    }
+    
+    // Check if we've reached the recurrence limit
+    // Count how many times this content has been published (by checking publishedAt)
+    // For simplicity, we'll create the next occurrence if it's within the count limit
+    const occurrencesCreated = await Content.count({
+      where: {
+        userId: content.userId,
+        title: content.title,
+        content: content.content,
+        status: CONTENT_STATUS.PUBLISHED,
+      },
+    });
+    
+    if (occurrencesCreated < count) {
+      // Create next occurrence
+      await Content.create({
+        title: content.title,
+        content: content.content,
+        contentType: content.contentType,
+        platforms: content.platforms,
+        scheduledFor: nextDate,
+        userId: content.userId,
+        status: CONTENT_STATUS.SCHEDULED,
+        files: content.files,
+        recurrence: {
+          ...recurrence,
+          // Keep recurrence enabled for next occurrence
+        },
+        hashtags: content.hashtags,
+        mentions: content.mentions,
+        timezone: content.timezone,
+        discordChannelId: content.discordChannelId,
+      });
+      
+      logger.info('Recurring content: next occurrence created', {
+        originalContentId: content.id,
+        nextDate: nextDate.toISOString(),
+        occurrencesCreated: occurrencesCreated + 1,
+      });
+    } else {
+      logger.info('Recurring content: limit reached', {
+        contentId: content.id,
+        occurrencesCreated,
+        count,
+      });
+    }
+  } catch (error) {
+    logger.error('Error processing recurring content', {
+      contentId: content.id,
+      error: error.message,
+    });
+  }
 }
 
 /**

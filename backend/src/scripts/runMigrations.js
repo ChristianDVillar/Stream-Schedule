@@ -37,10 +37,13 @@ async function getExecutedMigrations() {
   await ensureMetaTable();
   // Use quoted identifier for PostgreSQL to handle case sensitivity
   const tableName = usePostgres ? '"SequelizeMeta"' : 'SequelizeMeta';
-  const [results] = await sequelize.query(
-    `SELECT name FROM ${tableName} ORDER BY name`
+  // When using QueryTypes.SELECT, sequelize.query returns the array directly
+  const results = await sequelize.query(
+    `SELECT name FROM ${tableName} ORDER BY name`,
+    { type: sequelize.QueryTypes.SELECT }
   );
-  return results.map((r) => r.name);
+  // Ensure results is an array and map to get names
+  return Array.isArray(results) ? results.map((r) => r.name) : [];
 }
 
 // Load and execute migration
@@ -93,12 +96,47 @@ async function executeMigration(filename) {
     }
   }
   
-  // Record migration using parameterized query to prevent SQL injection
-  const tableName = usePostgres ? '"SequelizeMeta"' : 'SequelizeMeta';
-  await sequelize.query(
-    `INSERT INTO ${tableName} (name) VALUES ($1)`,
-    { replacements: [filename], type: sequelize.QueryTypes.INSERT }
-  );
+  // Record migration - use QueryInterface for safety (works with both PostgreSQL and SQLite)
+  try {
+    const queryInterface = sequelize.getQueryInterface();
+    // Check if migration already recorded
+    const tableName = usePostgres ? '"SequelizeMeta"' : 'SequelizeMeta';
+    const checkQuery = usePostgres 
+      ? `SELECT name FROM ${tableName} WHERE name = $1`
+      : `SELECT name FROM ${tableName} WHERE name = ?`;
+    
+    const [existing] = await sequelize.query(checkQuery, {
+      bind: [filename],
+      type: sequelize.QueryTypes.SELECT,
+    });
+    
+    if (!existing || existing.length === 0) {
+      // Use QueryInterface to insert (handles both PostgreSQL and SQLite)
+      await queryInterface.bulkInsert('SequelizeMeta', [{ name: filename }], {
+        ignoreDuplicates: true,
+      });
+    }
+  } catch (error) {
+    // If bulkInsert fails, try direct insert with proper escaping and conflict handling
+    logger.warn('Using fallback method to record migration', { error: error.message });
+    const tableName = usePostgres ? '"SequelizeMeta"' : 'SequelizeMeta';
+    // Escape filename to prevent SQL injection
+    const escapedFilename = filename.replace(/'/g, "''");
+    
+    if (usePostgres) {
+      // PostgreSQL: use ON CONFLICT
+      await sequelize.query(
+        `INSERT INTO ${tableName} (name) VALUES ('${escapedFilename}') ON CONFLICT (name) DO NOTHING`,
+        { type: sequelize.QueryTypes.INSERT }
+      );
+    } else {
+      // SQLite: use INSERT OR IGNORE
+      await sequelize.query(
+        `INSERT OR IGNORE INTO ${tableName} (name) VALUES ('${escapedFilename}')`,
+        { type: sequelize.QueryTypes.INSERT }
+      );
+    }
+  }
   
   logger.info(`Executed: ${filename}`);
 }
