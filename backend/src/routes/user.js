@@ -1567,6 +1567,69 @@ router.get('/twitch-dashboard-stats', requireAuth, checkLicense, async (req, res
   }
 });
 
+/** GET /twitch-subs - Lista detallada de suscriptores de Twitch */
+router.get('/twitch-subs', requireAuth, checkLicense, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, { attributes: ['id', 'twitchId'] });
+    const twitchConnected = !!(user && user.twitchId);
+    if (!twitchConnected) {
+      return res.status(400).json({ error: 'Twitch no conectado' });
+    }
+    
+    // TODO: Obtener datos reales de Twitch API cuando tengamos access token con scopes
+    // Por ahora devolvemos estructura vacía
+    res.json({
+      subscriptions: []
+    });
+  } catch (err) {
+    logger.error('Twitch subs list error', { error: err.message, userId: req.user?.id });
+    res.status(500).json({ error: 'Failed to load subscriptions' });
+  }
+});
+
+/** GET /twitch-bits - Lista de bits. Query: ?format=chronological|total */
+router.get('/twitch-bits', requireAuth, checkLicense, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, { attributes: ['id', 'twitchId'] });
+    const twitchConnected = !!(user && user.twitchId);
+    if (!twitchConnected) {
+      return res.status(400).json({ error: 'Twitch no conectado' });
+    }
+    
+    const format = req.query.format || 'chronological'; // 'chronological' o 'total'
+    
+    // TODO: Obtener datos reales de Twitch API cuando tengamos access token con scopes
+    // Por ahora devolvemos estructura vacía
+    res.json({
+      format,
+      bits: []
+    });
+  } catch (err) {
+    logger.error('Twitch bits list error', { error: err.message, userId: req.user?.id });
+    res.status(500).json({ error: 'Failed to load bits' });
+  }
+});
+
+/** GET /twitch-donations - Lista de donaciones */
+router.get('/twitch-donations', requireAuth, checkLicense, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, { attributes: ['id', 'twitchId'] });
+    const twitchConnected = !!(user && user.twitchId);
+    if (!twitchConnected) {
+      return res.status(400).json({ error: 'Twitch no conectado' });
+    }
+    
+    // TODO: Integrar con servicio externo (Streamlabs, StreamElements, etc.)
+    // Por ahora devolvemos estructura vacía
+    res.json({
+      donations: []
+    });
+  } catch (err) {
+    logger.error('Twitch donations list error', { error: err.message, userId: req.user?.id });
+    res.status(500).json({ error: 'Failed to load donations' });
+  }
+});
+
 router.get('/license', requireAuth, async (req, res) => {
   const summary = buildLicenseSummary(req.user);
   res.json({
