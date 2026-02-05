@@ -79,7 +79,6 @@ export async function publishContent(content) {
 
   if (hasDiscord && channelId) {
     try {
-      const message = (content.title ? `**${content.title}**\n\n` : '') + (content.content || '');
       const rawItems = content.files?.items ?? (content.files?.urls ? content.files.urls.map((u) => ({ url: u })) : []) ?? [];
       logger.info('Scheduler: publishing content', {
         contentId: content.id,
@@ -89,11 +88,33 @@ export async function publishContent(content) {
       });
       const items = rawItems.length > 0 ? await resolveMediaUrls(rawItems) : [];
       logger.info('Scheduler: resolved media', { contentId: content.id, resolvedCount: items.length, resolvedHasUrls: items.every((i) => i?.url) });
+      
       const hasAttachments = items.length > 0;
+      
+      // Orden deseado: Título → Media → Contenido
+      // Discord muestra archivos después del texto en el mismo mensaje, así que separamos en mensajes distintos
+      // Agregamos pequeños delays para asegurar orden correcto
+      
+      // Paso 1: Enviar título (si existe)
+      if (content.title) {
+        logger.info('Discord publish: sending title', { contentId: content.id, title: content.title });
+        await postToDiscordChannel(channelId, `**${content.title}**`);
+        await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
+      }
+      
+      // Paso 2: Enviar archivos/media SOLO (sin contenido de texto)
       if (hasAttachments) {
-        await postToDiscordChannelWithAttachments(channelId, message, items);
-      } else {
-        await postToDiscordChannel(channelId, message);
+        logger.info('Discord publish: sending media', { contentId: content.id, itemsCount: items.length });
+        // Enviar archivos con un espacio invisible para que aparezcan antes del contenido
+        // Discord requiere algún texto, usamos zero-width space
+        await postToDiscordChannelWithAttachments(channelId, '\u200b', items);
+        await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
+      }
+      
+      // Paso 3: Enviar contenido DESPUÉS de los archivos (mensaje separado)
+      if (content.content) {
+        logger.info('Discord publish: sending content', { contentId: content.id, contentLength: content.content.length });
+        await postToDiscordChannel(channelId, content.content);
       }
       logger.info('Scheduled content published to Discord', {
         contentId: content.id,

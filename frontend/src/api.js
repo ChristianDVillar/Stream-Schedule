@@ -225,6 +225,24 @@ export async function getTwitchDashboardStats() {
   return res.data;
 }
 
+/** GET /user/twitch-subs - Lista detallada de suscriptores */
+export async function getTwitchSubs() {
+  const res = await apiClient.get('/user/twitch-subs');
+  return res.data;
+}
+
+/** GET /user/twitch-bits - Lista de bits (?format=chronological|total) */
+export async function getTwitchBits(format = 'chronological') {
+  const res = await apiClient.get(`/user/twitch-bits?format=${format}`);
+  return res.data;
+}
+
+/** GET /user/twitch-donations - Lista de donaciones */
+export async function getTwitchDonations() {
+  const res = await apiClient.get('/user/twitch-donations');
+  return res.data;
+}
+
 /** GET /content - Get paginated content with filters */
 export async function getContent(options = {}) {
   const params = new URLSearchParams();

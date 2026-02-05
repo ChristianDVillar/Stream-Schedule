@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiClient, getTwitchDashboardStats } from '../api';
+import { apiClient, getTwitchDashboardStats, getTwitchSubs, getTwitchBits, getTwitchDonations } from '../api';
 import AdminDashboard from './AdminDashboard';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
@@ -54,6 +54,7 @@ const Dashboard = ({ user, token, ...props }) => {
   const [showContentModal, setShowContentModal] = useState(false);
   const [twitchStats, setTwitchStats] = useState(null);
   const [twitchStatsLoading, setTwitchStatsLoading] = useState(false);
+  const [bitsFormat, setBitsFormat] = useState('chronological'); // 'chronological' o 'total'
 
   const showTwitchOnDashboard = user && !user.isAdmin && (
     user.dashboardShowTwitchSubs || user.dashboardShowTwitchBits || user.dashboardShowTwitchDonations
@@ -215,6 +216,137 @@ const Dashboard = ({ user, token, ...props }) => {
     }
   };
 
+  // Función para convertir datos a CSV
+  const convertToCSV = (data, headers) => {
+    const csvHeaders = headers.join(',');
+    const csvRows = data.map(row => headers.map(header => {
+      const value = row[header] || '';
+      // Escapar comillas y envolver en comillas si contiene comas o saltos de línea
+      return typeof value === 'string' && (value.includes(',') || value.includes('\n'))
+        ? `"${value.replace(/"/g, '""')}"`
+        : value;
+    }).join(','));
+    return [csvHeaders, ...csvRows].join('\n');
+  };
+
+  // Descargar lista de suscriptores
+  const handleDownloadSubs = async () => {
+    try {
+      const data = await getTwitchSubs();
+      if (!data.subscriptions || data.subscriptions.length === 0) {
+        toast.error(t('dashboard.noSubsToDownload'));
+        return;
+      }
+      
+      // Formatear datos para CSV: Usuario, Fecha de suscripción, Tipo, Meses
+      const csvData = data.subscriptions.map(sub => ({
+        usuario: sub.user_name || sub.user_login || 'N/A',
+        fecha: sub.tier || 'N/A',
+        tipo: sub.tier || 'N/A',
+        meses: sub.cumulative_months || 0
+      }));
+      
+      const csv = convertToCSV(csvData, ['usuario', 'fecha', 'tipo', 'meses']);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `twitch-subs-${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success(t('dashboard.subsDownloaded'));
+    } catch (error) {
+      toast.error(t('dashboard.errorDownloadingSubs'));
+    }
+  };
+
+  // Descargar lista de bits
+  const handleDownloadBits = async () => {
+    try {
+      const data = await getTwitchBits(bitsFormat);
+      if (!data.bits || data.bits.length === 0) {
+        toast.error(t('dashboard.noBitsToDownload'));
+        return;
+      }
+      
+      let csvData;
+      if (bitsFormat === 'chronological') {
+        // Orden cronológico: Usuario, Cantidad, Fecha
+        csvData = data.bits.map(bit => ({
+          usuario: bit.user_name || bit.user_login || 'N/A',
+          cantidad: bit.amount || 0,
+          fecha: bit.date || 'N/A'
+        }));
+      } else {
+        // Total por usuario: Usuario, Total
+        const totals = {};
+        data.bits.forEach(bit => {
+          const user = bit.user_name || bit.user_login || 'N/A';
+          totals[user] = (totals[user] || 0) + (bit.amount || 0);
+        });
+        csvData = Object.entries(totals).map(([usuario, total]) => ({
+          usuario,
+          total
+        }));
+      }
+      
+      const headers = bitsFormat === 'chronological' 
+        ? ['usuario', 'cantidad', 'fecha']
+        : ['usuario', 'total'];
+      const csv = convertToCSV(csvData, headers);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `twitch-bits-${bitsFormat}-${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success(t('dashboard.bitsDownloaded'));
+    } catch (error) {
+      toast.error(t('dashboard.errorDownloadingBits'));
+    }
+  };
+
+  // Descargar lista de donaciones
+  const handleDownloadDonations = async () => {
+    try {
+      const data = await getTwitchDonations();
+      if (!data.donations || data.donations.length === 0) {
+        toast.error(t('dashboard.noDonationsToDownload'));
+        return;
+      }
+      
+      // Formatear datos para CSV: Usuario, Cantidad, Mensaje, Fecha
+      const csvData = data.donations.map(donation => ({
+        usuario: donation.name || donation.user_name || 'Anónimo',
+        cantidad: donation.amount || 0,
+        mensaje: donation.message || '',
+        fecha: donation.created_at || donation.date || 'N/A'
+      }));
+      
+      const csv = convertToCSV(csvData, ['usuario', 'cantidad', 'mensaje', 'fecha']);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `twitch-donations-${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success(t('dashboard.donationsDownloaded'));
+    } catch (error) {
+      toast.error(t('dashboard.errorDownloadingDonations'));
+    }
+  };
+
   // Filter and search logic
   const filteredContents = contents.filter(content => {
     const matchesSearch = content.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -360,32 +492,79 @@ const Dashboard = ({ user, token, ...props }) => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {user.dashboardShowTwitchSubs && (
                   <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      {twitchStats?.subscriptions?.label || 'Suscripciones'}
-                    </p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                      {twitchStats?.subscriptions?.total ?? 0}
-                    </p>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          {twitchStats?.subscriptions?.label || 'Suscripciones'}
+                        </p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                          {twitchStats?.subscriptions?.total ?? 0}
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleDownloadSubs}
+                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                        title={t('dashboard.downloadSubs')}
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 )}
                 {user.dashboardShowTwitchBits && (
                   <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      {twitchStats?.bits?.label || 'Bits'}
-                    </p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                      {twitchStats?.bits?.total ?? 0}
-                    </p>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          {twitchStats?.bits?.label || 'Bits'}
+                        </p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                          {twitchStats?.bits?.total ?? 0}
+                        </p>
+                        <div className="mt-2 flex gap-2">
+                          <button
+                            onClick={() => setBitsFormat('chronological')}
+                            className={`text-xs px-2 py-1 rounded ${bitsFormat === 'chronological' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'}`}
+                          >
+                            {t('dashboard.chronological')}
+                          </button>
+                          <button
+                            onClick={() => setBitsFormat('total')}
+                            className={`text-xs px-2 py-1 rounded ${bitsFormat === 'total' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'}`}
+                          >
+                            {t('dashboard.total')}
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleDownloadBits}
+                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                        title={bitsFormat === 'chronological' ? t('dashboard.downloadBitsChronological') : t('dashboard.downloadBitsTotal')}
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 )}
                 {user.dashboardShowTwitchDonations && (
                   <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      {twitchStats?.donations?.label || 'Donaciones'}
-                    </p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                      {twitchStats?.donations?.total ?? 0}
-                    </p>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          {twitchStats?.donations?.label || 'Donaciones'}
+                        </p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                          {twitchStats?.donations?.total ?? 0}
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleDownloadDonations}
+                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                        title={t('dashboard.downloadDonations')}
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
