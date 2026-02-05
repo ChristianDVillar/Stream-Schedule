@@ -756,9 +756,32 @@ router.get('/stats/:user_id', requireAuth, validateParams(getUploadStatsSchema),
     // Use authenticated user ID to ensure we're using the correct UUID format
     const userIdToQuery = authenticatedUserId;
 
-    // Check cache first
+    // Check cache first (try Redis with timeout, fallback to memory)
     const cacheKey = `stats:${userIdToQuery}`;
-    const cachedStats = cache.get(cacheKey);
+    let cachedStats = null;
+    const CACHE_GET_MS = 3000; // Don't wait more than 3s for cache
+
+    try {
+      const cacheGetWithTimeout = (getPromise) =>
+        Promise.race([
+          getPromise,
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Cache timeout')), CACHE_GET_MS)
+          ),
+        ]);
+      try {
+        const { redisCache } = await import('../utils/redisCache.js');
+        if (redisCache.isAvailable()) {
+          cachedStats = await cacheGetWithTimeout(redisCache.get(cacheKey));
+        } else {
+          cachedStats = cache.get(cacheKey);
+        }
+      } catch (cacheErr) {
+        cachedStats = cache.get(cacheKey);
+      }
+    } catch (error) {
+      cachedStats = cache.get(cacheKey);
+    }
 
     if (cachedStats) {
       logger.debug('Stats cache hit', {
@@ -819,8 +842,17 @@ router.get('/stats/:user_id', requireAuth, validateParams(getUploadStatsSchema),
       uploads: uploadsList // Always return an array, even if empty
     };
 
-    // Cache the response for 30 seconds
-    cache.set(cacheKey, statsResponse, 30);
+    // Cache the response for 30 seconds (try Redis, fallback to memory)
+    try {
+      const { redisCache } = await import('../utils/redisCache.js');
+      if (redisCache.isAvailable()) {
+        await redisCache.set(cacheKey, statsResponse, 30);
+      } else {
+        cache.set(cacheKey, statsResponse, 30);
+      }
+    } catch (error) {
+      cache.set(cacheKey, statsResponse, 30);
+    }
 
     logger.debug('Stats cached', {
       userId: userIdToQuery,

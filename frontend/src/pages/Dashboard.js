@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiClient } from '../api';
+import { apiClient, getTwitchDashboardStats } from '../api';
 import AdminDashboard from './AdminDashboard';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
@@ -11,6 +11,7 @@ import { format, parse, startOfWeek, getDay } from 'date-fns';
 import toast from 'react-hot-toast';
 import { formatDate, formatDateWithUTC } from '../utils/dateUtils';
 import TrialWarning from '../components/TrialWarning';
+import { SearchAdvanced } from '../components/SearchAdvanced';
 import { 
   Calendar as CalendarIcon, 
   Settings, 
@@ -19,17 +20,15 @@ import {
   Clock, 
   CheckCircle, 
   XCircle,
+  X,
   Trash2,
   Twitch,
   Twitter,
   Instagram,
-  Search,
-  Filter,
   Download,
   Eye,
   Copy,
   RefreshCw,
-  X,
   CalendarPlus,
   Image as ImageIcon,
   Video,
@@ -51,22 +50,60 @@ const Dashboard = ({ user, token, ...props }) => {
     platform: 'all',
     dateRange: 'all'
   });
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedContent, setSelectedContent] = useState(null);
   const [showContentModal, setShowContentModal] = useState(false);
+  const [twitchStats, setTwitchStats] = useState(null);
+  const [twitchStatsLoading, setTwitchStatsLoading] = useState(false);
+
+  const showTwitchOnDashboard = user && !user.isAdmin && (
+    user.dashboardShowTwitchSubs || user.dashboardShowTwitchBits || user.dashboardShowTwitchDonations
+  );
 
   useEffect(() => {
     if (user && !user.isAdmin) fetchContents();
     // eslint-disable-next-line
   }, [user]);
 
-  const fetchContents = async () => {
+  useEffect(() => {
+    if (!showTwitchOnDashboard) {
+      setTwitchStats(null);
+      return;
+    }
+    let cancelled = false;
+    setTwitchStatsLoading(true);
+    getTwitchDashboardStats()
+      .then((data) => {
+        if (!cancelled) setTwitchStats(data);
+      })
+      .catch(() => {
+        if (!cancelled) setTwitchStats(null);
+      })
+      .finally(() => {
+        if (!cancelled) setTwitchStatsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [showTwitchOnDashboard]);
+
+  const fetchContents = async (options = {}) => {
     try {
       const response = await apiClient.get('/content', {
+        params: {
+          page: options.page || 1,
+          limit: options.limit || 100,
+          status: filters.status !== 'all' ? filters.status : undefined,
+          platform: filters.platform !== 'all' ? filters.platform : undefined,
+          search: searchTerm || undefined,
+          dateRange: filters.dateRange !== 'all' ? filters.dateRange : undefined,
+        },
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         withCredentials: true
       });
-      setContents(response.data);
+      // Handle paginated response
+      if (response.data.data) {
+        setContents(response.data.data);
+      } else {
+        setContents(response.data);
+      }
     } catch (error) {
       setContents([]);
       toast.error('Error loading scheduled content');
@@ -298,6 +335,64 @@ const Dashboard = ({ user, token, ...props }) => {
       <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 min-w-0">
         {/* Trial Warning */}
         {!user?.isAdmin && <TrialWarning user={user} />}
+
+        {/* Twitch: suscripciones, bits, donaciones (según preferencias del perfil) */}
+        {showTwitchOnDashboard && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border-t-4 border-purple-500 mb-6 sm:mb-8">
+            <h3 className="text-base sm:text-lg font-bold text-purple-700 dark:text-purple-400 mb-4 flex items-center">
+              <Twitch className="w-5 h-5 mr-2 flex-shrink-0" />
+              {t('dashboard.twitchStats') || 'Datos de Twitch'}
+            </h3>
+            {twitchStatsLoading ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('common.loading') || 'Loading...'}</p>
+            ) : !twitchStats?.twitchConnected ? (
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                {t('dashboard.twitchConnectPrompt') || 'Conecta Twitch en Ajustes para ver suscripciones, bits y donaciones aquí.'}
+                <button
+                  type="button"
+                  onClick={() => navigate('/settings')}
+                  className="ml-2 text-purple-600 dark:text-purple-400 hover:underline"
+                >
+                  {t('settings.title') || 'Ajustes'}
+                </button>
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {user.dashboardShowTwitchSubs && (
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      {twitchStats?.subscriptions?.label || 'Suscripciones'}
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                      {twitchStats?.subscriptions?.total ?? 0}
+                    </p>
+                  </div>
+                )}
+                {user.dashboardShowTwitchBits && (
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      {twitchStats?.bits?.label || 'Bits'}
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                      {twitchStats?.bits?.total ?? 0}
+                    </p>
+                  </div>
+                )}
+                {user.dashboardShowTwitchDonations && (
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      {twitchStats?.donations?.label || 'Donaciones'}
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                      {twitchStats?.donations?.total ?? 0}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Calendario */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border-t-4 border-blue-400 mb-6 sm:mb-8">
           <h3 className="text-base sm:text-lg font-bold text-blue-700 dark:text-blue-400 mb-4 flex items-center"><CalendarIcon className="w-5 h-5 mr-2 flex-shrink-0" />Calendar</h3>
@@ -326,94 +421,32 @@ const Dashboard = ({ user, token, ...props }) => {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border-t-4 border-blue-600 overflow-hidden">
           {/* Search and Filters */}
           <div className="mb-6">
-            <div className="flex flex-col sm:flex-row gap-4 mb-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Search content..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className={`px-3 py-2 rounded-lg flex items-center space-x-2 transition-colors text-sm ${
-                      showFilters ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    <Filter className="w-4 h-4 flex-shrink-0" />
-                    <span>Filters</span>
-                  </button>
-                  <button
-                    onClick={handleExportData}
-                    className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 text-sm"
-                  >
-                    <Download className="w-4 h-4 flex-shrink-0" />
-                    <span className="hidden sm:inline">Export</span>
-                  </button>
-                  <button
-                    onClick={fetchContents}
-                    className="p-2 sm:px-3 sm:py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                    title="Refresh"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                  </button>
+            <SearchAdvanced
+              onSearch={(t) => setSearchTerm(t || '')}
+              onFilterChange={(newF) => setFilters({
+                status: newF.status ?? 'all',
+                platform: newF.platform ?? 'all',
+                dateRange: newF.dateRange ?? 'all'
+              })}
+              filters={filters}
+            />
+            <div className="flex flex-wrap gap-2 mt-2">
+              <button
+                onClick={handleExportData}
+                className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 text-sm"
+              >
+                <Download className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Export</span>
+              </button>
+              <button
+                onClick={fetchContents}
+                className="p-2 sm:px-3 sm:py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                title="Refresh"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
             </div>
           </div>
-
-              {/* Advanced Filters */}
-              {showFilters && (
-                <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg mb-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                      <select
-                        value={filters.status}
-                        onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="all">All Status</option>
-                        <option value="scheduled">Scheduled</option>
-                        <option value="published">Published</option>
-                        <option value="failed">Failed</option>
-                      </select>
-            </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Platform</label>
-                      <select
-                        value={filters.platform}
-                        onChange={(e) => setFilters(prev => ({ ...prev, platform: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="all">All Platforms</option>
-                        <option value="twitch">Twitch</option>
-                        <option value="twitter">Twitter</option>
-                        <option value="instagram">Instagram</option>
-                        <option value="discord">Discord</option>
-                      </select>
-          </div>
-          
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
-                      <select
-                        value={filters.dateRange}
-                        onChange={(e) => setFilters(prev => ({ ...prev, dateRange: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="all">All Dates</option>
-                        <option value="today">Today</option>
-                        <option value="tomorrow">Tomorrow</option>
-                        <option value="this-week">This Week</option>
-                        <option value="past">Past</option>
-                      </select>
-              </div>
-            </div>
-          </div>
-              )}
         </div>
 
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
@@ -534,7 +567,6 @@ const Dashboard = ({ user, token, ...props }) => {
               </table>
             </div>
           )}
-        </div>
         </div>
 
         {/* Content Details Modal */}

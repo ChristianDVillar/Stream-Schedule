@@ -5,9 +5,37 @@
 
 import jwt from 'jsonwebtoken';
 import { User } from '../models/index.js';
+import { normalizeLicenseType, resolveLicenseExpiry } from '../utils/licenseUtils.js';
+import { generateLicenseKey } from '../utils/cryptoUtils.js';
 import logger from '../utils/logger.js';
 
 const jwtSecret = process.env.JWT_SECRET || 'dev-jwt-secret';
+
+/**
+ * If user has no valid license and never used trial, and has OAuth (Google/Twitch/Discord), assign trial once.
+ * So users created with licenseType 'none' get trial on next request without re-login.
+ */
+async function ensureTrialForOAuthUser(user) {
+  if (!user || user.isAdmin) return user;
+  const plain = user.get ? user.get({ plain: true }) : user;
+  const hasOAuth = !!(plain.googleId || plain.twitchId || plain.discordId);
+  const noLicense = !plain.licenseKey || String(plain.licenseKey).length < 10;
+  const neverUsedTrial = !plain.hasUsedTrial;
+  if (!hasOAuth || !noLicense || !neverUsedTrial) return user;
+
+  try {
+    const expiryResult = resolveLicenseExpiry({ licenseType: normalizeLicenseType('trial') });
+    user.licenseType = normalizeLicenseType('trial');
+    user.licenseKey = generateLicenseKey('TRIAL', 12);
+    user.licenseExpiresAt = expiryResult.error ? null : expiryResult.value;
+    user.hasUsedTrial = true;
+    await user.save();
+    return user;
+  } catch (err) {
+    logger.warn('Could not assign trial in auth middleware', { userId: plain.id, error: err.message });
+    return user;
+  }
+}
 
 /**
  * Middleware to authenticate requests using JWT
@@ -27,12 +55,11 @@ export function authenticateToken(req, res, next) {
     
     // Attach user to request (async lookup)
     User.findByPk(payload.id)
-      .then(user => {
+      .then(async (user) => {
         if (!user) {
           req.user = null;
         } else {
-          // Convert Sequelize instance to plain object to ensure all properties are accessible
-          // This prevents issues with property access in route handlers
+          await ensureTrialForOAuthUser(user);
           req.user = user.get({ plain: true });
         }
         next();

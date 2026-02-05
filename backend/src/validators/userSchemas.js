@@ -100,7 +100,10 @@ export const updateProfileSchema = Joi.object({
   email: Joi.string().email().max(255).optional(),
   merchandisingLink: Joi.string().uri().max(500).allow('', null).optional().messages({
     'string.uri': 'Merchandising link must be a valid URL'
-  })
+  }),
+  dashboardShowTwitchSubs: Joi.boolean().optional(),
+  dashboardShowTwitchBits: Joi.boolean().optional(),
+  dashboardShowTwitchDonations: Joi.boolean().optional()
 }).min(1).messages({
   'object.min': 'At least one field must be provided to update'
 });

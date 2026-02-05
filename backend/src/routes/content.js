@@ -3,71 +3,22 @@ import { Content } from '../models/index.js';
 import checkLicense from '../middleware/checkLicense.js';
 import { validateBody } from '../middleware/validate.js';
 import { contentSchema, updateContentSchema } from '../validators/contentSchemas.js';
+import { contentService } from '../services/contentService.js';
+import { contentCreationLimiter } from '../middleware/rateLimit.js';
+import { auditLog } from '../middleware/audit.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();
 
 router.use(checkLicense);
 
-function buildOccurrences(baseDate, recurrence) {
-  if (!recurrence || !recurrence.enabled) {
-    return [baseDate];
-  }
-
-  const occurrences = [];
-  const count = Math.max(1, Math.min(Number(recurrence.count || 1), 50));
-  const frequency = recurrence.frequency || 'weekly';
-
-  for (let i = 0; i < count; i += 1) {
-    const date = new Date(baseDate);
-    if (frequency === 'daily') {
-      date.setDate(date.getDate() + i);
-    } else if (frequency === 'weekly') {
-      date.setDate(date.getDate() + i * 7);
-    } else {
-      date.setDate(date.getDate() + i);
-    }
-    occurrences.push(date);
-  }
-
-  return occurrences;
-}
-
 // Create content
 // ⏱️ IMPORTANT: Always store dates in UTC in database
 // Frontend sends dates as ISO strings (UTC), Sequelize stores them correctly
 // Frontend will convert to user's local timezone for display
-router.post('/', validateBody(contentSchema), async (req, res) => {
+router.post('/', contentCreationLimiter, validateBody(contentSchema), auditLog('content_created', 'Content'), async (req, res) => {
   try {
-    // req.body.scheduledFor comes as ISO string (UTC) from frontend
-    const scheduledFor = new Date(req.body.scheduledFor);
-    const occurrences = buildOccurrences(scheduledFor, req.body.recurrence);
-    
-    // Extract mediaItems or mediaUrls and store in files field (items: { url, fileName?, type?, durationSeconds? }[])
-    const { mediaUrls, mediaItems, ...contentData } = req.body;
-    let filesData = null;
-    if (mediaItems && mediaItems.length > 0) {
-      filesData = { items: mediaItems };
-    } else if (mediaUrls && mediaUrls.length > 0) {
-      filesData = { items: mediaUrls.map((url) => ({ url })) };
-    }
-    
-    // Sequelize automatically stores dates in UTC
-    const created = await Promise.all(
-      occurrences.map(date => Content.create({
-        ...contentData,
-        scheduledFor: date, // Stored as UTC in database
-        userId: req.user.id,
-        files: filesData
-      }))
-    );
-    
-    logger.info('Content created', {
-      userId: req.user.id,
-      contentCount: created.length,
-      contentType: req.body.contentType
-    });
-    
+    const created = await contentService.createContent(req.user.id, req.body);
     res.status(201).json(created);
   } catch (err) {
     logger.error('Error creating content', {
@@ -79,41 +30,56 @@ router.post('/', validateBody(contentSchema), async (req, res) => {
   }
 });
 
-// List all content for user
+// List all content for user (with pagination and filters)
 router.get('/', async (req, res) => {
-  const contents = await Content.findAll({ where: { userId: req.user.id }, order: [['scheduledFor', 'DESC']] });
-  res.json(contents);
+  try {
+    const result = await contentService.getUserContent(req.user.id, {
+      query: req.query,
+      status: req.query.status,
+      platform: req.query.platform,
+      dateFrom: req.query.dateFrom,
+      dateTo: req.query.dateTo,
+      search: req.query.search,
+      orderBy: req.query.orderBy,
+      order: req.query.order,
+    });
+    res.json(result);
+  } catch (err) {
+    logger.error('Error listing content', {
+      error: err.message,
+      userId: req.user.id,
+    });
+    res.status(500).json({ error: 'Failed to fetch content', details: err.message });
+  }
 });
 
 // Get content by id
 router.get('/:id', async (req, res) => {
-  const content = await Content.findOne({ where: { id: req.params.id, userId: req.user.id } });
-  if (!content) return res.status(404).json({ error: 'Not found' });
-  res.json(content);
+  try {
+    const content = await contentService.getContentById(req.params.id, req.user.id);
+    res.json(content);
+  } catch (err) {
+    if (err.message === 'Content not found') {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    logger.error('Error getting content', {
+      error: err.message,
+      userId: req.user.id,
+      contentId: req.params.id,
+    });
+    res.status(500).json({ error: 'Failed to fetch content', details: err.message });
+  }
 });
 
 // Update content
-router.put('/:id', validateBody(updateContentSchema), async (req, res) => {
-  const content = await Content.findOne({ where: { id: req.params.id, userId: req.user.id } });
-  if (!content) return res.status(404).json({ error: 'Not found' });
+router.put('/:id', validateBody(updateContentSchema), auditLog('content_updated', 'Content'), async (req, res) => {
   try {
-    const { mediaUrls, mediaItems, ...updateData } = req.body;
-    let filesData = content.files;
-    if (mediaItems && mediaItems.length >= 0) {
-      filesData = mediaItems.length > 0 ? { items: mediaItems } : null;
-    } else if (mediaUrls && mediaUrls.length >= 0) {
-      filesData = mediaUrls.length > 0 ? { items: mediaUrls.map((url) => ({ url })) } : null;
-    }
-    if (filesData !== undefined) {
-      updateData.files = filesData;
-    }
-    await content.update(updateData);
-    logger.info('Content updated', {
-      userId: req.user.id,
-      contentId: req.params.id
-    });
+    const content = await contentService.updateContent(req.params.id, req.user.id, req.body);
     res.json(content);
   } catch (err) {
+    if (err.message === 'Content not found') {
+      return res.status(404).json({ error: 'Not found' });
+    }
     logger.error('Error updating content', {
       error: err.message,
       userId: req.user.id,
@@ -125,11 +91,21 @@ router.put('/:id', validateBody(updateContentSchema), async (req, res) => {
 });
 
 // Delete content
-router.delete('/:id', async (req, res) => {
-  const content = await Content.findOne({ where: { id: req.params.id, userId: req.user.id } });
-  if (!content) return res.status(404).json({ error: 'Not found' });
-  await content.destroy();
-  res.json({ message: 'Deleted' });
+router.delete('/:id', auditLog('content_deleted', 'Content'), async (req, res) => {
+  try {
+    const result = await contentService.deleteContent(req.params.id, req.user.id);
+    res.json(result);
+  } catch (err) {
+    if (err.message === 'Content not found') {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    logger.error('Error deleting content', {
+      error: err.message,
+      userId: req.user.id,
+      contentId: req.params.id,
+    });
+    res.status(500).json({ error: 'Failed to delete content', details: err.message });
+  }
 });
 
 // Export content
