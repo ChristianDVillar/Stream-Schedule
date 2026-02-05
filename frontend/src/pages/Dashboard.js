@@ -234,7 +234,7 @@ const Dashboard = ({ user, token, ...props }) => {
     try {
       const data = await getTwitchSubs();
       if (!data.subscriptions || data.subscriptions.length === 0) {
-        toast.error('No hay suscriptores para descargar');
+        toast.error(t('dashboard.noSubsToDownload'));
         return;
       }
       
@@ -257,9 +257,9 @@ const Dashboard = ({ user, token, ...props }) => {
       link.remove();
       window.URL.revokeObjectURL(url);
       
-      toast.success('Lista de suscriptores descargada');
+      toast.success(t('dashboard.subsDownloaded'));
     } catch (error) {
-      toast.error('Error al descargar suscriptores');
+      toast.error(t('dashboard.errorDownloadingSubs'));
     }
   };
 
@@ -268,7 +268,7 @@ const Dashboard = ({ user, token, ...props }) => {
     try {
       const data = await getTwitchBits(bitsFormat);
       if (!data.bits || data.bits.length === 0) {
-        toast.error('No hay bits para descargar');
+        toast.error(t('dashboard.noBitsToDownload'));
         return;
       }
       
@@ -307,9 +307,9 @@ const Dashboard = ({ user, token, ...props }) => {
       link.remove();
       window.URL.revokeObjectURL(url);
       
-      toast.success(`Lista de bits (${bitsFormat === 'chronological' ? 'cronológico' : 'total'}) descargada`);
+      toast.success(t('dashboard.bitsDownloaded'));
     } catch (error) {
-      toast.error('Error al descargar bits');
+      toast.error(t('dashboard.errorDownloadingBits'));
     }
   };
 
@@ -318,7 +318,7 @@ const Dashboard = ({ user, token, ...props }) => {
     try {
       const data = await getTwitchDonations();
       if (!data.donations || data.donations.length === 0) {
-        toast.error('No hay donaciones para descargar');
+        toast.error(t('dashboard.noDonationsToDownload'));
         return;
       }
       
@@ -341,9 +341,9 @@ const Dashboard = ({ user, token, ...props }) => {
       link.remove();
       window.URL.revokeObjectURL(url);
       
-      toast.success('Lista de donaciones descargada');
+      toast.success(t('dashboard.donationsDownloaded'));
     } catch (error) {
-      toast.error('Error al descargar donaciones');
+      toast.error(t('dashboard.errorDownloadingDonations'));
     }
   };
 
@@ -504,7 +504,7 @@ const Dashboard = ({ user, token, ...props }) => {
                       <button
                         onClick={handleDownloadSubs}
                         className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                        title="Descargar lista de suscriptores"
+                        title={t('dashboard.downloadSubs')}
                       >
                         <Download className="w-4 h-4" />
                       </button>
@@ -526,20 +526,20 @@ const Dashboard = ({ user, token, ...props }) => {
                             onClick={() => setBitsFormat('chronological')}
                             className={`text-xs px-2 py-1 rounded ${bitsFormat === 'chronological' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'}`}
                           >
-                            Cronológico
+                            {t('dashboard.chronological')}
                           </button>
                           <button
                             onClick={() => setBitsFormat('total')}
                             className={`text-xs px-2 py-1 rounded ${bitsFormat === 'total' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'}`}
                           >
-                            Total
+                            {t('dashboard.total')}
                           </button>
                         </div>
                       </div>
                       <button
                         onClick={handleDownloadBits}
                         className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                        title={`Descargar bits (${bitsFormat === 'chronological' ? 'cronológico' : 'total'})`}
+                        title={bitsFormat === 'chronological' ? t('dashboard.downloadBitsChronological') : t('dashboard.downloadBitsTotal')}
                       >
                         <Download className="w-4 h-4" />
                       </button>
@@ -560,7 +560,7 @@ const Dashboard = ({ user, token, ...props }) => {
                       <button
                         onClick={handleDownloadDonations}
                         className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                        title="Descargar lista de donaciones"
+                        title={t('dashboard.downloadDonations')}
                       >
                         <Download className="w-4 h-4" />
                       </button>
