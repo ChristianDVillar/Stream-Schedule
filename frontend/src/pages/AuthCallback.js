@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   loginBackendWithSupabaseToken,
@@ -11,16 +11,12 @@ import {
 export default function AuthCallback({ setAuth }) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const handledRef = useRef(false);
 
   useEffect(() => {
     const run = async () => {
-      // Prevent navigation issues by cleaning up URL immediately
-      const currentUrl = window.location.href;
-      console.log('AuthCallback: Processing callback', { 
-        hash: window.location.hash?.substring(0, 50),
-        search: window.location.search?.substring(0, 50),
-        pathname: window.location.pathname
-      });
+      // Prevent double run (e.g. React Strict Mode): second run often sees hash already cleared
+      if (handledRef.current) return;
 
       // 1) Supabase OAuth callback: tokens in hash (#access_token=...)
       const hashParams = new URLSearchParams(window.location.hash?.substring(1) || '');
@@ -38,6 +34,7 @@ export default function AuthCallback({ setAuth }) {
       }
 
       if (accessToken) {
+        handledRef.current = true;
         const linkMode = getOAuthLinkMode();
         if (linkMode === 'google') {
           try {
@@ -100,8 +97,8 @@ export default function AuthCallback({ setAuth }) {
       }
 
       if (token && userParam) {
+        handledRef.current = true;
         try {
-          console.log('Processing Passport OAuth callback', { hasToken: !!token, hasUser: !!userParam });
           const user = JSON.parse(decodeURIComponent(userParam));
           setAuth(user, token);
           
