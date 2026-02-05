@@ -79,16 +79,6 @@ export async function publishContent(content) {
 
   if (hasDiscord && channelId) {
     try {
-      // Construir mensaje: Título (negrita) + Contenido/Comentario
-      // Los archivos/media se adjuntan automáticamente después
-      const parts = [];
-      if (content.title) {
-        parts.push(`**${content.title}**`);
-      }
-      if (content.content) {
-        parts.push(content.content);
-      }
-      const message = parts.join('\n\n') || '';
       const rawItems = content.files?.items ?? (content.files?.urls ? content.files.urls.map((u) => ({ url: u })) : []) ?? [];
       logger.info('Scheduler: publishing content', {
         contentId: content.id,
@@ -98,11 +88,24 @@ export async function publishContent(content) {
       });
       const items = rawItems.length > 0 ? await resolveMediaUrls(rawItems) : [];
       logger.info('Scheduler: resolved media', { contentId: content.id, resolvedCount: items.length, resolvedHasUrls: items.every((i) => i?.url) });
+      
+      // Enviar en orden: 1) Título, 2) Media (archivos), 3) Contenido
+      // Paso 1: Enviar título primero (si existe)
+      if (content.title) {
+        await postToDiscordChannel(channelId, `**${content.title}**`);
+      }
+      
+      // Paso 2: Enviar archivos/media (si hay archivos)
       const hasAttachments = items.length > 0;
       if (hasAttachments) {
-        await postToDiscordChannelWithAttachments(channelId, message, items);
-      } else {
-        await postToDiscordChannel(channelId, message);
+        // Enviar archivos con texto mínimo (Discord requiere texto o archivos)
+        // Usamos un espacio invisible o emoji para que los archivos aparezcan primero visualmente
+        await postToDiscordChannelWithAttachments(channelId, '\u200b', items); // \u200b = zero-width space
+      }
+      
+      // Paso 3: Enviar contenido (si hay contenido)
+      if (content.content) {
+        await postToDiscordChannel(channelId, content.content);
       }
       logger.info('Scheduled content published to Discord', {
         contentId: content.id,
