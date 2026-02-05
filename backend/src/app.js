@@ -43,31 +43,17 @@ app.use((req, res, next) => {
 });
 const jwtSecret = process.env.JWT_SECRET || 'dev-jwt-secret';
 
-// CORS: allow FRONTEND_URL (single) or FRONTEND_URLS (comma-separated). Default localhost for dev.
-const corsOriginConfig = (() => {
-  const urls = process.env.FRONTEND_URLS
-    ? process.env.FRONTEND_URLS.split(',').map((u) => u.trim()).filter(Boolean)
-    : process.env.FRONTEND_URL
-      ? [process.env.FRONTEND_URL.trim()]
-      : ['http://localhost:3000'];
-  return (origin, cb) => {
-    if (!origin) return cb(null, true);
-    if (urls.includes(origin)) return cb(null, origin);
-    return cb(null, false);
-  };
-})();
-
 // CORS must be before rate limiter to ensure CORS headers are sent even on rate limit errors
 // Handle preflight OPTIONS requests first
 app.options('*', cors({
-  origin: corsOriginConfig,
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
 }));
 
-app.use(cors({
-  origin: corsOriginConfig,
+app.use(cors({ 
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
