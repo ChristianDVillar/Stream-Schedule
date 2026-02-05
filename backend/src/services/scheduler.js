@@ -79,7 +79,16 @@ export async function publishContent(content) {
 
   if (hasDiscord && channelId) {
     try {
-      const message = (content.title ? `**${content.title}**\n\n` : '') + (content.content || '');
+      // Construir mensaje: Título (negrita) + Contenido/Comentario
+      // Los archivos/media se adjuntan automáticamente después
+      const parts = [];
+      if (content.title) {
+        parts.push(`**${content.title}**`);
+      }
+      if (content.content) {
+        parts.push(content.content);
+      }
+      const message = parts.join('\n\n') || '';
       const rawItems = content.files?.items ?? (content.files?.urls ? content.files.urls.map((u) => ({ url: u })) : []) ?? [];
       logger.info('Scheduler: publishing content', {
         contentId: content.id,
