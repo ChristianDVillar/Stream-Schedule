@@ -877,14 +877,29 @@ router.post('/login', validateBody(loginSchema), async (req, res) => {
 
 /** GET /connected-accounts - which OAuth providers and email are linked to the current user. Exported for explicit registration in app.js if needed. */
 export async function connectedAccountsHandler(req, res) {
+  const userId = req.user?.id;
+  logger.debug('Get connected accounts request', { userId, ip: req.ip });
+  
   try {
-    const user = await User.findByPk(req.user.id, {
+    const user = await User.findByPk(userId, {
       attributes: ['googleId', 'twitchId', 'discordId', 'passwordHash', 'oauthProvider', 'oauthId', 'discordAccessToken', 'discordRefreshToken'],
     });
     if (!user) {
+      logger.warn('Connected accounts: User not found', { userId });
       return res.status(404).json({ error: 'User not found' });
     }
     const u = user.get ? user.get({ plain: true }) : user;
+    
+    logger.debug('Connected accounts: User data retrieved', {
+      userId,
+      hasGoogleId: !!u.googleId,
+      hasTwitchId: !!u.twitchId,
+      hasDiscordId: !!u.discordId,
+      hasPassword: !!u.passwordHash,
+      oauthProvider: u.oauthProvider,
+      oauthId: u.oauthId,
+      hasDiscordToken: !!(u.discordAccessToken || u.discordRefreshToken)
+    });
     
     // Check if Discord is connected: must have discordId AND (discordAccessToken OR discordRefreshToken)
     // This ensures Discord is only shown as connected if it can actually be used (has tokens)
@@ -893,14 +908,27 @@ export async function connectedAccountsHandler(req, res) {
     const googleConnected = !!(u.googleId || (u.oauthProvider === 'google' && u.oauthId));
     const twitchConnected = !!(u.twitchId || (u.oauthProvider === 'twitch' && u.oauthId));
     
-    res.json({
+    const result = {
       google: googleConnected,
       twitch: twitchConnected,
       discord: discordConnected,
       email: !!u.passwordHash,
-    });
+    };
+    
+    logger.debug('Connected accounts: Result', { userId, ...result });
+    
+    res.json(result);
   } catch (err) {
-    logger.error('Connected accounts error', { error: err.message });
+    logger.error('Connected accounts error', { 
+      error: err.message,
+      stack: err.stack,
+      userId,
+      name: err.name,
+      code: err.code,
+      sqlState: err.sqlState,
+      sqlMessage: err.sqlMessage
+    });
+    console.error('Connected accounts - Full error details:', err);
     res.status(500).json({ error: 'Server error' });
   }
 }
@@ -914,61 +942,118 @@ function hasAnyLoginMethod(u) {
 
 /** POST /disconnect-google - remove Google from current account. */
 router.post('/disconnect-google', requireAuth, async (req, res) => {
+  const userId = req.user?.id;
+  logger.info('Disconnect Google request', { userId, ip: req.ip });
+  
   try {
-    const user = await User.findByPk(req.user.id, { attributes: ['id', 'googleId', 'twitchId', 'discordId', 'passwordHash', 'oauthProvider', 'oauthId'] });
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    if (!user.googleId) return res.status(400).json({ error: 'Google is not connected' });
+    const user = await User.findByPk(userId, { attributes: ['id', 'googleId', 'twitchId', 'discordId', 'passwordHash', 'oauthProvider', 'oauthId'] });
+    if (!user) {
+      logger.warn('Disconnect Google: User not found', { userId });
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (!user.googleId) {
+      logger.warn('Disconnect Google: Google not connected', { userId });
+      return res.status(400).json({ error: 'Google is not connected' });
+    }
     const u = user.get ? user.get({ plain: true }) : user;
     u.googleId = null;
-    if (!hasAnyLoginMethod(u)) return res.status(400).json({ error: 'You must keep at least one sign-in method' });
+    if (!hasAnyLoginMethod(u)) {
+      logger.warn('Disconnect Google: Would leave user without login method', { userId });
+      return res.status(400).json({ error: 'You must keep at least one sign-in method' });
+    }
     user.googleId = null;
     if (user.oauthProvider === 'google') {
       user.oauthProvider = user.twitchId ? 'twitch' : user.discordId ? 'discord' : null;
       user.oauthId = user.twitchId || user.discordId || null;
     }
     await user.save();
+    logger.info('Google disconnected successfully', { userId });
     res.json({ message: 'Google disconnected' });
   } catch (err) {
-    logger.error('Disconnect Google error', { error: err.message });
+    logger.error('Disconnect Google error', { 
+      error: err.message,
+      stack: err.stack,
+      userId,
+      name: err.name,
+      code: err.code,
+      sqlState: err.sqlState,
+      sqlMessage: err.sqlMessage
+    });
+    console.error('Disconnect Google - Full error details:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
 /** POST /disconnect-twitch - remove Twitch from current account. */
 router.post('/disconnect-twitch', requireAuth, async (req, res) => {
+  const userId = req.user?.id;
+  logger.info('Disconnect Twitch request', { userId, ip: req.ip });
+  
   try {
-    const user = await User.findByPk(req.user.id, { attributes: ['id', 'googleId', 'twitchId', 'discordId', 'passwordHash', 'oauthProvider', 'oauthId'] });
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    if (!user.twitchId) return res.status(400).json({ error: 'Twitch is not connected' });
+    const user = await User.findByPk(userId, { attributes: ['id', 'googleId', 'twitchId', 'discordId', 'passwordHash', 'oauthProvider', 'oauthId'] });
+    if (!user) {
+      logger.warn('Disconnect Twitch: User not found', { userId });
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (!user.twitchId) {
+      logger.warn('Disconnect Twitch: Twitch not connected', { userId });
+      return res.status(400).json({ error: 'Twitch is not connected' });
+    }
     const u = user.get ? user.get({ plain: true }) : user;
     u.twitchId = null;
-    if (!hasAnyLoginMethod(u)) return res.status(400).json({ error: 'You must keep at least one sign-in method' });
+    if (!hasAnyLoginMethod(u)) {
+      logger.warn('Disconnect Twitch: Would leave user without login method', { userId });
+      return res.status(400).json({ error: 'You must keep at least one sign-in method' });
+    }
     user.twitchId = null;
     if (user.oauthProvider === 'twitch') {
       user.oauthProvider = user.googleId ? 'google' : user.discordId ? 'discord' : null;
       user.oauthId = user.googleId || user.discordId || null;
     }
     await user.save();
+    logger.info('Twitch disconnected successfully', { userId });
     res.json({ message: 'Twitch disconnected' });
   } catch (err) {
-    logger.error('Disconnect Twitch error', { error: err.message });
+    logger.error('Disconnect Twitch error', { 
+      error: err.message,
+      stack: err.stack,
+      userId,
+      name: err.name,
+      code: err.code,
+      sqlState: err.sqlState,
+      sqlMessage: err.sqlMessage
+    });
+    console.error('Disconnect Twitch - Full error details:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
 /** POST /disconnect-discord - remove Discord from current account. */
 router.post('/disconnect-discord', requireAuth, async (req, res) => {
+  const userId = req.user?.id;
+  logger.info('Disconnect Discord request', { userId, ip: req.ip });
+  
   try {
-    const user = await User.findByPk(req.user.id, { attributes: ['id', 'googleId', 'twitchId', 'discordId', 'passwordHash', 'oauthProvider', 'oauthId', 'discordAccessToken', 'discordRefreshToken'] });
+    const user = await User.findByPk(userId, { attributes: ['id', 'googleId', 'twitchId', 'discordId', 'passwordHash', 'oauthProvider', 'oauthId', 'discordAccessToken', 'discordRefreshToken'] });
     if (!user) {
-      logger.warn('Disconnect Discord: User not found', { userId: req.user.id });
+      logger.warn('Disconnect Discord: User not found', { userId });
       return res.status(404).json({ error: 'User not found' });
     }
+    
+    logger.debug('Disconnect Discord: User data retrieved', {
+      userId: user.id,
+      hasDiscordId: !!user.discordId,
+      hasDiscordToken: !!(user.discordAccessToken || user.discordRefreshToken),
+      oauthProvider: user.oauthProvider,
+      hasGoogleId: !!user.googleId,
+      hasTwitchId: !!user.twitchId,
+      hasPassword: !!user.passwordHash
+    });
     
     const hasDiscord = user.discordId || (user.oauthProvider === 'discord' && user.oauthId);
     if (!hasDiscord) {
       logger.warn('Disconnect Discord: Discord not connected', { 
-        userId: req.user.id,
+        userId: user.id,
         discordId: user.discordId,
         oauthProvider: user.oauthProvider,
         oauthId: user.oauthId
@@ -991,7 +1076,7 @@ router.post('/disconnect-discord', requireAuth, async (req, res) => {
     const hasLoginMethod = hasAnyLoginMethod(u);
     if (!hasLoginMethod) {
       logger.warn('Disconnect Discord: Would leave user without login method', {
-        userId: req.user.id,
+        userId: user.id,
         googleId: user.googleId,
         twitchId: user.twitchId,
         passwordHash: !!user.passwordHash,
@@ -1019,16 +1104,23 @@ router.post('/disconnect-discord', requireAuth, async (req, res) => {
       }
     }
     
+    logger.debug('Disconnect Discord: Saving user changes', {
+      userId: user.id,
+      newOauthProvider: user.oauthProvider,
+      newOauthId: user.oauthId,
+      discordIdCleared: !user.discordId
+    });
+    
     await user.save();
     
     // Verify the disconnect worked
-    const savedUser = await User.findByPk(req.user.id, {
+    const savedUser = await User.findByPk(userId, {
       attributes: ['discordId', 'oauthProvider', 'oauthId', 'googleId', 'twitchId']
     });
     const stillConnected = savedUser.discordId || (savedUser.oauthProvider === 'discord' && savedUser.oauthId);
     if (stillConnected) {
       logger.error('Discord disconnect verification failed - Discord still appears connected', { 
-        userId: req.user.id,
+        userId,
         discordId: savedUser.discordId,
         oauthProvider: savedUser.oauthProvider,
         oauthId: savedUser.oauthId,
@@ -1044,9 +1136,19 @@ router.post('/disconnect-discord', requireAuth, async (req, res) => {
       await savedUser.save();
     }
     
+    logger.info('Discord disconnected successfully', { userId });
     res.json({ message: 'Discord disconnected' });
   } catch (err) {
-    logger.error('Disconnect Discord error', { error: err.message });
+    logger.error('Disconnect Discord error', { 
+      error: err.message,
+      stack: err.stack,
+      userId,
+      name: err.name,
+      code: err.code,
+      sqlState: err.sqlState,
+      sqlMessage: err.sqlMessage
+    });
+    console.error('Disconnect Discord - Full error details:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
