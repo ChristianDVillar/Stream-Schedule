@@ -36,14 +36,40 @@ const consoleFormat = winston.format.combine(
   })
 );
 
+// Production console format (readable but includes stack traces)
+const productionConsoleFormat = winston.format.combine(
+  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+  winston.format.errors({ stack: true }),
+  winston.format.printf(({ timestamp, level, message, stack, ...meta }) => {
+    let msg = `${timestamp} [${level.toUpperCase()}]: ${message}`;
+    if (stack) {
+      msg += `\n${stack}`;
+    }
+    if (Object.keys(meta).length > 0) {
+      // Filter out empty values for cleaner output
+      const cleanMeta = Object.fromEntries(
+        Object.entries(meta).filter(([_, v]) => v !== undefined && v !== null)
+      );
+      if (Object.keys(cleanMeta).length > 0) {
+        msg += `\n${JSON.stringify(cleanMeta, null, 2)}`;
+      }
+    }
+    return msg;
+  })
+);
+
 // Create transports array
 const transports = [];
 
 // Console transport (always enabled)
+// In production, use readable format for Render logs; in development use colored format
 transports.push(
   new winston.transports.Console({
-    format: nodeEnv === 'production' ? logFormat : consoleFormat,
-    level: logLevel
+    format: nodeEnv === 'production' ? productionConsoleFormat : consoleFormat,
+    level: logLevel,
+    // Ensure errors are always shown
+    handleExceptions: true,
+    handleRejections: true
   })
 );
 
