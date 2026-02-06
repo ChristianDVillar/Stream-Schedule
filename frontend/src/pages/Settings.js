@@ -472,10 +472,10 @@ const Settings = ({ user, token, setUser }) => {
     return (
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Profile Information</h3>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Profile Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Username <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -483,15 +483,15 @@ const Settings = ({ user, token, setUser }) => {
                     type="text"
                     value={profileData.username}
                     onChange={(e) => setProfileData(prev => ({ ...prev, username: e.target.value }))}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      errors.username ? 'border-red-500' : 'border-gray-300'
+                    className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors.username ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                     }`}
                   />
-                  {errors.username && <p className="mt-1 text-sm text-red-600">{errors.username}</p>}
+                  {errors.username && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.username}</p>}
                 </div>
                 
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Email <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -499,16 +499,16 @@ const Settings = ({ user, token, setUser }) => {
                     type="email"
                     value={profileData.email}
                     onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      errors.email ? 'border-red-500' : 'border-gray-300'
+                    className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                     }`}
                   />
-                  {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
+                  {errors.email && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email}</p>}
                 </div>
               </div>
               
               <div className="mt-6">
-                <label htmlFor="bio" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="bio" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Bio
                 </label>
                 <textarea
@@ -516,13 +516,13 @@ const Settings = ({ user, token, setUser }) => {
                   rows={4}
                   value={profileData.bio}
                   onChange={(e) => setProfileData(prev => ({ ...prev, bio: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   placeholder="Tell us about yourself..."
                 />
               </div>
 
               <div className="mt-6">
-                <label htmlFor="merchandisingLink" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="merchandisingLink" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Link de Página de Merchandising
                 </label>
                 <input
@@ -530,22 +530,22 @@ const Settings = ({ user, token, setUser }) => {
                   type="url"
                   value={profileData.merchandisingLink}
                   onChange={(e) => setProfileData(prev => ({ ...prev, merchandisingLink: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="https://ejemplo.com/tienda"
                 />
-                <p className="mt-1 text-sm text-gray-500">Agrega el link de tu página de merchandising</p>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Agrega el link de tu página de merchandising</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <div>
-                  <label htmlFor="timezone" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="timezone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Timezone
                   </label>
                   <select
                     id="timezone"
                     value={profileData.timezone}
                     onChange={(e) => setProfileData(prev => ({ ...prev, timezone: e.target.value }))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     {timezones.map(tz => (
                       <option key={tz} value={tz}>{tz}</option>
@@ -554,14 +554,14 @@ const Settings = ({ user, token, setUser }) => {
                 </div>
                 
                 <div>
-                  <label htmlFor="language" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="language" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Language
                   </label>
                   <select
                     id="language"
                     value={profileData.language}
                     onChange={(e) => setProfileData(prev => ({ ...prev, language: e.target.value }))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     {languages.map(lang => (
                       <option key={lang.code} value={lang.code}>{lang.name}</option>
@@ -615,18 +615,18 @@ const Settings = ({ user, token, setUser }) => {
       case 'notifications':
   return (
           <div className="space-y-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Notification Preferences</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Notification Preferences</h3>
             
             <div className="space-y-4">
               {Object.entries(notificationSettings).map(([key, value]) => (
-                <div key={key} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div key={key} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                   <div className="flex items-center space-x-3">
-                    <Bell className="w-5 h-5 text-gray-600" />
+                    <Bell className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                     <div>
-                      <h4 className="text-sm font-medium text-gray-900">
+                      <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                       </h4>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
                         Receive notifications for {key.toLowerCase().replace(/([A-Z])/g, ' $1')}
                       </p>
                     </div>
@@ -634,7 +634,7 @@ const Settings = ({ user, token, setUser }) => {
             <button
                     onClick={() => setNotificationSettings(prev => ({ ...prev, [key]: !value }))}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      value ? 'bg-blue-600' : 'bg-gray-200'
+                      value ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
                     }`}
                   >
                     <span
@@ -727,14 +727,14 @@ const Settings = ({ user, token, setUser }) => {
       case 'security':
         return (
           <div className="space-y-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Security Settings</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Security Settings</h3>
             
             <div className="space-y-6">
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <h4 className="text-sm font-medium text-gray-900 mb-4">Change Password</h4>
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4">Change Password</h4>
                 <div className="space-y-4">
                   <div>
-                    <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Current Password
                     </label>
                     <input
@@ -742,13 +742,13 @@ const Settings = ({ user, token, setUser }) => {
                       type="password"
                       value={securityData.currentPassword}
                       onChange={(e) => setSecurityData(prev => ({ ...prev, currentPassword: e.target.value }))}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                      <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         New Password
                       </label>
                       <input
@@ -756,12 +756,12 @@ const Settings = ({ user, token, setUser }) => {
                         type="password"
                         value={securityData.newPassword}
                         onChange={(e) => setSecurityData(prev => ({ ...prev, newPassword: e.target.value }))}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
                     
                     <div>
-                      <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                      <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Confirm New Password
                       </label>
                       <input
@@ -769,7 +769,7 @@ const Settings = ({ user, token, setUser }) => {
                         type="password"
                         value={securityData.confirmPassword}
                         onChange={(e) => setSecurityData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
                   </div>
@@ -784,20 +784,20 @@ const Settings = ({ user, token, setUser }) => {
                 </div>
               </div>
 
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <h4 className="text-sm font-medium text-gray-900 mb-4">Two-Factor Authentication</h4>
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4">Two-Factor Authentication</h4>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <Lock className="w-5 h-5 text-gray-600" />
+                    <Lock className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Enable 2FA</p>
-                      <p className="text-sm text-gray-600">Add an extra layer of security to your account</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Enable 2FA</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Add an extra layer of security to your account</p>
                         </div>
                   </div>
                   <button
                     onClick={() => setSecurityData(prev => ({ ...prev, twoFactorEnabled: !prev.twoFactorEnabled }))}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      securityData.twoFactorEnabled ? 'bg-blue-600' : 'bg-gray-200'
+                      securityData.twoFactorEnabled ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
                     }`}
                   >
                     <span
@@ -815,11 +815,11 @@ const Settings = ({ user, token, setUser }) => {
       case 'appearance':
         return (
           <div className="space-y-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Appearance Settings</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Appearance Settings</h3>
             
             <div className="space-y-6">
               <div>
-                <h4 className="text-sm font-medium text-gray-900 mb-4">Theme</h4>
+                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4">Theme</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {themes.map((theme) => (
                     <button
@@ -827,19 +827,19 @@ const Settings = ({ user, token, setUser }) => {
                       onClick={() => setThemeSettings(prev => ({ ...prev, theme: theme.id }))}
                       className={`p-4 border-2 rounded-lg text-left transition-all ${
                         themeSettings.theme === theme.id
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-300 hover:border-gray-400'
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                          : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
                       }`}
                     >
                       <div className={`w-full h-16 rounded ${theme.preview} mb-2`}></div>
-                      <p className="text-sm font-medium text-gray-900">{theme.name}</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{theme.name}</p>
                     </button>
                   ))}
                 </div>
             </div>
             
               <div>
-                <h4 className="text-sm font-medium text-gray-900 mb-4">Accent Color</h4>
+                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4">Accent Color</h4>
                 <div className="flex space-x-3">
                   {accentColors.map((color) => (
                     <button
@@ -847,26 +847,26 @@ const Settings = ({ user, token, setUser }) => {
                       onClick={() => setThemeSettings(prev => ({ ...prev, accentColor: color.id }))}
                       className={`w-10 h-10 rounded-full ${color.color} border-2 transition-all ${
                         themeSettings.accentColor === color.id
-                          ? 'border-gray-900 scale-110'
-                          : 'border-white hover:scale-105'
+                          ? 'border-gray-900 dark:border-gray-100 scale-110'
+                          : 'border-white dark:border-gray-700 hover:scale-105'
                       }`}
                     />
                   ))}
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <div className="flex items-center space-x-3">
-                  <Palette className="w-5 h-5 text-gray-600" />
+                  <Palette className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Compact Mode</p>
-                    <p className="text-sm text-gray-600">Reduce spacing for more content</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Compact Mode</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Reduce spacing for more content</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setThemeSettings(prev => ({ ...prev, compactMode: !prev.compactMode }))}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    themeSettings.compactMode ? 'bg-blue-600' : 'bg-gray-200'
+                    themeSettings.compactMode ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
                   }`}
                 >
                   <span
@@ -883,15 +883,15 @@ const Settings = ({ user, token, setUser }) => {
       case 'data':
         return (
           <div className="space-y-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Data & Export</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Data & Export</h3>
             
             <div className="space-y-6">
-              <div className="p-4 bg-blue-50 rounded-lg">
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <div className="flex items-start space-x-3">
-                  <Download className="w-5 h-5 text-blue-600 mt-0.5" />
+                  <Download className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
                   <div>
-                    <h4 className="text-sm font-medium text-blue-900 mb-2">Export Your Data</h4>
-                    <p className="text-sm text-blue-800 mb-4">
+                    <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">Export Your Data</h4>
+                    <p className="text-sm text-blue-800 dark:text-blue-200 mb-4">
                       Download all your content, settings, and account data in JSON format.
                     </p>
                     <button
@@ -905,12 +905,12 @@ const Settings = ({ user, token, setUser }) => {
                 </div>
               </div>
 
-              <div className="p-4 bg-red-50 rounded-lg">
+              <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
                 <div className="flex items-start space-x-3">
-                  <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
+                  <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
               <div>
-                    <h4 className="text-sm font-medium text-red-900 mb-2">Danger Zone</h4>
-                    <p className="text-sm text-red-800 mb-4">
+                    <h4 className="text-sm font-medium text-red-900 dark:text-red-100 mb-2">Danger Zone</h4>
+                    <p className="text-sm text-red-800 dark:text-red-200 mb-4">
                       Once you delete your account, there is no going back. Please be certain.
                     </p>
                     <button
@@ -930,35 +930,35 @@ const Settings = ({ user, token, setUser }) => {
       case 'billing':
         return (
           <div className="space-y-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Licenses & Billing</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Licenses & Billing</h3>
 
             {/* Payment Configuration Status */}
             {paymentConfig && (
               <div className={`p-4 rounded-lg ${
                 paymentConfig.paymentEnabled 
                   ? (paymentConfig.automaticProcessingEnabled 
-                      ? 'bg-green-50 border border-green-200' 
-                      : 'bg-yellow-50 border border-yellow-200')
-                  : 'bg-red-50 border border-red-200'
+                      ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' 
+                      : 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800')
+                  : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
               }`}>
                 <div className="flex items-start space-x-3">
                   <AlertTriangle className={`w-5 h-5 mt-0.5 ${
                     paymentConfig.paymentEnabled 
-                      ? (paymentConfig.automaticProcessingEnabled ? 'text-green-600' : 'text-yellow-600')
-                      : 'text-red-600'
+                      ? (paymentConfig.automaticProcessingEnabled ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400')
+                      : 'text-red-600 dark:text-red-400'
                   }`} />
                   <div className="flex-1">
                     <h4 className={`text-sm font-medium mb-1 ${
                       paymentConfig.paymentEnabled 
-                        ? (paymentConfig.automaticProcessingEnabled ? 'text-green-900' : 'text-yellow-900')
-                        : 'text-red-900'
+                        ? (paymentConfig.automaticProcessingEnabled ? 'text-green-900 dark:text-green-100' : 'text-yellow-900 dark:text-yellow-100')
+                        : 'text-red-900 dark:text-red-100'
                     }`}>
                       Estado de Pagos: {paymentConfig.paymentEnabled ? 'Habilitado' : 'Deshabilitado'}
                     </h4>
                     <p className={`text-sm ${
                       paymentConfig.paymentEnabled 
-                        ? (paymentConfig.automaticProcessingEnabled ? 'text-green-800' : 'text-yellow-800')
-                        : 'text-red-800'
+                        ? (paymentConfig.automaticProcessingEnabled ? 'text-green-800 dark:text-green-200' : 'text-yellow-800 dark:text-yellow-200')
+                        : 'text-red-800 dark:text-red-200'
                     }`}>
                       {paymentConfig.message}
                       {paymentConfig.manualVerificationRequired && (
@@ -972,10 +972,10 @@ const Settings = ({ user, token, setUser }) => {
               </div>
             )}
 
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <h4 className="text-sm font-medium text-gray-900 mb-2">Current License</h4>
+            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Current License</h4>
               {licenseInfo ? (
-                <div className="space-y-1 text-sm text-gray-700">
+                <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
                   <p>
                     Tipo:{' '}
                     {licenseInfo.licenseType === 'lifetime' && 'De por vida'}
@@ -987,27 +987,27 @@ const Settings = ({ user, token, setUser }) => {
                   </p>
                   <p>Expira: {licenseInfo.licenseExpiresAt ? new Date(licenseInfo.licenseExpiresAt).toLocaleDateString() : '—'}</p>
                   {licenseInfo.licenseAlert === '7_days' && (
-                    <p className="text-yellow-700 font-medium">Alerta: tu licencia vence en 7 días.</p>
+                    <p className="text-yellow-700 dark:text-yellow-400 font-medium">Alerta: tu licencia vence en 7 días.</p>
                   )}
                   {licenseInfo.licenseAlert === '3_days' && (
-                    <p className="text-red-700 font-medium">Alerta: tu licencia vence en 3 días.</p>
+                    <p className="text-red-700 dark:text-red-400 font-medium">Alerta: tu licencia vence en 3 días.</p>
                   )}
                   {licenseInfo.licenseAlert === 'expired' && (
-                    <p className="text-red-700 font-medium">Tu licencia está vencida.</p>
+                    <p className="text-red-700 dark:text-red-400 font-medium">Tu licencia está vencida.</p>
                   )}
                 </div>
               ) : (
-                <p className="text-sm text-gray-600">No se pudo cargar el estado de la licencia.</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">No se pudo cargar el estado de la licencia.</p>
               )}
             </div>
 
             {/* Subscription Status */}
             {subscriptionStatus?.hasSubscription && (
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h4 className="text-sm font-medium text-blue-900 mb-2">Active Subscription</h4>
-                    <div className="space-y-1 text-sm text-blue-800">
+                    <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">Active Subscription</h4>
+                    <div className="space-y-1 text-sm text-blue-800 dark:text-blue-200">
                       <p>
                         Status: <span className="font-medium capitalize">{subscriptionStatus.subscription.status}</span>
                       </p>
@@ -1015,7 +1015,7 @@ const Settings = ({ user, token, setUser }) => {
                         Current Period: {new Date(subscriptionStatus.subscription.currentPeriodStart).toLocaleDateString()} - {new Date(subscriptionStatus.subscription.currentPeriodEnd).toLocaleDateString()}
                       </p>
                       {subscriptionStatus.subscription.cancelAtPeriodEnd && (
-                        <p className="text-yellow-700 font-medium">
+                        <p className="text-yellow-700 dark:text-yellow-400 font-medium">
                           ⚠️ Subscription will cancel at end of period
                         </p>
                       )}
@@ -1035,33 +1035,33 @@ const Settings = ({ user, token, setUser }) => {
             )}
 
             {/* Payment History */}
-            <div className="p-4 bg-white rounded-lg border">
-              <h4 className="text-sm font-medium text-gray-900 mb-4">Payment History</h4>
+            <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+              <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4">Payment History</h4>
               {paymentHistory.length > 0 ? (
                 <div className="space-y-3">
                   {paymentHistory.map((payment) => (
-                    <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                       <div className="flex-1">
                         <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium text-gray-900 capitalize">{payment.licenseType}</span>
+                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100 capitalize">{payment.licenseType}</span>
                           {payment.isRecurring && (
-                            <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded">Recurring</span>
+                            <span className="px-2 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 rounded">Recurring</span>
                           )}
                           <span className={`px-2 py-0.5 text-xs rounded capitalize ${
-                            payment.status === 'completed' ? 'bg-green-100 text-green-800' :
-                            payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            payment.status === 'failed' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
+                            payment.status === 'completed' ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300' :
+                            payment.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300' :
+                            payment.status === 'failed' ? 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300' :
+                            'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
                           }`}>
                             {payment.status}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-600 mt-1">
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                           {payment.paidAt ? new Date(payment.paidAt).toLocaleDateString() : new Date(payment.createdAt).toLocaleDateString()}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           {payment.currency} ${payment.amount}
                         </p>
                       </div>
@@ -1069,15 +1069,15 @@ const Settings = ({ user, token, setUser }) => {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-600">No payment history available</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">No payment history available</p>
               )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {availableLicenses.monthly && (
-                <div className="p-4 bg-white rounded-lg border">
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Monthly Subscription</h4>
-                  <p className="text-sm text-gray-600 mb-4">Recurring monthly license with automatic renewal.</p>
+                <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Monthly Subscription</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Recurring monthly license with automatic renewal.</p>
                   <button
                     onClick={() => handlePurchase('monthly')}
                     disabled={billingLoading}
@@ -1088,9 +1088,9 @@ const Settings = ({ user, token, setUser }) => {
                 </div>
               )}
               {availableLicenses.quarterly && (
-                <div className="p-4 bg-white rounded-lg border">
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Quarterly Subscription</h4>
-                  <p className="text-sm text-gray-600 mb-4">Recurring every 3 months: $4.66/month (total $13.98).</p>
+                <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Quarterly Subscription</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Recurring every 3 months: $4.66/month (total $13.98).</p>
                   <button
                     onClick={() => handlePurchase('quarterly')}
                     disabled={billingLoading}
@@ -1101,9 +1101,9 @@ const Settings = ({ user, token, setUser }) => {
                 </div>
               )}
               {availableLicenses.lifetime && (
-                <div className="p-4 bg-white rounded-lg border">
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Lifetime License</h4>
-                  <p className="text-sm text-gray-600 mb-4">One-time payment for unlimited access.</p>
+                <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Lifetime License</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">One-time payment for unlimited access.</p>
                   <button
                     onClick={() => handlePurchase('lifetime')}
                     disabled={billingLoading}
@@ -1162,7 +1162,7 @@ const Settings = ({ user, token, setUser }) => {
               
               {/* Save buttons for applicable tabs */}
               {['profile', 'notifications'].includes(activeTab) && (
-                <div className="mt-8 pt-6 border-t border-gray-200">
+                <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
                   <button
                     onClick={
                       activeTab === 'profile' ? handleProfileSave :
