@@ -67,10 +67,10 @@ export default function AdminDashboard({ token, user, onLogout }) {
   const handleUpdateLicenseConfig = async () => {
     try {
       await updateLicenseConfig({ availableLicenseTypes: licenseConfig, token });
-      alert('License configuration updated successfully!');
+      alert(t('admin.licenseConfigUpdated'));
       setShowLicenseConfig(false);
     } catch (err) {
-      alert('Error updating license configuration');
+      alert(t('admin.licenseConfigError'));
     }
   };
 
@@ -136,19 +136,19 @@ export default function AdminDashboard({ token, user, onLogout }) {
   async function handleExtendTrial(userId) {
     const days = extendTrialDays[userId] || 7;
     if (days < 1 || days > 7) {
-      window.alert('Los días deben estar entre 1 y 7');
+      window.alert(t('admin.daysMustBe1To7'));
       return;
     }
     
     setExtendingTrial(userId);
     try {
       const response = await adminExtendTrial({ userId, days, token });
-      window.alert(response.data.message || 'Trial extendido exitosamente');
+      window.alert(response.data.message || t('admin.trialExtendedSuccess'));
       setExtendTrialDays(prev => ({ ...prev, [userId]: 7 }));
       setExtendingTrial(null);
       await fetchUsers();
     } catch (err) {
-      const errorMsg = err.response?.data?.error || 'Error al extender el trial';
+      const errorMsg = err.response?.data?.error || t('admin.trialExtendError');
       window.alert(errorMsg);
       setExtendingTrial(null);
     }
@@ -180,9 +180,9 @@ export default function AdminDashboard({ token, user, onLogout }) {
     setResetting(userId);
     try {
       await adminResetPassword({ userId, token });
-      alert('Password reset successful. The new password has been sent to the user via secure channel.');
+      alert(t('admin.passwordResetSent'));
     } catch (err) {
-      alert('Error resetting password');
+      alert(t('admin.passwordResetError'));
     }
     setResetting(null);
   }
@@ -617,7 +617,12 @@ export default function AdminDashboard({ token, user, onLogout }) {
                             ✉️ Email
                           </span>
                         )}
-                        {(!u.connectedPlatforms?.google && !u.connectedPlatforms?.twitch && !u.connectedPlatforms?.discord && !u.connectedPlatforms?.email) && (
+                        {u.connectedPlatforms?.twitter && (
+                          <span className="px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 rounded border border-gray-300 dark:border-gray-600" title="X (Twitter)">
+                            𝕏 X
+                          </span>
+                        )}
+                        {(!u.connectedPlatforms?.google && !u.connectedPlatforms?.twitch && !u.connectedPlatforms?.discord && !u.connectedPlatforms?.twitter && !u.connectedPlatforms?.email) && (
                           <span className="text-gray-400 text-xs">—</span>
                         )}
                       </div>
