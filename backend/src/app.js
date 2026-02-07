@@ -35,6 +35,9 @@ dotenv.config();
 const app = express();
 const nodeEnv = process.env.NODE_ENV || 'development';
 
+// Trust proxy when behind reverse proxy (Render, Nginx, etc.) so rate-limit and IP work correctly
+app.set('trust proxy', 1);
+
 // Copyright and Legal Protection Headers
 app.use((req, res, next) => {
   res.setHeader('X-Copyright', 'Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.');

@@ -10,6 +10,8 @@ import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import toast from 'react-hot-toast';
 import { formatDate, formatDateWithUTC } from '../utils/dateUtils';
+import { getPlatformColor } from '../utils/platformColors';
+import { copyPostToClipboard } from '../utils/copyPastePost';
 import TrialWarning from '../components/TrialWarning';
 import { SearchAdvanced } from '../components/SearchAdvanced';
 import { 
@@ -28,6 +30,7 @@ import {
   Download,
   Eye,
   Copy,
+  Clipboard,
   RefreshCw,
   CalendarPlus,
   Image as ImageIcon,
@@ -120,6 +123,8 @@ const Dashboard = ({ user, token, ...props }) => {
         return <Twitch className={className} />;
       case 'twitter':
         return <Twitter className={className} />;
+      case 'youtube':
+        return <Video className={className} />;
       case 'instagram':
         return <Instagram className={className} />;
       case 'discord':
@@ -130,13 +135,15 @@ const Dashboard = ({ user, token, ...props }) => {
             className={`${className} object-contain dark:invert`}
           />
         );
+      case 'tiktok':
+        return <Video className={className} />;
       default:
         return null;
     }
   };
 
   const getPlatformLabel = (platform) => {
-    const labels = { twitch: 'Twitch', twitter: 'Twitter', instagram: 'Instagram', discord: 'Discord' };
+    const labels = { twitch: 'Twitch', twitter: 'Twitter', youtube: 'YouTube', instagram: 'Instagram', discord: 'Discord', tiktok: 'TikTok' };
     return labels[platform] || platform;
   };
 
@@ -166,6 +173,16 @@ const Dashboard = ({ user, token, ...props }) => {
       } catch (error) {
         toast.error('Failed to delete content');
       }
+    }
+  };
+
+  const handleCopyPostToClipboard = async (content) => {
+    try {
+      const text = copyPostToClipboard(content);
+      await navigator.clipboard.writeText(text);
+      toast.success(t('dashboard.postCopied') || 'Post copied. Paste it in Schedule.');
+    } catch (err) {
+      toast.error(t('dashboard.copyFailed') || 'Could not copy to clipboard');
     }
   };
 
@@ -403,6 +420,18 @@ const Dashboard = ({ user, token, ...props }) => {
     resource: content
   }));
 
+  const eventStyleGetter = (event) => {
+    const color = getPlatformColor(event.resource?.platforms);
+    return {
+      style: {
+        backgroundColor: color,
+        borderLeft: `4px solid ${color}`,
+        color: '#fff',
+        borderRadius: '4px',
+      }
+    };
+  };
+
   const handleEventDrop = async ({ event, start, end }) => {
     try {
       await apiClient.put(`/content/${event.id}`, {
@@ -584,6 +613,7 @@ const Dashboard = ({ user, token, ...props }) => {
               defaultView="week"
               views={['week', 'month', 'day']}
               onEventDrop={handleEventDrop}
+              eventPropGetter={eventStyleGetter}
               selectable
               onSelectSlot={(slotInfo) => setSelectedDate(slotInfo.start)}
               onSelectEvent={(event) => {
@@ -695,7 +725,7 @@ const Dashboard = ({ user, token, ...props }) => {
                         <div className="flex flex-wrap gap-1">
                               {Array.isArray(content.platforms)
                                 ? content.platforms.map((platform) => (
-                            <div key={platform} className="p-1.5 bg-gray-100 dark:bg-gray-700 rounded inline-flex items-center" title={getPlatformLabel(platform)}>
+                            <div key={platform} className="p-1.5 rounded inline-flex items-center text-white" style={{ backgroundColor: getPlatformColor(platform) }} title={getPlatformLabel(platform)}>
                               {getPlatformIcon(platform)}
                                     </div>
                                   ))
@@ -723,6 +753,13 @@ const Dashboard = ({ user, token, ...props }) => {
                                 title="View Details"
                               >
                                 <Eye className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleCopyPostToClipboard(content)}
+                                className="p-1 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+                                title={t('dashboard.copyPost') || 'Copy post (paste in Schedule)'}
+                              >
+                                <Clipboard className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => handleDuplicateContent(content)}
@@ -774,9 +811,9 @@ const Dashboard = ({ user, token, ...props }) => {
                     <div className="flex flex-wrap gap-2">
                       {Array.isArray(selectedContent.platforms)
                         ? selectedContent.platforms.map((platform) => (
-                            <div key={platform} className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center space-x-2">
+                            <div key={platform} className="p-2 rounded-lg flex items-center space-x-2 text-white" style={{ backgroundColor: getPlatformColor(platform) }}>
                               {getPlatformIcon(platform, 'w-5 h-5')}
-                              <span className="text-sm text-gray-900 dark:text-gray-100">{getPlatformLabel(platform)}</span>
+                              <span className="text-sm font-medium">{getPlatformLabel(platform)}</span>
                             </div>
                           ))
                         : null}
@@ -864,6 +901,13 @@ const Dashboard = ({ user, token, ...props }) => {
               </div>
               
               <div className="flex flex-wrap gap-2 justify-end mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => handleCopyPostToClipboard(selectedContent)}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm flex items-center gap-2"
+                >
+                  <Clipboard className="w-4 h-4" />
+                  {t('dashboard.copyPost') || 'Copy post'}
+                </button>
                 <button
                   onClick={() => handleDuplicateContent(selectedContent)}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"

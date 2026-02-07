@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiClient, getDiscordGuilds, getDiscordChannels } from '../api';
+import { apiClient, getDiscordGuilds, getDiscordChannels, getDiscordInviteUrl } from '../api';
 import toast from 'react-hot-toast';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getPlatformColors } from '../utils/platformColors';
+import { parsePastedPost } from '../utils/copyPastePost';
 import Joyride, { STATUS } from 'react-joyride';
 import FileUpload from '../components/FileUpload';
 import MediaGallery from '../components/MediaGallery';
@@ -22,7 +24,8 @@ import {
   Twitter,
   Instagram,
   Server,
-  Hash
+  Hash,
+  ClipboardPaste
 } from 'lucide-react';
 
 // Discord icon - Icons8 id 30888 (https://icons8.com/icon/30888/discord)
@@ -52,6 +55,8 @@ const Schedule = ({ user, token }) => {
   const [discordChannels, setDiscordChannels] = useState([]);
   const [loadingDiscordGuilds, setLoadingDiscordGuilds] = useState(false);
   const [loadingDiscordChannels, setLoadingDiscordChannels] = useState(false);
+  /** When true, last guilds load failed (e.g. Discord not connected). When false and guilds empty, bot not in any server. */
+  const [discordGuildsError, setDiscordGuildsError] = useState(false);
   const [showMediaSection, setShowMediaSection] = useState(false);
   const [templates, setTemplates] = useState(() => {
     try {
@@ -120,9 +125,13 @@ const Schedule = ({ user, token }) => {
     let cancelled = false;
     const load = async () => {
       setLoadingDiscordGuilds(true);
+      setDiscordGuildsError(false);
       try {
         const data = await getDiscordGuilds();
-        if (!cancelled) setDiscordGuilds(data.guilds || []);
+        if (!cancelled) {
+          setDiscordGuilds(data.guilds || []);
+          setDiscordGuildsError(false);
+        }
       } catch (err) {
         if (!cancelled) {
           const data = err.response?.data || {};
@@ -133,6 +142,7 @@ const Schedule = ({ user, token }) => {
             toast.error(details || 'Failed to load Discord servers');
           }
           setDiscordGuilds([]);
+          setDiscordGuildsError(true);
         }
       } finally {
         if (!cancelled) setLoadingDiscordGuilds(false);
@@ -386,6 +396,27 @@ const Schedule = ({ user, token }) => {
     if (errors.discordChannel) setErrors(prev => ({ ...prev, discordChannel: '' }));
   };
 
+  const handlePastePost = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      const parsed = parsePastedPost(text);
+      if (parsed) {
+        setFormData((prev) => ({
+          ...prev,
+          title: parsed.title,
+          content: parsed.content,
+          platforms: parsed.platforms,
+          contentType: parsed.contentType,
+        }));
+        toast.success(t('schedule.postPasted') || 'Post pasted.');
+      } else {
+        toast.error(t('schedule.noCopiedPost') || 'No copied post found. Copy a post from the Dashboard first.');
+      }
+    } catch (err) {
+      toast.error(t('schedule.pasteFailed') || 'Could not read clipboard. Check permissions.');
+    }
+  };
+
   const handleSaveTemplate = () => {
     if (!templateName.trim()) {
       toast.error(t('schedule.templateNameRequired'));
@@ -474,6 +505,7 @@ const Schedule = ({ user, token }) => {
     switch (platformId) {
       case 'twitch': return <Twitch className="w-6 h-6" />;
       case 'twitter': return <Twitter className="w-6 h-6" />;
+      case 'youtube': return <Video className="w-6 h-6" />;
       case 'instagram': return <Instagram className="w-6 h-6" />;
       case 'discord':
         return (
@@ -483,15 +515,19 @@ const Schedule = ({ user, token }) => {
             className={`w-6 h-6 object-contain ${discordSelected ? 'invert' : ''}`}
           />
         );
+      case 'tiktok': return <Video className="w-6 h-6" />;
       default: return <Share2 className="w-6 h-6" />;
     }
   };
 
+  const platformColorsMap = getPlatformColors();
   const platforms = [
-    { id: 'twitch', name: 'Twitch', color: 'bg-purple-500' },
-    { id: 'twitter', name: 'Twitter', color: 'bg-blue-400' },
-    { id: 'instagram', name: 'Instagram', color: 'bg-pink-500' },
-    { id: 'discord', name: 'Discord', color: 'bg-indigo-500' }
+    { id: 'twitch', name: 'Twitch' },
+    { id: 'twitter', name: 'Twitter' },
+    { id: 'youtube', name: 'YouTube' },
+    { id: 'instagram', name: 'Instagram' },
+    { id: 'discord', name: 'Discord' },
+    { id: 'tiktok', name: 'TikTok' }
   ];
 
   // Common timezones for easier selection
@@ -561,7 +597,25 @@ const Schedule = ({ user, token }) => {
       {/* Header */}
         <div className="text-center mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('schedule.scheduleTitle')}</h1>
-          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">{t('schedule.scheduleSubtitle')}</p>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-2">{t('schedule.scheduleSubtitle')}</p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate('/templates')}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              {t('schedule.createFromTemplate') || 'Create from template'}
+            </button>
+            <span className="text-gray-400">·</span>
+            <button
+              type="button"
+              onClick={handlePastePost}
+              className="inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              <ClipboardPaste className="w-4 h-4" />
+              {t('schedule.pastePost') || 'Paste post'}
+            </button>
+          </div>
         </div>
 
         {/* Form */}
@@ -742,30 +796,57 @@ const Schedule = ({ user, token }) => {
                 Platforms <span className="text-red-500">*</span>
                       </label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {platforms.map((platform) => (
+                {platforms.map((platform) => {
+                  const isSelected = formData.platforms.includes(platform.id);
+                  const bgColor = platformColorsMap[platform.id] || platformColorsMap.twitch;
+                  return (
                   <button
                     key={platform.id}
                     type="button"
                     onClick={() => handlePlatformToggle(platform.id)}
                     className={`p-4 rounded-lg border-2 transition-all duration-200 flex flex-col items-center space-y-2 ${
-                      formData.platforms.includes(platform.id)
-                        ? `${platform.color} border-transparent text-white shadow-lg transform scale-105 dark:border-transparent`
+                      isSelected
+                        ? 'border-transparent text-white shadow-lg transform scale-105'
                         : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
                     }`}
+                    style={isSelected ? { backgroundColor: bgColor } : undefined}
                   >
-                    {getPlatformIcon(platform.id, formData.platforms.includes(platform.id))}
+                    {getPlatformIcon(platform.id, isSelected)}
                     <span className="text-sm font-medium">{platform.name}</span>
-                    {formData.platforms.includes(platform.id) && (
+                    {isSelected && (
                       <CheckCircle className="w-4 h-4" />
                     )}
                   </button>
-                ))}
+                  );
+                })}
               </div>
               {errors.platforms && (
                 <p className="mt-1 text-sm text-red-600">{errStr(errors.platforms)}</p>
               )}
               {formData.platforms.includes('discord') && (
                 <div className="mt-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                  {!loadingDiscordGuilds && discordGuilds.length === 0 && !discordGuildsError && (
+                    <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-1">{t('discord.addBotTitle')}</p>
+                      <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">{t('discord.addBotText')}</p>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const { inviteUrl } = await getDiscordInviteUrl();
+                            if (inviteUrl) window.open(inviteUrl, '_blank', 'noopener,noreferrer');
+                            else toast.error(t('discord.errorLoadingGuilds'));
+                          } catch (e) {
+                            toast.error(e.response?.data?.error || e.message || t('discord.errorLoadingGuilds'));
+                          }
+                        }}
+                        className="inline-flex items-center gap-2 px-3 py-2 bg-[#5865F2] text-white text-sm rounded-lg hover:bg-[#4752C4] transition"
+                      >
+                        <Server className="w-4 h-4" />
+                        {t('discord.addBotButton')}
+                      </button>
+                    </div>
+                  )}
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     <Server className="w-4 h-4 inline mr-1" />
                     {t('schedule.discordServer') || 'Discord server'}
