@@ -27,7 +27,7 @@ const User = sequelize.define('User', {
   email: {
     type: DataTypes.STRING,
     unique: true,
-    allowNull: false,
+    allowNull: true, // null for Twitter/X-only users (Twitter often does not provide email)
     validate: { isEmail: true }
   },
   passwordHash: {
@@ -38,7 +38,7 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: true,
     validate: {
-      isIn: [['google', 'twitch', 'discord', null]]
+      isIn: [['google', 'twitch', 'discord', 'twitter', null]]
     }
   },
   oauthId: {
@@ -59,6 +59,11 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: true,
     comment: 'Discord OAuth user id (for account linking)'
+  },
+  twitterId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'X (Twitter) OAuth user id via Supabase (for account linking)'
   },
   discordAccessToken: {
     type: DataTypes.STRING,

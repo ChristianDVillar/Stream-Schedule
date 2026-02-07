@@ -199,6 +199,33 @@ export async function loginWithTwitch() {
 }
 
 /**
+ * Login or register with X (Twitter) via Supabase OAuth.
+ * Same flow as Google/Twitch: Supabase redirects to /auth/callback, then backend creates/links user.
+ * Twitter often does not provide email; backend handles that.
+ * Configure Twitter provider in Supabase Dashboard (Authentication > Providers > Twitter).
+ */
+export async function loginWithTwitter() {
+  if (supabase) {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const redirectTo = origin ? `${origin.replace(/\/$/, '')}/auth/callback` : '/auth/callback';
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'twitter',
+      options: { redirectTo },
+    });
+    if (error) {
+      console.error('Twitter OAuth error:', error);
+      throw error;
+    }
+    if (data?.url) {
+      window.location.replace(data.url);
+      return;
+    }
+    throw new Error('Could not start X (Twitter) sign in');
+  }
+  throw new Error('Supabase not configured');
+}
+
+/**
  * Login with Discord via backend OAuth (Passport). Redirects to backend; callback returns to /auth/callback with token.
  * Bot token is never sent to frontend; backend uses it only for listing channels and posting.
  */
@@ -295,6 +322,12 @@ export async function linkTwitchWithSupabaseToken(accessToken) {
   return res.data;
 }
 
+/** Link X (Twitter) to current account: send Supabase access token to backend. Used from AuthCallback when oauthLinkMode=twitter. */
+export async function linkTwitterWithSupabaseToken(accessToken) {
+  const res = await apiClient.post('/user/link-twitter', { supabaseAccessToken: accessToken });
+  return res.data;
+}
+
 const OAUTH_LINK_MODE_KEY = 'oauthLinkMode';
 
 /** Start Google link: set link mode and redirect to Supabase Google OAuth. After callback, AuthCallback will call link-google and redirect to Settings. */
@@ -313,6 +346,14 @@ export function startTwitchLink() {
   loginWithTwitch();
 }
 
+/** Start X (Twitter) link: set link mode and redirect to Supabase Twitter OAuth. After callback, AuthCallback will call link-twitter and redirect to Settings. */
+export function startTwitterLink() {
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.setItem(OAUTH_LINK_MODE_KEY, 'twitter');
+  }
+  loginWithTwitter();
+}
+
 /** Clear OAuth link mode (used after AuthCallback finishes link flow). */
 export function clearOAuthLinkMode() {
   if (typeof sessionStorage !== 'undefined') {
@@ -320,11 +361,11 @@ export function clearOAuthLinkMode() {
   }
 }
 
-/** Get current OAuth link mode ('google' | 'twitch' | null). */
+/** Get current OAuth link mode ('google' | 'twitch' | 'twitter' | null). */
 export function getOAuthLinkMode() {
   if (typeof sessionStorage === 'undefined') return null;
   const mode = sessionStorage.getItem(OAUTH_LINK_MODE_KEY);
-  return mode === 'google' || mode === 'twitch' ? mode : null;
+  return mode === 'google' || mode === 'twitch' || mode === 'twitter' ? mode : null;
 }
 
 /** POST /user/disconnect-google - remove Google from current account. */
@@ -336,6 +377,12 @@ export async function disconnectGoogle() {
 /** POST /user/disconnect-twitch - remove Twitch from current account. */
 export async function disconnectTwitch() {
   const res = await apiClient.post('/user/disconnect-twitch');
+  return res.data;
+}
+
+/** POST /user/disconnect-twitter - remove X (Twitter) from current account. */
+export async function disconnectTwitter() {
+  const res = await apiClient.post('/user/disconnect-twitter');
   return res.data;
 }
 
