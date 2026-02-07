@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { getDiscordGuilds, getDiscordChannels, postDiscordMessage } from '../api';
+import { getDiscordGuilds, getDiscordChannels, getDiscordInviteUrl, postDiscordMessage } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
 import { MessageCircle, Server, Hash, Send, AlertCircle, Loader2 } from 'lucide-react';
@@ -19,6 +19,8 @@ export default function PublishDiscord({ user }) {
   const [loadingChannels, setLoadingChannels] = useState(false);
   const [sending, setSending] = useState(false);
   const [connectDiscordFirst, setConnectDiscordFirst] = useState(false);
+  /** True when Discord is connected but bot is not in any server (empty guild list). */
+  const [botNotInServers, setBotNotInServers] = useState(false);
 
   useEffect(() => {
     loadGuilds();
@@ -36,12 +38,15 @@ export default function PublishDiscord({ user }) {
   const loadGuilds = async () => {
     setLoadingGuilds(true);
     setConnectDiscordFirst(false);
+    setBotNotInServers(false);
     try {
       const data = await getDiscordGuilds();
-      setGuilds(data.guilds || []);
+      const list = data.guilds || [];
+      setGuilds(list);
       setSelectedGuildId('');
       setSelectedChannelId('');
       setChannels([]);
+      if (list.length === 0) setBotNotInServers(true);
     } catch (err) {
       const status = err.response?.status;
       const data = err.response?.data || {};
@@ -143,6 +148,29 @@ export default function PublishDiscord({ user }) {
         <MessageCircle className="w-7 h-7 text-[#5865F2]" />
         {t('discord.title')}
       </h1>
+
+      {botNotInServers && (
+        <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+          <h2 className="text-sm font-semibold text-amber-800 dark:text-amber-200 mb-1">{t('discord.addBotTitle')}</h2>
+          <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">{t('discord.addBotText')}</p>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const { inviteUrl } = await getDiscordInviteUrl();
+                if (inviteUrl) window.open(inviteUrl, '_blank', 'noopener,noreferrer');
+                else toast.error(t('discord.errorLoadingGuilds'));
+              } catch (e) {
+                toast.error(e.response?.data?.error || e.message || t('discord.errorLoadingGuilds'));
+              }
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#5865F2] text-white text-sm rounded-lg hover:bg-[#4752C4] transition"
+          >
+            <Server className="w-4 h-4" />
+            {t('discord.addBotButton')}
+          </button>
+        </div>
+      )}
 
       <form onSubmit={handleSend} className="space-y-6">
         <div>

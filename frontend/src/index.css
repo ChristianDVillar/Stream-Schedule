@@ -2,6 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Accent color (set by themeUtils.applyAccentColor, used by .bg-accent etc.) */
+:root {
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+}
+
+/* Utility classes that use the accent CSS variable */
+.bg-accent {
+  background-color: var(--accent);
+}
+.bg-accent:hover {
+  background-color: var(--accent-hover);
+}
+.text-accent {
+  color: var(--accent);
+}
+.border-accent {
+  border-color: var(--accent);
+}
+.ring-accent,
+.ring-accent:focus {
+  --tw-ring-color: var(--accent);
+}
+
 /* Responsive: prevent horizontal scroll and ensure touch-friendly */
 html {
   overflow-x: hidden;
