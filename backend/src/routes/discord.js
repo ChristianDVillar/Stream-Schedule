@@ -52,6 +52,23 @@ async function refreshDiscordToken(refreshToken) {
 }
 
 /**
+ * GET /discord/invite-url
+ * Returns the Discord bot invite URL so the user can add the bot to their server.
+ * Uses DISCORD_CLIENT_ID (same Application as the bot in Discord Developer Portal).
+ */
+router.get('/invite-url', requireAuth, (req, res) => {
+  const clientId = (process.env.DISCORD_CLIENT_ID || '').trim();
+  if (!clientId) {
+    return res.status(503).json({ error: 'Discord not configured', inviteUrl: null });
+  }
+  // Permissions: View Channels, Send Messages, Embed Links, Attach Files, Read Message History (117760)
+  const permissions = '117760';
+  const scope = 'bot%20applications.commands';
+  const url = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=${scope}`;
+  res.json({ inviteUrl: url });
+});
+
+/**
  * GET /discord/guilds
  * Returns guilds where the authenticated user is a member AND the bot is also in.
  * Uses user's Discord OAuth token for user guilds, bot token for bot guilds; intersection returned.
