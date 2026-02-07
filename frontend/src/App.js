@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import Schedule from './pages/Schedule';
+import Templates from './pages/Templates';
 import MediaUpload from './pages/MediaUpload';
 import Login from './pages/Login';
 import AuthCallback from './pages/AuthCallback';
@@ -12,6 +13,7 @@ import { ShieldOff, UserX, Menu, X, ShoppingBag, Globe } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { AuthProvider, useAuth } from './store/authStore';
+import { getStoredAccentColor, applyAccentColor } from './utils/themeUtils';
 
 function PrivateRoute({ user, children }) {
   if (!user) return <Navigate to="/login" replace />;
@@ -61,9 +63,9 @@ function Header({ user, onLogout, onMenuClick }) {
       <div className="max-w-7xl mx-auto px-3 sm:px-4 flex items-center justify-between h-14 sm:h-16 min-h-[44px] gap-2">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
           <button className="md:hidden flex-shrink-0 p-2 -ml-1" onClick={onMenuClick} aria-label="Open menu">
-            <Menu className="w-6 h-6 text-primary-700" />
+            <Menu className="w-6 h-6 text-accent" />
           </button>
-          <span className="font-bold text-primary-700 truncate text-sm sm:text-base">Streamer Scheduler</span>
+          <span className="font-bold text-accent truncate text-sm sm:text-base">Streamer Scheduler</span>
           <span className="hidden sm:inline text-gray-600 dark:text-gray-300 truncate text-sm">{user.isAdmin ? t('common.admin') : t('common.user')}: <span className="font-semibold">{user.username}</span></span>
         </div>
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
@@ -104,12 +106,13 @@ function Sidebar({ user, open, onClose }) {
       )}
       <div className={`fixed inset-y-0 left-0 z-40 md:static md:inset-auto md:translate-x-0 transition-transform duration-200 ease-out ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 bg-white dark:bg-gray-800 md:bg-transparent shadow-xl md:shadow-none w-64 max-w-[85vw] md:w-56 h-full md:h-auto flex flex-col safe-area-inset-left`}>
         <div className="flex items-center justify-between px-4 py-4 md:hidden border-b border-gray-200 dark:border-gray-700">
-          <span className="font-bold text-primary-700">{t('common.menu')}</span>
+          <span className="font-bold text-accent">{t('common.menu')}</span>
           <button onClick={onClose} className="p-2 -mr-2" aria-label="Close menu"><X className="w-6 h-6" /></button>
         </div>
         <nav className="flex-1 px-4 py-2 space-y-2 overflow-y-auto">
         <Link to={user?.isAdmin ? "/admin" : "/dashboard"} className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('dashboard.title')}</Link>
         {!user?.isAdmin && <Link to="/schedule" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('schedule.newPost')}</Link>}
+        {!user?.isAdmin && <Link to="/templates" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('templates.menu') || 'Templates'}</Link>}
         {!user?.isAdmin && <Link to="/media" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">Media / Archivos</Link>}
         <Link to="/settings" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('settings.title')}</Link>
         <Link to="/profile" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('profile.title')}</Link>
@@ -138,6 +141,8 @@ function AppContent() {
     };
 
     applyTheme();
+    applyAccentColor(getStoredAccentColor());
+
     const media = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
     const handler = () => applyTheme();
     if (media && media.addEventListener) {
@@ -186,6 +191,11 @@ function AppContent() {
                   <Schedule user={user} token={token} />
                 </PrivateRoute>
               } />
+              <Route path="/templates" element={
+                <PrivateRoute user={user}>
+                  <Templates user={user} token={token} />
+                </PrivateRoute>
+              } />
               <Route path="/discord" element={<Navigate to="/schedule" replace />} />
               <Route path="/media" element={
                 <PrivateRoute user={user}>
@@ -207,7 +217,7 @@ function AppContent() {
               href={user.merchandisingLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 sm:p-4 shadow-lg transition-all duration-300 hover:scale-110 flex items-center justify-center min-w-[44px] min-h-[44px]"
+              className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 bg-accent text-white rounded-full p-3 sm:p-4 shadow-lg transition-all duration-300 hover:scale-110 flex items-center justify-center min-w-[44px] min-h-[44px]"
               aria-label="Ir a página de merchandising"
             >
               <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
