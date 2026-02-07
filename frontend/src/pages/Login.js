@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { login, register, loginWithGoogle, loginWithTwitch, loginWithDiscord, forgotPassword } from '../api';
+import { login, register, loginWithGoogle, loginWithTwitch, loginWithTwitter, loginWithDiscord, forgotPassword } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Eye, EyeOff } from 'lucide-react';
 
@@ -111,6 +111,8 @@ export default function Login({ setAuth }) {
         await loginWithGoogle(isRegister);
       } else if (provider === 'twitch') {
         loginWithTwitch();
+      } else if (provider === 'twitter') {
+        await loginWithTwitter();
       } else if (provider === 'discord') {
         loginWithDiscord();
       }
@@ -169,6 +171,13 @@ export default function Login({ setAuth }) {
     </svg>
   );
 
+  // X (Twitter) Icon SVG
+  const TwitterIcon = () => (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 py-6">
       <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-5 sm:p-8 rounded-lg shadow-md w-full max-w-sm min-w-0">
@@ -195,6 +204,15 @@ export default function Login({ setAuth }) {
           >
             <TwitchIcon />
             <span className="font-medium">{isRegister ? t('login.signUpWithTwitch') : t('login.signInWithTwitch')}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleOAuthLogin('twitter')}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <TwitterIcon />
+            <span className="font-medium">{isRegister ? t('login.signUpWithTwitter') : t('login.signInWithTwitter')}</span>
           </button>
           <button
             type="button"

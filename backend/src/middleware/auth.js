@@ -18,7 +18,7 @@ const jwtSecret = process.env.JWT_SECRET || 'dev-jwt-secret';
 async function ensureTrialForOAuthUser(user) {
   if (!user || user.isAdmin) return user;
   const plain = user.get ? user.get({ plain: true }) : user;
-  const hasOAuth = !!(plain.googleId || plain.twitchId || plain.discordId);
+  const hasOAuth = !!(plain.googleId || plain.twitchId || plain.discordId || plain.twitterId || (plain.oauthProvider === 'twitter' && plain.oauthId));
   const noLicense = !plain.licenseKey || String(plain.licenseKey).length < 10;
   const neverUsedTrial = !plain.hasUsedTrial;
   if (!hasOAuth || !noLicense || !neverUsedTrial) return user;

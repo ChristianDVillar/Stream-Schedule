@@ -330,45 +330,51 @@ export async function googleLoginHandler(req, res) {
     }
 
     const supabaseUser = data?.user ?? data;
-    if (!supabaseUser?.email) {
+    const provider = supabaseUser.app_metadata?.provider ?? 'google';
+    const isTwitter = provider === 'twitter';
+
+    // Twitter does not always send email; do not require it for Twitter
+    let email = null;
+    if (supabaseUser?.email) {
+      const raw = String(supabaseUser.email).trim().toLowerCase();
+      if (raw && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) email = raw;
+    }
+    if (!isTwitter && !email) {
       return res.status(401).json({ error: 'Invalid token or missing email' });
     }
 
-    const email = String(supabaseUser.email).trim().toLowerCase();
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(401).json({ error: 'Invalid token or missing email' });
-    }
-    const provider = supabaseUser.app_metadata?.provider ?? 'google';
     const isTwitch = provider === 'twitch';
-    // Twitch: preferred_username or user_name; Google: full_name / name
-    const rawName = isTwitch
-      ? (supabaseUser.user_metadata?.preferred_username ?? supabaseUser.user_metadata?.user_name ?? supabaseUser.user_metadata?.name ?? email?.split('@')[0])
-      : (supabaseUser.user_metadata?.full_name ?? supabaseUser.user_metadata?.name ?? supabaseUser.email?.split('@')[0] ?? 'User');
+    // Twitter: user_name, full_name; Twitch: preferred_username; Google: full_name
+    const rawName = isTwitter
+      ? (supabaseUser.user_metadata?.user_name ?? supabaseUser.user_metadata?.full_name ?? supabaseUser.user_metadata?.name ?? 'user')
+      : isTwitch
+        ? (supabaseUser.user_metadata?.preferred_username ?? supabaseUser.user_metadata?.user_name ?? supabaseUser.user_metadata?.name ?? email?.split('@')[0])
+        : (supabaseUser.user_metadata?.full_name ?? supabaseUser.user_metadata?.name ?? supabaseUser.email?.split('@')[0] ?? 'User');
     const fullName = typeof rawName === 'string' ? rawName : (rawName && typeof rawName === 'object' ? [rawName.given_name, rawName.family_name].filter(Boolean).join(' ') : 'User') || 'User';
     const supabaseId = supabaseUser.id;
 
-    // 2) Find or create user in DB (by email or any linked Google/Twitch id)
-    const oauthProvider = isTwitch ? 'twitch' : 'google';
-    let dbUser = await User.findOne({
-      where: {
-        [Op.or]: [
-          { email },
-          ...(isTwitch ? [{ twitchId: supabaseId }, { oauthId: supabaseId, oauthProvider: 'twitch' }] : [{ googleId: supabaseId }, { oauthId: supabaseId, oauthProvider: 'google' }]),
-        ],
-      },
-    });
+    const oauthProvider = isTwitter ? 'twitter' : isTwitch ? 'twitch' : 'google';
+
+    // 2) Find or create user in DB (by email or linked OAuth id)
+    const findConditions = [
+      ...(email ? [{ email }] : []),
+      ...(isTwitter ? [{ twitterId: supabaseId }, { oauthId: supabaseId, oauthProvider: 'twitter' }] : []),
+      ...(isTwitch ? [{ twitchId: supabaseId }, { oauthId: supabaseId, oauthProvider: 'twitch' }] : []),
+      ...(!isTwitch && !isTwitter ? [{ googleId: supabaseId }, { oauthId: supabaseId, oauthProvider: 'google' }] : []),
+    ].filter(Boolean);
+    if (findConditions.length === 0) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    let dbUser = await User.findOne({ where: { [Op.or]: findConditions } });
 
     if (dbUser) {
-      if (isTwitch) {
-        dbUser.twitchId = supabaseId;
-      } else {
-        dbUser.googleId = supabaseId;
-      }
+      if (isTwitch) dbUser.twitchId = supabaseId;
+      else if (isTwitter) dbUser.twitterId = supabaseId;
+      else dbUser.googleId = supabaseId;
       if (!dbUser.oauthId) {
         dbUser.oauthId = supabaseId;
         dbUser.oauthProvider = oauthProvider;
       }
-      // Assign trial on first login if user has no license and never used trial
       if ((!dbUser.licenseKey || String(dbUser.licenseKey).length < 10) && !dbUser.hasUsedTrial) {
         const expiryResult = resolveLicenseExpiry({ licenseType: normalizeLicenseType('trial') });
         dbUser.licenseType = normalizeLicenseType('trial');
@@ -386,11 +392,11 @@ export async function googleLoginHandler(req, res) {
         try {
           dbUser = await User.create({
             username: attempt === 0 ? username : baseUsername + generateUsernameSuffix(5 + attempt),
-            email,
+            email: email ?? null,
             passwordHash: null,
             oauthProvider,
             oauthId: supabaseId,
-            ...(isTwitch ? { twitchId: supabaseId } : { googleId: supabaseId }),
+            ...(isTwitch ? { twitchId: supabaseId } : !isTwitter ? { googleId: supabaseId } : {}),
             licenseType: normalizeLicenseType('trial'),
             licenseKey: generateLicenseKey('TRIAL', 12),
             licenseExpiresAt,
@@ -779,6 +785,40 @@ export async function linkTwitchHandler(req, res) {
   }
 }
 
+/** POST /link-twitter - link X (Twitter) via Supabase OAuth to current user. Twitter may not send email. */
+export async function linkTwitterHandler(req, res) {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Supabase not configured' });
+    }
+    const supabaseToken = req.body.supabaseAccessToken;
+    const { data, error } = await supabaseAdmin.auth.getUser(supabaseToken);
+    if (error) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    const supabaseUser = data?.user ?? data;
+    const provider = supabaseUser?.app_metadata?.provider ?? '';
+    if (provider !== 'twitter') {
+      return res.status(400).json({ error: 'Token is not from X (Twitter). Use link-google or link-twitch for other providers.' });
+    }
+    const supabaseId = supabaseUser.id;
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    user.twitterId = supabaseId;
+    if (!user.oauthId) {
+      user.oauthId = supabaseId;
+      user.oauthProvider = 'twitter';
+    }
+    await user.save();
+    res.json({ message: 'X (Twitter) account linked' });
+  } catch (err) {
+    logger.error('Link Twitter error', { error: err.message });
+    res.status(500).json({ error: 'Server error' });
+  }
+}
+
 // Register
 router.post('/register', validateBody(registerSchema), async (req, res) => {
   const { username, email, password, startWithTrial, licenseOption } = req.body;
@@ -882,7 +922,7 @@ export async function connectedAccountsHandler(req, res) {
   
   try {
     const user = await User.findByPk(userId, {
-      attributes: ['googleId', 'twitchId', 'discordId', 'passwordHash', 'oauthProvider', 'oauthId', 'discordAccessToken', 'discordRefreshToken'],
+      attributes: ['googleId', 'twitchId', 'discordId', 'twitterId', 'passwordHash', 'oauthProvider', 'oauthId', 'discordAccessToken', 'discordRefreshToken'],
     });
     if (!user) {
       logger.warn('Connected accounts: User not found', { userId });
@@ -907,11 +947,13 @@ export async function connectedAccountsHandler(req, res) {
     const discordConnected = !!(u.discordId && (u.discordAccessToken || u.discordRefreshToken));
     const googleConnected = !!(u.googleId || (u.oauthProvider === 'google' && u.oauthId));
     const twitchConnected = !!(u.twitchId || (u.oauthProvider === 'twitch' && u.oauthId));
-    
+    const twitterConnected = !!(u.twitterId || (u.oauthProvider === 'twitter' && u.oauthId));
+
     const result = {
       google: googleConnected,
       twitch: twitchConnected,
       discord: discordConnected,
+      twitter: twitterConnected,
       email: !!u.passwordHash,
     };
     
@@ -937,7 +979,7 @@ router.get('/connected-accounts', requireAuth, connectedAccountsHandler);
 
 /** Ensure user has at least one login method (password or any OAuth). */
 function hasAnyLoginMethod(u) {
-  return !!(u.passwordHash || u.googleId || u.twitchId || u.discordId);
+  return !!(u.passwordHash || u.googleId || u.twitchId || u.discordId || u.twitterId || (u.oauthProvider === 'twitter' && u.oauthId));
 }
 
 /** POST /disconnect-google - remove Google from current account. */
@@ -946,7 +988,7 @@ router.post('/disconnect-google', requireAuth, async (req, res) => {
   logger.info('Disconnect Google request', { userId, ip: req.ip });
   
   try {
-    const user = await User.findByPk(userId, { attributes: ['id', 'googleId', 'twitchId', 'discordId', 'passwordHash', 'oauthProvider', 'oauthId'] });
+    const user = await User.findByPk(userId, { attributes: ['id', 'googleId', 'twitchId', 'discordId', 'twitterId', 'passwordHash', 'oauthProvider', 'oauthId'] });
     if (!user) {
       logger.warn('Disconnect Google: User not found', { userId });
       return res.status(404).json({ error: 'User not found' });
@@ -963,8 +1005,8 @@ router.post('/disconnect-google', requireAuth, async (req, res) => {
     }
     user.googleId = null;
     if (user.oauthProvider === 'google') {
-      user.oauthProvider = user.twitchId ? 'twitch' : user.discordId ? 'discord' : null;
-      user.oauthId = user.twitchId || user.discordId || null;
+      user.oauthProvider = user.twitchId ? 'twitch' : user.discordId ? 'discord' : user.twitterId ? 'twitter' : null;
+      user.oauthId = user.twitchId || user.discordId || user.twitterId || null;
     }
     await user.save();
     logger.info('Google disconnected successfully', { userId });
@@ -990,7 +1032,7 @@ router.post('/disconnect-twitch', requireAuth, async (req, res) => {
   logger.info('Disconnect Twitch request', { userId, ip: req.ip });
   
   try {
-    const user = await User.findByPk(userId, { attributes: ['id', 'googleId', 'twitchId', 'discordId', 'passwordHash', 'oauthProvider', 'oauthId'] });
+    const user = await User.findByPk(userId, { attributes: ['id', 'googleId', 'twitchId', 'discordId', 'twitterId', 'passwordHash', 'oauthProvider', 'oauthId'] });
     if (!user) {
       logger.warn('Disconnect Twitch: User not found', { userId });
       return res.status(404).json({ error: 'User not found' });
@@ -1007,8 +1049,8 @@ router.post('/disconnect-twitch', requireAuth, async (req, res) => {
     }
     user.twitchId = null;
     if (user.oauthProvider === 'twitch') {
-      user.oauthProvider = user.googleId ? 'google' : user.discordId ? 'discord' : null;
-      user.oauthId = user.googleId || user.discordId || null;
+      user.oauthProvider = user.googleId ? 'google' : user.discordId ? 'discord' : user.twitterId ? 'twitter' : null;
+      user.oauthId = user.googleId || user.discordId || user.twitterId || null;
     }
     await user.save();
     logger.info('Twitch disconnected successfully', { userId });
@@ -1028,13 +1070,43 @@ router.post('/disconnect-twitch', requireAuth, async (req, res) => {
   }
 });
 
+/** POST /disconnect-twitter - remove X (Twitter) from current account. */
+router.post('/disconnect-twitter', requireAuth, async (req, res) => {
+  const userId = req.user?.id;
+  logger.info('Disconnect Twitter request', { userId, ip: req.ip });
+  try {
+    const user = await User.findByPk(userId, { attributes: ['id', 'googleId', 'twitchId', 'discordId', 'twitterId', 'passwordHash', 'oauthProvider', 'oauthId'] });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (!user.twitterId) {
+      return res.status(400).json({ error: 'X (Twitter) is not connected' });
+    }
+    const u = user.get ? user.get({ plain: true }) : user;
+    u.twitterId = null;
+    if (!hasAnyLoginMethod(u)) {
+      return res.status(400).json({ error: 'You must keep at least one sign-in method' });
+    }
+    user.twitterId = null;
+    if (user.oauthProvider === 'twitter') {
+      user.oauthProvider = user.googleId ? 'google' : user.twitchId ? 'twitch' : user.discordId ? 'discord' : null;
+      user.oauthId = user.googleId || user.twitchId || user.discordId || null;
+    }
+    await user.save();
+    res.json({ message: 'X (Twitter) disconnected' });
+  } catch (err) {
+    logger.error('Disconnect Twitter error', { error: err.message, userId });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 /** POST /disconnect-discord - remove Discord from current account. */
 router.post('/disconnect-discord', requireAuth, async (req, res) => {
   const userId = req.user?.id;
   logger.info('Disconnect Discord request', { userId, ip: req.ip });
   
   try {
-    const user = await User.findByPk(userId, { attributes: ['id', 'googleId', 'twitchId', 'discordId', 'passwordHash', 'oauthProvider', 'oauthId', 'discordAccessToken', 'discordRefreshToken'] });
+    const user = await User.findByPk(userId, { attributes: ['id', 'googleId', 'twitchId', 'discordId', 'twitterId', 'passwordHash', 'oauthProvider', 'oauthId', 'discordAccessToken', 'discordRefreshToken'] });
     if (!user) {
       logger.warn('Disconnect Discord: User not found', { userId });
       return res.status(404).json({ error: 'User not found' });
@@ -1069,8 +1141,8 @@ router.post('/disconnect-discord', requireAuth, async (req, res) => {
     const u = user.get ? user.get({ plain: true }) : user;
     u.discordId = null;
     if (wasDiscordPrimary) {
-      u.oauthProvider = user.googleId ? 'google' : user.twitchId ? 'twitch' : null;
-      u.oauthId = user.googleId || user.twitchId || null;
+      u.oauthProvider = user.googleId ? 'google' : user.twitchId ? 'twitch' : user.twitterId ? 'twitter' : null;
+      u.oauthId = user.googleId || user.twitchId || user.twitterId || null;
     }
     
     const hasLoginMethod = hasAnyLoginMethod(u);
@@ -1092,15 +1164,13 @@ router.post('/disconnect-discord', requireAuth, async (req, res) => {
     
     // If Discord was the primary OAuth provider, switch to another or clear it
     if (wasDiscordPrimary) {
-      user.oauthProvider = user.googleId ? 'google' : user.twitchId ? 'twitch' : null;
-      user.oauthId = user.googleId || user.twitchId || null;
+      user.oauthProvider = user.googleId ? 'google' : user.twitchId ? 'twitch' : user.twitterId ? 'twitter' : null;
+      user.oauthId = user.googleId || user.twitchId || user.twitterId || null;
     } else if (user.oauthId && originalDiscordId && user.oauthId === originalDiscordId) {
-      // Edge case: oauthId matches discordId but oauthProvider is not discord
-      // This shouldn't happen normally, but we clean it up just in case
-      if (!user.googleId && !user.twitchId) {
+      if (!user.googleId && !user.twitchId && !user.twitterId) {
         user.oauthId = null;
       } else {
-        user.oauthId = user.googleId || user.twitchId || null;
+        user.oauthId = user.googleId || user.twitchId || user.twitterId || null;
       }
     }
     
@@ -1128,8 +1198,8 @@ router.post('/disconnect-discord', requireAuth, async (req, res) => {
         twitchId: savedUser.twitchId
       });
       // Fix via update to avoid calling save() on a possibly partial instance (no primary key in some Sequelize setups)
-      const newOauthProvider = savedUser.googleId ? 'google' : savedUser.twitchId ? 'twitch' : null;
-      const newOauthId = savedUser.googleId || savedUser.twitchId || null;
+      const newOauthProvider = savedUser.googleId ? 'google' : savedUser.twitchId ? 'twitch' : savedUser.twitterId ? 'twitter' : null;
+      const newOauthId = savedUser.googleId || savedUser.twitchId || savedUser.twitterId || null;
       await User.update(
         {
           discordId: null,
@@ -1163,6 +1233,9 @@ router.post('/link-google', requireAuth, validateBody(linkSupabaseSchema), linkG
 
 /** POST /link-twitch - link Twitch (Supabase) to current account. Body: { supabaseAccessToken }. */
 router.post('/link-twitch', requireAuth, validateBody(linkSupabaseSchema), linkTwitchHandler);
+
+/** POST /link-twitter - link X (Twitter) via Supabase to current account. Body: { supabaseAccessToken }. */
+router.post('/link-twitter', requireAuth, validateBody(linkSupabaseSchema), linkTwitterHandler);
 
 // Generate license (for demo, not secure)
 router.post('/generate-license', requireAdmin, async (req, res) => {
@@ -1257,8 +1330,8 @@ router.get('/admin/users', requireAdmin, async (req, res) => {
       connectedPlatforms: {
         google: !!(u.googleId || (u.oauthProvider === 'google' && u.oauthId)),
         twitch: !!(u.twitchId || (u.oauthProvider === 'twitch' && u.oauthId)),
-        // Discord requires both discordId AND tokens (accessToken or refreshToken) to be considered connected
         discord: !!(u.discordId && (u.discordAccessToken || u.discordRefreshToken)),
+        twitter: !!(u.twitterId || (u.oauthProvider === 'twitter' && u.oauthId)),
         email: !!u.passwordHash
       }
     };
