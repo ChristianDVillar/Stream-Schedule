@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { apiClient, createCheckout, verifyPaymentSession, getLicenseStatus, getAvailableLicenses, getPaymentConfigStatus, createSubscription, getSubscriptionStatus, cancelSubscription, getPaymentHistory, getConnectedAccounts, startDiscordLink, startGoogleLink, startTwitchLink, disconnectGoogle, disconnectTwitch, disconnectDiscord } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
+import { applyAccentColor } from '../utils/themeUtils';
+import { getPlatformColors, setPlatformColors, resetPlatformColors, PLATFORM_IDS, DEFAULT_PLATFORM_COLORS } from '../utils/platformColors';
 import { 
   User, 
   Bell, 
@@ -64,10 +66,19 @@ const Settings = ({ user, token, setUser }) => {
     twoFactorEnabled: false
   });
 
-  // Theme settings
+  const [platformColors, setPlatformColorsState] = useState(() => getPlatformColors());
+
+  // Theme settings (accentColor persisted and applied in themeUtils)
   const [themeSettings, setThemeSettings] = useState({
     theme: localStorage.getItem('theme') || 'light',
-    accentColor: 'blue',
+    accentColor: (() => {
+      try {
+        const stored = localStorage.getItem('accentColor');
+        return ['blue', 'purple', 'green', 'red', 'orange'].includes(stored) ? stored : 'blue';
+      } catch {
+        return 'blue';
+      }
+    })(),
     compactMode: false
   });
 
@@ -136,6 +147,11 @@ const Settings = ({ user, token, setUser }) => {
 
     applyTheme(themeSettings.theme);
   }, [themeSettings.theme]);
+
+  // Apply accent color when selection changes and persist
+  useEffect(() => {
+    applyAccentColor(themeSettings.accentColor);
+  }, [themeSettings.accentColor]);
 
   useEffect(() => {
     if (token) {
@@ -308,12 +324,19 @@ const Settings = ({ user, token, setUser }) => {
 
   const handlePasswordChange = async () => {
     if (securityData.newPassword !== securityData.confirmPassword) {
-      toast.error('New passwords do not match');
+      toast.error(t('settings.passwordsDoNotMatch') || 'New passwords do not match');
       return;
     }
 
-    if (securityData.newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters');
+    if (securityData.newPassword.length < 8) {
+      toast.error(t('settings.passwordMinLength') || 'Password must be at least 8 characters');
+      return;
+    }
+    const hasUpper = /[A-Z]/.test(securityData.newPassword);
+    const hasLower = /[a-z]/.test(securityData.newPassword);
+    const hasNumber = /[0-9]/.test(securityData.newPassword);
+    if (!hasUpper || !hasLower || !hasNumber) {
+      toast.error(t('settings.passwordRequirements') || 'Password must contain at least one uppercase letter, one lowercase letter, and one number');
       return;
     }
 
@@ -326,7 +349,7 @@ const Settings = ({ user, token, setUser }) => {
         headers: { Authorization: `Bearer ${token}` },
         withCredentials: true
       });
-      toast.success('Password changed successfully!');
+      toast.success(t('settings.passwordChangedSuccess') || 'Password changed successfully!');
       setSecurityData(prev => ({
         ...prev,
         currentPassword: '',
@@ -334,7 +357,9 @@ const Settings = ({ user, token, setUser }) => {
         confirmPassword: ''
       }));
     } catch (error) {
-      toast.error('Failed to change password');
+      const data = error.response?.data;
+      const message = data?.details?.[0]?.message || data?.error || error.message || (t('settings.passwordChangeFailed') || 'Failed to change password');
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -827,7 +852,7 @@ const Settings = ({ user, token, setUser }) => {
                       onClick={() => setThemeSettings(prev => ({ ...prev, theme: theme.id }))}
                       className={`p-4 border-2 rounded-lg text-left transition-all ${
                         themeSettings.theme === theme.id
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                          ? 'border-accent bg-gray-50 dark:bg-gray-800'
                           : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
                       }`}
                     >
@@ -847,7 +872,7 @@ const Settings = ({ user, token, setUser }) => {
                       onClick={() => setThemeSettings(prev => ({ ...prev, accentColor: color.id }))}
                       className={`w-10 h-10 rounded-full ${color.color} border-2 transition-all ${
                         themeSettings.accentColor === color.id
-                          ? 'border-gray-900 dark:border-gray-100 scale-110'
+                          ? 'border-accent ring-2 ring-accent ring-offset-2 dark:ring-offset-gray-800 scale-110'
                           : 'border-white dark:border-gray-700 hover:scale-105'
                       }`}
                     />
@@ -866,7 +891,7 @@ const Settings = ({ user, token, setUser }) => {
                 <button
                   onClick={() => setThemeSettings(prev => ({ ...prev, compactMode: !prev.compactMode }))}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    themeSettings.compactMode ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
+                    themeSettings.compactMode ? 'bg-accent' : 'bg-gray-200 dark:bg-gray-600'
                   }`}
                 >
                   <span
@@ -875,6 +900,39 @@ const Settings = ({ user, token, setUser }) => {
                     }`}
                   />
               </button>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">{t('settings.platformColors') || 'Platform colors'}</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{t('settings.platformColorsHelp') || 'Colors used to identify each platform in the calendar and content list. YouTube: red, Discord: violet, Instagram: black, Twitter: light blue by default.'}</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {PLATFORM_IDS.map((id) => (
+                    <div key={id} className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={platformColors[id] || DEFAULT_PLATFORM_COLORS[id]}
+                        onChange={(e) => {
+                          const hex = e.target.value;
+                          const next = setPlatformColors({ [id]: hex });
+                          setPlatformColorsState(next);
+                        }}
+                        className="w-10 h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
+                      />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">{id}</span>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = resetPlatformColors();
+                    setPlatformColorsState(next);
+                    toast.success(t('settings.platformColorsReset') || 'Platform colors reset to defaults');
+                  }}
+                  className="mt-3 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  {t('settings.resetPlatformColors') || 'Reset to defaults'}
+                </button>
               </div>
             </div>
           </div>

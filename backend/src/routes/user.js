@@ -1113,11 +1113,11 @@ router.post('/disconnect-discord', requireAuth, async (req, res) => {
     
     await user.save();
     
-    // Verify the disconnect worked
+    // Verify the disconnect worked (use attributes including id so we get a full instance if needed)
     const savedUser = await User.findByPk(userId, {
-      attributes: ['discordId', 'oauthProvider', 'oauthId', 'googleId', 'twitchId']
+      attributes: ['id', 'discordId', 'oauthProvider', 'oauthId', 'googleId', 'twitchId']
     });
-    const stillConnected = savedUser.discordId || (savedUser.oauthProvider === 'discord' && savedUser.oauthId);
+    const stillConnected = savedUser && (savedUser.discordId || (savedUser.oauthProvider === 'discord' && savedUser.oauthId));
     if (stillConnected) {
       logger.error('Discord disconnect verification failed - Discord still appears connected', { 
         userId,
@@ -1127,13 +1127,18 @@ router.post('/disconnect-discord', requireAuth, async (req, res) => {
         googleId: savedUser.googleId,
         twitchId: savedUser.twitchId
       });
-      // Try to fix it
-      savedUser.discordId = null;
-      if (savedUser.oauthProvider === 'discord') {
-        savedUser.oauthProvider = savedUser.googleId ? 'google' : savedUser.twitchId ? 'twitch' : null;
-        savedUser.oauthId = savedUser.googleId || savedUser.twitchId || null;
-      }
-      await savedUser.save();
+      // Fix via update to avoid calling save() on a possibly partial instance (no primary key in some Sequelize setups)
+      const newOauthProvider = savedUser.googleId ? 'google' : savedUser.twitchId ? 'twitch' : null;
+      const newOauthId = savedUser.googleId || savedUser.twitchId || null;
+      await User.update(
+        {
+          discordId: null,
+          discordAccessToken: null,
+          discordRefreshToken: null,
+          ...(savedUser.oauthProvider === 'discord' ? { oauthProvider: newOauthProvider, oauthId: newOauthId } : {}),
+        },
+        { where: { id: userId } }
+      );
     }
     
     logger.info('Discord disconnected successfully', { userId });

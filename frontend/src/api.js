@@ -19,7 +19,7 @@ function shouldSkipLogoutOn401(config) {
   if (method === 'POST' && url.includes('/upload/file')) return true;
   if (method === 'POST' && url.includes('/content') && !url.match(/\/content\/\d+/)) return true; // POST /content (create), not PUT /content/:id
   if (method === 'GET' && url.includes('/upload/stats')) return true;
-  if (method === 'GET' && url.includes('/discord/guilds')) return true; // list guilds and guild channels
+  if (method === 'GET' && (url.includes('/discord/guilds') || url.includes('/discord/invite-url'))) return true; // list guilds, channels, invite URL
   if (method === 'GET' && url.includes('/user/connected-accounts')) return true; // let Settings show defaults on 401
   return false;
 }
@@ -81,6 +81,17 @@ export async function login({ email, password }) {
 
 export async function forgotPassword({ email }) {
   return apiClient.post('/user/forgot-password', { email });
+}
+
+/**
+ * URL to which Supabase should redirect after "reset password" email link click.
+ * Uses current origin so it works in dev (localhost) and production (Render/domain).
+ * Use with: supabase.auth.resetPasswordForEmail(email, { redirectTo: getPasswordResetRedirectUrl() })
+ * See SUPABASE_PRODUCTION.md for full Supabase + Resend setup.
+ */
+export function getPasswordResetRedirectUrl() {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  return origin ? `${origin.replace(/\/$/, '')}/reset-password` : '/reset-password';
 }
 
 /**
@@ -193,6 +204,12 @@ export async function loginWithTwitch() {
  */
 export function loginWithDiscord() {
   window.location.href = `${apiClient.defaults.baseURL}/user/auth/discord`;
+}
+
+/** GET /discord/invite-url - URL to invite the bot to a Discord server (add bot to server). */
+export async function getDiscordInviteUrl() {
+  const res = await apiClient.get('/discord/invite-url');
+  return res.data;
 }
 
 /** GET /discord/guilds - guilds where user is member and bot is in. Requires Discord OAuth login first. */

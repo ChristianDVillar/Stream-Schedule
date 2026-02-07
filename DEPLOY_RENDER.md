@@ -45,3 +45,22 @@ Si prefieres no usar Release Command:
 
 - Las rutas de link de Discord (`/api/user/auth/discord/link` y `.../link/callback`) están registradas en el router de user; si alguna vez devolvía 404, con el código actual deberían responder bien.
 - Para que login con Google/Twitch funcione, la tabla `Users` debe tener las columnas `googleId`, `twitchId`, `discordId` (migración `20260203000000-add-linked-oauth-ids.js`). Por eso es importante tener las migraciones aplicadas en la base de producción.
+
+---
+
+## Supabase (emails y OAuth en producción)
+
+Para que los correos (confirmación, reset de contraseña) y el login con Google/Twitch funcionen en producción:
+
+1. **Configurar Supabase + Resend**  
+   Sigue la guía **[SUPABASE_PRODUCTION.md](./SUPABASE_PRODUCTION.md)** (Resend como SMTP, URLs, plantillas).
+
+2. **URLs que debes tener en Supabase**  
+   En **Authentication** → **URL Configuration**:
+   - **Site URL:** tu frontend en producción, ej. `https://stream-schedule-v1.onrender.com`
+   - **Redirect URLs:** añade al menos:
+     - `https://stream-schedule-v1.onrender.com`
+     - `https://stream-schedule-v1.onrender.com/**`
+     - `http://localhost:3000` y `http://localhost:3000/**` para desarrollo
+
+Si estas URLs no están bien configuradas, el login con Google/Twitch puede redirigir a localhost o devolver errores.
