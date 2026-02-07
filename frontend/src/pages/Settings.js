@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { apiClient, createCheckout, verifyPaymentSession, getLicenseStatus, getAvailableLicenses, getPaymentConfigStatus, createSubscription, getSubscriptionStatus, cancelSubscription, getPaymentHistory, getConnectedAccounts, startDiscordLink, startGoogleLink, startTwitchLink, disconnectGoogle, disconnectTwitch, disconnectDiscord } from '../api';
+import { apiClient, createCheckout, verifyPaymentSession, getLicenseStatus, getAvailableLicenses, getPaymentConfigStatus, createSubscription, getSubscriptionStatus, cancelSubscription, getPaymentHistory, getConnectedAccounts, startDiscordLink, startGoogleLink, startTwitchLink, startTwitterLink, disconnectGoogle, disconnectTwitch, disconnectTwitter, disconnectDiscord } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { applyAccentColor } from '../utils/themeUtils';
 import { getPlatformColors, setPlatformColors, resetPlatformColors, PLATFORM_IDS, DEFAULT_PLATFORM_COLORS } from '../utils/platformColors';
@@ -83,13 +83,13 @@ const Settings = ({ user, token, setUser }) => {
   });
 
   const tabs = [
-    { id: 'profile', name: 'Profile', icon: User },
-    { id: 'notifications', name: 'Notifications', icon: Bell },
-    { id: 'platforms', name: 'Platforms', icon: Globe },
-    { id: 'security', name: 'Security', icon: Shield },
-    { id: 'appearance', name: 'Appearance', icon: Palette },
-    { id: 'billing', name: 'Licenses & Billing', icon: Key },
-    { id: 'data', name: 'Data & Export', icon: Download }
+    { id: 'profile', name: t('settings.profile'), icon: User },
+    { id: 'notifications', name: t('settings.notifications'), icon: Bell },
+    { id: 'platforms', name: t('settings.platforms'), icon: Globe },
+    { id: 'security', name: t('settings.security'), icon: Shield },
+    { id: 'appearance', name: t('settings.appearance'), icon: Palette },
+    { id: 'billing', name: t('settings.licensesBilling'), icon: Key },
+    { id: 'data', name: t('settings.dataExport'), icon: Download }
   ];
 
   const timezones = [
@@ -105,9 +105,9 @@ const Settings = ({ user, token, setUser }) => {
   ];
 
   const themes = [
-    { id: 'light', name: 'Light', preview: 'bg-white border-gray-300' },
-    { id: 'dark', name: 'Dark', preview: 'bg-gray-900 border-gray-600' },
-    { id: 'auto', name: 'Auto', preview: 'bg-gradient-to-r from-gray-100 to-gray-200 border-gray-400' }
+    { id: 'light', name: t('settings.themeLight'), preview: 'bg-white border-gray-300' },
+    { id: 'dark', name: t('settings.themeDark'), preview: 'bg-gray-900 border-gray-600' },
+    { id: 'auto', name: t('settings.themeAuto'), preview: 'bg-gradient-to-r from-gray-100 to-gray-200 border-gray-400' }
   ];
 
   const accentColors = [
@@ -171,7 +171,7 @@ const Settings = ({ user, token, setUser }) => {
       const data = await getConnectedAccounts();
       setConnectedAccounts(data);
     } catch {
-      setConnectedAccounts({ google: false, twitch: false, discord: false, email: false });
+      setConnectedAccounts({ google: false, twitch: false, discord: false, twitter: false, email: false });
     } finally {
       setConnectedAccountsLoading(false);
     }
@@ -246,17 +246,17 @@ const Settings = ({ user, token, setUser }) => {
   };
 
   const handleCancelSubscription = async () => {
-    if (!window.confirm('Are you sure you want to cancel your subscription? It will remain active until the end of the current billing period.')) {
+    if (!window.confirm(t('settings.cancelSubscriptionConfirm'))) {
       return;
     }
 
     setLoadingSubscription(true);
     try {
       await cancelSubscription(token);
-      toast.success('Subscription cancellation scheduled');
+      toast.success(t('settings.subscriptionCancelScheduled'));
       await fetchSubscriptionStatus();
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Failed to cancel subscription');
+      toast.error(error.response?.data?.error || t('settings.subscriptionCancelFailed'));
     } finally {
       setLoadingSubscription(false);
     }
@@ -266,15 +266,15 @@ const Settings = ({ user, token, setUser }) => {
     const newErrors = {};
     
     if (!profileData.username.trim()) {
-      newErrors.username = 'Username is required';
+      newErrors.username = t('common.usernameRequired');
     } else if (profileData.username.length < 3) {
-      newErrors.username = 'Username must be at least 3 characters';
+      newErrors.username = t('common.usernameMinLength');
     }
     
     if (!profileData.email.trim()) {
-      newErrors.email = 'Email is required';
+      newErrors.email = t('login.emailRequired');
     } else if (!/\S+@\S+\.\S+/.test(profileData.email)) {
-      newErrors.email = 'Email is invalid';
+      newErrors.email = t('admin.invalidEmail');
     }
 
     setErrors(newErrors);
@@ -283,7 +283,7 @@ const Settings = ({ user, token, setUser }) => {
 
   const handleProfileSave = async () => {
     if (!validateProfile()) {
-      toast.error('Please fix the errors before saving');
+      toast.error(t('settings.fixErrorsBeforeSaving'));
       return;
     }
 
@@ -299,9 +299,9 @@ const Settings = ({ user, token, setUser }) => {
         setUser(updatedUser);
         localStorage.setItem('auth_user', JSON.stringify(updatedUser));
       }
-      toast.success('Profile updated successfully!');
+      toast.success(t('settings.profileUpdated'));
     } catch (error) {
-      toast.error('Failed to update profile');
+      toast.error(t('settings.profileUpdateFailed'));
     } finally {
       setLoading(false);
     }
@@ -314,9 +314,9 @@ const Settings = ({ user, token, setUser }) => {
         headers: { Authorization: `Bearer ${token}` },
         withCredentials: true
       });
-      toast.success('Notification settings saved!');
+      toast.success(t('settings.notificationsSaved'));
     } catch (error) {
-      toast.error('Failed to save notification settings');
+      toast.error(t('settings.notificationsSaveFailed'));
     } finally {
       setLoading(false);
     }
@@ -382,26 +382,26 @@ const Settings = ({ user, token, setUser }) => {
       link.click();
       link.remove();
       
-      toast.success('Data exported successfully!');
+      toast.success(t('settings.dataExported'));
     } catch (error) {
-      toast.error('Failed to export data');
+      toast.error(t('settings.dataExportFailed'));
     } finally {
       setLoading(false);
     }
   };
 
   const handleAccountDeletion = async () => {
-    if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+    if (window.confirm(t('settings.deleteAccountConfirm'))) {
       setLoading(true);
       try {
         await apiClient.delete('/user/account', {
           headers: { Authorization: `Bearer ${token}` },
           withCredentials: true
         });
-        toast.success('Account deleted successfully');
+        toast.success(t('settings.accountDeleted'));
         navigate('/login');
       } catch (error) {
-        toast.error('Failed to delete account');
+        toast.error(t('settings.accountDeleteFailed'));
       } finally {
         setLoading(false);
       }
@@ -424,7 +424,7 @@ const Settings = ({ user, token, setUser }) => {
       if (response.data.url) {
         // Show warning if webhook is not configured (only for one-time payments)
         if (!useSubscription && response.data.warning) {
-          toast.success('Redirecting to payment...', {
+          toast.success(t('settings.redirectingToPayment'), {
             duration: 3000,
             icon: '⚠️'
           });
@@ -437,11 +437,11 @@ const Settings = ({ user, token, setUser }) => {
         }
         window.location.href = response.data.url;
       } else {
-        toast.error('Failed to create checkout session');
+        toast.error(t('settings.checkoutFailed'));
         setBillingLoading(false);
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.error || 'Payment failed. Please try again.';
+      const errorMessage = error.response?.data?.error || t('settings.paymentFailedRetry');
       const errorDetails = error.response?.data?.details;
       
       if (errorDetails) {
@@ -469,8 +469,8 @@ const Settings = ({ user, token, setUser }) => {
           const result = await verifyPaymentSession({ sessionId, token });
           if (result.data.status === 'paid') {
             toast.success(subscriptionStatus === 'success' 
-              ? 'Subscription activated successfully!' 
-              : 'Payment completed and license activated!');
+              ? t('settings.subscriptionActivated') 
+              : t('settings.paymentCompleted'));
             await fetchLicenseStatus();
             await fetchSubscriptionStatus();
             await fetchPaymentHistory();
@@ -478,10 +478,10 @@ const Settings = ({ user, token, setUser }) => {
             window.history.replaceState({}, document.title, '/settings');
           }
         } catch (error) {
-          toast.error('Failed to verify payment. Please contact support.');
+          toast.error(t('settings.verifyPaymentFailed'));
         }
       } else if (paymentStatus === 'cancelled' || subscriptionStatus === 'cancelled') {
-        toast.error('Payment was cancelled');
+        toast.error(t('settings.paymentCancelled'));
         window.history.replaceState({}, document.title, '/settings');
       }
     };
@@ -691,6 +691,7 @@ const Settings = ({ user, token, setUser }) => {
                   { key: 'google', label: 'Google', connected: connectedAccounts.google, connect: () => startGoogleLink(), disconnect: () => disconnectGoogle() },
                   { key: 'twitch', label: 'Twitch', connected: connectedAccounts.twitch, connect: () => startTwitchLink(), disconnect: () => disconnectTwitch() },
                   { key: 'discord', label: 'Discord', connected: connectedAccounts.discord, connect: () => startDiscordLink(token), disconnect: () => disconnectDiscord() },
+                  { key: 'twitter', label: 'X (Twitter)', connected: connectedAccounts.twitter, connect: () => startTwitterLink(), disconnect: () => disconnectTwitter() },
                   { key: 'email', label: t('settings.emailPassword') || 'Email & password', connected: connectedAccounts.email, connect: null, disconnect: null },
                 ].map(({ key, label, connected, connect, disconnect }) => (
                   <div key={key} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
@@ -804,7 +805,7 @@ const Settings = ({ user, token, setUser }) => {
                     disabled={loading || !securityData.currentPassword || !securityData.newPassword || !securityData.confirmPassword}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {loading ? 'Changing...' : 'Change Password'}
+                    {loading ? t('settings.changing') : t('settings.changePassword')}
                   </button>
                 </div>
               </div>
@@ -957,7 +958,7 @@ const Settings = ({ user, token, setUser }) => {
                       disabled={loading}
                       className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                     >
-                      {loading ? 'Exporting...' : 'Export Data'}
+                      {loading ? t('settings.exporting') : t('settings.exportData')}
                     </button>
                   </div>
                 </div>
@@ -976,7 +977,7 @@ const Settings = ({ user, token, setUser }) => {
                       disabled={loading}
                       className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                     >
-                      {loading ? 'Deleting...' : 'Delete Account'}
+                      {loading ? t('settings.deleting') : t('settings.deleteAccount')}
                     </button>
                   </div>
                 </div>
@@ -1011,7 +1012,7 @@ const Settings = ({ user, token, setUser }) => {
                         ? (paymentConfig.automaticProcessingEnabled ? 'text-green-900 dark:text-green-100' : 'text-yellow-900 dark:text-yellow-100')
                         : 'text-red-900 dark:text-red-100'
                     }`}>
-                      Estado de Pagos: {paymentConfig.paymentEnabled ? 'Habilitado' : 'Deshabilitado'}
+                      {t('settings.paymentStatus')}: {paymentConfig.paymentEnabled ? t('settings.paymentEnabled') : t('settings.paymentDisabled')}
                     </h4>
                     <p className={`text-sm ${
                       paymentConfig.paymentEnabled 
@@ -1085,7 +1086,7 @@ const Settings = ({ user, token, setUser }) => {
                       disabled={loadingSubscription}
                       className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                     >
-                      {loadingSubscription ? 'Processing...' : 'Cancel Subscription'}
+                      {loadingSubscription ? t('settings.processing') : t('settings.cancelSubscription')}
                     </button>
                   )}
                 </div>
@@ -1141,7 +1142,7 @@ const Settings = ({ user, token, setUser }) => {
                     disabled={billingLoading}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 w-full"
                   >
-                    {billingLoading ? 'Processing...' : 'Subscribe $5.99 / month'}
+                    {billingLoading ? t('settings.processing') : t('settings.subscribeMonthly')}
                   </button>
                 </div>
               )}
@@ -1154,7 +1155,7 @@ const Settings = ({ user, token, setUser }) => {
                     disabled={billingLoading}
                     className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 w-full"
                   >
-                    {billingLoading ? 'Processing...' : 'Subscribe $13.98'}
+                    {billingLoading ? t('settings.processing') : t('settings.subscribeQuarterly')}
                   </button>
                 </div>
               )}
@@ -1167,7 +1168,7 @@ const Settings = ({ user, token, setUser }) => {
                     disabled={billingLoading}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 w-full"
                   >
-                    {billingLoading ? 'Processing...' : 'Purchase $99.00'}
+                    {billingLoading ? t('settings.processing') : t('settings.purchaseLifetime')}
                   </button>
                 </div>
               )}
@@ -1230,7 +1231,7 @@ const Settings = ({ user, token, setUser }) => {
                     className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
                   >
                     <Save className="w-4 h-4" />
-                    <span>{loading ? 'Saving...' : 'Save Changes'}</span>
+                    <span>{loading ? t('settings.saving') : t('settings.saveChanges')}</span>
               </button>
                 </div>
               )}
