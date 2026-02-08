@@ -1,6 +1,6 @@
 # Copyright Notice / Aviso de Derechos de Autor
 
-**Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.**
+**Copyright (c) 2024-2026 Christian David Villar Colodro. All rights reserved.**
 
 This software and associated documentation files (the "Software") are the proprietary and confidential property of Christian David Villar Colodro.
 
@@ -23,21 +23,21 @@ For licensing inquiries or permission requests:
 
 ---
 
-**© 2024-2026 Christian David Villar Colodro. Todos los derechos reservados.**
+**(c) 2024-2026 Christian David Villar Colodro. Todos los derechos reservados.**
 
-Este software y los archivos de documentación asociados (el "Software") son propiedad exclusiva y confidencial de Christian David Villar Colodro.
+Este software y los archivos de documentacion asociados (el "Software") son propiedad exclusiva y confidencial de Christian David Villar Colodro.
 
 ## Derechos de Propiedad Intelectual
 
-Todos los derechos, títulos e intereses en y sobre el Software, incluyendo todos los derechos de propiedad intelectual, son y seguirán siendo propiedad exclusiva de Christian David Villar Colodro y sus licenciantes.
+Todos los derechos, titulos e intereses en y sobre el Software, incluyendo todos los derechos de propiedad intelectual, son y seran propiedad exclusiva de Christian David Villar Colodro y sus licenciantes.
 
-El Software está protegido por las leyes de derechos de autor y los tratados internacionales de derechos de autor, así como por otras leyes y tratados de propiedad intelectual.
+El Software esta protegido por las leyes de derechos de autor y los tratados internacionales de derechos de autor, asi como por otras leyes y tratados de propiedad intelectual.
 
 ## Uso No Autorizado
 
-Cualquier copia, distribución, modificación, exhibición pública o interpretación pública no autorizada de material con derechos de autor está estrictamente prohibida y puede resultar en severas sanciones civiles y penales.
+Cualquier copia, distribucion, modificacion, exhibicion publica o interpretacion publica no autorizada de material con derechos de autor esta estrictamente prohibida y puede resultar en severas sanciones civiles y penales.
 
-Los infractores serán procesados al máximo alcance posible según la ley aplicable.
+Los infractores seran procesados al maximo alcance posible segun la ley aplicable.
 
 ## Contacto
 
