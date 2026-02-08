@@ -1,4 +1,4 @@
-# Legal Protection Guide / Guía de Protección Legal
+# Legal Protection Guide / Guia de Proteccion Legal
 
 ## English
 
@@ -81,78 +81,78 @@ For legal inquiries or to report violations:
 
 ---
 
-## Español
+## Espanol
 
 ### Resumen
 
-Este documento describe las protecciones legales implementadas para el software Streamer Scheduler y proporciona orientación sobre cómo hacer valer sus derechos de propiedad intelectual.
+Este documento describe las protecciones legales implementadas para el software Streamer Scheduler y proporciona orientacion sobre como hacer valer sus derechos de propiedad intelectual.
 
 ### Documentos Legales Incluidos
 
 1. **LICENSE** - Licencia de software propietario con restricciones
-2. **TERMS_OF_SERVICE.md** - Términos y condiciones para el uso del servicio
-3. **COPYRIGHT_NOTICE.md** - Declaración de derechos de autor y propiedad
+2. **TERMS_OF_SERVICE.md** - Terminos y condiciones para el uso del servicio
+3. **COPYRIGHT_NOTICE.md** - Declaracion de derechos de autor y propiedad
 
 ### Protecciones Clave
 
-#### 1. Protección de Derechos de Autor
-- Todo el código, documentación y activos están protegidos por derechos de autor
-- Avisos de derechos de autor están incrustados en archivos fuente
+#### 1. Proteccion de Derechos de Autor
+- Todo el codigo, documentacion y activos estan protegidos por derechos de autor
+- Avisos de derechos de autor estan incrustados en archivos fuente
 - Metadatos de derechos de autor en archivos HTML
 
 #### 2. Restricciones de Licencia
-La licencia propietaria prohíbe explícitamente:
+La licencia propietaria prohibe explicitamente:
 - Copiar o reproducir
 - Modificar o crear obras derivadas
 - Distribuir o sublicenciar
-- Ingeniería inversa o descompilación
+- Ingenieria inversa o descompilacion
 - Uso comercial sin permiso
 
 #### 3. Acciones de Cumplimiento
 
 Si descubre uso no autorizado:
 
-1. **Documentar la Infracción**
+1. **Documentar la Infraccion**
    - Tomar capturas de pantalla
    - Guardar URLs y marcas de tiempo
-   - Documentar cualquier código o activo copiado
+   - Documentar cualquier codigo o activo copiado
 
 2. **Enviar Carta de Cese y Desistimiento**
    - Incluir aviso de derechos de autor
-   - Referenciar violaciones específicas
+   - Referenciar violaciones especificas
    - Establecer plazo para cumplimiento
-   - Amenazar con acción legal si es necesario
+   - Amenazar con accion legal si es necesario
 
-3. **Eliminación DMCA (si está alojado en línea)**
-   - Presentar eliminación DMCA con el proveedor de alojamiento
-   - Presentar DMCA con GitHub/GitLab si el código está publicado
+3. **Eliminacion DMCA (si esta alojado en linea)**
+   - Presentar eliminacion DMCA con el proveedor de alojamiento
+   - Presentar DMCA con GitHub/GitLab si el codigo esta publicado
    - Presentar DMCA con el registrador de dominio si es un sitio web
 
-4. **Acción Legal**
+4. **Accion Legal**
    - Consultar con un abogado de propiedad intelectual
-   - Presentar demanda por infracción de derechos de autor
-   - Buscar daños y medidas cautelares
+   - Presentar demanda por infraccion de derechos de autor
+   - Buscar danos y medidas cautelares
 
 ### Protecciones Adicionales Recomendadas
 
-1. **Ofuscación de Código** (para builds de producción)
+1. **Ofuscacion de Codigo** (para builds de produccion)
    - Minificar JavaScript
    - Ofuscar nombres de variables
    - Eliminar comentarios y espacios en blanco
 
-2. **Validación del Lado del Servidor**
-   - Nunca confiar en código del lado del cliente
+2. **Validacion del Lado del Servidor**
+   - Nunca confiar en codigo del lado del cliente
    - Validar todas las entradas del lado del servidor
-   - Implementar límites de tasa
+   - Implementar limites de tasa
 
 3. **Marcas de Agua**
    - Agregar marcas de agua invisibles a activos
-   - Incluir identificadores únicos en builds
-   - Rastrear uso a través de análisis
+   - Incluir identificadores unicos en builds
+   - Rastrear uso a traves de analisis
 
-4. **Cumplimiento de Términos de Servicio**
+4. **Cumplimiento de Terminos de Servicio**
    - Requerir que los usuarios acepten ToS
-   - Registrar marcas de tiempo de aceptación
+   - Registrar marcas de tiempo de aceptacion
    - Monitorear violaciones
 
 ### Contacto para Asuntos Legales

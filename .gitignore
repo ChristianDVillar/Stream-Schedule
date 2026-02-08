@@ -10,12 +10,14 @@ dist/
 .next/
 out/
 
-# Environment variables
+# Environment variables (never commit - contains secrets)
 .env
 .env.*
 .env.local
 .env.*.local
-# Note: .env.example should be committed as documentation
+backend/.env
+frontend/.env
+# Note: .env.example and env.example should be committed as documentation only
 
 # IDE and editor files
 .vscode/
