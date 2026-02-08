@@ -1,6 +1,6 @@
-# Terms of Service / Términos de Servicio
+# Terms of Service / Terminos de Servicio
 
-**Last Updated / Última Actualización:** January 2026
+**Last Updated / Ultima Actualizacion:** January 2026
 
 ## English
 
@@ -53,25 +53,25 @@ Email: christiandvillar@gmail.com
 
 ---
 
-## Español
+## Espanol
 
-### 1. Aceptación de Términos
+### 1. Aceptacion de Terminos
 
-Al acceder y usar Streamer Scheduler ("el Servicio"), acepta y se compromete a cumplir con los términos y disposiciones de este acuerdo. Si no está de acuerdo con lo anterior, no utilice este servicio.
+Al acceder y usar Streamer Scheduler ("el Servicio"), acepta y se compromete a cumplir con los terminos y disposiciones de este acuerdo. Si no esta de acuerdo con lo anterior, no utilice este servicio.
 
 ### 2. Derechos de Propiedad Intelectual
 
-Todo el contenido, características y funcionalidad del Servicio, incluyendo pero no limitado a texto, gráficos, logotipos, iconos, imágenes, clips de audio, descargas digitales, compilaciones de datos y software, son propiedad exclusiva de Christian David Villar Colodro y están protegidos por leyes internacionales de derechos de autor, marcas registradas, patentes, secretos comerciales y otras leyes de propiedad intelectual.
+Todo el contenido, caracteristicas y funcionalidad del Servicio, incluyendo pero no limitado a texto, graficos, logotipos, iconos, imagenes, clips de audio, descargas digitales, compilaciones de datos y software, son propiedad exclusiva de Christian David Villar Colodro y estan protegidos por leyes internacionales de derechos de autor, marcas registradas, patentes, secretos comerciales y otras leyes de propiedad intelectual.
 
 ### 3. Usos Prohibidos
 
 No puede:
 - Copiar, reproducir o duplicar ninguna parte del Servicio
 - Modificar, adaptar o crear obras derivadas
-- Realizar ingeniería inversa, descompilar o desensamblar el Servicio
+- Realizar ingenieria inversa, descompilar o desensamblar el Servicio
 - Eliminar cualquier aviso de derechos de autor, marca registrada u otro aviso de propiedad
-- Usar el Servicio para cualquier propósito ilegal o no autorizado
-- Intentar obtener acceso no autorizado a cualquier porción del Servicio
+- Usar el Servicio para cualquier proposito ilegal o no autorizado
+- Intentar obtener acceso no autorizado a cualquier porcion del Servicio
 
 ### 4. Cuentas de Usuario
 
@@ -82,22 +82,22 @@ No puede:
 ### 5. Uso de Licencias
 
 - Las licencias no son transferibles ni reembolsables
-- Cada licencia es válida para una sola cuenta de usuario
-- Compartir o revender licencias está estrictamente prohibido
+- Cada licencia es valida para una sola cuenta de usuario
+- Compartir o revender licencias esta estrictamente prohibido
 
-### 6. Terminación
+### 6. Terminacion
 
-Nos reservamos el derecho de terminar o suspender su cuenta y el acceso al Servicio inmediatamente, sin previo aviso, por conducta que creemos que viola estos Términos de Servicio o es perjudicial para otros usuarios, nosotros o terceros.
+Nos reservamos el derecho de terminar o suspender su cuenta y el acceso al Servicio inmediatamente, sin previo aviso, por conducta que creemos que viola estos Terminos de Servicio o es perjudicial para otros usuarios, nosotros o terceros.
 
-### 7. Renuncia de Garantías
+### 7. Renuncia de Garantias
 
-EL SERVICIO SE PROPORCIONA "TAL CUAL" Y "SEGÚN DISPONIBILIDAD" SIN GARANTÍAS DE NINGÚN TIPO, YA SEA EXPRESA O IMPLÍCITA.
+EL SERVICIO SE PROPORCIONA "TAL CUAL" Y "SEGUN DISPONIBILIDAD" SIN GARANTIAS DE NINGUN TIPO, YA SEA EXPRESA O IMPLICITA.
 
-### 8. Limitación de Responsabilidad
+### 8. Limitacion de Responsabilidad
 
-EN NINGÚN CASO CHRISTIAN DAVID VILLAR COLODRO SERÁ RESPONSABLE DE CUALQUIER DAÑO INDIRECTO, INCIDENTAL, ESPECIAL, CONSECUENTE O PUNITIVO.
+EN NINGUN CASO CHRISTIAN DAVID VILLAR COLODRO SERA RESPONSABLE DE CUALQUIER DANO INDIRECTO, INCIDENTAL, ESPECIAL, CONSECUENTE O PUNITIVO.
 
-### 9. Información de Contacto
+### 9. Informacion de Contacto
 
-Para preguntas sobre estos Términos de Servicio, contacte:
+Para preguntas sobre estos Terminos de Servicio, contacte:
 Email: christiandvillar@gmail.com
