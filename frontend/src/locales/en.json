@@ -32,6 +32,8 @@
     "creating": "Creating...",
     "loggingIn": "Logging in...",
     "menu": "Menu",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
     "usernameRequired": "Username is required",
     "usernameMinLength": "Username must be at least 3 characters",
     "passwordsDoNotMatch": "Passwords do not match",
@@ -40,7 +42,10 @@
     "noAdminPermission": "You do not have permission to access the Admin Dashboard.",
     "goToUserDashboard": "Go to User Dashboard",
     "adminsCannotAccessUserDashboard": "Admins cannot access the User Dashboard.",
-    "goToAdminDashboard": "Go to Admin Dashboard"
+    "goToAdminDashboard": "Go to Admin Dashboard",
+    "merchandisingLink": "Go to merchandising page",
+    "switchToEnglish": "Switch to English",
+    "switchToSpanish": "Switch to Spanish"
   },
   "login": {
     "title": "Login",
@@ -134,7 +139,14 @@
     "donationsDownloaded": "Donations list downloaded",
     "errorDownloadingSubs": "Error downloading subscribers",
     "errorDownloadingBits": "Error downloading bits",
-    "errorDownloadingDonations": "Error downloading donations"
+    "errorDownloadingDonations": "Error downloading donations",
+    "cancelPublication": "Cancel publication",
+    "cancelPublicationConfirm": "Cancel this scheduled publication? It will not be published.",
+    "publicationCanceled": "Publication canceled",
+    "cancelPublicationFailed": "Failed to cancel publication",
+    "viewDetails": "View details",
+    "duplicate": "Duplicate",
+    "appTitle": "Streamer Scheduler"
   },
   "templates": {
     "title": "Content templates",
@@ -421,6 +433,7 @@
     "upgradeButton": "Upgrade Plan"
   },
   "media": {
+    "menu": "Media",
     "title": "Upload Files",
     "subtitle": "Upload images and videos to use in your posts",
     "uploadStats": "Upload Statistics",

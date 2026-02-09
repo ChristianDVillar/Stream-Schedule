@@ -175,7 +175,6 @@ const Settings = ({ user, token, setUser }) => {
     setConnectedAccountsLoading(true);
     try {
       const data = await getConnectedAccounts();
-      console.log('Connected accounts data:', data); // Debug log
       setConnectedAccounts(data);
     } catch (err) {
       console.error('Error fetching connected accounts:', err);
@@ -456,16 +455,25 @@ const Settings = ({ user, token, setUser }) => {
         setBillingLoading(false);
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.error || t('settings.paymentFailedRetry');
-      const errorDetails = error.response?.data?.details;
-      
-      if (errorDetails) {
+      const data = error.response?.data;
+      const status = error.response?.status;
+      if (process.env.NODE_ENV === 'development' && data) {
+        console.error('Payment/Subscription error:', status, data);
+      }
+      const errorMessage = data?.error || t('settings.paymentFailedRetry');
+      const rawDetails = data?.details;
+      const errorDetails = Array.isArray(rawDetails)
+        ? rawDetails.map((d) => (typeof d === 'object' && d?.message ? d.message : String(d))).join('. ')
+        : typeof rawDetails === 'object' && rawDetails !== null && !Array.isArray(rawDetails)
+          ? (rawDetails.message || JSON.stringify(rawDetails))
+          : rawDetails;
+      if (errorDetails && String(errorDetails) !== 'undefined') {
         toast.error(errorMessage, {
-          duration: 5000,
-          description: errorDetails
+          duration: 6000,
+          description: typeof errorDetails === 'string' ? errorDetails : String(errorDetails),
         });
       } else {
-        toast.error(errorMessage);
+        toast.error(errorMessage, { duration: 6000 });
       }
       setBillingLoading(false);
     }

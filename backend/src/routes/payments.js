@@ -62,11 +62,12 @@ router.post('/create-checkout-session', requireAuth, validateBody(createCheckout
     }
     const price = prices.data[0];
     const isSubscription = !!price.recurring;
+    const stripeTaxEnabled = process.env.STRIPE_TAX_ENABLED !== 'false';
     const sessionConfig = {
       payment_method_types: ['card'],
       line_items: [{ price: price.id, quantity: 1 }],
       mode: isSubscription ? 'subscription' : 'payment',
-      automatic_tax: { enabled: true },
+      ...(stripeTaxEnabled && { automatic_tax: { enabled: true } }),
       locale: 'en',
       success_url: success_url || `${baseUrl}/settings?payment=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: cancel_url || `${baseUrl}/settings?payment=cancelled`,
@@ -193,7 +194,7 @@ router.post('/checkout', requireAuth, validateBody(checkoutSchema), async (req, 
         },
       ],
       mode: 'payment',
-      automatic_tax: { enabled: true },
+      ...(process.env.STRIPE_TAX_ENABLED !== 'false' && { automatic_tax: { enabled: true } }),
       locale: 'en', // Set checkout page language to English
       success_url: `${getFrontendUrl()}/settings?payment=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${getFrontendUrl()}/settings?payment=cancelled`,
@@ -704,13 +705,19 @@ router.post('/subscribe', requireAuth, validateBody(subscribeSchema), async (req
     });
   }
 
-  const licenseType = req.body.licenseType;
+  const licenseType = req.body?.licenseType;
+  if (!licenseType || !['monthly', 'quarterly'].includes(licenseType)) {
+    return res.status(400).json({
+      error: 'Invalid or missing license type for subscription',
+      details: 'Send licenseType: "monthly" or "quarterly" in the request body.',
+    });
+  }
   logger.debug('Subscription request received', {
     userId: req.user?.id,
     licenseType,
     availablePlans: Object.keys(PLANS)
   });
-  
+
   const plan = PLANS[licenseType];
   
   if (!plan) {
@@ -753,10 +760,9 @@ router.post('/subscribe', requireAuth, validateBody(subscribeSchema), async (req
       try {
         const existingSubscription = await stripe.subscriptions.retrieve(existingSubscriptionId);
         if (existingSubscription.status === 'active' || existingSubscription.status === 'trialing') {
-          return res.status(400).json({ 
+          return res.status(400).json({
             error: 'You already have an active subscription',
-            subscriptionId: existingSubscription.id,
-            status: existingSubscription.status
+            details: 'Cancel it in the Stripe Dashboard or in Settings (Manage subscription) before starting a new one.',
           });
         }
       } catch (err) {
@@ -768,20 +774,35 @@ router.post('/subscribe', requireAuth, validateBody(subscribeSchema), async (req
       }
     }
 
-    // Get or create Stripe customer
+    // Get or create Stripe customer (clear invalid IDs that no longer exist in Stripe)
     let customerId = user.stripeCustomerId;
-    
+    if (customerId) {
+      try {
+        await stripe.customers.retrieve(customerId);
+      } catch (err) {
+        if (err.code === 'resource_missing' || (err.message && err.message.includes('No such customer'))) {
+          logger.warn('Stripe customer no longer exists, clearing invalid ID', {
+            userId: user.id,
+            oldCustomerId: customerId
+          });
+          user.stripeCustomerId = null;
+          if (user.stripeSubscriptionId) user.stripeSubscriptionId = null;
+          await user.save();
+          customerId = null;
+        } else {
+          throw err;
+        }
+      }
+    }
     logger.debug('Stripe customer check', {
       userId: user.id,
       existingCustomerId: customerId
     });
-    
     if (!customerId) {
       logger.debug('Creating new Stripe customer', {
         userId: user.id,
         email: user.email
       });
-      
       const customer = await stripe.customers.create({
         email: user.email,
         metadata: {
@@ -790,20 +811,9 @@ router.post('/subscribe', requireAuth, validateBody(subscribeSchema), async (req
         }
       });
       customerId = customer.id;
-      
-      logger.debug('Stripe customer created', {
-        userId: user.id,
-        customerId
-      });
-      
-      // Save customer ID to user
+      logger.debug('Stripe customer created', { userId: user.id, customerId });
       user.stripeCustomerId = customerId;
       await user.save();
-      
-      logger.debug('Customer ID saved to user', {
-        userId: user.id,
-        customerId
-      });
     }
 
     // Create Stripe Checkout Session for subscription
@@ -816,6 +826,8 @@ router.post('/subscribe', requireAuth, validateBody(subscribeSchema), async (req
     });
     
     // Build session config - only include customer_email if we don't have a customer ID
+    // automatic_tax requires Stripe Tax to be enabled in Dashboard; disable via STRIPE_TAX_ENABLED=false if needed
+    const stripeTaxEnabled = process.env.STRIPE_TAX_ENABLED !== 'false';
     const sessionConfig = {
       payment_method_types: ['card'],
       line_items: [
@@ -836,7 +848,7 @@ router.post('/subscribe', requireAuth, validateBody(subscribeSchema), async (req
         },
       ],
       mode: 'subscription',
-      automatic_tax: { enabled: true },
+      ...(stripeTaxEnabled && { automatic_tax: { enabled: true } }),
       locale: 'en', // Set checkout page language to English
       success_url: `${getFrontendUrl()}/settings?subscription=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${getFrontendUrl()}/settings?subscription=cancelled`,
@@ -901,11 +913,12 @@ router.post('/subscribe', requireAuth, validateBody(subscribeSchema), async (req
         }
       : undefined;
     
-    // Check for specific Stripe errors
+    // Check for specific Stripe errors (return Stripe message so user can fix)
     if (error.type === 'StripeInvalidRequestError') {
-      return res.status(400).json({ 
-        error: 'Invalid Stripe request', 
-        details: errorDetails || error.message
+      const stripeMsg = error.message || (error.raw?.message) || 'Invalid Stripe request';
+      return res.status(400).json({
+        error: 'Invalid Stripe request',
+        details: stripeMsg,
       });
     }
     
