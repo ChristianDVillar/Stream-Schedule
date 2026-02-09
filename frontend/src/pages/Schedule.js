@@ -1,22 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiClient, getDiscordGuilds, getDiscordChannels, getDiscordInviteUrl } from '../api';
-import toast from 'react-hot-toast';
-import { useLanguage } from '../contexts/LanguageContext';
-import { getPlatformColors } from '../utils/platformColors';
-import { parsePastedPost } from '../utils/copyPastePost';
-
-/** Max characters for a single tweet (X/Twitter). */
-const TWITTER_MAX_CHARS = 280;
 import Joyride, { STATUS } from 'react-joyride';
-import FileUpload from '../components/FileUpload';
-import MediaGallery from '../components/MediaGallery';
-import { 
-  Calendar, 
-  Clock, 
-  Share2, 
-  Save, 
-  X, 
+import toast from 'react-hot-toast';
+import {
+  Calendar,
+  Clock,
+  Share2,
+  Save,
+  X,
   CheckCircle,
   AlertCircle,
   Paperclip,
@@ -30,6 +21,15 @@ import {
   Hash,
   ClipboardPaste
 } from 'lucide-react';
+import { apiClient, getDiscordGuilds, getDiscordChannels, getDiscordInviteUrl } from '../api';
+import FileUpload from '../components/FileUpload';
+import MediaGallery from '../components/MediaGallery';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getPlatformColors } from '../utils/platformColors';
+import { parsePastedPost } from '../utils/copyPastePost';
+
+/** Max characters for a single tweet (X/Twitter). */
+const TWITTER_MAX_CHARS = 280;
 
 // Discord icon - Icons8 id 30888 (https://icons8.com/icon/30888/discord)
 const DISCORD_ICON_URL = 'https://img.icons8.com/?size=100&id=30888&format=png&color=000000';
