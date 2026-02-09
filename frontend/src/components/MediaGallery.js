@@ -12,6 +12,15 @@ import { deleteUpload, getVideoSignedUrl } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
 
+/** Never use Supabase base URL as img/video src (causes GET base 404). Return undefined so we don't trigger request. */
+function safeMediaSrc(url) {
+  if (!url || typeof url !== 'string') return url;
+  const base = (process.env.REACT_APP_SUPABASE_URL || '').replace(/\/$/, '');
+  const u = url.replace(/\/$/, '').split('?')[0];
+  if (base && u === base) return undefined;
+  return url;
+}
+
 export default function MediaGallery({ user, onSelect, selectedUrls = [], showDeleteButton = false, onDelete }) {
   const { t } = useLanguage();
   const [mediaFiles, setMediaFiles] = useState([]);
@@ -40,6 +49,10 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
         // Get URLs for each upload
         const filesWithUrls = await Promise.all(
           stats.uploads.map(async (upload) => {
+            const fp = upload?.file_path;
+            if (fp == null || typeof fp !== 'string' || !fp.trim() || /[\\:*?"<>|]/.test(fp)) {
+              return null;
+            }
             let url;
             try {
               if (upload.bucket === 'images') {
@@ -50,44 +63,28 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
                   const response = await getVideoSignedUrl(upload.file_path, 3600);
                   if (response.data && response.data.signedUrl) {
                     url = response.data.signedUrl;
-                    console.log('Video URL generated from backend:', { 
-                      filePath: upload.file_path, 
-                      url: url?.substring(0, 50) + '...' 
-                    });
                   } else {
                     throw new Error('No signedUrl in response');
                   }
                 } catch (backendError) {
                   const status = backendError.response?.status;
                   const data = backendError.response?.data;
+                  const isInvalidPath = status === 400 && typeof data === 'object' && data !== null && (data.error === 'requested path is invalid' || data.message);
                   const isOurApi404 = status === 404 && typeof data === 'object' && data !== null && (data.error || data.orphaned !== undefined);
                   const looksLikeHtml = typeof data === 'string' && (data.includes('<!DOCTYPE') || data.includes('<html') || data.includes('GET /api/upload'));
                   const backendUnreachable = status === 404 && (looksLikeHtml || !data);
-                  if (!backendUnreachable && !isOurApi404) {
-                    console.error('Backend video URL generation failed:', {
-                      filePath: upload.file_path,
-                      error: typeof data === 'object' ? data : data,
-                      status
-                    });
+                  if (isInvalidPath) {
+                    return null;
                   }
                   if (status === 404 && isOurApi404) {
-                    console.warn('Video file not found in Storage, skipping:', upload.file_path);
                     if (upload.id) {
                       deleteUpload(upload.id).catch(() => {});
                     }
                     return null;
                   }
-                  if (backendUnreachable) {
-                    console.warn('Backend unreachable (404), trying frontend signed URL fallback');
-                  }
                   try {
                     const { getSignedVideoUrl } = await import('../utils/supabaseClient');
                     url = await getSignedVideoUrl(upload.file_path, 3600);
-                    if (backendUnreachable) {
-                      console.log('Video URL from frontend fallback (backend was unreachable):', upload.file_path);
-                    } else {
-                      console.log('Video URL generated from frontend (fallback):', { filePath: upload.file_path });
-                    }
                   } catch (frontendError) {
                     const msg = (frontendError && (frontendError.message || frontendError.error_description)) ? String(frontendError.message || frontendError.error_description) : '';
                     const isObjectNotFound = /object not found|not found|404/i.test(msg);
@@ -97,23 +94,19 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
                       }
                       return null;
                     }
-                    console.error('Frontend video URL generation also failed:', frontendError);
                     throw frontendError;
                   }
                 }
               }
-              if (!url) {
-                console.warn('No URL generated for file:', upload.file_path, upload.bucket);
-                return null;
-              }
+              if (!url) return null;
               return {
                 ...upload,
                 url,
                 fileName: upload.file_path.split('/').pop() || upload.file_path
               };
             } catch (err) {
-              console.error('Error getting URL for file:', upload.file_path, upload.bucket, err);
-              // Don't filter out videos completely - return with error flag so we can show a message
+              const isInvalidPath = err?.message === 'requested path is invalid';
+              if (isInvalidPath) return null;
               return {
                 ...upload,
                 url: null,
@@ -124,9 +117,9 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
           })
         );
 
-        // Filter out nulls and files without URLs, sort by date (newest first)
+        // Filter out nulls, files without URLs, and URLs that are Supabase base (would cause GET base 404)
         const validFiles = filesWithUrls
-          .filter(f => f !== null && f.url) // Only include files with valid URLs
+          .filter(f => f !== null && f.url && safeMediaSrc(f.url))
           .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         
         const removedOrphanedCount = filesWithUrls.filter(f => f === null).length;
@@ -136,22 +129,11 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
             { duration: 4000, icon: '🧹' }
           );
         }
-        const failedFiles = filesWithUrls.filter(f => f !== null && !f.url);
-        if (failedFiles.length > 0) {
-          console.warn('Some files could not be loaded:', failedFiles.map(f => ({ 
-            fileName: f.fileName, 
-            bucket: f.bucket, 
-            error: f.error,
-            filePath: f.file_path
-          })));
-        }
-
         setMediaFiles(validFiles);
       } else {
         setMediaFiles([]);
       }
     } catch (err) {
-      console.error('Error loading media files:', err);
       setError(t('media.errorLoading'));
     } finally {
       setLoading(false);
@@ -188,7 +170,6 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
         onDelete(file);
       }
     } catch (err) {
-      console.error('Error deleting file:', err);
       const errorMessage = err.response?.data?.error || t('media.deleteError');
       toast.error(errorMessage);
     } finally {
@@ -255,7 +236,7 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
             {file.bucket === 'images' ? (
               <div className="relative aspect-square">
                 <img
-                  src={file.url}
+                  src={safeMediaSrc(file.url) || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect width="100" height="100" fill="%23ddd"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%23999"%3EImagen%3C/text%3E%3C/svg%3E'}
                   alt={file.fileName}
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -268,15 +249,14 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
               </div>
             ) : (
               <div className="relative aspect-square bg-gray-900 overflow-hidden group/video">
-                {file.url ? (
+                {safeMediaSrc(file.url) ? (
                   <video
-                    src={file.url}
+                    src={safeMediaSrc(file.url)}
                     className="w-full h-full object-cover"
                     controls
                     preload="metadata"
                     playsInline
                     onError={(e) => {
-                      console.error('Error loading video:', file.fileName, file.url, e);
                       // Show fallback if video fails to load
                       e.target.style.display = 'none';
                       const fallback = e.target.parentElement.querySelector('.video-fallback');
@@ -286,9 +266,7 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
                         if (errorMsg) errorMsg.textContent = 'Error loading video';
                       }
                     }}
-                    onLoadedMetadata={() => {
-                      console.log('Video loaded successfully:', file.fileName);
-                    }}
+                    onLoadedMetadata={() => {}}
                   >
                     Your browser does not support the video tag.
                   </video>
@@ -300,7 +278,7 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
                     </p>
                   </div>
                 )}
-                <div className="video-fallback absolute inset-0 flex flex-col items-center justify-center bg-gray-900/80 opacity-0 group-hover/video:opacity-100 transition-opacity" style={{ display: file.url ? 'none' : 'flex' }}>
+                <div className="video-fallback absolute inset-0 flex flex-col items-center justify-center bg-gray-900/80 opacity-0 group-hover/video:opacity-100 transition-opacity" style={{ display: safeMediaSrc(file.url) ? 'none' : 'flex' }}>
                   <Video className="w-8 h-8 text-white mb-2" />
                   <p className="text-xs text-white/80 text-center px-2 error-msg">
                     {typeof file.error === 'string' ? file.error : 'Video unavailable'}

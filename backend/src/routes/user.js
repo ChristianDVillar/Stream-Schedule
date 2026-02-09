@@ -15,7 +15,8 @@ import { auditLog } from '../middleware/audit.js';
 import { normalizeLicenseType, resolveLicenseExpiry, buildLicenseSummary } from '../utils/licenseUtils.js';
 import { generateLicenseKey, generateTemporaryPassword, generateUsernameSuffix } from '../utils/cryptoUtils.js';
 import jwt from 'jsonwebtoken';
-import { generateAuthData, buildUserResponse, createLinkState, verifyLinkState } from '../utils/authUtils.js';
+import crypto from 'crypto';
+import { generateAuthData, buildUserResponse, createLinkState, verifyLinkState, createTwitterOAuth2State, verifyTwitterOAuth2State } from '../utils/authUtils.js';
 import { supabase as supabaseAdmin } from '../utils/supabaseClient.js';
 import { validateBody } from '../middleware/validate.js';
 import {
@@ -38,6 +39,7 @@ const router = express.Router();
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
 
 // Helper function to generate JWT and redirect for OAuth callbacks
 const generateAuthResponse = (user, res) => {
@@ -492,8 +494,331 @@ router.get('/auth/twitch/callback',
   }
 );
 
+// --- X (Twitter) OAuth 2.0 (opción 2: propio, sin depender de Supabase) ---
+const X_OAUTH2_AUTHORIZE = 'https://x.com/i/oauth2/authorize';
+const X_OAUTH2_TOKEN = 'https://api.x.com/2/oauth2/token';
+const X_API_USERS_ME = 'https://api.x.com/2/users/me';
+const X_OAUTH2_SCOPES = 'tweet.read tweet.write users.read users.email offline.access';
+
+function isTwitterOAuth2Configured() {
+  const id = (process.env.TWITTER_OAUTH2_CLIENT_ID || process.env.X_OAUTH2_CLIENT_ID || '').trim();
+  return id.length > 0;
+}
+
+/** Generate PKCE code_verifier and code_challenge (S256). */
+function generatePkce() {
+  const verifier = crypto.randomBytes(32).toString('base64url');
+  const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+  return { codeVerifier: verifier, codeChallenge: challenge };
+}
+
+/** GET /auth/twitter - Start X OAuth 2.0 login. Redirects to X; callback hits /auth/twitter/callback. */
+export const twitterOAuth2Start = async (req, res) => {
+  if (!isTwitterOAuth2Configured()) {
+    return res.redirect(`${FRONTEND_URL}/login?error=twitter_not_configured`);
+  }
+  const clientId = (process.env.TWITTER_OAUTH2_CLIENT_ID || process.env.X_OAUTH2_CLIENT_ID || '').trim();
+  const redirectUri = `${BACKEND_URL}/api/user/auth/twitter/callback`;
+  const { codeVerifier, codeChallenge } = generatePkce();
+  const state = createTwitterOAuth2State(codeVerifier, 'twitter_oauth2_login');
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    scope: X_OAUTH2_SCOPES,
+    state,
+    code_challenge: codeChallenge,
+    code_challenge_method: 'S256',
+  });
+  const url = `${X_OAUTH2_AUTHORIZE}?${params.toString()}`;
+  res.redirect(url);
+};
+
+/** GET /auth/twitter/callback - Exchange code for token, get user, create/update User, redirect with JWT. */
+export const twitterOAuth2Callback = async (req, res) => {
+  const { code, state, error, error_description } = req.query;
+  if (error) {
+    logger.warn('X OAuth2 callback error', { error, error_description });
+    return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=${encodeURIComponent(error_description || error)}`);
+  }
+  if (!code || !state) {
+    return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=missing_code_or_state`);
+  }
+  const parsed = verifyTwitterOAuth2State(state, 'twitter_oauth2_login');
+  if (!parsed?.verifier) {
+    return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=invalid_state`);
+  }
+  const clientId = (process.env.TWITTER_OAUTH2_CLIENT_ID || process.env.X_OAUTH2_CLIENT_ID || '').trim();
+  const clientSecret = (process.env.TWITTER_OAUTH2_CLIENT_SECRET || process.env.X_OAUTH2_CLIENT_SECRET || '').trim();
+  const redirectUri = `${BACKEND_URL.replace(/\/$/, '')}/api/user/auth/twitter/callback`;
+  const isConfidential = clientSecret.length > 0;
+  const body = new URLSearchParams({
+    code,
+    grant_type: 'authorization_code',
+    redirect_uri: redirectUri,
+    code_verifier: parsed.verifier,
+  });
+  if (isConfidential) {
+    body.append('client_id', clientId);
+  }
+  const headers = {
+    'Content-Type': 'application/x-www-form-urlencoded',
+  };
+  if (isConfidential) {
+    headers.Authorization = 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+  } else {
+    body.append('client_id', clientId);
+  }
+  logger.info('X login token exchange', { redirectUri, hasClientSecret: isConfidential });
+  let tokenRes;
+  try {
+    tokenRes = await fetch(X_OAUTH2_TOKEN, {
+      method: 'POST',
+      headers,
+      body: body.toString(),
+    });
+  } catch (err) {
+    logger.error('X OAuth2 token request failed', { error: err.message });
+    return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=token_request_failed`);
+  }
+  const tokenResText = await tokenRes.text();
+  if (!tokenRes.ok) {
+    let xError = 'token_exchange_failed';
+    try {
+      const errJson = JSON.parse(tokenResText);
+      const desc = errJson.error_description || errJson.error;
+      if (desc) xError = typeof desc === 'string' ? desc : String(desc);
+    } catch (_) {
+      if (tokenResText) xError = tokenResText.slice(0, 100);
+    }
+    logger.error('X OAuth2 token error', { status: tokenRes.status, body: tokenResText, xError });
+    return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=${encodeURIComponent(xError)}`);
+  }
+  let tokenData;
+  try {
+    tokenData = JSON.parse(tokenResText);
+  } catch (_) {
+    return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=no_access_token`);
+  }
+  const accessToken = tokenData.access_token;
+  if (!accessToken) {
+    return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=no_access_token`);
+  }
+  let meRes;
+  try {
+    meRes = await fetch(X_API_USERS_ME + '?user.fields=id,username,name,profile_image_url', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  } catch (err) {
+    logger.error('X users/me request failed', { error: err.message });
+    return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=user_info_failed`);
+  }
+  if (!meRes.ok) {
+    const errText = await meRes.text();
+    logger.error('X users/me error', { status: meRes.status, body: errText });
+    return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=user_info_failed`);
+  }
+  const xUser = await meRes.json();
+  const twitterId = xUser?.data?.id;
+  const username = xUser?.data?.username || xUser?.data?.name || 'xuser';
+  if (!twitterId) {
+    return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=no_twitter_user_id`);
+  }
+  let user = await User.findOne({
+    where: {
+      [Op.or]: [
+        { twitterId },
+        { oauthId: twitterId, oauthProvider: 'twitter' },
+      ],
+    },
+  });
+  const displayName = (username || 'xuser').replace(/\s+/g, '').toLowerCase().replace(/[^a-z0-9]/g, '') || 'xuser';
+  if (user) {
+    user.twitterId = twitterId;
+    user.twitterAccessToken = tokenData.access_token || user.twitterAccessToken;
+    user.twitterRefreshToken = tokenData.refresh_token || user.twitterRefreshToken;
+    if (!user.oauthId) {
+      user.oauthId = twitterId;
+      user.oauthProvider = 'twitter';
+    }
+    if ((!user.licenseKey || String(user.licenseKey).length < 10) && !user.hasUsedTrial) {
+      const expiryResult = resolveLicenseExpiry({ licenseType: normalizeLicenseType('trial') });
+      user.licenseType = normalizeLicenseType('trial');
+      user.licenseKey = generateLicenseKey('TRIAL', 12);
+      user.licenseExpiresAt = expiryResult.error ? null : expiryResult.value;
+      user.hasUsedTrial = true;
+    }
+    await user.save();
+  } else {
+    const email = `twitter-${twitterId}@placeholder.local`;
+    const expiryResult = resolveLicenseExpiry({ licenseType: normalizeLicenseType('trial') });
+    user = await User.create({
+      username: displayName + generateUsernameSuffix(3),
+      email,
+      passwordHash: null,
+      oauthProvider: 'twitter',
+      oauthId: twitterId,
+      twitterId,
+      twitterAccessToken: tokenData.access_token,
+      twitterRefreshToken: tokenData.refresh_token || null,
+      licenseType: normalizeLicenseType('trial'),
+      licenseKey: generateLicenseKey('TRIAL', 12),
+      licenseExpiresAt: expiryResult.error ? null : expiryResult.value,
+      hasUsedTrial: true,
+    });
+  }
+  generateAuthResponse(user, res);
+};
+
+/** GET /auth/twitter/mode - Tell frontend whether to use backend OAuth2 or Supabase for X (Twitter). */
+router.get('/auth/twitter/mode', (req, res) => {
+  res.json({ mode: isTwitterOAuth2Configured() ? 'backend' : 'supabase' });
+});
+
+router.get('/auth/twitter', twitterOAuth2Start);
+router.get('/auth/twitter/callback', twitterOAuth2Callback);
+
+/** Start X (Twitter) link flow: token in query, redirect to X OAuth2 with state=userId. */
+export const twitterLinkStart = async (req, res) => {
+  if (!isTwitterOAuth2Configured()) {
+    return res.redirect(`${FRONTEND_URL}/settings?error=twitter_not_configured`);
+  }
+  const token = (req.query.token || '').trim();
+  if (!token) {
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_token_missing`);
+  }
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    const userId = payload.id;
+    const clientId = (process.env.TWITTER_OAUTH2_CLIENT_ID || process.env.X_OAUTH2_CLIENT_ID || '').trim();
+    const redirectUri = `${BACKEND_URL}/api/user/auth/twitter/link/callback`;
+    const { codeVerifier, codeChallenge } = generatePkce();
+    const state = createTwitterOAuth2State(codeVerifier, 'link_twitter', userId);
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: X_OAUTH2_SCOPES,
+      state,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
+    });
+    res.redirect(`${X_OAUTH2_AUTHORIZE}?${params.toString()}`);
+  } catch (err) {
+    logger.error('Twitter link start: token verification failed', { error: err.message });
+    res.redirect(`${FRONTEND_URL}/settings?error=link_token_invalid`);
+  }
+};
+
+/** Map X API error text to a short reason key for redirect (e.g. "Missing valid authorization header" -> twitter_oauth_credentials). */
+function twitterLinkReasonFromXError(xError) {
+  const s = (typeof xError === 'string' ? xError : String(xError)).toLowerCase();
+  if (s.includes('authorization header') || s.includes('valid authorization') || s.includes('missing valid')) return 'twitter_oauth_credentials';
+  if (s.includes('redirect_uri') || s.includes('redirect uri')) return 'redirect_uri_mismatch';
+  if (s.includes('invalid_grant') || s.includes('invalid grant')) return 'invalid_grant';
+  return null;
+}
+
+/** X link callback: exchange code, attach Twitter to user by state userId. */
+export const twitterLinkCallback = async (req, res) => {
+  const { code, state, error, error_description } = req.query;
+  if (error) {
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=${encodeURIComponent(error_description || error)}`);
+  }
+  if (!code || !state) {
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=missing_code_or_state`);
+  }
+  const parsed = verifyTwitterOAuth2State(state, 'link_twitter');
+  if (!parsed?.verifier || parsed.userId == null) {
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_state_invalid`);
+  }
+  const clientId = (process.env.TWITTER_OAUTH2_CLIENT_ID || process.env.X_OAUTH2_CLIENT_ID || '').trim();
+  const clientSecret = (process.env.TWITTER_OAUTH2_CLIENT_SECRET || process.env.X_OAUTH2_CLIENT_SECRET || '').trim();
+  const redirectUri = `${BACKEND_URL.replace(/\/$/, '')}/api/user/auth/twitter/link/callback`;
+  const isConfidential = clientSecret.length > 0;
+  const body = new URLSearchParams({
+    code,
+    grant_type: 'authorization_code',
+    redirect_uri: redirectUri,
+    code_verifier: parsed.verifier,
+  });
+  if (isConfidential) {
+    body.append('client_id', clientId);
+  }
+  const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+  if (isConfidential) {
+    headers.Authorization = 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+  } else {
+    body.append('client_id', clientId);
+  }
+  logger.info('X link token exchange', { redirectUri, hasClientSecret: isConfidential });
+  let tokenRes;
+  try {
+    tokenRes = await fetch(X_OAUTH2_TOKEN, { method: 'POST', headers, body: body.toString() });
+  } catch (err) {
+    logger.error('X link token request failed', { error: err.message });
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=token_request_failed`);
+  }
+  const tokenResText = await tokenRes.text();
+  if (!tokenRes.ok) {
+    let xError = 'token_exchange_failed';
+    try {
+      const errJson = JSON.parse(tokenResText);
+      const desc = errJson.error_description || errJson.error;
+      if (desc) xError = typeof desc === 'string' ? desc : String(desc);
+    } catch (_) {
+      if (tokenResText) xError = tokenResText.slice(0, 100);
+    }
+    logger.error('X link token error', { status: tokenRes.status, body: tokenResText, xError });
+    const mapped = twitterLinkReasonFromXError(xError);
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=${encodeURIComponent(mapped || xError)}`);
+  }
+  let tokenData;
+  try {
+    tokenData = JSON.parse(tokenResText);
+  } catch (_) {
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=no_access_token`);
+  }
+  const accessToken = tokenData.access_token;
+  if (!accessToken) {
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=no_access_token`);
+  }
+  let meRes;
+  try {
+    meRes = await fetch(X_API_USERS_ME + '?user.fields=id,username', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  } catch (err) {
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=user_info_failed`);
+  }
+  if (!meRes.ok) {
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=user_info_failed`);
+  }
+  const xUser = await meRes.json();
+  const twitterId = xUser?.data?.id;
+  if (!twitterId) {
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=no_twitter_user_id`);
+  }
+  const user = await User.findByPk(parsed.userId);
+  if (!user) {
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=user_not_found`);
+  }
+  user.twitterId = twitterId;
+  user.twitterAccessToken = accessToken;
+  user.twitterRefreshToken = tokenData.refresh_token || null;
+  if (!user.oauthId) {
+    user.oauthId = twitterId;
+    user.oauthProvider = 'twitter';
+  }
+  await user.save();
+  res.redirect(`${FRONTEND_URL}/settings?linked=twitter`);
+};
+
+router.get('/auth/twitter/link', twitterLinkStart);
+router.get('/auth/twitter/link/callback', twitterLinkCallback);
+
 // Export for app.js: register these BEFORE authenticateToken so Discord/Twitch OAuth works without JWT
-export { isDiscordConfigured, isTwitchConfigured };
+export { isDiscordConfigured, isTwitchConfigured, isTwitterOAuth2Configured };
 
 // Discord OAuth handlers - define before using in routes
 export const discordAuth = (req, res, next) => {
@@ -525,8 +850,6 @@ export const discordCallback = (req, res, next) => {
 // Discord OAuth routes - using exported functions for consistency
 router.get('/auth/discord', discordAuth);
 router.get('/auth/discord/callback', discordCallback);
-
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
 
 /** Start Discord link flow: token in query, redirect to Discord OAuth with state=userId. Register before authenticateToken. */
 export const discordLinkStart = async (req, res) => {
@@ -970,7 +1293,6 @@ export async function connectedAccountsHandler(req, res) {
       sqlState: err.sqlState,
       sqlMessage: err.sqlMessage
     });
-    console.error('Connected accounts - Full error details:', err);
     res.status(500).json({ error: 'Server error' });
   }
 }
@@ -1021,7 +1343,6 @@ router.post('/disconnect-google', requireAuth, async (req, res) => {
       sqlState: err.sqlState,
       sqlMessage: err.sqlMessage
     });
-    console.error('Disconnect Google - Full error details:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -1065,7 +1386,6 @@ router.post('/disconnect-twitch', requireAuth, async (req, res) => {
       sqlState: err.sqlState,
       sqlMessage: err.sqlMessage
     });
-    console.error('Disconnect Twitch - Full error details:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -1087,15 +1407,20 @@ router.post('/disconnect-twitter', requireAuth, async (req, res) => {
     if (!hasAnyLoginMethod(u)) {
       return res.status(400).json({ error: 'You must keep at least one sign-in method' });
     }
-    user.twitterId = null;
+    const updatePayload = { twitterId: null, twitterAccessToken: null, twitterRefreshToken: null };
     if (user.oauthProvider === 'twitter') {
-      user.oauthProvider = user.googleId ? 'google' : user.twitchId ? 'twitch' : user.discordId ? 'discord' : null;
-      user.oauthId = user.googleId || user.twitchId || user.discordId || null;
+      updatePayload.oauthProvider = user.googleId ? 'google' : user.twitchId ? 'twitch' : user.discordId ? 'discord' : null;
+      updatePayload.oauthId = user.googleId || user.twitchId || user.discordId || null;
     }
-    await user.save();
+    const [affectedRows] = await User.update(updatePayload, { where: { id: userId } });
+    if (affectedRows === 0) {
+      logger.warn('Disconnect Twitter: no rows updated', { userId });
+      return res.status(500).json({ error: 'Failed to disconnect' });
+    }
+    logger.info('Disconnect Twitter: success', { userId });
     res.json({ message: 'X (Twitter) disconnected' });
   } catch (err) {
-    logger.error('Disconnect Twitter error', { error: err.message, userId });
+    logger.error('Disconnect Twitter error', { error: err.message, userId, stack: err.stack });
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -1223,7 +1548,6 @@ router.post('/disconnect-discord', requireAuth, async (req, res) => {
       sqlState: err.sqlState,
       sqlMessage: err.sqlMessage
     });
-    console.error('Disconnect Discord - Full error details:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -1602,11 +1926,6 @@ router.post('/admin/reset-password', requireAdmin, validateBody(adminResetPasswo
     
     // TODO: Send password via secure channel (email, SMS, etc.)
     // NEVER expose passwords in API responses
-    // For development only, log to console
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[DEV ONLY] Password reset for user ${userId} (${user.email}): ${tempPassword}`);
-    }
-    
     res.json({ 
       message: 'Password reset successful. The new password has been sent to the user via secure channel.'
     });
@@ -1646,11 +1965,6 @@ router.post('/forgot-password', validateBody(forgotPasswordSchema), async (req, 
     
     // TODO: In production, send email with reset link or temporary password
     // NEVER expose passwords in API responses
-    // For development only, log to console (not in response)
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[DEV ONLY] Temporary password for ${email}: ${tempPassword}`);
-    }
-    
     res.json({ 
       message: 'Password reset successful. Please check your email for the temporary password.'
     });
@@ -1665,8 +1979,8 @@ router.post('/forgot-password', validateBody(forgotPasswordSchema), async (req, 
   }
 });
 
-// User stats (basic analytics)
-router.get('/stats', checkLicense, async (req, res) => {
+// User stats (basic analytics) - allowed without license so Profile page can load
+router.get('/stats', requireAuth, async (req, res) => {
   const totalPosts = await Content.count({ where: { userId: req.user.id } });
   const scheduledPosts = await Content.count({ where: { userId: req.user.id, status: 'scheduled' } });
   const publishedPosts = await Content.count({ where: { userId: req.user.id, status: 'published' } });
@@ -1680,8 +1994,8 @@ router.get('/stats', checkLicense, async (req, res) => {
   });
 });
 
-// Recent activity (basic)
-router.get('/activity', requireAuth, checkLicense, async (req, res) => {
+// Recent activity (basic) - allowed without license so Profile page can load
+router.get('/activity', requireAuth, async (req, res) => {
   const contents = await Content.findAll({
     where: { userId: req.user.id },
     order: [['createdAt', 'DESC']],
@@ -1695,8 +2009,8 @@ router.get('/activity', requireAuth, checkLicense, async (req, res) => {
   res.json(activity);
 });
 
-/** GET /twitch-dashboard-stats - Twitch subs/bits/donations for dashboard. Requires Twitch connected. */
-router.get('/twitch-dashboard-stats', requireAuth, checkLicense, async (req, res) => {
+/** GET /twitch-dashboard-stats - Twitch subs/bits/donations for dashboard. Requires Twitch connected. Allowed without license so Dashboard can load. */
+router.get('/twitch-dashboard-stats', requireAuth, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, { attributes: ['id', 'twitchId'] });
     const twitchConnected = !!(user && user.twitchId);
@@ -1823,7 +2137,7 @@ router.get('/license', requireAuth, async (req, res) => {
 
 // Update user profile
 router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog('profile_updated', 'User'), async (req, res) => {
-  const { username, email, merchandisingLink, dashboardShowTwitchSubs, dashboardShowTwitchBits, dashboardShowTwitchDonations } = req.body;
+  const { username, email, merchandisingLink, profileImageUrl, dashboardShowTwitchSubs, dashboardShowTwitchBits, dashboardShowTwitchDonations } = req.body;
   try {
     const user = await User.findByPk(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -1831,28 +2145,31 @@ router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog(
     if (username !== undefined) user.username = username;
     if (email !== undefined) user.email = email;
     if (merchandisingLink !== undefined) user.merchandisingLink = merchandisingLink;
+    if (profileImageUrl !== undefined) user.profileImageUrl = profileImageUrl && profileImageUrl.trim() ? profileImageUrl.trim() : null;
     if (dashboardShowTwitchSubs !== undefined) user.dashboardShowTwitchSubs = dashboardShowTwitchSubs;
     if (dashboardShowTwitchBits !== undefined) user.dashboardShowTwitchBits = dashboardShowTwitchBits;
     if (dashboardShowTwitchDonations !== undefined) user.dashboardShowTwitchDonations = dashboardShowTwitchDonations;
     
     await user.save();
     const licenseSummary = buildLicenseSummary(user);
+    const plain = user.get ? user.get({ plain: true }) : user;
     res.json({ 
       message: 'Profile updated successfully',
       user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        licenseKey: user.licenseKey,
-        licenseExpiresAt: user.licenseExpiresAt,
-        licenseType: user.licenseType,
+        id: plain.id,
+        username: plain.username,
+        email: plain.email,
+        licenseKey: plain.licenseKey,
+        licenseExpiresAt: plain.licenseExpiresAt,
+        licenseType: plain.licenseType,
         licenseAlert: licenseSummary.alert,
         licenseDaysLeft: licenseSummary.daysLeft,
-        isAdmin: user.isAdmin,
-        merchandisingLink: user.merchandisingLink,
-        dashboardShowTwitchSubs: user.dashboardShowTwitchSubs,
-        dashboardShowTwitchBits: user.dashboardShowTwitchBits,
-        dashboardShowTwitchDonations: user.dashboardShowTwitchDonations
+        isAdmin: plain.isAdmin,
+        merchandisingLink: plain.merchandisingLink,
+        profileImageUrl: plain.profileImageUrl || null,
+        dashboardShowTwitchSubs: plain.dashboardShowTwitchSubs,
+        dashboardShowTwitchBits: plain.dashboardShowTwitchBits,
+        dashboardShowTwitchDonations: plain.dashboardShowTwitchDonations
       }
     });
   } catch (err) {

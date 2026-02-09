@@ -1,8 +1,10 @@
 import express from 'express';
 import { Content } from '../models/index.js';
 import checkLicense from '../middleware/checkLicense.js';
+import { requireAuth } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { contentSchema, updateContentSchema } from '../validators/contentSchemas.js';
+import { TWITTER_MAX_CHARS } from '../constants/platforms.js';
 import { contentService } from '../services/contentService.js';
 import { contentCreationLimiter } from '../middleware/rateLimit.js';
 import { auditLog } from '../middleware/audit.js';
@@ -10,14 +12,19 @@ import logger from '../utils/logger.js';
 
 const router = express.Router();
 
-router.use(checkLicense);
-
-// Create content
-// ⏱️ IMPORTANT: Always store dates in UTC in database
+// Create content (requires valid license)
 // Frontend sends dates as ISO strings (UTC), Sequelize stores them correctly
-// Frontend will convert to user's local timezone for display
-router.post('/', contentCreationLimiter, validateBody(contentSchema), auditLog('content_created', 'Content'), async (req, res) => {
+router.post('/', requireAuth, checkLicense, contentCreationLimiter, validateBody(contentSchema), auditLog('content_created', 'Content'), async (req, res) => {
   try {
+    const platforms = req.body?.platforms;
+    const content = req.body?.content;
+    if (Array.isArray(platforms) && platforms.includes('twitter') && typeof content === 'string' && content.length > TWITTER_MAX_CHARS) {
+      return res.status(400).json({
+        error: 'For X (Twitter), content must be 280 characters or less.',
+        details: 'content',
+        maxLength: TWITTER_MAX_CHARS,
+      });
+    }
     const created = await contentService.createContent(req.user.id, req.body);
     res.status(201).json(created);
   } catch (err) {
@@ -30,8 +37,8 @@ router.post('/', contentCreationLimiter, validateBody(contentSchema), auditLog('
   }
 });
 
-// List all content for user (with pagination and filters)
-router.get('/', async (req, res) => {
+// List all content for user (with pagination and filters) - allowed without license so Dashboard can load
+router.get('/', requireAuth, async (req, res) => {
   try {
     const result = await contentService.getUserContent(req.user.id, {
       query: req.query,
@@ -53,8 +60,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get content by id
-router.get('/:id', async (req, res) => {
+// Get content by id - allowed without license (read-only)
+router.get('/:id', requireAuth, async (req, res) => {
   try {
     const content = await contentService.getContentById(req.params.id, req.user.id);
     res.json(content);
@@ -71,9 +78,18 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Update content
-router.put('/:id', validateBody(updateContentSchema), auditLog('content_updated', 'Content'), async (req, res) => {
+// Update content (requires valid license)
+router.put('/:id', requireAuth, checkLicense, validateBody(updateContentSchema), auditLog('content_updated', 'Content'), async (req, res) => {
   try {
+    const platforms = req.body?.platforms;
+    const contentBody = req.body?.content;
+    if (Array.isArray(platforms) && platforms.includes('twitter') && typeof contentBody === 'string' && contentBody.length > TWITTER_MAX_CHARS) {
+      return res.status(400).json({
+        error: 'For X (Twitter), content must be 280 characters or less.',
+        details: 'content',
+        maxLength: TWITTER_MAX_CHARS,
+      });
+    }
     const content = await contentService.updateContent(req.params.id, req.user.id, req.body);
     res.json(content);
   } catch (err) {
@@ -90,8 +106,8 @@ router.put('/:id', validateBody(updateContentSchema), auditLog('content_updated'
   }
 });
 
-// Delete content
-router.delete('/:id', auditLog('content_deleted', 'Content'), async (req, res) => {
+// Delete content (requires valid license)
+router.delete('/:id', requireAuth, checkLicense, auditLog('content_deleted', 'Content'), async (req, res) => {
   try {
     const result = await contentService.deleteContent(req.params.id, req.user.id);
     res.json(result);

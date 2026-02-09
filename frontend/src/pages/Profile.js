@@ -68,7 +68,6 @@ const Profile = ({ user, token }) => {
         { id: 6, name: 'Scheduling Pro', description: 'Scheduled 50 posts', icon: Clock, earned: false }
       ]);
     } catch (error) {
-      console.error('Error fetching profile data:', error);
       toast.error('Failed to load profile data');
     } finally {
       setLoading(false);
@@ -114,11 +113,23 @@ const Profile = ({ user, token }) => {
           <div className="flex flex-col md:flex-row items-center md:items-start space-y-6 md:space-y-0 md:space-x-8">
             {/* Avatar */}
             <div className="relative">
-              <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-4xl font-bold">
-                {user?.username?.charAt(0).toUpperCase()}
-              </div>
-              <button className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow-lg hover:shadow-xl transition-shadow">
-                <Camera className="w-4 h-4 text-gray-600" />
+              {user?.profileImageUrl ? (
+                <img
+                  src={user.profileImageUrl}
+                  alt=""
+                  className="w-32 h-32 rounded-full object-cover border-2 border-gray-200 dark:border-gray-600"
+                />
+              ) : (
+                <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-4xl font-bold">
+                  {user?.username?.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <button
+                onClick={() => navigate('/settings')}
+                className="absolute bottom-0 right-0 bg-white dark:bg-gray-700 p-2 rounded-full shadow-lg hover:shadow-xl transition-shadow border border-gray-200 dark:border-gray-600"
+                title="Change profile photo"
+              >
+                <Camera className="w-4 h-4 text-gray-600 dark:text-gray-300" />
               </button>
             </div>
 

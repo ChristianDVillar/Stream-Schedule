@@ -101,6 +101,9 @@ export const updateProfileSchema = Joi.object({
   merchandisingLink: Joi.string().uri().max(500).allow('', null).optional().messages({
     'string.uri': 'Merchandising link must be a valid URL'
   }),
+  profileImageUrl: Joi.string().uri().max(2000).allow('', null).optional().messages({
+    'string.uri': 'Profile image must be a valid URL'
+  }),
   dashboardShowTwitchSubs: Joi.boolean().optional(),
   dashboardShowTwitchBits: Joi.boolean().optional(),
   dashboardShowTwitchDonations: Joi.boolean().optional()

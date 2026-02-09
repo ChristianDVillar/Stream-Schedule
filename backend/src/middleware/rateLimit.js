@@ -57,8 +57,10 @@ export const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
-    // Skip rate limiting for OPTIONS requests (CORS preflight)
-    return req.method === 'OPTIONS';
+    if (req.method === 'OPTIONS') return true;
+    // Skip for read-only upload stats (avoids 429 when FileUpload + MediaGallery + MediaUpload load)
+    if (req.method === 'GET' && req.path && req.path.includes('/upload/stats/')) return true;
+    return false;
   },
   handler: (req, res) => {
     // Ensure CORS headers are sent even on rate limit errors

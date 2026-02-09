@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { Twitter, Instagram, Twitch, MessageSquare } from 'lucide-react';
+import { TWITTER_MAX_CHARS } from '../constants/platforms';
 
 const platformIcons = {
   twitter: Twitter,
@@ -21,20 +22,28 @@ export function ContentPreview({ content, platform }) {
     return <div className="text-gray-500">Preview not available for {platform}</div>;
   }
 
+  const tweetText = (content.content || '').length > TWITTER_MAX_CHARS
+    ? (content.content || '').slice(0, TWITTER_MAX_CHARS) + '…'
+    : (content.content || '');
+  const tweetLength = (content.content || '').length;
   const previews = {
     twitter: (
       <div className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
-        <div className="flex items-center space-x-3 mb-3">
-          <div className="w-10 h-10 rounded-full bg-blue-500"></div>
-          <div>
-            <div className="font-semibold">@username</div>
-            <div className="text-sm text-gray-500">Username</div>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-full bg-[#0f1419]"></div>
+            <div>
+              <div className="font-semibold text-gray-900 dark:text-gray-100">@username</div>
+              <div className="text-sm text-gray-500">Username</div>
+            </div>
           </div>
+          <span className={`text-xs ${tweetLength > TWITTER_MAX_CHARS ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
+            {Math.min(tweetLength, TWITTER_MAX_CHARS)}/{TWITTER_MAX_CHARS}
+          </span>
         </div>
-        <p className="mb-2">{content.title && <strong>{content.title}</strong>}</p>
-        <p className="text-gray-900 dark:text-gray-100">{content.content}</p>
+        <p className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words">{tweetText}</p>
         {content.files?.items && content.files.items.length > 0 && (
-          <div className="mt-3 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 h-48"></div>
+          <div className="mt-3 rounded-2xl overflow-hidden bg-gray-200 dark:bg-gray-700 h-48 border border-gray-200 dark:border-gray-600"></div>
         )}
       </div>
     ),

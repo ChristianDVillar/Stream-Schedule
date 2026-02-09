@@ -41,6 +41,37 @@ export function verifyLinkState(stateToken, purpose) {
 }
 
 /**
+ * Create state for X (Twitter) OAuth 2.0 with PKCE. Stores code_verifier so callback can exchange code.
+ * @param {string} codeVerifier - PKCE code_verifier
+ * @param {string} purpose - 'twitter_oauth2_login' | 'link_twitter'
+ * @param {number} [userId] - For link_twitter only
+ * @returns {string} JWT state token
+ */
+export function createTwitterOAuth2State(codeVerifier, purpose, userId) {
+  const payload = { purpose, verifier: codeVerifier };
+  if (purpose === 'link_twitter' && userId != null) payload.userId = userId;
+  return jwt.sign(payload, jwtSecret, { expiresIn: '10m' });
+}
+
+/**
+ * Verify X OAuth 2.0 state and return verifier (and userId for link).
+ * @param {string} stateToken - JWT from OAuth state
+ * @param {string} purpose - 'twitter_oauth2_login' | 'link_twitter'
+ * @returns {{ verifier: string, userId?: number }|null}
+ */
+export function verifyTwitterOAuth2State(stateToken, purpose) {
+  try {
+    const payload = jwt.verify(stateToken, jwtSecret);
+    if (payload.purpose !== purpose || !payload.verifier) return null;
+    const out = { verifier: payload.verifier };
+    if (purpose === 'link_twitter' && payload.userId != null) out.userId = payload.userId;
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Generate JWT token for a user
  * @param {Object} user - User object with id, email, username, isAdmin
  * @returns {string} JWT token
@@ -79,6 +110,7 @@ export function buildUserResponse(user) {
     licenseDaysLeft: licenseSummary.daysLeft,
     isAdmin: userPlain.isAdmin,
     merchandisingLink: userPlain.merchandisingLink,
+    profileImageUrl: userPlain.profileImageUrl || null,
     dashboardShowTwitchSubs: userPlain.dashboardShowTwitchSubs !== false,
     dashboardShowTwitchBits: userPlain.dashboardShowTwitchBits !== false,
     dashboardShowTwitchDonations: userPlain.dashboardShowTwitchDonations === true

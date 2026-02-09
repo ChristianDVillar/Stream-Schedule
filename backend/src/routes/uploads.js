@@ -115,7 +115,7 @@ router.get('/video-url', requireAuth, async (req, res, next) => {
   
   try {
     // Get file_path from query parameter (more reliable for special characters)
-    const file_path = req.query.file_path;
+    let file_path = typeof req.query.file_path === 'string' ? req.query.file_path.trim() : '';
     const expiresIn = parseInt(req.query.expiresIn) || 3600;
 
     if (!file_path) {
@@ -123,8 +123,21 @@ router.get('/video-url', requireAuth, async (req, res, next) => {
         query: req.query,
         ip: req.ip
       });
-      return res.status(400).json({ 
-        error: 'file_path query parameter is required' 
+      return res.status(400).json({
+        error: 'file_path query parameter is required'
+      });
+    }
+
+    // Supabase Storage: path must not start with / and must not contain invalid chars
+    if (file_path.startsWith('/')) {
+      file_path = file_path.replace(/^\/+/, '');
+    }
+    const invalidPathChars = /[\\:*?"<>|]/;
+    if (invalidPathChars.test(file_path)) {
+      logger.warn('Video URL endpoint called with invalid file_path characters', { file_path: file_path.substring(0, 100), ip: req.ip });
+      return res.status(400).json({
+        error: 'requested path is invalid',
+        message: 'File path contains invalid characters'
       });
     }
 
@@ -188,16 +201,40 @@ router.get('/video-url', requireAuth, async (req, res, next) => {
       });
     }
 
+    // Normalize path for Supabase (no leading slashes, valid chars)
+    const storagePath = uploadRecord.file_path.replace(/^\/+/, '').trim();
+    if (!storagePath || /[\\:*?"<>|]/.test(storagePath)) {
+      return res.status(400).json({
+        error: 'requested path is invalid',
+        message: 'Stored file path is invalid or contains disallowed characters.'
+      });
+    }
+
     // Generate signed URL using Service Role Key (backend has full access)
     const { data: signedData, error: signedError } = await supabase.storage
       .from('videos')
-      .createSignedUrl(uploadRecord.file_path, expiresIn);
+      .createSignedUrl(storagePath, expiresIn);
 
     if (signedError) {
+      const errMsg = signedError.message || signedError.error || '';
+      const isInvalidPath = errMsg.includes('requested path is invalid') || (signedError.error === 'requested path is invalid');
+
+      if (isInvalidPath) {
+        logger.warn('Invalid file path for signed URL', {
+          file_path: uploadRecord.file_path,
+          userId: authenticatedUserId,
+          ip: req.ip
+        });
+        return res.status(400).json({
+          error: 'requested path is invalid',
+          message: 'File path format is invalid. It may be empty, contain invalid characters, or be malformed.'
+        });
+      }
+
       // Check if the error is because the file doesn't exist
-      if (signedError.message && (
-        signedError.message.includes('not found') || 
-        signedError.message.includes('Object not found') ||
+      if (errMsg && (
+        errMsg.includes('not found') ||
+        errMsg.includes('Object not found') ||
         signedError.statusCode === 400
       )) {
         logger.warn('Video file not found in Storage (orphaned record)', {
@@ -206,22 +243,22 @@ router.get('/video-url', requireAuth, async (req, res, next) => {
           uploadId: uploadRecord.id,
           ip: req.ip
         });
-        return res.status(404).json({ 
+        return res.status(404).json({
           error: 'El archivo de video no existe en Storage',
-          details: process.env.NODE_ENV === 'development' 
-            ? `File path: ${uploadRecord.file_path}. This record may be orphaned (file deleted but record remains in database).` 
+          details: process.env.NODE_ENV === 'development'
+            ? `File path: ${uploadRecord.file_path}. This record may be orphaned (file deleted but record remains in database).`
             : undefined,
           orphaned: true
         });
       }
-      
+
       logger.error('Error creating signed URL for video', {
         error: signedError.message,
         file_path: uploadRecord.file_path,
         userId: authenticatedUserId,
         ip: req.ip
       });
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: 'Error al generar URL firmada',
         details: process.env.NODE_ENV === 'development' ? signedError.message : undefined
       });

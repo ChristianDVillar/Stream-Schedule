@@ -42,7 +42,6 @@ export async function handleUpload({ file, bucket, userId, isTrialUser }) {
         error: null 
       };
     } catch (uploadError) {
-      console.error('Error uploading through backend:', uploadError);
       const data = uploadError.response?.data;
       const details = data?.details;
       let errorMessage = data?.error || uploadError.message || 'Error al subir archivo';
@@ -56,11 +55,13 @@ export async function handleUpload({ file, bucket, userId, isTrialUser }) {
       return { url: null, error: new Error(typeof errorMessage === 'string' ? errorMessage : 'Error al subir archivo') };
     }
   } catch (error) {
-    console.error('Error en handleUpload:', error);
     toast.error('Error subiendo archivo');
     return { url: null, error };
   }
 }
+
+// Dedupe in-flight getUploadStats by userId so multiple components (FileUpload, MediaGallery, MediaUpload) share one request.
+const uploadStatsPromises = new Map();
 
 /**
  * Get upload statistics for a user
@@ -68,19 +69,24 @@ export async function handleUpload({ file, bucket, userId, isTrialUser }) {
  * @returns {Promise<Object>} Upload stats
  */
 export async function getUploadStats(userId) {
-  try {
-    const { getUploadStats: getStats } = await import('../api');
-    // If userId is not provided, we need to get it from the user object
-    // For now, require userId - can be enhanced later to get from auth context
-    if (!userId) {
-      console.warn('getUploadStats requires userId');
-      return { uploads: [], totalUploads24h: 0, isTrialUser: false };
-    }
-    const response = await getStats(userId);
-    return response.data || { uploads: [], totalUploads24h: 0, isTrialUser: false };
-  } catch (error) {
-    console.error('Error obteniendo estadísticas:', error);
-    // Return empty stats instead of null to prevent errors in components
-    return { uploads: [], totalUploads24h: 0, isTrialUser: false, error: error.message };
+  if (!userId) {
+    return { uploads: [], totalUploads24h: 0, isTrialUser: false };
   }
+  const key = String(userId);
+  const existing = uploadStatsPromises.get(key);
+  if (existing) return existing;
+
+  const promise = (async () => {
+    try {
+      const { getUploadStats: getStats } = await import('../api');
+      const response = await getStats(userId);
+      return response.data || { uploads: [], totalUploads24h: 0, isTrialUser: false };
+    } catch (error) {
+      return { uploads: [], totalUploads24h: 0, isTrialUser: false, error: error.message };
+    } finally {
+      uploadStatsPromises.delete(key);
+    }
+  })();
+  uploadStatsPromises.set(key, promise);
+  return promise;
 }

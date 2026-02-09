@@ -1,22 +1,53 @@
 /**
  * Supabase Client for Frontend
  * Uses Anon Key (public, safe for frontend)
+ * Single instance (singleton) to avoid "Multiple GoTrueClient instances" warning.
  * Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.
  */
 
 import { createClient } from '@supabase/supabase-js';
 
-// Get Supabase configuration from environment variables
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('⚠️ Supabase env vars missing');
+  // Supabase not configured; upload/OAuth may use backend only
 }
 
-export const supabase = supabaseUrl && supabaseAnonKey
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+// Rewrite requests to Supabase base URL only (no path) to /auth/v1/settings to avoid GET https://xxx.supabase.co/ 404 during OAuth
+const AUTH_SETTINGS_PATH = '/auth/v1/settings';
+function createSafeFetch() {
+  const base = (supabaseUrl || '').replace(/\/$/, '');
+  return function safeFetch(input, init) {
+    const url = typeof input === 'string' ? input : (input && input.url);
+    if (url && base) {
+      const u = String(url).replace(/\/$/, '').split('?')[0];
+      if (u === base) {
+        const newUrl = base + AUTH_SETTINGS_PATH;
+        input = typeof input === 'string' ? newUrl : new Request(newUrl, input);
+      }
+    }
+    return fetch(input, init);
+  };
+}
+
+// Singleton: reuse one client across the app (avoids multiple GoTrueClient instances with HMR / multiple imports)
+const globalKey = '__STREAMER_SCHEDULER_SUPABASE__';
+function getSupabaseClient() {
+  if (typeof window !== 'undefined' && window[globalKey]) {
+    return window[globalKey];
+  }
+  if (!supabaseUrl || !supabaseAnonKey) return null;
+  const client = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { fetch: createSafeFetch() },
+  });
+  if (typeof window !== 'undefined') {
+    window[globalKey] = client;
+  }
+  return client;
+}
+
+export const supabase = getSupabaseClient();
 
 /**
  * Upload a file to Supabase Storage
@@ -28,27 +59,20 @@ export const supabase = supabaseUrl && supabaseAnonKey
 export async function uploadFile(file, bucket, userId) {
   if (!supabase) {
     const error = new Error('Supabase no está configurado. Verifica REACT_APP_SUPABASE_URL y REACT_APP_SUPABASE_ANON_KEY');
-    console.error(error.message);
     return { path: null, error };
   }
 
   if (bucket !== 'images' && bucket !== 'videos') {
     const error = new Error('Bucket debe ser "images" o "videos"');
-    console.error(error.message);
     return { path: null, error };
   }
 
   try {
-    // Generate unique file path: bucket/userId/timestamp-filename
     const timestamp = Date.now();
-    // Sanitize filename (remove special characters that might cause issues)
     const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
     const fileName = `${timestamp}-${sanitizedFileName}`;
     const filePath = userId ? `${userId}/${fileName}` : fileName;
 
-    console.log('Uploading file to Supabase:', { bucket, filePath, size: file.size });
-
-    // Upload file to Supabase Storage
     const { data, error } = await supabase.storage
       .from(bucket)
       .upload(filePath, file, {
@@ -57,7 +81,6 @@ export async function uploadFile(file, bucket, userId) {
       });
 
     if (error) {
-      console.error('Error uploading file to Supabase:', error);
       // Provide more specific error messages
       if (error.message.includes('Bucket not found')) {
         return { path: null, error: new Error('Bucket no encontrado. Verifica que los buckets "images" y "videos" existan en Supabase Storage') };
@@ -68,11 +91,28 @@ export async function uploadFile(file, bucket, userId) {
       return { path: null, error };
     }
 
-    console.log('File uploaded successfully:', data.path);
     return { path: data.path, error: null };
   } catch (error) {
-    console.error('Error in uploadFile:', error);
     return { path: null, error };
+  }
+}
+
+/** Supabase Storage path must be non-empty and not contain \ : * ? " < > | */
+function isStoragePathValid(filePath) {
+  if (filePath == null || typeof filePath !== 'string') return false;
+  const trimmed = filePath.trim();
+  if (!trimmed) return false;
+  if (/[\\:*?"<>|]/.test(trimmed)) return false;
+  return true;
+}
+
+/** Avoid using the Supabase base URL as resource URL (causes GET base 404) */
+function ensureNotBaseUrl(url) {
+  if (!url || typeof url !== 'string') return;
+  const base = (supabaseUrl || '').replace(/\/$/, '');
+  const u = url.replace(/\/$/, '').split('?')[0];
+  if (base && u === base) {
+    throw new Error('requested path is invalid');
   }
 }
 
@@ -85,11 +125,15 @@ export function getPublicImageUrl(filePath) {
   if (!supabase) {
     throw new Error('Supabase no está configurado');
   }
+  if (!isStoragePathValid(filePath)) {
+    throw new Error('requested path is invalid');
+  }
 
   const { data } = supabase.storage
     .from('images')
-    .getPublicUrl(filePath);
+    .getPublicUrl(filePath.trim().replace(/^\/+/, ''));
 
+  ensureNotBaseUrl(data.publicUrl);
   return data.publicUrl;
 }
 
@@ -103,15 +147,17 @@ export async function getSignedVideoUrl(filePath, expiresIn = 3600) {
   if (!supabase) {
     throw new Error('Supabase no está configurado');
   }
-
-  const { data, error } = await supabase.storage
-    .from('videos')
-    .createSignedUrl(filePath, expiresIn);
-
-  if (error) {
-    console.error('Error creating signed URL:', error);
-    throw error;
+  if (!isStoragePathValid(filePath)) {
+    throw new Error('requested path is invalid');
   }
 
+  const path = filePath.trim().replace(/^\/+/, '');
+  const { data, error } = await supabase.storage
+    .from('videos')
+    .createSignedUrl(path, expiresIn);
+
+  if (error) throw error;
+
+  ensureNotBaseUrl(data.signedUrl);
   return data.signedUrl;
 }
