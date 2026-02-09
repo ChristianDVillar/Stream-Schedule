@@ -69,7 +69,7 @@ function Header({ user, onLogout, onMenuClick, installPromptEvent, onInstallApp 
           <span className="hidden sm:inline text-gray-600 dark:text-gray-300 truncate text-sm">{user.isAdmin ? t('common.admin') : t('common.user')}: <span className="font-semibold">{user.username}</span></span>
         </div>
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-          {installPromptEvent && onInstallApp && (
+          {process.env.REACT_APP_SHOW_PWA_INSTALL === 'true' && installPromptEvent && onInstallApp && (
             <button
               onClick={onInstallApp}
               className="px-3 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 hidden sm:inline"
