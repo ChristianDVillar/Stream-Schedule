@@ -13,7 +13,7 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 
 if (!supabaseUrl || !supabaseServiceKey) {
-  console.warn('⚠️  SUPABASE_URL or SUPABASE_SERVICE_KEY not set. Upload functionality will be disabled.');
+  // SUPABASE_URL or SUPABASE_SERVICE_KEY not set; upload may use frontend or be disabled
 }
 
 export const supabase = supabaseUrl && supabaseServiceKey

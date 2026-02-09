@@ -16,7 +16,9 @@ import {
   Lock,
   Key,
   AlertTriangle,
+  Camera,
 } from 'lucide-react';
+import { handleUpload } from '../utils/uploadHelper';
 
 const Settings = ({ user, token, setUser }) => {
   const { t } = useLanguage();
@@ -35,6 +37,7 @@ const Settings = ({ user, token, setUser }) => {
   const [connectedAccounts, setConnectedAccounts] = useState(null);
   const [connectedAccountsLoading, setConnectedAccountsLoading] = useState(false);
   const [disconnectingKey, setDisconnectingKey] = useState(null);
+  const [connectingKey, setConnectingKey] = useState(null);
   
   // Profile settings
   const [profileData, setProfileData] = useState({
@@ -44,10 +47,12 @@ const Settings = ({ user, token, setUser }) => {
     timezone: 'UTC',
     language: 'en',
     merchandisingLink: user?.merchandisingLink || '',
+    profileImageUrl: user?.profileImageUrl || '',
     dashboardShowTwitchSubs: user?.dashboardShowTwitchSubs !== false,
     dashboardShowTwitchBits: user?.dashboardShowTwitchBits !== false,
     dashboardShowTwitchDonations: user?.dashboardShowTwitchDonations === true
   });
+  const [profilePhotoUploading, setProfilePhotoUploading] = useState(false);
 
   // Notification settings
   const [notificationSettings, setNotificationSettings] = useState({
@@ -125,6 +130,7 @@ const Settings = ({ user, token, setUser }) => {
         username: user.username || '',
         email: user.email || '',
         merchandisingLink: user.merchandisingLink || '',
+        profileImageUrl: user.profileImageUrl || '',
         dashboardShowTwitchSubs: user.dashboardShowTwitchSubs !== false,
         dashboardShowTwitchBits: user.dashboardShowTwitchBits !== false,
         dashboardShowTwitchDonations: user.dashboardShowTwitchDonations === true
@@ -189,7 +195,16 @@ const Settings = ({ user, token, setUser }) => {
     }
     if (errorParam) {
       setActiveTab('platforms');
-      const msg = t(`settings.error${errorParam.replace(/-/g, '_')}`) || t('settings.linkFailed');
+      const reason = searchParams.get('reason');
+      const key = `settings.error_${errorParam.replace(/-/g, '_')}`;
+      let msg = t(key) || t('settings.linkFailed');
+      if (reason && typeof reason === 'string') {
+        const decoded = decodeURIComponent(reason);
+        const reasonKey = `settings.reason_${decoded.replace(/\s+/g, '_')}`;
+        const translated = t(reasonKey);
+        const reasonText = (translated && translated !== reasonKey) ? translated : decoded;
+        msg = `${msg} ${t('settings.reason') || 'Reason'}: ${reasonText}`;
+      }
       toast.error(msg);
       setSearchParams({}, { replace: true });
     }
@@ -200,7 +215,6 @@ const Settings = ({ user, token, setUser }) => {
       const res = await getPaymentConfigStatus();
       setPaymentConfig(res.data);
     } catch (error) {
-      console.error('Error fetching payment config:', error);
       setPaymentConfig({ 
         paymentEnabled: false, 
         automaticProcessingEnabled: false,
@@ -214,7 +228,6 @@ const Settings = ({ user, token, setUser }) => {
       const res = await getAvailableLicenses();
       setAvailableLicenses(res.data.availableLicenseTypes || { monthly: true, quarterly: false, lifetime: false, temporary: false });
     } catch (error) {
-      console.error('Error fetching available licenses:', error);
     }
   };
 
@@ -496,6 +509,90 @@ const Settings = ({ user, token, setUser }) => {
       case 'profile':
     return (
           <div className="space-y-6">
+            {/* Profile photo */}
+            <div className="flex items-center gap-4">
+              <div className="relative flex-shrink-0">
+                {profileData.profileImageUrl ? (
+                  <img
+                    src={profileData.profileImageUrl}
+                    alt=""
+                    className="w-24 h-24 rounded-full object-cover border-2 border-gray-200 dark:border-gray-600"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
+                    {profileData.username?.charAt(0).toUpperCase() || user?.username?.charAt(0).toUpperCase() || '?'}
+                  </div>
+                )}
+                <label className="absolute bottom-0 right-0 bg-white dark:bg-gray-700 p-2 rounded-full shadow cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    disabled={profilePhotoUploading}
+                    onChange={async (e) => {
+                      const file = e.target?.files?.[0];
+                      if (!file || !file.type.startsWith('image/')) return;
+                      e.target.value = '';
+                      setProfilePhotoUploading(true);
+                      const { url, error } = await handleUpload({ file, bucket: 'images', userId: user?.id });
+                      if (error || !url) {
+                        setProfilePhotoUploading(false);
+                        return;
+                      }
+                      try {
+                        const response = await apiClient.put('/user/profile', { ...profileData, profileImageUrl: url }, {
+                          headers: { Authorization: `Bearer ${token}` },
+                          withCredentials: true
+                        });
+                        if (setUser && response.data.user) {
+                          const updatedUser = { ...user, ...response.data.user };
+                          setUser(updatedUser);
+                          localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+                        }
+                        setProfileData(prev => ({ ...prev, profileImageUrl: url }));
+                        toast.success(t('settings.profilePhotoUpdated'));
+                      } catch (_) {
+                        toast.error(t('settings.profileUpdateFailed'));
+                      } finally {
+                        setProfilePhotoUploading(false);
+                      }
+                    }}
+                  />
+                  <Camera className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                </label>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.profilePhoto')}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('settings.profilePhotoHint')}</p>
+                {profilePhotoUploading && <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">{t('settings.uploading')}</p>}
+                {profileData.profileImageUrl && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const response = await apiClient.put('/user/profile', { ...profileData, profileImageUrl: '' }, {
+                          headers: { Authorization: `Bearer ${token}` },
+                          withCredentials: true
+                        });
+                        if (setUser && response.data.user) {
+                          const updatedUser = { ...user, ...response.data.user };
+                          setUser(updatedUser);
+                          localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+                        }
+                        setProfileData(prev => ({ ...prev, profileImageUrl: '' }));
+                        toast.success(t('settings.profilePhotoRemoved'));
+                      } catch (_) {
+                        toast.error(t('settings.profileUpdateFailed'));
+                      }
+                    }}
+                    className="text-xs text-red-600 dark:text-red-400 hover:underline mt-1"
+                  >
+                    {t('settings.removePhoto')}
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div>
               <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Profile Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -691,7 +788,7 @@ const Settings = ({ user, token, setUser }) => {
                   { key: 'google', label: 'Google', connected: connectedAccounts.google, connect: () => startGoogleLink(), disconnect: () => disconnectGoogle() },
                   { key: 'twitch', label: 'Twitch', connected: connectedAccounts.twitch, connect: () => startTwitchLink(), disconnect: () => disconnectTwitch() },
                   { key: 'discord', label: 'Discord', connected: connectedAccounts.discord, connect: () => startDiscordLink(token), disconnect: () => disconnectDiscord() },
-                  { key: 'twitter', label: 'X (Twitter)', connected: connectedAccounts.twitter, connect: () => startTwitterLink(), disconnect: () => disconnectTwitter() },
+                  { key: 'twitter', label: 'X (Twitter)', connected: connectedAccounts.twitter, connect: () => startTwitterLink(token), disconnect: () => disconnectTwitter() },
                   { key: 'email', label: t('settings.emailPassword') || 'Email & password', connected: connectedAccounts.email, connect: null, disconnect: null },
                 ].map(({ key, label, connected, connect, disconnect }) => (
                   <div key={key} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
@@ -706,9 +803,10 @@ const Settings = ({ user, token, setUser }) => {
                       <button
                         type="button"
                         onClick={connect}
-                        className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        disabled={connectingKey === key}
+                        className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-wait"
                       >
-                        {t('settings.connect') || 'Connect'}
+                        {connectingKey === key ? (t('common.loading') || '...') : (t('settings.connect') || 'Connect')}
                       </button>
                     )}
                     {disconnect && connected && (
@@ -717,18 +815,22 @@ const Settings = ({ user, token, setUser }) => {
                         onClick={async () => {
                           if (!window.confirm(t('settings.disconnectConfirm') || 'Disconnect this platform? You can reconnect later.')) return;
                           setDisconnectingKey(key);
+                          // Optimistic update: show as disconnected immediately so UI switches to Connect
+                          setConnectedAccounts((prev) => (prev ? { ...prev, [key]: false } : prev));
                           try {
                             await disconnect();
-                            // Refresh connected accounts from server to ensure accurate state
-                            await fetchConnectedAccounts();
                             toast.success(t('settings.disconnected') || 'Disconnected');
                           } catch (err) {
-                            toast.error(err.response?.data?.error || t('settings.linkFailed'));
-                            // Refresh anyway to get accurate state
-                            await fetchConnectedAccounts();
+                            toast.error(err.response?.data?.error || err.message || t('settings.linkFailed'));
+                            // Revert optimistic update on failure by refetching real state
+                            if (token) fetchConnectedAccounts();
+                            setDisconnectingKey(null);
+                            return;
                           } finally {
                             setDisconnectingKey(null);
                           }
+                          // Always refetch to keep server and UI in sync after success
+                          if (token) await fetchConnectedAccounts();
                         }}
                         disabled={disconnectingKey !== null}
                         className="px-4 py-2 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50"

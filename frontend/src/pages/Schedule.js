@@ -4,6 +4,7 @@ import { apiClient, getDiscordGuilds, getDiscordChannels, getDiscordInviteUrl } 
 import toast from 'react-hot-toast';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getPlatformColors } from '../utils/platformColors';
+import { TWITTER_MAX_CHARS } from '../constants/platforms';
 import { parsePastedPost } from '../utils/copyPastePost';
 import Joyride, { STATUS } from 'react-joyride';
 import FileUpload from '../components/FileUpload';
@@ -200,6 +201,9 @@ const Schedule = ({ user, token }) => {
     } else if (formData.content.length < 10) {
       newErrors.content = t('schedule.validationContentMin');
     }
+    if (formData.platforms.includes('twitter') && formData.content.length > TWITTER_MAX_CHARS) {
+      newErrors.content = t('schedule.validationTwitterMaxLength');
+    }
     
     if (!formData.contentType) {
       newErrors.contentType = t('schedule.validationContentTypeRequired');
@@ -209,13 +213,7 @@ const Schedule = ({ user, token }) => {
       newErrors.platforms = t('schedule.validationPlatformsRequired');
     }
     
-    if (!formData.scheduledFor) {
-      newErrors.scheduledFor = t('schedule.validationDateRequired');
-    }
-    
-    if (!formData.scheduledTime) {
-      newErrors.scheduledTime = t('schedule.validationTimeRequired');
-    }
+    // Date and time are optional: if omitted, content is scheduled for the next minute (confirmed in handleSubmit)
 
     if (formData.platforms.includes('discord') && !formData.discordChannelId?.trim()) {
       newErrors.discordChannel = t('schedule.discordChannelRequired') || 'Select a Discord server and channel';
@@ -233,11 +231,21 @@ const Schedule = ({ user, token }) => {
       return;
     }
 
+    let scheduledDateTime;
+    const hasDate = !!formData.scheduledFor?.trim();
+    const hasTime = !!formData.scheduledTime?.trim();
+    if (hasDate && hasTime) {
+      scheduledDateTime = new Date(`${formData.scheduledFor}T${formData.scheduledTime}`);
+    } else {
+      const nextMinute = new Date(Date.now() + 60 * 1000);
+      const confirmed = window.confirm(t('schedule.confirmPublishNextMinute'));
+      if (!confirmed) return;
+      scheduledDateTime = nextMinute;
+    }
+
     setLoading(true);
 
     try {
-      // Create date from user's local date/time selection
-      const scheduledDateTime = new Date(`${formData.scheduledFor}T${formData.scheduledTime}`);
       
       // ⏱️ IMPORTANT: Always send dates as ISO string (UTC) to backend
       // Backend stores in UTC, frontend displays in user's local timezone
@@ -300,7 +308,6 @@ const Schedule = ({ user, token }) => {
       
       navigate('/dashboard');
     } catch (error) {
-      console.error('Error scheduling content:', error);
       
       // Handle timeout errors specifically
       if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
@@ -657,13 +664,14 @@ const Schedule = ({ user, token }) => {
                     <textarea
                   id="content"
                   rows={6}
-                      value={formData.content}
+                  maxLength={formData.platforms.includes('twitter') ? TWITTER_MAX_CHARS : undefined}
+                  value={formData.content}
                   onChange={(e) => handleInputChange('content', e.target.value)}
                   className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
                     errors.content ? 'border-red-500' : 'border-gray-300'
                   }`}
-                      placeholder={t('schedule.contentPlaceholderText')}
-                    />
+                  placeholder={t('schedule.contentPlaceholderText')}
+                />
                 {errors.content && (
                   <div className="absolute right-3 top-3">
                     <AlertCircle className="w-5 h-5 text-red-500" />
@@ -674,8 +682,11 @@ const Schedule = ({ user, token }) => {
                 {errors.content && (
                   <p className="text-sm text-red-600">{errStr(errors.content)}</p>
                 )}
-                <p className="text-sm text-gray-500 ml-auto">
-                  {formData.content.length}/500 characters
+                <p className={`text-sm ml-auto ${formData.platforms.includes('twitter') && formData.content.length > TWITTER_MAX_CHARS ? 'text-red-600 dark:text-red-400' : 'text-gray-500'}`}>
+                  {formData.content.length}/{formData.platforms.includes('twitter') ? TWITTER_MAX_CHARS : 500} characters
+                  {formData.platforms.includes('twitter') && formData.platforms.length > 1 && (
+                    <span className="text-gray-400 dark:text-gray-500 font-normal"> (max {TWITTER_MAX_CHARS} for X)</span>
+                  )}
                 </p>
                     </div>
                   </div>

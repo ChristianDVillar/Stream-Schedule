@@ -26,12 +26,16 @@ export default function Login({ setAuth }) {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const oauthError = urlParams.get('error');
+    setNotice(null);
     if (oauthError === 'oauth_failed') {
       setError(t('login.oauthFailed') || 'OAuth authentication failed. Please try again.');
+      setNotice(t('login.oauthFailedTwitterHint') || 'If you were signing in with X (Twitter), their page may have had a temporary issue. Please try again.');
     } else if (oauthError === 'discord_not_configured') {
       setError(t('login.discordNotConfigured') || 'Discord login is not configured. Set DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET in the backend .env with the numeric Application ID from Discord Developer Portal.');
     } else if (oauthError === 'twitch_not_configured') {
       setError(t('login.twitchNotConfigured') || 'Twitch login is not configured. Set TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET in the backend .env file.');
+    } else if (oauthError === 'twitter_not_configured') {
+      setError(t('login.twitterNotConfigured') || 'X (Twitter) login is not configured. Set TWITTER_OAUTH2_CLIENT_ID in the backend .env for OAuth2, or enable Twitter in Supabase Dashboard.');
     }
     if (oauthError) {
       window.history.replaceState({}, document.title, '/login');
@@ -112,7 +116,7 @@ export default function Login({ setAuth }) {
       } else if (provider === 'twitch') {
         loginWithTwitch();
       } else if (provider === 'twitter') {
-        await loginWithTwitter();
+        loginWithTwitter();
       } else if (provider === 'discord') {
         loginWithDiscord();
       }

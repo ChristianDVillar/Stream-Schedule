@@ -25,10 +25,7 @@ export function LanguageProvider({ children }) {
     
     for (const k of keys) {
       value = value?.[k];
-      if (value === undefined) {
-        console.warn(`Translation key not found: ${key}`);
-        return key;
-      }
+      if (value === undefined) return key;
     }
     
     // Replace placeholders with params (e.g., {count} -> params.count)

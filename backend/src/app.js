@@ -10,7 +10,18 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import passport from 'passport';
-import userRoutes, { googleLoginHandler, discordAuth, discordCallback, discordLinkStart, discordLinkCallback, connectedAccountsHandler } from './routes/user.js';
+import userRoutes, {
+  googleLoginHandler,
+  discordAuth,
+  discordCallback,
+  discordLinkStart,
+  discordLinkCallback,
+  twitterOAuth2Start,
+  twitterOAuth2Callback,
+  twitterLinkStart,
+  twitterLinkCallback,
+  connectedAccountsHandler
+} from './routes/user.js';
 import contentRoutes from './routes/content.js';
 import platformsRoutes from './routes/platforms.js';
 import paymentsRoutes from './routes/payments.js';
@@ -102,13 +113,17 @@ app.use(metricsMiddleware);
 // CSRF token endpoint (before auth, public)
 app.get('/api/csrf-token', getCsrfToken);
 
-// OAuth routes: register before authenticateToken so login works without JWT.
-// These must stay before app.use('/api/user', ...) so GET /api/user/auth/discord/link is matched here (not 404 from router).
+// OAuth routes: register before authenticateToken so login/link callbacks work without JWT
+// (callbacks are GET redirects from the provider and do not send Authorization header).
 app.post('/api/user/google-login', authLimiter, googleLoginHandler);
 app.get('/api/user/auth/discord', authLimiter, discordAuth);
 app.get('/api/user/auth/discord/callback', discordCallback);
 app.get('/api/user/auth/discord/link', discordLinkStart);
 app.get('/api/user/auth/discord/link/callback', discordLinkCallback);
+app.get('/api/user/auth/twitter', authLimiter, twitterOAuth2Start);
+app.get('/api/user/auth/twitter/callback', twitterOAuth2Callback);
+app.get('/api/user/auth/twitter/link', twitterLinkStart);
+app.get('/api/user/auth/twitter/link/callback', twitterLinkCallback);
 
 // JWT authentication middleware - attaches user to req.user if token is valid
 app.use(authenticateToken);
@@ -121,7 +136,11 @@ app.use('/api/discord', discordRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/platforms', platformsRoutes);
 app.use('/api/payments', paymentsRoutes);
-app.use('/api/upload', uploadLimiter, uploadsRoutes);
+// Apply uploadLimiter only to write operations (POST/PUT/DELETE). GET (stats, video-url) use apiLimiter only to avoid 429 on page load.
+app.use('/api/upload', (req, res, next) => {
+  if (req.method === 'GET') return next();
+  return uploadLimiter(req, res, next);
+}, uploadsRoutes);
 // CSRF disabled for templates until frontend sends X-CSRF-Token
 app.use('/api/templates', templatesRoutes);
 

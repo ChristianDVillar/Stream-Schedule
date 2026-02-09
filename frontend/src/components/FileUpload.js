@@ -101,7 +101,6 @@ export default function FileUpload({ user, onUploadComplete }) {
           const stats = await getUploadStats(userId);
           setUploadStats(stats);
         } catch (error) {
-          console.error('Error loading upload stats:', error);
         }
       }
 
@@ -111,7 +110,6 @@ export default function FileUpload({ user, onUploadComplete }) {
       }
 
     } catch (error) {
-      console.error('Error in file upload:', error);
       toast.error(t('media.uploadError'));
     } finally {
       setUploading(false);
@@ -130,7 +128,6 @@ export default function FileUpload({ user, onUploadComplete }) {
             setUploadStats(stats);
           }
         } catch (error) {
-          console.error('Error loading upload stats:', error);
           // Set empty stats to prevent errors
           setUploadStats({ uploads: [], totalUploads24h: 0, isTrialUser: false });
         }

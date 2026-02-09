@@ -65,6 +65,16 @@ const User = sequelize.define('User', {
     allowNull: true,
     comment: 'X (Twitter) OAuth user id via Supabase (for account linking)'
   },
+  twitterAccessToken: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'X (Twitter) OAuth2 access token for posting tweets. Never expose to frontend.'
+  },
+  twitterRefreshToken: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'X (Twitter) OAuth2 refresh token. Never expose to frontend.'
+  },
   discordAccessToken: {
     type: DataTypes.STRING,
     allowNull: true,
@@ -147,6 +157,11 @@ const User = sequelize.define('User', {
     allowNull: false,
     defaultValue: false,
     comment: 'Show Twitch donations on dashboard'
+  },
+  profileImageUrl: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'URL of user profile/avatar image (e.g. from uploads)'
   }
 });
 

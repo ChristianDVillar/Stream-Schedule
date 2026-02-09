@@ -524,7 +524,7 @@ const Dashboard = ({ user, token, ...props }) => {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          {twitchStats?.subscriptions?.label || 'Suscripciones'}
+                          {t('dashboard.statsSubscriptions')}
                         </p>
                         <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
                           {twitchStats?.subscriptions?.total ?? 0}
@@ -545,7 +545,7 @@ const Dashboard = ({ user, token, ...props }) => {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          {twitchStats?.bits?.label || 'Bits'}
+                          {t('dashboard.statsBits')}
                         </p>
                         <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
                           {twitchStats?.bits?.total ?? 0}
@@ -580,7 +580,7 @@ const Dashboard = ({ user, token, ...props }) => {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          {twitchStats?.donations?.label || 'Donaciones'}
+                          {t('dashboard.statsDonations')}
                         </p>
                         <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
                           {twitchStats?.donations?.total ?? 0}

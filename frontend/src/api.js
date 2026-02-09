@@ -95,18 +95,27 @@ export function getPasswordResetRedirectUrl() {
 }
 
 /**
+ * Full URL where Supabase redirects after OAuth (must have /auth/callback route in frontend).
+ * In Supabase Dashboard > URL Configuration, add this exact URL to "Redirect URLs".
+ */
+function getOAuthRedirectUrl() {
+  if (typeof window === 'undefined' || !window.location.origin) {
+    throw new Error('OAuth redirect requires browser origin');
+  }
+  return `${window.location.origin.replace(/\/$/, '')}/auth/callback`;
+}
+
+/**
  * Login or register with Google via Supabase OAuth.
  * Works from both "Iniciar sesion" and "Crear usuario"; new users are created with trial in backend.
  * Redirect URL is always the current origin so production (e.g. Render) redirects back correctly.
- * In Supabase Dashboard: Authentication > URL Configuration, add your production URL to "Redirect URLs"
- * (e.g. https://your-app.onrender.com/auth/callback) and set "Site URL" to your production origin.
+ * In Supabase Dashboard: Authentication > URL Configuration, add your app origin to "Redirect URLs"
+ * (e.g. http://localhost:3000, https://your-app.onrender.com) and set "Site URL" to your app origin.
  * @param {boolean} [isSignUp] - true when user clicked from "Crear usuario" (same flow, backend creates account if new)
  */
 export async function loginWithGoogle(isSignUp = false) {
   if (supabase) {
-    // Always use current origin at runtime so OAuth redirects back to the same domain (avoids localhost in production)
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const redirectTo = origin ? `${origin.replace(/\/$/, '')}/auth/callback` : '/auth/callback';
+    const redirectTo = getOAuthRedirectUrl();
     const options = {
       redirectTo,
       queryParams: {
@@ -118,7 +127,6 @@ export async function loginWithGoogle(isSignUp = false) {
       options,
     });
     if (error) {
-      console.error('Google OAuth error:', error);
       throw error;
     }
     if (data?.url) {
@@ -162,10 +170,7 @@ export async function loginBackendWithSupabaseToken(accessToken) {
 export async function loginWithTwitch() {
   try {
     if (supabase) {
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const redirectTo = origin ? `${origin.replace(/\/$/, '')}/auth/callback` : '/auth/callback';
-      console.log('Initiating Twitch OAuth via Supabase', { redirectTo });
-      
+      const redirectTo = getOAuthRedirectUrl();
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'twitch',
         options: { 
@@ -174,55 +179,27 @@ export async function loginWithTwitch() {
         },
       });
       
-      if (error) {
-        console.error('Twitch OAuth error', error);
-        throw error;
-      }
+      if (error) throw error;
       
       if (data?.url) {
-        console.log('Redirecting to Twitch OAuth', { url: data.url.substring(0, 100) });
-        // Use window.location.replace to avoid adding to history
         window.location.replace(data.url);
         return;
       }
       throw new Error('Could not start Twitch sign in');
     }
     
-    // Fallback: backend Passport (if Supabase not configured)
-    console.log('Using backend Passport for Twitch OAuth');
     const backendUrl = `${apiClient.defaults.baseURL}/user/auth/twitch`;
     window.location.replace(backendUrl);
   } catch (error) {
-    console.error('Error initiating Twitch login', error);
     throw error;
   }
 }
 
 /**
- * Login or register with X (Twitter) via Supabase OAuth.
- * Same flow as Google/Twitch: Supabase redirects to /auth/callback, then backend creates/links user.
- * Twitter often does not provide email; backend handles that.
- * Configure Twitter provider in Supabase Dashboard (Authentication > Providers > Twitter).
+ * Login with X (Twitter) via backend OAuth2. Same as Discord: redirects to backend; callback returns to /auth/callback with token.
  */
-export async function loginWithTwitter() {
-  if (supabase) {
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const redirectTo = origin ? `${origin.replace(/\/$/, '')}/auth/callback` : '/auth/callback';
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'twitter',
-      options: { redirectTo },
-    });
-    if (error) {
-      console.error('Twitter OAuth error:', error);
-      throw error;
-    }
-    if (data?.url) {
-      window.location.replace(data.url);
-      return;
-    }
-    throw new Error('Could not start X (Twitter) sign in');
-  }
-  throw new Error('Supabase not configured');
+export function loginWithTwitter() {
+  window.location.href = `${API_BASE_URL}/user/auth/twitter`;
 }
 
 /**
@@ -346,12 +323,10 @@ export function startTwitchLink() {
   loginWithTwitch();
 }
 
-/** Start X (Twitter) link: set link mode and redirect to Supabase Twitter OAuth. After callback, AuthCallback will call link-twitter and redirect to Settings. */
-export function startTwitterLink() {
-  if (typeof sessionStorage !== 'undefined') {
-    sessionStorage.setItem(OAUTH_LINK_MODE_KEY, 'twitter');
-  }
-  loginWithTwitter();
+/** Start X (Twitter) link (add Twitter to current account). Same as Discord: pass token; redirects to backend. */
+export function startTwitterLink(token) {
+  const base = apiClient.defaults.baseURL;
+  window.location.href = `${base}/user/auth/twitter/link?token=${encodeURIComponent(token)}`;
 }
 
 /** Clear OAuth link mode (used after AuthCallback finishes link flow). */
