@@ -1293,6 +1293,7 @@ export async function connectedAccountsHandler(req, res) {
       sqlState: err.sqlState,
       sqlMessage: err.sqlMessage
     });
+    console.error('Connected accounts - Full error details:', err);
     res.status(500).json({ error: 'Server error' });
   }
 }
@@ -1343,6 +1344,7 @@ router.post('/disconnect-google', requireAuth, async (req, res) => {
       sqlState: err.sqlState,
       sqlMessage: err.sqlMessage
     });
+    console.error('Disconnect Google - Full error details:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -1386,6 +1388,7 @@ router.post('/disconnect-twitch', requireAuth, async (req, res) => {
       sqlState: err.sqlState,
       sqlMessage: err.sqlMessage
     });
+    console.error('Disconnect Twitch - Full error details:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -1407,20 +1410,15 @@ router.post('/disconnect-twitter', requireAuth, async (req, res) => {
     if (!hasAnyLoginMethod(u)) {
       return res.status(400).json({ error: 'You must keep at least one sign-in method' });
     }
-    const updatePayload = { twitterId: null, twitterAccessToken: null, twitterRefreshToken: null };
+    user.twitterId = null;
     if (user.oauthProvider === 'twitter') {
-      updatePayload.oauthProvider = user.googleId ? 'google' : user.twitchId ? 'twitch' : user.discordId ? 'discord' : null;
-      updatePayload.oauthId = user.googleId || user.twitchId || user.discordId || null;
+      user.oauthProvider = user.googleId ? 'google' : user.twitchId ? 'twitch' : user.discordId ? 'discord' : null;
+      user.oauthId = user.googleId || user.twitchId || user.discordId || null;
     }
-    const [affectedRows] = await User.update(updatePayload, { where: { id: userId } });
-    if (affectedRows === 0) {
-      logger.warn('Disconnect Twitter: no rows updated', { userId });
-      return res.status(500).json({ error: 'Failed to disconnect' });
-    }
-    logger.info('Disconnect Twitter: success', { userId });
+    await user.save();
     res.json({ message: 'X (Twitter) disconnected' });
   } catch (err) {
-    logger.error('Disconnect Twitter error', { error: err.message, userId, stack: err.stack });
+    logger.error('Disconnect Twitter error', { error: err.message, userId });
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -1548,6 +1546,7 @@ router.post('/disconnect-discord', requireAuth, async (req, res) => {
       sqlState: err.sqlState,
       sqlMessage: err.sqlMessage
     });
+    console.error('Disconnect Discord - Full error details:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

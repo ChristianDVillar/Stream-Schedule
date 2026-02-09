@@ -4,7 +4,6 @@ import { apiClient, getDiscordGuilds, getDiscordChannels, getDiscordInviteUrl } 
 import toast from 'react-hot-toast';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getPlatformColors } from '../utils/platformColors';
-import { TWITTER_MAX_CHARS } from '../constants/platforms';
 import { parsePastedPost } from '../utils/copyPastePost';
 import Joyride, { STATUS } from 'react-joyride';
 import FileUpload from '../components/FileUpload';
