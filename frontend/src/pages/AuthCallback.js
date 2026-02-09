@@ -29,9 +29,8 @@ export default function AuthCallback({ setAuth }) {
 
       // Handle OAuth errors from Supabase
       if (errorParam && !accessToken) {
-        const raw = errorDescription || errorParam || '';
-        const isProviderNotEnabled = /not enabled|Unsupported provider|validation_failed/i.test(raw);
-        const errorMsg = isProviderNotEnabled ? t('login.twitterNotEnabled') : (raw || t('login.oauthFailed'));
+        console.error('OAuth error in hash', { error: errorParam, description: errorDescription });
+        const errorMsg = errorDescription || errorParam || t('login.oauthFailed');
         window.alert(errorMsg);
         navigate('/login?error=oauth_failed');
         return;
@@ -75,6 +74,7 @@ export default function AuthCallback({ setAuth }) {
             window.history.replaceState(null, '', window.location.pathname + window.location.search);
             navigate('/settings?linked=twitter');
           } catch (error) {
+            console.error('Link Twitter error:', error);
             clearOAuthLinkMode();
             const msg = error?.response?.data?.error || error?.message || t('login.linkTwitterFailed');
             window.alert(msg);
@@ -104,6 +104,7 @@ export default function AuthCallback({ setAuth }) {
       const reason = searchParams.get('reason');
 
       if (error && !token) {
+        console.error('OAuth error in query params', { error, reason });
         const errorMsg = reason || error || t('login.oauthFailed');
         window.alert(errorMsg);
         navigate(`/login?error=${error}`);
@@ -124,6 +125,7 @@ export default function AuthCallback({ setAuth }) {
             navigate(returnTo === 'discord' ? '/schedule' : '/dashboard', { replace: true });
           }, 100);
         } catch (error) {
+          console.error('Error parsing user data:', error);
           window.alert(t('login.authDataError'));
           navigate('/login?error=oauth_failed', { replace: true });
         }

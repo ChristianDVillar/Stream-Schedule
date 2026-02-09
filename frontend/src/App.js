@@ -66,14 +66,7 @@ function Header({ user, onLogout, onMenuClick, installPromptEvent, onInstallApp 
             <Menu className="w-6 h-6 text-accent" />
           </button>
           <span className="font-bold text-accent truncate text-sm sm:text-base">Streamer Scheduler</span>
-          <span className="hidden sm:inline text-gray-600 dark:text-gray-300 truncate text-sm flex items-center gap-2">
-            {user.profileImageUrl ? (
-              <img src={user.profileImageUrl} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
-            ) : (
-              <span className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{user.username?.charAt(0).toUpperCase() || '?'}</span>
-            )}
-            <span>{user.isAdmin ? t('common.admin') : t('common.user')}: <span className="font-semibold">{user.username}</span></span>
-          </span>
+          <span className="hidden sm:inline text-gray-600 dark:text-gray-300 truncate text-sm">{user.isAdmin ? t('common.admin') : t('common.user')}: <span className="font-semibold">{user.username}</span></span>
         </div>
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
           {installPromptEvent && onInstallApp && (
