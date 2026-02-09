@@ -23,7 +23,6 @@ export default function MediaUpload({ user, token }) {
           const stats = await getUploadStats(user.id.toString());
           setUploadStats(stats);
         } catch (error) {
-          console.error('Error loading upload stats:', error);
         }
       }
     };
@@ -33,14 +32,14 @@ export default function MediaUpload({ user, token }) {
   const handleUploadComplete = (url, bucket) => {
     // Reload stats after upload
     if (user?.id) {
-      getUploadStats(user.id.toString()).then(setUploadStats).catch(console.error);
+      getUploadStats(user.id.toString()).then(setUploadStats).catch(() => {});
     }
   };
 
   const handleFileDelete = () => {
     // Reload stats after deletion
     if (user?.id) {
-      getUploadStats(user.id.toString()).then(setUploadStats).catch(console.error);
+      getUploadStats(user.id.toString()).then(setUploadStats).catch(() => {});
     }
   };
 

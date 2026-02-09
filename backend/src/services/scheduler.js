@@ -1,12 +1,13 @@
 /**
  * Scheduler: runs every minute and publishes content whose scheduledFor time has passed.
- * Discord: posts to the selected channel. Other platforms: marked as published (no API yet).
+ * Discord: posts to the selected channel. Twitter: posts tweet via X API v2. Other platforms: marked as published (no API yet).
  */
 
-import { Content } from '../models/index.js';
+import { Content, User } from '../models/index.js';
 import { Op } from 'sequelize';
 import { CONTENT_STATUS } from '../constants/contentStatus.js';
 import { postToDiscordChannel, postToDiscordChannelWithAttachments } from '../utils/discordPublish.js';
+import { postTweet } from '../utils/twitterPublish.js';
 import { supabase } from '../utils/supabaseClient.js';
 import { contentService } from './contentService.js';
 import { APP_CONFIG } from '../constants/app.js';
@@ -75,7 +76,36 @@ async function getDueContent() {
 export async function publishContent(content) {
   const platforms = Array.isArray(content.platforms) ? content.platforms : [];
   const hasDiscord = platforms.includes('discord');
+  const hasTwitter = platforms.includes('twitter');
   const channelId = content.discordChannelId || null;
+
+  if (hasTwitter) {
+    try {
+      const user = await User.findByPk(content.userId, { attributes: ['id', 'twitterId', 'twitterAccessToken'] });
+      if (!user?.twitterAccessToken) {
+        throw new Error('Twitter not linked or token missing. Reconnect X (Twitter) in Settings.');
+      }
+      const text = [content.title, content.content].filter(Boolean).join('\n\n') || ' ';
+      await postTweet(user.twitterAccessToken, text);
+      logger.info('Scheduled content published to X (Twitter)', { contentId: content.id, userId: content.userId });
+    } catch (err) {
+      logger.error('Scheduled content Twitter publish failed', {
+        contentId: content.id,
+        userId: content.userId,
+        error: err.message,
+      });
+      content.status = CONTENT_STATUS.FAILED;
+      content.publishError = err.message || String(err);
+      await content.save();
+      try {
+        const { notifyContentFailed } = await import('./websocketService.js');
+        notifyContentFailed(content.userId, content, err);
+      } catch (wsError) {
+        // ignore
+      }
+      return;
+    }
+  }
 
   if (hasDiscord && channelId) {
     try {

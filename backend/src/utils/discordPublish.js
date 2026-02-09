@@ -102,7 +102,6 @@ function inferFilename(url, type, index) {
  * @returns {Promise<{ id: string }>} Message object from Discord
  */
 export async function postToDiscordChannelWithAttachments(channelId, content, items = []) {
-  console.log('[Discord publish] postToDiscordChannelWithAttachments', { channelId, contentLength: content?.length, itemsCount: items?.length, items: items?.map((i) => ({ url: typeof i === 'string' ? i : i?.url?.slice(0, 80), type: typeof i === 'object' ? i?.type : undefined, file_path: typeof i === 'object' ? i?.file_path : undefined })) });
   const botToken = getBotToken();
   if (!botToken) {
     throw new Error('Discord bot not configured');

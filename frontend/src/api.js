@@ -98,15 +98,13 @@ export function getPasswordResetRedirectUrl() {
  * Login or register with Google via Supabase OAuth.
  * Works from both "Iniciar sesion" and "Crear usuario"; new users are created with trial in backend.
  * Redirect URL is always the current origin so production (e.g. Render) redirects back correctly.
- * In Supabase Dashboard: Authentication > URL Configuration, add your production URL to "Redirect URLs"
- * (e.g. https://your-app.onrender.com/auth/callback) and set "Site URL" to your production origin.
+ * In Supabase Dashboard: Authentication > URL Configuration, add your app origin to "Redirect URLs"
+ * (e.g. http://localhost:3000, https://your-app.onrender.com) and set "Site URL" to your app origin.
  * @param {boolean} [isSignUp] - true when user clicked from "Crear usuario" (same flow, backend creates account if new)
  */
 export async function loginWithGoogle(isSignUp = false) {
   if (supabase) {
-    // Always use current origin at runtime so OAuth redirects back to the same domain (avoids localhost in production)
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const redirectTo = origin ? `${origin.replace(/\/$/, '')}/auth/callback` : '/auth/callback';
+    const redirectTo = getOAuthRedirectUrl();
     const options = {
       redirectTo,
       queryParams: {
@@ -118,7 +116,6 @@ export async function loginWithGoogle(isSignUp = false) {
       options,
     });
     if (error) {
-      console.error('Google OAuth error:', error);
       throw error;
     }
     if (data?.url) {
@@ -162,10 +159,7 @@ export async function loginBackendWithSupabaseToken(accessToken) {
 export async function loginWithTwitch() {
   try {
     if (supabase) {
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const redirectTo = origin ? `${origin.replace(/\/$/, '')}/auth/callback` : '/auth/callback';
-      console.log('Initiating Twitch OAuth via Supabase', { redirectTo });
-      
+      const redirectTo = getOAuthRedirectUrl();
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'twitch',
         options: { 
@@ -174,26 +168,18 @@ export async function loginWithTwitch() {
         },
       });
       
-      if (error) {
-        console.error('Twitch OAuth error', error);
-        throw error;
-      }
+      if (error) throw error;
       
       if (data?.url) {
-        console.log('Redirecting to Twitch OAuth', { url: data.url.substring(0, 100) });
-        // Use window.location.replace to avoid adding to history
         window.location.replace(data.url);
         return;
       }
       throw new Error('Could not start Twitch sign in');
     }
     
-    // Fallback: backend Passport (if Supabase not configured)
-    console.log('Using backend Passport for Twitch OAuth');
     const backendUrl = `${apiClient.defaults.baseURL}/user/auth/twitch`;
     window.location.replace(backendUrl);
   } catch (error) {
-    console.error('Error initiating Twitch login', error);
     throw error;
   }
 }

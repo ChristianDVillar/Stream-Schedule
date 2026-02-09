@@ -18,3 +18,6 @@ export const PLATFORM_LABELS = {
   [PLATFORMS.INSTAGRAM]: 'Instagram',
   [PLATFORMS.DISCORD]: 'Discord'
 };
+
+/** Max characters for a single tweet (X/Twitter). */
+export const TWITTER_MAX_CHARS = 280;

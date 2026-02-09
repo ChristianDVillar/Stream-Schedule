@@ -54,7 +54,7 @@ function UserRoute({ user, children }) {
   return children;
 }
 
-function Header({ user, onLogout, onMenuClick }) {
+function Header({ user, onLogout, onMenuClick, installPromptEvent, onInstallApp }) {
   const navigate = useNavigate();
   const { t, toggleLanguage, language } = useLanguage();
   if (!user) return null;
@@ -69,6 +69,14 @@ function Header({ user, onLogout, onMenuClick }) {
           <span className="hidden sm:inline text-gray-600 dark:text-gray-300 truncate text-sm">{user.isAdmin ? t('common.admin') : t('common.user')}: <span className="font-semibold">{user.username}</span></span>
         </div>
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+          {installPromptEvent && onInstallApp && (
+            <button
+              onClick={onInstallApp}
+              className="px-3 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 hidden sm:inline"
+            >
+              {t('common.installApp') || 'Install app'}
+            </button>
+          )}
           <button
             onClick={toggleLanguage}
             className="p-2 sm:px-3 sm:py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-1 sm:gap-2"
@@ -126,6 +134,31 @@ function Sidebar({ user, open, onClose }) {
 function AppContent() {
   const { user, token, setAuth, clearAuth, setUser } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
+
+  // PWA install: capture beforeinstallprompt and show our own button that calls prompt()
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setDeferredInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallClick = () => {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then(() => setDeferredInstallPrompt(null));
+  };
+
+  // Supabase OAuth redirects to app origin with hash (#access_token=...). Send to /auth/callback to process.
+  useEffect(() => {
+    const { pathname, hash } = window.location;
+    if (pathname === '/' && hash && hash.includes('access_token')) {
+      window.location.replace('/auth/callback' + hash);
+    }
+  }, []);
 
   useEffect(() => {
     const applyTheme = () => {
@@ -161,7 +194,7 @@ function AppContent() {
       <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900 min-w-0">
         {user && <Sidebar user={user} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
         <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
-          <Header user={user} onLogout={clearAuth} onMenuClick={() => setSidebarOpen(true)} />
+          <Header user={user} onLogout={clearAuth} onMenuClick={() => setSidebarOpen(true)} installPromptEvent={deferredInstallPrompt} onInstallApp={handleInstallClick} />
           <div className="flex-1">
             <Routes>
               <Route path="/login" element={<Login setAuth={setAuth} />} />

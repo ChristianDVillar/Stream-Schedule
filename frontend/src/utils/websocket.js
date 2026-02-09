@@ -29,23 +29,19 @@ export function initWebSocket(userId, token) {
     });
     
     socket.on('connect', () => {
-      console.log('WebSocket connected');
       if (userId) {
         socket.emit('join', userId);
       }
     });
     
     socket.on('disconnect', () => {
-      console.log('WebSocket disconnected');
     });
     
     socket.on('error', (error) => {
-      console.error('WebSocket error', error);
     });
     
     return socket;
   } catch (error) {
-    console.warn('WebSocket not available', error);
     return null;
   }
 }

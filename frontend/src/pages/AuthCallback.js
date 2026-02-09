@@ -46,7 +46,6 @@ export default function AuthCallback({ setAuth }) {
             window.history.replaceState(null, '', window.location.pathname + window.location.search);
             navigate('/settings?linked=google');
           } catch (error) {
-            console.error('Link Google error:', error);
             clearOAuthLinkMode();
             const msg = error?.response?.data?.error || error?.message || t('login.linkGoogleFailed');
             window.alert(msg);
@@ -61,7 +60,6 @@ export default function AuthCallback({ setAuth }) {
             window.history.replaceState(null, '', window.location.pathname + window.location.search);
             navigate('/settings?linked=twitch');
           } catch (error) {
-            console.error('Link Twitch error:', error);
             clearOAuthLinkMode();
             const msg = error?.response?.data?.error || error?.message || t('login.linkTwitchFailed');
             window.alert(msg);
@@ -91,7 +89,6 @@ export default function AuthCallback({ setAuth }) {
           window.history.replaceState(null, '', window.location.pathname + window.location.search);
           navigate('/dashboard');
         } catch (error) {
-          console.error('OAuth login backend error:', error);
           const msg = error?.message || error?.response?.data?.error || 'OAuth login failed';
           window.alert(msg);
           navigate('/login?error=oauth_failed');
@@ -136,12 +133,6 @@ export default function AuthCallback({ setAuth }) {
       }
 
       // No token or access token found
-      console.warn('AuthCallback: No authentication data found', { 
-        hasAccessToken: !!accessToken,
-        hasToken: !!token,
-        hasUserParam: !!userParam,
-        error
-      });
       
       if (error) {
         navigate(`/login?error=${error}`, { replace: true });

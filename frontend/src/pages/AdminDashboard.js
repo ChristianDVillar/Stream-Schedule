@@ -51,7 +51,6 @@ export default function AdminDashboard({ token, user, onLogout }) {
       const res = await getLicenseConfig(token);
       setLicenseConfig(res.data.availableLicenseTypes || { monthly: true, quarterly: false, lifetime: false, temporary: false });
     } catch (err) {
-      console.error('Error fetching license config:', err);
     }
   };
 
@@ -60,7 +59,6 @@ export default function AdminDashboard({ token, user, onLogout }) {
       const res = await getPasswordReminder(token);
       setPasswordReminders(res.data.reminders || []);
     } catch (err) {
-      console.error('Error fetching password reminders:', err);
     }
   };
 
@@ -216,7 +214,6 @@ export default function AdminDashboard({ token, user, onLogout }) {
     } catch (err) {
       const errorMessage = err.response?.data?.error || err.message || (t('admin.userCreateError') || 'Error creating user');
       window.alert(`❌ ${errorMessage}`);
-      console.error('Error creating user:', err);
     } finally {
       setCreating(false);
     }

@@ -147,6 +147,11 @@ const User = sequelize.define('User', {
     allowNull: false,
     defaultValue: false,
     comment: 'Show Twitch donations on dashboard'
+  },
+  profileImageUrl: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'URL of user profile/avatar image (e.g. from uploads)'
   }
 });
 

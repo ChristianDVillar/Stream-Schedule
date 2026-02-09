@@ -9,6 +9,24 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 
+// Rewrite any fetch to Supabase base URL (no path) to /auth/v1/settings so SDK doesn't get 404
+const supabaseBase = (process.env.REACT_APP_SUPABASE_URL || '').replace(/\/$/, '');
+const SUPABASE_AUTH_SETTINGS_PATH = '/auth/v1/settings';
+if (supabaseBase && typeof window !== 'undefined' && window.fetch) {
+  const originalFetch = window.fetch;
+  window.fetch = function (input, init) {
+    let reqUrl = typeof input === 'string' ? input : (input && input.url);
+    if (reqUrl) {
+      const u = String(reqUrl).replace(/\/$/, '').split('?')[0];
+      if (u === supabaseBase) {
+        const newUrl = supabaseBase + SUPABASE_AUTH_SETTINGS_PATH;
+        input = typeof input === 'string' ? newUrl : new Request(newUrl, input);
+      }
+    }
+    return originalFetch.call(this, input, init);
+  };
+}
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
