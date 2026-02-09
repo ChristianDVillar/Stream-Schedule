@@ -498,7 +498,9 @@ router.get('/auth/twitch/callback',
 const X_OAUTH2_AUTHORIZE = 'https://x.com/i/oauth2/authorize';
 const X_OAUTH2_TOKEN = 'https://api.x.com/2/oauth2/token';
 const X_API_USERS_ME = 'https://api.x.com/2/users/me';
-const X_OAUTH2_SCOPES = 'tweet.read tweet.write users.read users.email offline.access';
+// Note: Removed 'users.email' scope to avoid requiring privacy policy/terms URLs in Twitter Dev Tools
+// We use placeholder emails for Twitter users anyway (twitter-{id}@placeholder.local)
+const X_OAUTH2_SCOPES = 'tweet.read tweet.write users.read offline.access';
 
 function isTwitterOAuth2Configured() {
   const id = (process.env.TWITTER_OAUTH2_CLIENT_ID || process.env.X_OAUTH2_CLIENT_ID || '').trim();
@@ -1244,14 +1246,24 @@ export async function connectedAccountsHandler(req, res) {
   logger.debug('Get connected accounts request', { userId, ip: req.ip });
   
   try {
+    if (!userId) {
+      logger.warn('Connected accounts: No user ID in request', { ip: req.ip });
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
     const user = await User.findByPk(userId, {
-      attributes: ['googleId', 'twitchId', 'discordId', 'twitterId', 'passwordHash', 'oauthProvider', 'oauthId', 'discordAccessToken', 'discordRefreshToken'],
+      attributes: ['googleId', 'twitchId', 'discordId', 'twitterId', 'passwordHash', 'oauthProvider', 'oauthId', 'discordAccessToken', 'discordRefreshToken', 'twitterAccessToken'],
     });
     if (!user) {
       logger.warn('Connected accounts: User not found', { userId });
       return res.status(404).json({ error: 'User not found' });
     }
     const u = user.get ? user.get({ plain: true }) : user;
+    
+    if (!u) {
+      logger.error('Connected accounts: Failed to get plain user object', { userId });
+      return res.status(500).json({ error: 'Failed to process user data' });
+    }
     
     logger.debug('Connected accounts: User data retrieved', {
       userId,
@@ -1261,7 +1273,11 @@ export async function connectedAccountsHandler(req, res) {
       hasPassword: !!u.passwordHash,
       oauthProvider: u.oauthProvider,
       oauthId: u.oauthId,
-      hasDiscordToken: !!(u.discordAccessToken || u.discordRefreshToken)
+      hasDiscordToken: !!(u.discordAccessToken || u.discordRefreshToken),
+      hasTwitterToken: !!u.twitterAccessToken,
+      hasTwitterId: !!u.twitterId,
+      twitterId: u.twitterId,
+      twitterAccessTokenLength: u.twitterAccessToken?.length || 0
     });
     
     // Check if Discord is connected: must have discordId AND (discordAccessToken OR discordRefreshToken)
@@ -1270,17 +1286,93 @@ export async function connectedAccountsHandler(req, res) {
     const discordConnected = !!(u.discordId && (u.discordAccessToken || u.discordRefreshToken));
     const googleConnected = !!(u.googleId || (u.oauthProvider === 'google' && u.oauthId));
     const twitchConnected = !!(u.twitchId || (u.oauthProvider === 'twitch' && u.oauthId));
+    // Twitter is connected if has twitterId
+    // For publishing, we need twitterAccessToken, but for display purposes, twitterId is enough
+    // This allows showing connection status even if token needs refresh
     const twitterConnected = !!(u.twitterId || (u.oauthProvider === 'twitter' && u.oauthId));
 
+    // Get connected account usernames
+    const accountInfo = {
+      google: googleConnected ? { connected: true, username: u.googleId ? `Google User` : null } : { connected: false, username: null },
+      twitch: twitchConnected ? { connected: true, username: u.twitchId ? `Twitch User` : null } : { connected: false, username: null },
+      discord: discordConnected ? { connected: true, username: null } : { connected: false, username: null },
+      twitter: { connected: twitterConnected, username: null },
+      email: { connected: !!u.passwordHash, username: null },
+    };
+
+    // Fetch Twitter username if connected and has token
+    if (twitterConnected && u.twitterAccessToken) {
+      try {
+        // Ensure X_API_USERS_ME is available (defined at module level)
+        const twitterApiUrl = X_API_USERS_ME || 'https://api.x.com/2/users/me';
+        const meRes = await fetch(`${twitterApiUrl}?user.fields=id,username,name`, {
+          headers: { Authorization: `Bearer ${u.twitterAccessToken}` },
+        });
+        if (meRes.ok) {
+          const xUser = await meRes.json();
+          const twitterUsername = xUser?.data?.username || xUser?.data?.name || null;
+          if (twitterUsername) {
+            accountInfo.twitter.username = `@${twitterUsername}`;
+          }
+        } else {
+          const errorText = await meRes.text().catch(() => 'Unknown error');
+          logger.warn('Twitter API returned non-OK status', { status: meRes.status, error: errorText });
+        }
+      } catch (err) {
+        logger.warn('Failed to fetch Twitter username', { error: err.message, stack: err.stack });
+        // Don't fail the whole request if Twitter API call fails
+      }
+    }
+
+    // Fetch Discord username if connected
+    if (discordConnected && u.discordAccessToken) {
+      try {
+        const discordRes = await fetch('https://discord.com/api/v10/users/@me', {
+          headers: { Authorization: `Bearer ${u.discordAccessToken}` },
+        });
+        if (discordRes.ok) {
+          const discordUser = await discordRes.json();
+          const discordUsername = discordUser?.username || discordUser?.global_name || null;
+          if (discordUsername) {
+            accountInfo.discord.username = discordUsername;
+          }
+        } else {
+          const errorText = await discordRes.text().catch(() => 'Unknown error');
+          logger.warn('Discord API returned non-OK status', { status: discordRes.status, error: errorText });
+        }
+      } catch (err) {
+        logger.warn('Failed to fetch Discord username', { error: err.message, stack: err.stack });
+        // Don't fail the whole request if Discord API call fails
+      }
+    }
+
+    // Twitter can display as connected (twitterId) but lack token → publishing will fail until user reconnects
+    const twitterTokenMissing = twitterConnected && !u.twitterAccessToken;
+
+    // Build result object safely
     const result = {
-      google: googleConnected,
-      twitch: twitchConnected,
-      discord: discordConnected,
-      twitter: twitterConnected,
-      email: !!u.passwordHash,
+      google: accountInfo?.google?.connected || false,
+      twitch: accountInfo?.twitch?.connected || false,
+      discord: accountInfo?.discord?.connected || false,
+      twitter: accountInfo?.twitter?.connected || false,
+      email: accountInfo?.email?.connected || false,
+      twitterTokenMissing: !!twitterTokenMissing,
+      usernames: {
+        google: accountInfo?.google?.username || null,
+        twitch: accountInfo?.twitch?.username || null,
+        discord: accountInfo?.discord?.username || null,
+        twitter: accountInfo?.twitter?.username || null,
+      }
     };
     
-    logger.debug('Connected accounts: Result', { userId, ...result });
+    logger.info('Connected accounts: Result', { 
+      userId, 
+      twitter: result.twitter,
+      twitterId: u.twitterId,
+      hasTwitterToken: !!u.twitterAccessToken,
+      twitterUsername: result.usernames.twitter,
+      ...result 
+    });
     
     res.json(result);
   } catch (err) {
@@ -1398,7 +1490,7 @@ router.post('/disconnect-twitter', requireAuth, async (req, res) => {
   const userId = req.user?.id;
   logger.info('Disconnect Twitter request', { userId, ip: req.ip });
   try {
-    const user = await User.findByPk(userId, { attributes: ['id', 'googleId', 'twitchId', 'discordId', 'twitterId', 'passwordHash', 'oauthProvider', 'oauthId'] });
+    const user = await User.findByPk(userId, { attributes: ['id', 'googleId', 'twitchId', 'discordId', 'twitterId', 'passwordHash', 'oauthProvider', 'oauthId', 'twitterAccessToken', 'twitterRefreshToken'] });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -1407,18 +1499,25 @@ router.post('/disconnect-twitter', requireAuth, async (req, res) => {
     }
     const u = user.get ? user.get({ plain: true }) : user;
     u.twitterId = null;
+    u.twitterAccessToken = null;
+    u.twitterRefreshToken = null;
     if (!hasAnyLoginMethod(u)) {
       return res.status(400).json({ error: 'You must keep at least one sign-in method' });
     }
-    user.twitterId = null;
+    const updatePayload = {
+      twitterId: null,
+      twitterAccessToken: null,
+      twitterRefreshToken: null,
+    };
     if (user.oauthProvider === 'twitter') {
-      user.oauthProvider = user.googleId ? 'google' : user.twitchId ? 'twitch' : user.discordId ? 'discord' : null;
-      user.oauthId = user.googleId || user.twitchId || user.discordId || null;
+      updatePayload.oauthProvider = user.googleId ? 'google' : user.twitchId ? 'twitch' : user.discordId ? 'discord' : null;
+      updatePayload.oauthId = user.googleId || user.twitchId || user.discordId || null;
     }
-    await user.save();
+    const [affectedRows] = await User.update(updatePayload, { where: { id: userId } });
+    logger.info('Disconnect Twitter: updated', { userId, affectedRows });
     res.json({ message: 'X (Twitter) disconnected' });
   } catch (err) {
-    logger.error('Disconnect Twitter error', { error: err.message, userId });
+    logger.error('Disconnect Twitter error', { error: err.message, stack: err.stack, userId });
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -1559,34 +1658,6 @@ router.post('/link-twitch', requireAuth, validateBody(linkSupabaseSchema), linkT
 
 /** POST /link-twitter - link X (Twitter) via Supabase to current account. Body: { supabaseAccessToken }. */
 router.post('/link-twitter', requireAuth, validateBody(linkSupabaseSchema), linkTwitterHandler);
-
-// Generate license (for demo, not secure)
-router.post('/generate-license', requireAdmin, async (req, res) => {
-  const { userId } = req.body;
-  if (!userId) return res.status(400).json({ error: 'Missing userId' });
-  const licenseType = normalizeLicenseType(req.body.licenseType);
-  const expiry = resolveLicenseExpiry({ ...req.body, licenseType });
-  if (expiry.error) return res.status(400).json({ error: expiry.error });
-  const licenseKey = generateLicenseKey('', 16);
-  try {
-    const user = await User.findByPk(userId);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    user.licenseKey = licenseKey;
-    user.licenseExpiresAt = expiry.value;
-    user.licenseType = licenseType;
-    await user.save();
-    const licenseSummary = buildLicenseSummary(user);
-    res.json({
-      licenseKey,
-      licenseExpiresAt: user.licenseExpiresAt,
-      licenseType: user.licenseType,
-      licenseAlert: licenseSummary.alert,
-      licenseDaysLeft: licenseSummary.daysLeft
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
 
 // List all users (admin only), with lastUploadAt = latest of Content.createdAt or Media.createdAt per user
 router.get('/admin/users', requireAdmin, async (req, res) => {

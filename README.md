@@ -168,6 +168,7 @@ Ver archivo `LICENSE` para más detalles.
 - `COPYRIGHT_NOTICE.md` – Información de copyright
 - `TERMS_OF_SERVICE.md` – Términos de servicio
 - `LEGAL_PROTECTION.md` – Información legal
+- `TWITTER_SETUP.md` – Configuración de Twitter/X OAuth para publicación (⚠️ importante)
 
 ---
 

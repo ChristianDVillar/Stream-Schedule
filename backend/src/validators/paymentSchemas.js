@@ -16,6 +16,21 @@ export const checkoutSchema = Joi.object({
     })
 }).required();
 
+// Create checkout session by Stripe Price lookup_key (Stripe docs pattern)
+export const createCheckoutSessionSchema = Joi.object({
+  lookup_key: Joi.string()
+    .min(1)
+    .max(200)
+    .required()
+    .messages({
+      'string.min': 'lookup_key is required',
+      'string.max': 'lookup_key must not exceed 200 characters',
+      'any.required': 'lookup_key is required (Stripe Price lookup key from Dashboard)'
+    }),
+  success_url: Joi.string().uri().max(500).optional(),
+  cancel_url: Joi.string().uri().max(500).optional(),
+}).required();
+
 // Verify session schema
 export const verifySessionSchema = Joi.object({
   sessionId: Joi.string()
