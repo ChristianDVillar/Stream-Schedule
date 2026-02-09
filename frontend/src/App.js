@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, Link, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
 import Profile from './pages/Profile';
@@ -62,7 +62,7 @@ function Header({ user, onLogout, onMenuClick, installPromptEvent, onInstallApp 
     <header className="bg-white dark:bg-gray-800 shadow-sm border-b mb-4">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 flex items-center justify-between h-14 sm:h-16 min-h-[44px] gap-2">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
-          <button className="md:hidden flex-shrink-0 p-2 -ml-1" onClick={onMenuClick} aria-label="Open menu">
+          <button className="md:hidden flex-shrink-0 p-2 -ml-1" onClick={onMenuClick} aria-label={t('common.openMenu')}>
             <Menu className="w-6 h-6 text-accent" />
           </button>
           <span className="font-bold text-accent truncate text-sm sm:text-base">Streamer Scheduler</span>
@@ -80,7 +80,7 @@ function Header({ user, onLogout, onMenuClick, installPromptEvent, onInstallApp 
           <button
             onClick={toggleLanguage}
             className="p-2 sm:px-3 sm:py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-1 sm:gap-2"
-            title={language === 'es' ? 'Switch to English' : 'Cambiar a Español'}
+            title={language === 'es' ? t('common.switchToEnglish') : t('common.switchToSpanish')}
           >
             <Globe className="w-5 h-5" />
             <span className="hidden sm:inline text-sm font-medium">{language.toUpperCase()}</span>
@@ -109,19 +109,19 @@ function Sidebar({ user, open, onClose }) {
           onKeyDown={(e) => e.key === 'Escape' && onClose()}
           role="button"
           tabIndex={0}
-          aria-label="Close menu"
+          aria-label={t('common.closeMenu')}
         />
       )}
       <div className={`fixed inset-y-0 left-0 z-40 md:static md:inset-auto md:translate-x-0 transition-transform duration-200 ease-out ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 bg-white dark:bg-gray-800 md:bg-transparent shadow-xl md:shadow-none w-64 max-w-[85vw] md:w-56 h-full md:h-auto flex flex-col safe-area-inset-left`}>
         <div className="flex items-center justify-between px-4 py-4 md:hidden border-b border-gray-200 dark:border-gray-700">
           <span className="font-bold text-accent">{t('common.menu')}</span>
-          <button onClick={onClose} className="p-2 -mr-2" aria-label="Close menu"><X className="w-6 h-6" /></button>
+          <button onClick={onClose} className="p-2 -mr-2" aria-label={t('common.closeMenu')}><X className="w-6 h-6" /></button>
         </div>
         <nav className="flex-1 px-4 py-2 space-y-2 overflow-y-auto">
         <Link to={user?.isAdmin ? "/admin" : "/dashboard"} className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('dashboard.title')}</Link>
         {!user?.isAdmin && <Link to="/schedule" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('schedule.newPost')}</Link>}
         {!user?.isAdmin && <Link to="/templates" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('templates.menu') || 'Templates'}</Link>}
-        {!user?.isAdmin && <Link to="/media" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">Media / Archivos</Link>}
+        {!user?.isAdmin && <Link to="/media" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('media.menu') || t('media.title') || 'Media'}</Link>}
         <Link to="/settings" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('settings.title')}</Link>
         <Link to="/profile" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('profile.title')}</Link>
         {user?.isAdmin && <Link to="/admin" className="block px-3 py-2 rounded hover:bg-purple-100 dark:hover:bg-gray-700 font-medium">{t('admin.title')}</Link>}
@@ -133,8 +133,15 @@ function Sidebar({ user, open, onClose }) {
 
 function AppContent() {
   const { user, token, setAuth, clearAuth, setUser } = useAuth();
+  const { t } = useLanguage();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
+
+  // Close sidebar on mobile/tablet when route changes (e.g. after tapping Dashboard, Profile, Settings)
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
 
   // PWA install: capture beforeinstallprompt and show our own button that calls prompt()
   useEffect(() => {
@@ -189,7 +196,7 @@ function AppContent() {
   }, []);
 
   return (
-    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <>
       <Toaster position="top-right" />
       <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900 min-w-0">
         {user && <Sidebar user={user} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
@@ -251,7 +258,7 @@ function AppContent() {
               target="_blank"
               rel="noopener noreferrer"
               className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 bg-accent text-white rounded-full p-3 sm:p-4 shadow-lg transition-all duration-300 hover:scale-110 flex items-center justify-center min-w-[44px] min-h-[44px]"
-              aria-label="Ir a página de merchandising"
+              aria-label={t('common.merchandisingLink')}
             >
               <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
             </a>
@@ -259,14 +266,16 @@ function AppContent() {
           <footer className="text-center text-gray-500 py-3 sm:py-4 px-4 text-sm border-t bg-white dark:bg-gray-800">© 2025 Christian - Develop</footer>
         </div>
       </div>
-    </Router>
+    </>
   );
 }
 
 const App = () => (
   <LanguageProvider>
     <AuthProvider>
-      <AppContent />
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <AppContent />
+      </Router>
     </AuthProvider>
   </LanguageProvider>
 );

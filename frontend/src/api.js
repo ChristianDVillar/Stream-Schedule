@@ -298,6 +298,15 @@ export async function getContent(options = {}) {
   return res.data;
 }
 
+/** Cancel scheduled content (sets status to canceled). Requires auth token. */
+export async function cancelContent(contentId, token) {
+  const res = await apiClient.put(`/content/${contentId}`, { status: 'canceled' }, {
+    headers: { Authorization: `Bearer ${token}` },
+    withCredentials: true,
+  });
+  return res.data;
+}
+
 /** Start Discord link flow (add Discord to current account). Pass token; redirects to backend. */
 export function startDiscordLink(token) {
   const base = apiClient.defaults.baseURL;
