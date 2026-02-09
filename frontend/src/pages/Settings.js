@@ -175,8 +175,10 @@ const Settings = ({ user, token, setUser }) => {
     setConnectedAccountsLoading(true);
     try {
       const data = await getConnectedAccounts();
+      console.log('Connected accounts data:', data); // Debug log
       setConnectedAccounts(data);
-    } catch {
+    } catch (err) {
+      console.error('Error fetching connected accounts:', err);
       setConnectedAccounts({ google: false, twitch: false, discord: false, twitter: false, email: false });
     } finally {
       setConnectedAccountsLoading(false);
@@ -788,16 +790,25 @@ const Settings = ({ user, token, setUser }) => {
                   { key: 'google', label: 'Google', connected: connectedAccounts.google, connect: () => startGoogleLink(), disconnect: () => disconnectGoogle() },
                   { key: 'twitch', label: 'Twitch', connected: connectedAccounts.twitch, connect: () => startTwitchLink(), disconnect: () => disconnectTwitch() },
                   { key: 'discord', label: 'Discord', connected: connectedAccounts.discord, connect: () => startDiscordLink(token), disconnect: () => disconnectDiscord() },
-                  { key: 'twitter', label: 'X (Twitter)', connected: connectedAccounts.twitter, connect: () => startTwitterLink(), disconnect: () => disconnectTwitter() },
+                  { key: 'twitter', label: 'X (Twitter)', connected: connectedAccounts.twitter, connect: () => startTwitterLink(token), disconnect: () => disconnectTwitter() },
                   { key: 'email', label: t('settings.emailPassword') || 'Email & password', connected: connectedAccounts.email, connect: null, disconnect: null },
-                ].map(({ key, label, connected, connect, disconnect }) => (
+                ].map(({ key, label, connected, connect, disconnect }) => {
+                  const username = connectedAccounts.usernames?.[key];
+                  return (
                   <div key={key} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
                       <Globe className="w-5 h-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</span>
-                      <span className={`px-2 py-0.5 text-xs rounded ${connected ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
-                        {connected ? (t('settings.connected') || 'Connected') : (t('settings.notConnected') || 'Not connected')}
-                      </span>
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</span>
+                        {connected && username && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            ({username})
+                          </span>
+                        )}
+                        <span className={`px-2 py-0.5 text-xs rounded flex-shrink-0 ${connected ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
+                          {connected ? (t('settings.connected') || 'Connected') : (t('settings.notConnected') || 'Not connected')}
+                        </span>
+                      </div>
                     </div>
                     {connect && !connected && (
                       <button
@@ -843,8 +854,14 @@ const Settings = ({ user, token, setUser }) => {
                         {t('settings.setPasswordInSecurity') || 'Set a password in Security tab.'}
                       </p>
                     )}
+                    {key === 'twitter' && connected && connectedAccounts.twitterTokenMissing && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 flex-1 basis-full">
+                        {t('settings.twitterReconnectToPublish') || 'Access token missing. Disconnect and reconnect X (Twitter) to enable publishing.'}
+                      </p>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-sm text-gray-500">{t('settings.couldNotLoadAccounts') || 'Could not load connected accounts.'}</p>

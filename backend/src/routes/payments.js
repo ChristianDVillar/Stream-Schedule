@@ -7,7 +7,7 @@ import { LICENSE_TYPES } from '../constants/licenseTypes.js';
 import { PAYMENT_STATUS } from '../constants/paymentStatus.js';
 import { generateLicenseKey } from '../utils/cryptoUtils.js';
 import { validateBody } from '../middleware/validate.js';
-import { checkoutSchema, verifySessionSchema, subscribeSchema } from '../validators/paymentSchemas.js';
+import { checkoutSchema, verifySessionSchema, subscribeSchema, createCheckoutSessionSchema } from '../validators/paymentSchemas.js';
 import logger from '../utils/logger.js';
 import { sendPaymentSuccessNotification, sendPaymentFailedNotification } from '../utils/notifications.js';
 
@@ -40,7 +40,68 @@ const PLANS = {
 
 // requireAdmin is now imported from middleware/auth.js
 
-// Create a Stripe checkout session
+// Create a Stripe checkout session by Price lookup_key (Stripe docs pattern: form POST with lookup_key)
+router.post('/create-checkout-session', requireAuth, validateBody(createCheckoutSessionSchema), async (req, res) => {
+  if (!stripe) {
+    return res.status(500).json({
+      error: 'Stripe is not configured. Please set STRIPE_SECRET_KEY in environment variables.',
+    });
+  }
+  const { lookup_key, success_url, cancel_url } = req.body;
+  const baseUrl = getFrontendUrl();
+  try {
+    const prices = await stripe.prices.list({
+      lookup_keys: [lookup_key],
+      active: true,
+      limit: 1,
+    });
+    if (!prices.data || prices.data.length === 0) {
+      return res.status(400).json({
+        error: `No active Stripe Price found for lookup_key: ${lookup_key}. Create a Price in the Stripe Dashboard and set its lookup key.`,
+      });
+    }
+    const price = prices.data[0];
+    const isSubscription = !!price.recurring;
+    const sessionConfig = {
+      payment_method_types: ['card'],
+      line_items: [{ price: price.id, quantity: 1 }],
+      mode: isSubscription ? 'subscription' : 'payment',
+      automatic_tax: { enabled: true },
+      locale: 'en',
+      success_url: success_url || `${baseUrl}/settings?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: cancel_url || `${baseUrl}/settings?payment=cancelled`,
+      customer_email: req.user.email,
+      metadata: {
+        userId: req.user.id.toString(),
+        lookup_key,
+      },
+    };
+    const session = await stripe.checkout.sessions.create(sessionConfig);
+    logger.info('Checkout session created by lookup_key', {
+      userId: req.user.id,
+      lookup_key,
+      sessionId: session.id,
+      mode: sessionConfig.mode,
+    });
+    return res.json({
+      sessionId: session.id,
+      url: session.url,
+      mode: sessionConfig.mode,
+    });
+  } catch (error) {
+    logger.error('Stripe create-checkout-session error', {
+      error: error.message,
+      userId: req.user?.id,
+      lookup_key,
+    });
+    return res.status(500).json({
+      error: 'Failed to create checkout session',
+      details: error.message,
+    });
+  }
+});
+
+// Create a Stripe checkout session (by licenseType - app-defined plans)
 router.post('/checkout', requireAuth, validateBody(checkoutSchema), async (req, res) => {
   if (!stripe) {
     return res.status(500).json({ 
@@ -132,6 +193,7 @@ router.post('/checkout', requireAuth, validateBody(checkoutSchema), async (req, 
         },
       ],
       mode: 'payment',
+      automatic_tax: { enabled: true },
       locale: 'en', // Set checkout page language to English
       success_url: `${getFrontendUrl()}/settings?payment=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${getFrontendUrl()}/settings?payment=cancelled`,
@@ -391,61 +453,6 @@ router.post('/webhook', async (req, res) => {
         }
       }
 
-      res.json({ received: true });
-    }
-    else if (event.type === 'checkout.session.completed' && event.data.object.mode === 'subscription') {
-      // Handle subscription checkout completion
-      const session = event.data.object;
-      const subscriptionId = session.subscription;
-      
-      if (subscriptionId) {
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-        const userId = parseInt(session.metadata?.userId);
-        const licenseType = session.metadata?.licenseType;
-        
-        if (userId && licenseType) {
-          const user = await User.findByPk(userId);
-          if (user) {
-            // Update user with subscription info
-            user.stripeCustomerId = subscription.customer;
-            user.stripeSubscriptionId = subscription.id;
-            user.subscriptionStatus = subscription.status;
-            
-            // Assign license
-            const licenseKey = generateLicenseKey('', 16);
-            const expiryResult = resolveLicenseExpiry({ licenseType });
-            const expiresAt = expiryResult.value;
-            user.licenseKey = licenseKey;
-            user.licenseType = licenseType;
-            user.licenseExpiresAt = expiresAt;
-            await user.save();
-            
-            // Create payment record for subscription
-            const plan = PLANS[licenseType];
-            if (plan) {
-              await Payment.create({
-                userId: user.id,
-                licenseType,
-                amount: plan.amount,
-                currency: plan.currency,
-                status: PAYMENT_STATUS.COMPLETED,
-                provider: 'stripe',
-                stripeCustomerId: subscription.customer,
-                stripeSubscriptionId: subscription.id,
-                isRecurring: true,
-                paidAt: new Date()
-              });
-            }
-            
-            logger.info('Subscription created via webhook', {
-              userId,
-              subscriptionId: subscription.id,
-              licenseType
-            });
-          }
-        }
-      }
-      
       res.json({ received: true });
     }
     else if (event.type === 'customer.subscription.updated') {
@@ -829,6 +836,7 @@ router.post('/subscribe', requireAuth, validateBody(subscribeSchema), async (req
         },
       ],
       mode: 'subscription',
+      automatic_tax: { enabled: true },
       locale: 'en', // Set checkout page language to English
       success_url: `${getFrontendUrl()}/settings?subscription=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${getFrontendUrl()}/settings?subscription=cancelled`,

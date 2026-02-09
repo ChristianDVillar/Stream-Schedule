@@ -13,11 +13,14 @@ out/
 # Environment variables (never commit - contains secrets)
 .env
 .env.*
+!.env.example
 .env.local
 .env.*.local
 backend/.env
 frontend/.env
-# Note: .env.example and env.example should be committed as documentation only
+backend/env.example
+frontend/.env.example
+# Note: root .env.example can be committed if present (!.env.example above)
 
 # IDE and editor files
 .vscode/

@@ -340,12 +340,14 @@ export function startTwitchLink() {
   loginWithTwitch();
 }
 
-/** Start X (Twitter) link: set link mode and redirect to Supabase Twitter OAuth. After callback, AuthCallback will call link-twitter and redirect to Settings. */
-export function startTwitterLink() {
-  if (typeof sessionStorage !== 'undefined') {
-    sessionStorage.setItem(OAUTH_LINK_MODE_KEY, 'twitter');
+/** Start X (Twitter) link: redirect to backend OAuth2 link flow so we get access/refresh tokens for publishing. */
+export function startTwitterLink(token) {
+  if (!token) {
+    console.error('startTwitterLink: token required');
+    return;
   }
-  loginWithTwitter();
+  const base = apiClient.defaults.baseURL;
+  window.location.href = `${base}/user/auth/twitter/link?token=${encodeURIComponent(token)}`;
 }
 
 /** Clear OAuth link mode (used after AuthCallback finishes link flow). */
@@ -386,8 +388,9 @@ export async function disconnectDiscord() {
   return res.data;
 }
 
-export async function generateLicense({ userId, token }) {
-  return apiClient.post('/user/generate-license', { userId }, {
+/** @deprecated Use adminGenerateLicense. Kept for compatibility. */
+export async function generateLicense({ userId, licenseType = 'monthly', token }) {
+  return apiClient.post('/user/admin/generate-license', { userId, licenseType }, {
     headers: { Authorization: `Bearer ${token}` }
   });
 }
@@ -448,6 +451,13 @@ export async function getLicenseStatus(token) {
 
 export async function createCheckout({ licenseType, token }) {
   return apiClient.post('/payments/checkout', { licenseType }, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+/** Create checkout session by Stripe Price lookup_key (Stripe docs pattern). */
+export async function createCheckoutSession({ lookup_key, success_url, cancel_url, token }) {
+  return apiClient.post('/payments/create-checkout-session', { lookup_key, success_url, cancel_url }, {
     headers: { Authorization: `Bearer ${token}` }
   });
 }
