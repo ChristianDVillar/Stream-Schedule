@@ -6,6 +6,14 @@ import { supabase } from './utils/supabaseClient';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const API_BASE_URL = `${API_URL}/api`;
 
+/** Full URL where Supabase redirects after OAuth. Add this to Supabase Dashboard > URL Configuration > Redirect URLs. */
+function getOAuthRedirectUrl() {
+  if (typeof window === 'undefined' || !window.location.origin) {
+    throw new Error('OAuth redirect requires browser origin');
+  }
+  return `${window.location.origin.replace(/\/$/, '')}/auth/callback`;
+}
+
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000, // 10 seconds timeout
@@ -92,17 +100,6 @@ export async function forgotPassword({ email }) {
 export function getPasswordResetRedirectUrl() {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   return origin ? `${origin.replace(/\/$/, '')}/reset-password` : '/reset-password';
-}
-
-/**
- * Full URL where Supabase redirects after OAuth (must have /auth/callback route in frontend).
- * In Supabase Dashboard > URL Configuration, add this exact URL to "Redirect URLs".
- */
-function getOAuthRedirectUrl() {
-  if (typeof window === 'undefined' || !window.location.origin) {
-    throw new Error('OAuth redirect requires browser origin');
-  }
-  return `${window.location.origin.replace(/\/$/, '')}/auth/callback`;
 }
 
 /**
