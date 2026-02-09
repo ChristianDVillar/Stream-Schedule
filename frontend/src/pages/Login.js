@@ -116,7 +116,7 @@ export default function Login({ setAuth }) {
       } else if (provider === 'twitch') {
         loginWithTwitch();
       } else if (provider === 'twitter') {
-        loginWithTwitter();
+        await loginWithTwitter();
       } else if (provider === 'discord') {
         loginWithDiscord();
       }

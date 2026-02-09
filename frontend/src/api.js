@@ -193,10 +193,30 @@ export async function loginWithTwitch() {
 }
 
 /**
- * Login with X (Twitter) via backend OAuth2. Same as Discord: redirects to backend; callback returns to /auth/callback with token.
+ * Login or register with X (Twitter) via Supabase OAuth.
+ * Same flow as Google/Twitch: Supabase redirects to /auth/callback, then backend creates/links user.
+ * Twitter often does not provide email; backend handles that.
+ * Configure Twitter provider in Supabase Dashboard (Authentication > Providers > Twitter).
  */
-export function loginWithTwitter() {
-  window.location.href = `${API_BASE_URL}/user/auth/twitter`;
+export async function loginWithTwitter() {
+  if (supabase) {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const redirectTo = origin ? `${origin.replace(/\/$/, '')}/auth/callback` : '/auth/callback';
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'twitter',
+      options: { redirectTo },
+    });
+    if (error) {
+      console.error('Twitter OAuth error:', error);
+      throw error;
+    }
+    if (data?.url) {
+      window.location.replace(data.url);
+      return;
+    }
+    throw new Error('Could not start X (Twitter) sign in');
+  }
+  throw new Error('Supabase not configured');
 }
 
 /**
@@ -320,10 +340,12 @@ export function startTwitchLink() {
   loginWithTwitch();
 }
 
-/** Start X (Twitter) link (add Twitter to current account). Same as Discord: pass token; redirects to backend. */
-export function startTwitterLink(token) {
-  const base = apiClient.defaults.baseURL;
-  window.location.href = `${base}/user/auth/twitter/link?token=${encodeURIComponent(token)}`;
+/** Start X (Twitter) link: set link mode and redirect to Supabase Twitter OAuth. After callback, AuthCallback will call link-twitter and redirect to Settings. */
+export function startTwitterLink() {
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.setItem(OAUTH_LINK_MODE_KEY, 'twitter');
+  }
+  loginWithTwitter();
 }
 
 /** Clear OAuth link mode (used after AuthCallback finishes link flow). */
