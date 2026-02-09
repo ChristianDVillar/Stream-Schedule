@@ -788,7 +788,7 @@ const Settings = ({ user, token, setUser }) => {
                   { key: 'google', label: 'Google', connected: connectedAccounts.google, connect: () => startGoogleLink(), disconnect: () => disconnectGoogle() },
                   { key: 'twitch', label: 'Twitch', connected: connectedAccounts.twitch, connect: () => startTwitchLink(), disconnect: () => disconnectTwitch() },
                   { key: 'discord', label: 'Discord', connected: connectedAccounts.discord, connect: () => startDiscordLink(token), disconnect: () => disconnectDiscord() },
-                  { key: 'twitter', label: 'X (Twitter)', connected: connectedAccounts.twitter, connect: () => startTwitterLink(token), disconnect: () => disconnectTwitter() },
+                  { key: 'twitter', label: 'X (Twitter)', connected: connectedAccounts.twitter, connect: () => startTwitterLink(), disconnect: () => disconnectTwitter() },
                   { key: 'email', label: t('settings.emailPassword') || 'Email & password', connected: connectedAccounts.email, connect: null, disconnect: null },
                 ].map(({ key, label, connected, connect, disconnect }) => (
                   <div key={key} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
