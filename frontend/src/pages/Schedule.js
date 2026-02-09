@@ -4,8 +4,10 @@ import { apiClient, getDiscordGuilds, getDiscordChannels, getDiscordInviteUrl } 
 import toast from 'react-hot-toast';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getPlatformColors } from '../utils/platformColors';
-import { TWITTER_MAX_CHARS } from '../constants/platforms';
 import { parsePastedPost } from '../utils/copyPastePost';
+
+/** Max characters for a single tweet (X/Twitter). */
+const TWITTER_MAX_CHARS = 280;
 import Joyride, { STATUS } from 'react-joyride';
 import FileUpload from '../components/FileUpload';
 import MediaGallery from '../components/MediaGallery';
