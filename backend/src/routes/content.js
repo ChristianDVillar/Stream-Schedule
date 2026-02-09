@@ -1,5 +1,6 @@
 import express from 'express';
-import { Content } from '../models/index.js';
+import { Content, User } from '../models/index.js';
+import { Op } from 'sequelize';
 import checkLicense from '../middleware/checkLicense.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
@@ -8,6 +9,7 @@ import { TWITTER_MAX_CHARS } from '../constants/platforms.js';
 import { contentService } from '../services/contentService.js';
 import { contentCreationLimiter } from '../middleware/rateLimit.js';
 import { auditLog } from '../middleware/audit.js';
+import { postTweet } from '../utils/twitterPublish.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();
@@ -158,6 +160,125 @@ router.get('/export', async (req, res) => {
     res.json(exportData);
   } catch (err) {
     res.status(500).json({ error: 'Export failed', details: err.message });
+  }
+});
+
+// Debug endpoint: Check scheduled content and Twitter status
+router.get('/debug-scheduled', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const now = new Date();
+    
+    const scheduled = await Content.findAll({
+      where: {
+        userId,
+        status: 'scheduled',
+      },
+      order: [['scheduledFor', 'ASC']],
+      limit: 10,
+    });
+    
+    const due = await Content.findAll({
+      where: {
+        userId,
+        status: 'scheduled',
+        scheduledFor: { [Op.lte]: now },
+      },
+      order: [['scheduledFor', 'ASC']],
+      limit: 10,
+    });
+    
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'twitterId', 'twitterAccessToken', 'twitterRefreshToken'],
+    });
+    
+    res.json({
+      now: now.toISOString(),
+      scheduledCount: scheduled.length,
+      dueCount: due.length,
+      scheduled: scheduled.map((c) => ({
+        id: c.id,
+        platforms: c.platforms,
+        hasTwitter: Array.isArray(c.platforms) && c.platforms.includes('twitter'),
+        scheduledFor: c.scheduledFor,
+        isDue: new Date(c.scheduledFor) <= now,
+      })),
+      due: due.map((c) => ({
+        id: c.id,
+        platforms: c.platforms,
+        hasTwitter: Array.isArray(c.platforms) && c.platforms.includes('twitter'),
+        scheduledFor: c.scheduledFor,
+      })),
+      twitterStatus: {
+        hasTwitterId: !!user?.twitterId,
+        hasAccessToken: !!user?.twitterAccessToken,
+        accessTokenLength: user?.twitterAccessToken?.length || 0,
+      },
+    });
+  } catch (err) {
+    logger.error('Debug scheduled content error', { error: err.message, userId: req.user?.id });
+    res.status(500).json({ error: 'Server error', message: err.message });
+  }
+});
+
+// Test endpoint: Publish a test tweet (for debugging)
+router.post('/test-twitter', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const testText = req.body.text || 'Test tweet from Streamer Scheduler';
+    
+    logger.info('Test Twitter publish request', { userId, textLength: testText.length });
+    
+    const user = await User.findByPk(userId, { 
+      attributes: ['id', 'twitterId', 'twitterAccessToken', 'twitterRefreshToken', 'oauthProvider', 'oauthId'] 
+    });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    logger.info('User Twitter status', {
+      userId,
+      hasTwitterId: !!user.twitterId,
+      twitterId: user.twitterId,
+      hasAccessToken: !!user.twitterAccessToken,
+      accessTokenLength: user.twitterAccessToken?.length || 0,
+      hasRefreshToken: !!user.twitterRefreshToken,
+      oauthProvider: user.oauthProvider,
+      oauthId: user.oauthId
+    });
+    
+    if (!user.twitterAccessToken) {
+      return res.status(400).json({ 
+        error: 'Twitter access token missing',
+        hasTwitterId: !!user.twitterId,
+        message: user.twitterId 
+          ? 'Twitter account linked but access token missing. Please reconnect X (Twitter) in Settings.'
+          : 'Twitter not linked. Connect X (Twitter) in Settings.'
+      });
+    }
+    
+    logger.info('Attempting to post tweet', { userId, textPreview: testText.slice(0, 50) });
+    const result = await postTweet(user.twitterAccessToken, testText);
+    
+    logger.info('Test tweet posted successfully', { userId, tweetId: result.id });
+    res.json({ 
+      success: true, 
+      tweetId: result.id,
+      text: result.text,
+      message: 'Tweet posted successfully'
+    });
+  } catch (err) {
+    logger.error('Test Twitter publish failed', {
+      userId: req.user?.id,
+      error: err.message,
+      stack: err.stack
+    });
+    res.status(500).json({ 
+      error: 'Failed to publish tweet',
+      message: err.message,
+      details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 });
 

@@ -916,7 +916,6 @@ const Schedule = ({ user, token }) => {
                     className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       errors.scheduledFor ? 'border-red-500' : 'border-gray-300'
                     }`}
-                    min={new Date().toISOString().split('T')[0]}
                   />
                   <Calendar className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
                 </div>

@@ -253,6 +253,7 @@
     "reason_twitter_oauth_credentials": "X (Twitter) rechazó la petición. En el .env del backend configura TWITTER_OAUTH2_CLIENT_ID y TWITTER_OAUTH2_CLIENT_SECRET del X Developer Portal y añade allí la URL de callback exacta.",
     "disconnect": "Desconectar",
     "disconnectConfirm": "¿Desconectar esta plataforma? Podrás volver a conectarla después.",
+    "twitterReconnectToPublish": "Falta el token de acceso. Desconecta y vuelve a conectar X (Twitter) para poder publicar.",
     "disconnected": "Desconectado",
     "passwordsDoNotMatch": "Las nuevas contraseñas no coinciden",
     "passwordMinLength": "La contraseña debe tener al menos 8 caracteres",

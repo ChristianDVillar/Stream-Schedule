@@ -79,13 +79,41 @@ export async function publishContent(content) {
   const hasTwitter = platforms.includes('twitter');
   const channelId = content.discordChannelId || null;
 
+  logger.info('Publish content', {
+    contentId: content.id,
+    userId: content.userId,
+    platforms,
+    hasTwitter,
+    hasDiscord,
+    scheduledFor: content.scheduledFor,
+  });
+
   if (hasTwitter) {
     try {
-      const user = await User.findByPk(content.userId, { attributes: ['id', 'twitterId', 'twitterAccessToken'] });
+      const user = await User.findByPk(content.userId, { attributes: ['id', 'twitterId', 'twitterAccessToken', 'twitterRefreshToken'] });
+      logger.info('Twitter publish attempt', { 
+        contentId: content.id, 
+        userId: content.userId,
+        hasTwitterId: !!user?.twitterId,
+        hasAccessToken: !!user?.twitterAccessToken,
+        hasRefreshToken: !!user?.twitterRefreshToken,
+        tokenLength: user?.twitterAccessToken?.length || 0
+      });
+      
       if (!user?.twitterAccessToken) {
-        throw new Error('Twitter not linked or token missing. Reconnect X (Twitter) in Settings.');
+        const errorMsg = user?.twitterId 
+          ? 'Twitter account linked but access token missing. Please reconnect X (Twitter) in Settings to refresh the token.'
+          : 'Twitter not linked. Connect X (Twitter) in Settings.';
+        logger.error('Twitter publish failed: no token', { 
+          contentId: content.id, 
+          userId: content.userId,
+          hasTwitterId: !!user?.twitterId 
+        });
+        throw new Error(errorMsg);
       }
+      
       const text = [content.title, content.content].filter(Boolean).join('\n\n') || ' ';
+      logger.info('Posting tweet', { contentId: content.id, textLength: text.length, textPreview: text.slice(0, 50) });
       await postTweet(user.twitterAccessToken, text);
       logger.info('Scheduled content published to X (Twitter)', { contentId: content.id, userId: content.userId });
     } catch (err) {
@@ -93,6 +121,7 @@ export async function publishContent(content) {
         contentId: content.id,
         userId: content.userId,
         error: err.message,
+        stack: err.stack,
       });
       content.status = CONTENT_STATUS.FAILED;
       content.publishError = err.message || String(err);
@@ -273,8 +302,44 @@ async function processRecurringContent(content) {
  */
 async function runTick() {
   try {
+    const now = new Date();
     const due = await getDueContent();
-    if (due.length === 0) return;
+    if (due.length === 0) {
+      // Diagnostic: list all scheduled content to see why none are due
+      const allScheduled = await Content.findAll({
+        where: { status: CONTENT_STATUS.SCHEDULED },
+        attributes: ['id', 'userId', 'scheduledFor', 'platforms', 'title'],
+        order: [['scheduledFor', 'ASC']],
+        limit: 20,
+      });
+      if (allScheduled.length > 0) {
+        logger.debug('Scheduler: no content due for publishing', {
+          now: now.toISOString(),
+          scheduledCount: allScheduled.length,
+          scheduled: allScheduled.map((c) => ({
+            id: c.id,
+            userId: c.userId,
+            scheduledFor: c.scheduledFor,
+            scheduledForISO: c.scheduledFor ? new Date(c.scheduledFor).toISOString() : null,
+            isPast: c.scheduledFor ? new Date(c.scheduledFor) <= now : false,
+            platforms: c.platforms,
+          })),
+        });
+      } else {
+        logger.debug('Scheduler: no content due for publishing', { now: now.toISOString() });
+      }
+      return;
+    }
+    logger.info('Scheduler: due content', {
+      count: due.length,
+      ids: due.map((c) => c.id),
+      platforms: due.map((c) => ({ 
+        id: c.id, 
+        platforms: c.platforms, 
+        scheduledFor: c.scheduledFor,
+        hasTwitter: Array.isArray(c.platforms) && c.platforms.includes('twitter'),
+      })),
+    });
     for (const content of due) {
       await publishContent(content);
     }
