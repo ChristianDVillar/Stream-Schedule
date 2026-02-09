@@ -5,6 +5,7 @@
 
 import Joi from 'joi';
 import { CONTENT_TYPE_VALUES } from '../constants/contentTypes.js';
+import { CONTENT_STATUS_VALUES } from '../constants/contentStatus.js';
 
 // Recurrence schema
 const recurrenceSchema = Joi.object({
@@ -109,7 +110,7 @@ export const updateContentSchema = Joi.object({
   discordGuildId: Joi.string().max(100).allow('', null).optional(),
   discordChannelId: Joi.string().max(100).allow('', null).optional(),
   status: Joi.string()
-    .valid('draft', 'scheduled', 'published', 'failed', 'cancelled')
+    .valid(...CONTENT_STATUS_VALUES)
     .optional()
 }).min(1).messages({
   'object.min': 'At least one field must be provided to update'

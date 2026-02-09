@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiClient, getTwitchDashboardStats, getTwitchSubs, getTwitchBits, getTwitchDonations } from '../api';
+import { apiClient, getTwitchDashboardStats, getTwitchSubs, getTwitchBits, getTwitchDonations, cancelContent } from '../api';
 import AdminDashboard from './AdminDashboard';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
@@ -155,6 +155,8 @@ const Dashboard = ({ user, token, ...props }) => {
         return <Clock className="w-4 h-4 text-yellow-500" />;
       case 'failed':
         return <XCircle className="w-4 h-4 text-red-500" />;
+      case 'canceled':
+        return <XCircle className="w-4 h-4 text-gray-500" />;
       default:
         return <Clock className="w-4 h-4 text-gray-500" />;
     }
@@ -173,6 +175,18 @@ const Dashboard = ({ user, token, ...props }) => {
       } catch (error) {
         toast.error('Failed to delete content');
       }
+    }
+  };
+
+  const handleCancelContent = async (contentId) => {
+    if (!window.confirm(t('dashboard.cancelPublicationConfirm') || 'Cancel this scheduled publication? It will not be published.')) return;
+    try {
+      await cancelContent(contentId, token);
+      toast.success(t('dashboard.publicationCanceled') || 'Publication canceled');
+      fetchContents();
+      if (selectedContent?.id === contentId) setShowContentModal(false);
+    } catch (error) {
+      toast.error(error.response?.data?.error || t('dashboard.cancelPublicationFailed') || 'Failed to cancel publication');
     }
   };
 
@@ -470,7 +484,7 @@ const Dashboard = ({ user, token, ...props }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">Streamer Scheduler</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('dashboard.appTitle') || 'Streamer Scheduler'}</h1>
             </div>
             <div className="flex items-center space-x-4">
               <div className="flex space-x-2">
@@ -750,7 +764,7 @@ const Dashboard = ({ user, token, ...props }) => {
                                   setShowContentModal(true);
                                 }}
                                 className="p-1 text-blue-600 hover:text-blue-800"
-                                title="View Details"
+                                title={t('dashboard.viewDetails') || 'View details'}
                               >
                                 <Eye className="w-4 h-4" />
                               </button>
@@ -764,17 +778,26 @@ const Dashboard = ({ user, token, ...props }) => {
                               <button
                                 onClick={() => handleDuplicateContent(content)}
                                 className="p-1 text-green-600 hover:text-green-800"
-                                title="Duplicate"
+                                title={t('dashboard.duplicate') || 'Duplicate'}
                               >
                                 <Copy className="w-4 h-4" />
-                          </button>
+                              </button>
+                              {content.status === 'scheduled' && (
+                                <button
+                                  onClick={() => handleCancelContent(content.id)}
+                                  className="p-1 text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
+                                  title={t('dashboard.cancelPublication') || 'Cancel publication'}
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                </button>
+                              )}
                               <button
                                 onClick={() => handleDeleteContent(content.id)}
                                 className="p-1 text-red-600 hover:text-red-800"
-                                title="Delete"
+                                title={t('common.delete')}
                               >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                                <Trash2 className="w-4 h-4" />
+                              </button>
                         </div>
                       </td>
                     </tr>
@@ -912,19 +935,28 @@ const Dashboard = ({ user, token, ...props }) => {
                   onClick={() => handleDuplicateContent(selectedContent)}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
                 >
-                  Duplicate
+                  {t('dashboard.duplicate') || 'Duplicate'}
                 </button>
+                {selectedContent.status === 'scheduled' && (
+                  <button
+                    onClick={() => handleCancelContent(selectedContent.id)}
+                    className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm flex items-center gap-2"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    {t('dashboard.cancelPublication') || 'Cancel publication'}
+                  </button>
+                )}
                 <button
                   onClick={() => handleDeleteContent(selectedContent.id)}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
                 >
-                  Delete
+                  {t('common.delete')}
                 </button>
                 <button
                   onClick={() => setShowContentModal(false)}
                   className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm"
                 >
-                  Close
+                  {t('common.close')}
                 </button>
               </div>
             </div>
