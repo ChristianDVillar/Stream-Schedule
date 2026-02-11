@@ -620,3 +620,110 @@ export async function getVideoSignedUrl(file_path, expiresIn = 3600) {
     }
   });
 }
+
+// Messages API functions
+export async function createMessage({ subject, content, priority, category, attachments, token }) {
+  const formData = new FormData();
+  formData.append('subject', subject);
+  formData.append('content', content);
+  formData.append('priority', priority || 'normal');
+  if (category) formData.append('category', category);
+  
+  // Append attachments if any
+  if (attachments && attachments.length > 0) {
+    attachments.forEach((file) => {
+      formData.append('attachments', file);
+    });
+  }
+  
+  return apiClient.post('/messages', formData, {
+    headers: { 
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+}
+
+export async function getMyMessages(token) {
+  return apiClient.get('/messages/my-messages', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function getAdminMessages({ status, priority, category, userId, resolved, page, limit, token }) {
+  const params = {};
+  if (status) params.status = status;
+  if (priority) params.priority = priority;
+  if (category) params.category = category;
+  if (userId) params.userId = userId;
+  if (resolved !== undefined && resolved !== '') params.resolved = resolved;
+  if (page) params.page = page;
+  if (limit) params.limit = limit;
+  
+  return apiClient.get('/messages/admin', {
+    params,
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function getUnreadMessageCount(token) {
+  return apiClient.get('/messages/admin/unread-count', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function getAdminMessage(messageId, token) {
+  return apiClient.get(`/messages/admin/${messageId}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function updateMessageStatus({ messageId, status, token }) {
+  return apiClient.patch('/messages/admin/status', { messageId, status }, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function replyToMessage({ messageId, reply, attachments, token }) {
+  const formData = new FormData();
+  formData.append('messageId', messageId);
+  formData.append('reply', reply);
+  
+  // Append attachments if any
+  if (attachments && attachments.length > 0) {
+    attachments.forEach((file) => {
+      formData.append('attachments', file);
+    });
+  }
+  
+  return apiClient.post('/messages/reply', formData, {
+    headers: { 
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+}
+
+export async function getMessage(messageId, token) {
+  return apiClient.get(`/messages/${messageId}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function resolveMessage(messageId, token) {
+  return apiClient.post('/messages/admin/resolve', { messageId }, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function reopenMessage(messageId, token) {
+  return apiClient.post('/messages/admin/reopen', { messageId }, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function deleteMessage(messageId, token) {
+  return apiClient.delete(`/messages/admin/${messageId}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
