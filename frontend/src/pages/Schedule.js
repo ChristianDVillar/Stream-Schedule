@@ -514,7 +514,6 @@ const Schedule = ({ user, token }) => {
     switch (platformId) {
       case 'twitch': return <Twitch className="w-6 h-6" />;
       case 'twitter': return <Twitter className="w-6 h-6" />;
-      case 'youtube': return <Video className="w-6 h-6" />;
       case 'instagram': return <Instagram className="w-6 h-6" />;
       case 'discord':
         return (
@@ -533,7 +532,6 @@ const Schedule = ({ user, token }) => {
   const platforms = [
     { id: 'twitch', name: 'Twitch' },
     { id: 'twitter', name: 'Twitter' },
-    { id: 'youtube', name: 'YouTube' },
     { id: 'instagram', name: 'Instagram' },
     { id: 'discord', name: 'Discord' },
     { id: 'tiktok', name: 'TikTok' }

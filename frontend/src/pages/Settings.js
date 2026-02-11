@@ -17,7 +17,10 @@ import {
   Key,
   AlertTriangle,
   Camera,
+  MessageSquare,
 } from 'lucide-react';
+import ContactAdmin from '../components/ContactAdmin';
+import MyMessages from '../components/MyMessages';
 import { handleUpload } from '../utils/uploadHelper';
 
 const Settings = ({ user, token, setUser }) => {
@@ -94,6 +97,7 @@ const Settings = ({ user, token, setUser }) => {
     { id: 'security', name: t('settings.security'), icon: Shield },
     { id: 'appearance', name: t('settings.appearance'), icon: Palette },
     { id: 'billing', name: t('settings.licensesBilling'), icon: Key },
+    { id: 'support', name: t('settings.support') || 'Support', icon: MessageSquare },
     { id: 'data', name: t('settings.dataExport'), icon: Download }
   ];
 
@@ -1032,7 +1036,7 @@ const Settings = ({ user, token, setUser }) => {
 
               <div>
                 <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">{t('settings.platformColors') || 'Platform colors'}</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{t('settings.platformColorsHelp') || 'Colors used to identify each platform in the calendar and content list. YouTube: red, Discord: violet, Instagram: black, Twitter: light blue by default.'}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{t('settings.platformColorsHelp') || 'Colors used to identify each platform in the calendar and content list. Discord: violet, Instagram: black, Twitter: light blue by default.'}</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   {PLATFORM_IDS.map((id) => (
                     <div key={id} className="flex items-center gap-2">
@@ -1062,6 +1066,17 @@ const Settings = ({ user, token, setUser }) => {
                   {t('settings.resetPlatformColors') || 'Reset to defaults'}
                 </button>
               </div>
+            </div>
+          </div>
+        );
+
+      case 'support':
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">{t('settings.support') || 'Support'}</h3>
+            <div className="space-y-6">
+              <ContactAdmin token={token} />
+              <MyMessages token={token} />
             </div>
           </div>
         );

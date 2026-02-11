@@ -292,6 +292,19 @@ html.dark .rbc-addons-dnd-drag-preview {
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
+/* Dashboard table hover improvements for dark mode */
+html.dark tbody tr:hover td {
+  color: #f9fafb;
+}
+
+html.dark tbody tr:hover .text-gray-300 {
+  color: #e5e7eb;
+}
+
+html.dark tbody tr:hover .text-gray-400 {
+  color: #d1d5db;
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;

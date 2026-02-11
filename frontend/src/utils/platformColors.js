@@ -1,12 +1,11 @@
 /**
  * Platform display colors. User can override in Settings (stored in localStorage).
- * Defaults: YouTube red, Discord violet, Instagram black, Twitter light blue.
+ * Defaults: Discord violet, Instagram black, Twitter light blue.
  */
 
-export const PLATFORM_IDS = ['youtube', 'discord', 'instagram', 'twitter', 'twitch', 'tiktok'];
+export const PLATFORM_IDS = ['discord', 'instagram', 'twitter', 'twitch', 'tiktok'];
 
 export const DEFAULT_PLATFORM_COLORS = {
-  youtube: '#dc2626',
   discord: '#8B5CF6',
   instagram: '#000000',
   twitter: '#1DA1F2',

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial } from '../api';
+import React, { useEffect, useState, useRef } from 'react';
+import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatDateUTC } from '../utils/dateUtils';
 import { maskEmail } from '../utils/emailUtils';
@@ -38,13 +38,31 @@ export default function AdminDashboard({ token, user, onLogout }) {
   const [extendingTrial, setExtendingTrial] = useState(null);
   const [extendTrialDays, setExtendTrialDays] = useState({});
   const [deletingUserId, setDeletingUserId] = useState(null);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [showMessageModal, setShowMessageModal] = useState(false);
+  const [messageFilters, setMessageFilters] = useState({ status: '', priority: '', category: '', resolved: '' });
+  const [replyText, setReplyText] = useState('');
+  const [replying, setReplying] = useState(false);
+  const [replyAttachments, setReplyAttachments] = useState([]);
+  const replyFileInputRef = useRef(null);
 
   useEffect(() => {
     fetchUsers();
     fetchLicenseConfig();
     fetchPasswordReminders();
+    fetchMessages();
+    fetchUnreadCount();
     // eslint-disable-next-line
   }, []);
+
+  useEffect(() => {
+    fetchMessages();
+  }, [messageFilters]);
 
   const fetchLicenseConfig = async () => {
     try {
@@ -59,6 +77,159 @@ export default function AdminDashboard({ token, user, onLogout }) {
       const res = await getPasswordReminder(token);
       setPasswordReminders(res.data.reminders || []);
     } catch (err) {
+    }
+  };
+
+  const fetchMessages = async () => {
+    if (!token) return;
+    setMessagesLoading(true);
+    try {
+      const params = {};
+      if (messageFilters.status) params.status = messageFilters.status;
+      if (messageFilters.priority) params.priority = messageFilters.priority;
+      if (messageFilters.category) params.category = messageFilters.category;
+      if (messageFilters.resolved !== '') params.resolved = messageFilters.resolved;
+      
+      const res = await getAdminMessages({ ...params, token });
+      setMessages(res.data.messages || []);
+    } catch (err) {
+      console.error('Error fetching messages:', err);
+    } finally {
+      setMessagesLoading(false);
+    }
+  };
+
+  const fetchUnreadCount = async () => {
+    if (!token) return;
+    try {
+      const res = await getUnreadMessageCount(token);
+      setUnreadCount(res.data.unreadCount || 0);
+    } catch (err) {
+      console.error('Error fetching unread count:', err);
+    }
+  };
+
+  const handleViewMessage = async (messageId) => {
+    if (!token) return;
+    try {
+      const res = await getAdminMessage(messageId, token);
+      setSelectedMessage(res.data.message);
+      setShowMessageModal(true);
+      setReplyText('');
+      setReplyAttachments([]);
+      fetchUnreadCount();
+      fetchMessages();
+    } catch (err) {
+      window.alert(err.response?.data?.error || 'Error loading message');
+    }
+  };
+
+  const handleResolveMessage = async (messageId) => {
+    if (!window.confirm('Mark this conversation as resolved?')) return;
+    if (!token) return;
+    try {
+      await resolveMessage(messageId, token);
+      fetchMessages();
+      fetchUnreadCount();
+      if (selectedMessage?.id === messageId) {
+        const res = await getAdminMessage(messageId, token);
+        setSelectedMessage(res.data.message);
+      }
+    } catch (err) {
+      window.alert(err.response?.data?.error || 'Error resolving message');
+    }
+  };
+
+  const handleReopenMessage = async (messageId) => {
+    if (!token) return;
+    try {
+      await reopenMessage(messageId, token);
+      fetchMessages();
+      fetchUnreadCount();
+      if (selectedMessage?.id === messageId) {
+        const res = await getAdminMessage(messageId, token);
+        setSelectedMessage(res.data.message);
+      }
+    } catch (err) {
+      window.alert(err.response?.data?.error || 'Error reopening message');
+    }
+  };
+
+  const handleReplyFileSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length !== files.length) {
+      window.alert('Only image files are allowed');
+    }
+    
+    if (replyAttachments.length + imageFiles.length > 5) {
+      window.alert('Maximum 5 images allowed');
+      return;
+    }
+    
+    const oversizedFiles = imageFiles.filter(file => file.size > 5 * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      window.alert('Each image must be less than 5MB');
+      return;
+    }
+    
+    setReplyAttachments([...replyAttachments, ...imageFiles]);
+    if (replyFileInputRef.current) {
+      replyFileInputRef.current.value = '';
+    }
+  };
+
+  const removeReplyAttachment = (index) => {
+    setReplyAttachments(replyAttachments.filter((_, i) => i !== index));
+  };
+
+  const handleReply = async () => {
+    if (!selectedMessage || !replyText.trim()) return;
+    setReplying(true);
+    try {
+      await replyToMessage({ 
+        messageId: selectedMessage.id, 
+        reply: replyText.trim(), 
+        attachments: replyAttachments.length > 0 ? replyAttachments : undefined,
+        token 
+      });
+      window.alert('Reply sent successfully!');
+      setReplyText('');
+      setReplyAttachments([]);
+      setShowMessageModal(false);
+      fetchMessages();
+      fetchUnreadCount();
+    } catch (err) {
+      window.alert(err.response?.data?.error || 'Error sending reply');
+    } finally {
+      setReplying(false);
+    }
+  };
+
+  const handleUpdateStatus = async (messageId, status) => {
+    if (!token) return;
+    try {
+      await updateMessageStatus({ messageId, status, token });
+      fetchMessages();
+      fetchUnreadCount();
+    } catch (err) {
+      window.alert(err.response?.data?.error || 'Error updating status');
+    }
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    if (!window.confirm('Are you sure you want to delete this message?')) return;
+    if (!token) return;
+    try {
+      await deleteMessage(messageId, token);
+      fetchMessages();
+      fetchUnreadCount();
+      if (selectedMessage?.id === messageId) {
+        setShowMessageModal(false);
+      }
+    } catch (err) {
+      window.alert(err.response?.data?.error || 'Error deleting message');
     }
   };
 
@@ -420,21 +591,21 @@ export default function AdminDashboard({ token, user, onLogout }) {
         </div>
         {/* Licencias asignadas */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-blue-400">
-          <h3 className="text-lg font-bold text-blue-700 mb-4">{t('admin.assignedLicenses')}</h3>
+          <h3 className="text-lg font-bold text-blue-700 dark:text-blue-300 mb-4">{t('admin.assignedLicenses')}</h3>
           <ul className="space-y-2">
             {users.filter(u => u.licenseKey).length === 0 ? (
-              <li className="text-gray-500">{t('admin.noLicenses')}</li>
+              <li className="text-gray-500 dark:text-gray-400">{t('admin.noLicenses')}</li>
             ) : (
               users.filter(u => u.licenseKey).map(u => (
-                <li key={u.id} className="flex items-center justify-between bg-blue-50 rounded px-3 py-2">
+                <li key={u.id} className="flex items-center justify-between bg-blue-50 dark:bg-gray-700/50 rounded px-3 py-2 group hover:bg-blue-100 dark:hover:bg-gray-700 transition-colors">
                   <div className="flex flex-col">
-                    <span className="font-mono text-blue-900">{u.licenseKey}</span>
-                    <span className="text-xs text-gray-600">
+                    <span className="font-mono text-blue-900 dark:text-blue-200 group-hover:dark:text-blue-100">{u.licenseKey}</span>
+                    <span className="text-xs text-gray-600 dark:text-gray-300 group-hover:dark:text-gray-200">
                       {u.licenseType === 'lifetime' ? t('admin.lifetime') : u.licenseType === 'trial' ? t('admin.trial') : t('admin.temporary')}
                       {u.licenseExpiresAt ? ` · ${t('admin.expiresAt')} ${formatDateUTC(u.licenseExpiresAt)}` : ''}
                     </span>
                   </div>
-                  <span className="text-sm text-gray-700">{u.username}</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-200 group-hover:dark:text-gray-100">{u.username}</span>
                 </li>
               ))
             )}
@@ -454,27 +625,27 @@ export default function AdminDashboard({ token, user, onLogout }) {
         </div>
       </div>
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-yellow-500 mb-8">
-        <h3 className="text-lg font-bold text-yellow-700 mb-4">{t('admin.licensesToRenew')}</h3>
+        <h3 className="text-lg font-bold text-yellow-700 dark:text-yellow-300 mb-4">{t('admin.licensesToRenew')}</h3>
         {expiringUsers.length === 0 ? (
-          <p className="text-gray-500">No hay licencias próximas a vencer.</p>
+          <p className="text-gray-500 dark:text-gray-400">No hay licencias próximas a vencer.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full bg-white border rounded">
-              <thead className="bg-yellow-50">
+            <table className="min-w-full bg-white dark:bg-gray-800 border dark:border-gray-700 rounded">
+              <thead className="bg-yellow-50 dark:bg-gray-700">
                 <tr>
-                  <th className="px-4 py-2 border">Usuario</th>
-                  <th className="px-4 py-2 border">Email</th>
-                  <th className="px-4 py-2 border">Tipo</th>
-                  <th className="px-4 py-2 border">Expira</th>
-                  <th className="px-4 py-2 border">Alerta</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">Usuario</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">Email</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">Tipo</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">Expira</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">Alerta</th>
                 </tr>
               </thead>
               <tbody>
                 {expiringUsers.map(u => (
-                  <tr key={u.id} className="hover:bg-yellow-50">
-                    <td className="px-4 py-2 border">{u.username}</td>
-                    <td className="px-4 py-2 border" title={u.email}>{maskEmail(u.email)}</td>
-                    <td className="px-4 py-2 border">
+                  <tr key={u.id} className="group hover:bg-yellow-50 dark:hover:bg-gray-700/80 transition-colors">
+                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">{u.username}</td>
+                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white" title={u.email}>{maskEmail(u.email)}</td>
+                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">
                       {u.licenseType === 'lifetime' && 'De por vida'}
                       {u.licenseType === 'monthly' && 'Mensual'}
                       {u.licenseType === 'quarterly' && 'Cada 3 meses'}
@@ -482,11 +653,11 @@ export default function AdminDashboard({ token, user, onLogout }) {
                       {u.licenseType === 'trial' && 'Prueba 7 días'}
                       {!u.licenseType && '—'}
                     </td>
-                    <td className="px-4 py-2 border">{u.licenseExpiresAt ? formatDateUTC(u.licenseExpiresAt) : '—'}</td>
-                    <td className="px-4 py-2 border">
-                      {u.licenseAlert === 'expired' && <span className="text-red-600 font-semibold">Vencida</span>}
-                      {u.licenseAlert === '3_days' && <span className="text-red-600 font-semibold">3 días</span>}
-                      {u.licenseAlert === '7_days' && <span className="text-yellow-600 font-semibold">7 días</span>}
+                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">{u.licenseExpiresAt ? formatDateUTC(u.licenseExpiresAt) : '—'}</td>
+                    <td className="px-4 py-2 border dark:border-gray-700">
+                      {u.licenseAlert === 'expired' && <span className="text-red-600 dark:text-red-400 font-semibold">Vencida</span>}
+                      {u.licenseAlert === '3_days' && <span className="text-red-600 dark:text-red-400 font-semibold">3 días</span>}
+                      {u.licenseAlert === '7_days' && <span className="text-yellow-600 dark:text-yellow-400 font-semibold">7 días</span>}
                     </td>
                   </tr>
                 ))}
@@ -496,23 +667,23 @@ export default function AdminDashboard({ token, user, onLogout }) {
         )}
       </div>
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-emerald-500 mb-8">
-        <h3 className="text-lg font-bold text-emerald-700 mb-4">{t('admin.monthlyEarnings')}</h3>
+        <h3 className="text-lg font-bold text-emerald-700 dark:text-emerald-300 mb-4">{t('admin.monthlyEarnings')}</h3>
         {revenue.monthlyTotals.length === 0 ? (
-          <p className="text-gray-500">No hay pagos registrados.</p>
+          <p className="text-gray-500 dark:text-gray-400">No hay pagos registrados.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full bg-white border rounded">
-              <thead className="bg-emerald-50">
+            <table className="min-w-full bg-white dark:bg-gray-800 border dark:border-gray-700 rounded">
+              <thead className="bg-emerald-50 dark:bg-gray-700">
                 <tr>
-                  <th className="px-4 py-2 border">Mes</th>
-                  <th className="px-4 py-2 border">Monto</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">Mes</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">Monto</th>
                 </tr>
               </thead>
               <tbody>
                 {revenue.monthlyTotals.map(row => (
-                  <tr key={row.month} className="hover:bg-emerald-50">
-                    <td className="px-4 py-2 border">{row.month}</td>
-                    <td className="px-4 py-2 border">
+                  <tr key={row.month} className="group hover:bg-emerald-50 dark:hover:bg-gray-700/80 transition-colors">
+                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">{row.month}</td>
+                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">
                       {revenue.currency} {Number(row.amount).toFixed(2)}
                     </td>
                   </tr>
@@ -523,59 +694,59 @@ export default function AdminDashboard({ token, user, onLogout }) {
         )}
       </div>
       {/* Tabla de usuarios */}
-      <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-600">
-        <h3 className="text-lg font-bold text-blue-800 mb-4">{t('admin.users')}</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-blue-600">
+        <h3 className="text-lg font-bold text-blue-800 dark:text-blue-200 mb-4">{t('admin.users')}</h3>
         {loading ? (
-          <p>{t('common.loading')}</p>
+          <p className="text-gray-700 dark:text-gray-300">{t('common.loading')}</p>
         ) : error ? (
-          <p className="text-red-600">{error}</p>
+          <p className="text-red-600 dark:text-red-400">{error}</p>
         ) : users.length === 0 ? (
-          <p className="text-gray-500">{t('admin.noUsersFound') || 'No users found.'}</p>
+          <p className="text-gray-500 dark:text-gray-400">{t('admin.noUsersFound') || 'No users found.'}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full bg-white border rounded">
-              <thead className="bg-gradient-to-r from-blue-100 to-purple-100">
+            <table className="min-w-full bg-white dark:bg-gray-800 border dark:border-gray-700 rounded">
+              <thead className="bg-gradient-to-r from-blue-100 to-purple-100 dark:from-gray-700 dark:to-gray-700">
                 <tr>
-                  <th className="px-4 py-2 border">{t('admin.id')}</th>
-                  <th className="px-4 py-2 border">{t('common.username')}</th>
-                  <th className="px-4 py-2 border">{t('common.email')}</th>
-                  <th className="px-4 py-2 border">{t('admin.lastUpload')}</th>
-                  <th className="px-4 py-2 border">{t('admin.licenseKey')}</th>
-                  <th className="px-4 py-2 border">{t('admin.licenseType')}</th>
-                  <th className="px-4 py-2 border">{t('admin.expiresAt')}</th>
-                  <th className="px-4 py-2 border">{t('admin.alert')}</th>
-                  <th className="px-4 py-2 border">{t('admin.connectedPlatforms') || 'Plataformas'}</th>
-                  <th className="px-4 py-2 border">{t('admin.isAdmin')}</th>
-                  <th className="px-4 py-2 border">Ext. Trial</th>
-                  <th className="px-4 py-2 border">{t('admin.actions')}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.id')}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('common.username')}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('common.email')}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.lastUpload')}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.licenseKey')}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.licenseType')}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.expiresAt')}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.alert')}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.connectedPlatforms') || 'Plataformas'}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.isAdmin')}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">Ext. Trial</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {users.map(u => (
-                  <tr key={u.id} className="hover:bg-blue-50">
-                    <td className="px-4 py-2 border">{u.id}</td>
-                    <td className="px-4 py-2 border">{u.username}</td>
-                    <td className="px-4 py-2 border">
+                  <tr key={u.id} className="group hover:bg-blue-50 dark:hover:bg-gray-700/80 transition-colors cursor-pointer" onClick={() => setSelectedUser(u)}>
+                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">{u.id}</td>
+                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">{u.username}</td>
+                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">
                       {editingEmail === u.id ? (
                         <div className="flex items-center space-x-2">
                           <input
                             type="email"
                             value={newEmail}
                             onChange={e => setNewEmail(e.target.value)}
-                            className="border px-2 py-1 rounded"
+                            className="border dark:border-gray-600 px-2 py-1 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
                           />
-                          <button onClick={() => handleSaveEmail(u.id)} className="text-green-600 font-bold">{t('admin.save')}</button>
-                          <button onClick={handleCancelEdit} className="text-gray-500">{t('common.cancel')}</button>
+                          <button onClick={(e) => { e.stopPropagation(); handleSaveEmail(u.id); }} className="text-green-600 dark:text-green-400 font-bold">{t('admin.save')}</button>
+                          <button onClick={(e) => { e.stopPropagation(); handleCancelEdit(); }} className="text-gray-500 dark:text-gray-400">{t('common.cancel')}</button>
                         </div>
                       ) : (
                         <span title={u.email}>{maskEmail(u.email)}</span>
                       )}
                     </td>
-                    <td className="px-4 py-2 border text-sm text-gray-600 dark:text-gray-400" title={u.lastUploadAt ? formatDateUTC(u.lastUploadAt) : ''}>
-                      {u.lastUploadAt ? formatDateUTC(u.lastUploadAt) : <span className="text-gray-400">{t('admin.never')}</span>}
+                    <td className="px-4 py-2 border dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 group-hover:dark:text-gray-200" title={u.lastUploadAt ? formatDateUTC(u.lastUploadAt) : ''}>
+                      {u.lastUploadAt ? formatDateUTC(u.lastUploadAt) : <span className="text-gray-400 dark:text-gray-500">{t('admin.never')}</span>}
                     </td>
-                    <td className="px-4 py-2 border font-mono">{u.licenseKey || <span className="text-gray-400">{t('common.none') || 'None'}</span>}</td>
-                    <td className="px-4 py-2 border">
+                    <td className="px-4 py-2 border dark:border-gray-700 font-mono text-gray-900 dark:text-gray-100 group-hover:dark:text-white">{u.licenseKey || <span className="text-gray-400 dark:text-gray-500">{t('common.none') || 'None'}</span>}</td>
+                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">
                       {u.licenseType === 'lifetime' && t('admin.lifetime')}
                       {u.licenseType === 'monthly' && t('admin.monthly')}
                       {u.licenseType === 'quarterly' && t('admin.quarterly')}
@@ -583,16 +754,16 @@ export default function AdminDashboard({ token, user, onLogout }) {
                       {u.licenseType === 'trial' && t('admin.trial')}
                       {!u.licenseType && '—'}
                     </td>
-                    <td className="px-4 py-2 border">
+                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">
                       {u.licenseExpiresAt ? formatDateUTC(u.licenseExpiresAt) : '—'}
                     </td>
-                    <td className="px-4 py-2 border">
-                      {u.licenseAlert === 'expired' && <span className="text-red-600 font-semibold">{t('admin.expired')}</span>}
-                      {u.licenseAlert === '3_days' && <span className="text-red-600 font-semibold">{t('admin.days3')}</span>}
-                      {u.licenseAlert === '7_days' && <span className="text-yellow-600 font-semibold">{t('admin.days7')}</span>}
-                      {(!u.licenseAlert || u.licenseAlert === 'none') && <span className="text-gray-500">—</span>}
+                    <td className="px-4 py-2 border dark:border-gray-700">
+                      {u.licenseAlert === 'expired' && <span className="text-red-600 dark:text-red-400 font-semibold">{t('admin.expired')}</span>}
+                      {u.licenseAlert === '3_days' && <span className="text-red-600 dark:text-red-400 font-semibold">{t('admin.days3')}</span>}
+                      {u.licenseAlert === '7_days' && <span className="text-yellow-600 dark:text-yellow-400 font-semibold">{t('admin.days7')}</span>}
+                      {(!u.licenseAlert || u.licenseAlert === 'none') && <span className="text-gray-500 dark:text-gray-400">—</span>}
                     </td>
-                    <td className="px-4 py-2 border">
+                    <td className="px-4 py-2 border dark:border-gray-700">
                       <div className="flex flex-wrap gap-1 items-center justify-center">
                         {u.connectedPlatforms?.google && (
                           <span className="px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded border border-red-300 dark:border-red-700" title="Google">
@@ -620,22 +791,22 @@ export default function AdminDashboard({ token, user, onLogout }) {
                           </span>
                         )}
                         {(!u.connectedPlatforms?.google && !u.connectedPlatforms?.twitch && !u.connectedPlatforms?.discord && !u.connectedPlatforms?.twitter && !u.connectedPlatforms?.email) && (
-                          <span className="text-gray-400 text-xs">—</span>
+                          <span className="text-gray-400 dark:text-gray-500 text-xs">—</span>
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-2 border">{u.isAdmin ? t('common.yes') : t('common.no')}</td>
-                    <td className="px-4 py-2 border">
+                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">{u.isAdmin ? t('common.yes') : t('common.no')}</td>
+                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">
                       {u.licenseType === 'trial' ? (
                         <span className="text-xs">
                           {u.trialExtensions || 0} / 2
                         </span>
                       ) : (
-                        <span className="text-gray-400">—</span>
+                        <span className="text-gray-400 dark:text-gray-500">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-2 border">
-                      <div className="flex flex-wrap gap-2 items-center">
+                    <td className="px-4 py-2 border dark:border-gray-700">
+                      <div className="flex flex-wrap gap-2 items-center" onClick={(e) => e.stopPropagation()}>
                         {/* Extend Trial Button - Only show for users with active trial */}
                         {u.licenseType === 'trial' && u.licenseExpiresAt && (u.trialExtensions || 0) < 2 && (
                           <div className="flex items-center gap-1">
@@ -723,7 +894,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                         </div>
                         <button
                           className="px-2 py-1 text-xs bg-yellow-500 text-white rounded hover:bg-yellow-600"
-                          onClick={() => handleEditEmail(u)}
+                          onClick={(e) => { e.stopPropagation(); handleEditEmail(u); }}
                           title="Editar email"
                         >
                           📧
@@ -731,15 +902,15 @@ export default function AdminDashboard({ token, user, onLogout }) {
                         <button
                           className="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                           disabled={resetting === u.id}
-                          onClick={() => handleResetPassword(u.id)}
-                          title="Resetear contraseña"
+                          onClick={(e) => { e.stopPropagation(); handleResetPassword(u.id); }}
+                          title="Enviar correo para cambio de contraseña"
                         >
                           {resetting === u.id ? '...' : '🔑'}
                         </button>
                         <button
                           className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                           disabled={deletingUserId === u.id || u.id === user?.id}
-                          onClick={() => handleDeleteUser(u.id)}
+                          onClick={(e) => { e.stopPropagation(); handleDeleteUser(u.id); }}
                           title={u.id === user?.id ? 'No puedes eliminarte a ti mismo' : t('admin.deleteUser')}
                         >
                           {deletingUserId === u.id ? '...' : t('admin.deleteUser')}
@@ -753,6 +924,485 @@ export default function AdminDashboard({ token, user, onLogout }) {
           </div>
         )}
       </div>
+
+      {/* Messages Section */}
+      <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            Messages {unreadCount > 0 && <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">{unreadCount}</span>}
+          </h2>
+        </div>
+
+        {/* Filters */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
+          <select
+            value={messageFilters.status}
+            onChange={(e) => setMessageFilters({ ...messageFilters, status: e.target.value })}
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+          >
+            <option value="">All Status</option>
+            <option value="unread">Unread</option>
+            <option value="read">Read</option>
+            <option value="replied">Replied</option>
+            <option value="archived">Archived</option>
+          </select>
+          <select
+            value={messageFilters.resolved || ''}
+            onChange={(e) => setMessageFilters({ ...messageFilters, resolved: e.target.value })}
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+          >
+            <option value="">All</option>
+            <option value="false">Active</option>
+            <option value="true">Resolved</option>
+          </select>
+          <select
+            value={messageFilters.priority}
+            onChange={(e) => setMessageFilters({ ...messageFilters, priority: e.target.value })}
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+          >
+            <option value="">All Priorities</option>
+            <option value="urgent">Urgent</option>
+            <option value="high">High</option>
+            <option value="normal">Normal</option>
+            <option value="low">Low</option>
+          </select>
+          <select
+            value={messageFilters.category}
+            onChange={(e) => setMessageFilters({ ...messageFilters, category: e.target.value })}
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+          >
+            <option value="">All Categories</option>
+            <option value="support">Support</option>
+            <option value="bug">Bug</option>
+            <option value="feature">Feature</option>
+            <option value="billing">Billing</option>
+            <option value="account">Account</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        {/* Messages List */}
+        {messagesLoading ? (
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">Loading messages...</div>
+        ) : messages.length === 0 ? (
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">No messages found</div>
+        ) : (
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                onClick={() => handleViewMessage(msg.id)}
+                className={`p-4 rounded-lg border cursor-pointer transition-colors ${
+                  msg.resolved
+                    ? 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 opacity-75'
+                    : msg.status === 'unread'
+                    ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                    : msg.replies && msg.replies.length > 0
+                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                    : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold text-gray-900 dark:text-gray-100 truncate">{msg.subject}</span>
+                      <span className={`px-2 py-0.5 text-xs rounded ${
+                        msg.priority === 'urgent' ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' :
+                        msg.priority === 'high' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300' :
+                        msg.priority === 'normal' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' :
+                        'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {msg.priority}
+                      </span>
+                      {msg.category && (
+                        <span className="px-2 py-0.5 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 rounded">
+                          {msg.category}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{msg.content}</p>
+                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-500">
+                      <span>From: {msg.user?.username || msg.user?.email || 'Unknown'}</span>
+                      <span>{new Date(msg.createdAt).toLocaleString()}</span>
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <span className="flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          {msg.attachments.length}
+                        </span>
+                      )}
+                      {msg.resolved && (
+                        <span className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                          Resolved
+                        </span>
+                      )}
+                      {msg.replies && msg.replies.length > 0 && !msg.resolved && (
+                        <span className="text-green-600 dark:text-green-400">
+                          {msg.replies.length} {msg.replies.length === 1 ? 'reply' : 'replies'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 ml-4" onClick={(e) => e.stopPropagation()}>
+                    {msg.status !== 'archived' && (
+                      <button
+                        onClick={() => handleUpdateStatus(msg.id, 'archived')}
+                        className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-500"
+                      >
+                        Archive
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDeleteMessage(msg.id)}
+                      className="px-2 py-1 text-xs bg-red-200 dark:bg-red-900/40 text-red-800 dark:text-red-300 rounded hover:bg-red-300 dark:hover:bg-red-900/60"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Message Modal */}
+      {showMessageModal && selectedMessage && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowMessageModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{selectedMessage.subject}</h2>
+              <button
+                onClick={() => setShowMessageModal(false)}
+                className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400">From:</span>
+                  <span className="ml-2 text-gray-900 dark:text-gray-100">{selectedMessage.user?.username || selectedMessage.user?.email}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400">Date:</span>
+                  <span className="ml-2 text-gray-900 dark:text-gray-100">{new Date(selectedMessage.createdAt).toLocaleString()}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400">Priority:</span>
+                  <span className="ml-2 text-gray-900 dark:text-gray-100 capitalize">{selectedMessage.priority}</span>
+                </div>
+                {selectedMessage.category && (
+                  <div>
+                    <span className="text-gray-600 dark:text-gray-400">Category:</span>
+                    <span className="ml-2 text-gray-900 dark:text-gray-100 capitalize">{selectedMessage.category}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Resolved Banner */}
+              {selectedMessage.resolved && (
+                <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <p className="text-gray-700 dark:text-gray-300 font-medium">
+                      This conversation is resolved.
+                      {selectedMessage.resolvedByUser && (
+                        <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+                          by {selectedMessage.resolvedByUser.username} on {new Date(selectedMessage.resolvedAt).toLocaleString()}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleReopenMessage(selectedMessage.id)}
+                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    Reopen
+                  </button>
+                </div>
+              )}
+
+              <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Message:</h3>
+                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{selectedMessage.content}</p>
+                
+                {/* User attachments */}
+                {selectedMessage.attachments && selectedMessage.attachments.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Attachments:</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {selectedMessage.attachments.map((att, idx) => (
+                        <div key={idx} className="relative">
+                          <img
+                            src={att.url}
+                            alt={att.name || `Attachment ${idx + 1}`}
+                            className="w-full h-24 object-cover rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:opacity-80"
+                            onClick={() => window.open(att.url, '_blank')}
+                          />
+                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-1">{att.name}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Conversation Thread */}
+              {selectedMessage.replies && selectedMessage.replies.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">Conversation:</h3>
+                  {selectedMessage.replies.map((reply, idx) => (
+                    <div
+                      key={reply.id}
+                      className={`p-4 rounded-lg border ${
+                        reply.isAdmin
+                          ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                          : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {reply.isAdmin ? 'Administrator' : selectedMessage.user?.username || 'User'}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{new Date(reply.createdAt).toLocaleString()}</span>
+                      </div>
+                      <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap mb-2">{reply.content}</p>
+                      
+                      {/* Reply attachments */}
+                      {reply.attachments && reply.attachments.length > 0 && (
+                        <div className="mt-2">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {reply.attachments.map((att, attIdx) => (
+                              <div key={attIdx} className="relative">
+                                <img
+                                  src={att.url}
+                                  alt={att.name || `Attachment ${attIdx + 1}`}
+                                  className="w-full h-20 object-cover rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:opacity-80"
+                                  onClick={() => window.open(att.url, '_blank')}
+                                />
+                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-1">{att.name}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Reply Form (only if not resolved) */}
+              {!selectedMessage.resolved && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Reply:</label>
+                  <textarea
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    rows={6}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none"
+                    placeholder="Enter your reply..."
+                  />
+                  
+                  {/* Reply attachments */}
+                  <div className="mt-2">
+                    <input
+                      type="file"
+                      ref={replyFileInputRef}
+                      onChange={handleReplyFileSelect}
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      id="reply-attachment-input"
+                    />
+                    <label
+                      htmlFor="reply-attachment-input"
+                      className="inline-flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      Add Images ({replyAttachments.length}/5)
+                    </label>
+                    
+                    {replyAttachments.length > 0 && (
+                      <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {replyAttachments.map((file, index) => (
+                          <div key={index} className="relative group">
+                            <img
+                              src={URL.createObjectURL(file)}
+                              alt={`Preview ${index + 1}`}
+                              className="w-full h-24 object-cover rounded border border-gray-200 dark:border-gray-600"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeReplyAttachment(index)}
+                              className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-1">{file.name}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={handleReply}
+                      disabled={replying || !replyText.trim()}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {replying ? 'Sending...' : 'Send Reply'}
+                    </button>
+                    <button
+                      onClick={() => handleUpdateStatus(selectedMessage.id, 'read')}
+                      className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500"
+                    >
+                      Mark as Read
+                    </button>
+                    <button
+                      onClick={() => handleResolveMessage(selectedMessage.id)}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    >
+                      Mark as Resolved
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de detalles del usuario */}
+      {showUserModal && selectedUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowUserModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Detalles del Usuario</h2>
+              <button
+                onClick={() => setShowUserModal(false)}
+                className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">ID</h3>
+                  <p className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">{selectedUser.id}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Username</h3>
+                  <p className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">{selectedUser.username}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</h3>
+                  <p className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">{selectedUser.email || 'N/A'}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Es Admin</h3>
+                  <p className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">{selectedUser.isAdmin ? 'Sí' : 'No'}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tipo de Licencia</h3>
+                  <p className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                    {selectedUser.licenseType === 'lifetime' && 'De por vida'}
+                    {selectedUser.licenseType === 'monthly' && 'Mensual'}
+                    {selectedUser.licenseType === 'quarterly' && 'Trimestral'}
+                    {selectedUser.licenseType === 'temporary' && 'Temporal'}
+                    {selectedUser.licenseType === 'trial' && 'Prueba'}
+                    {!selectedUser.licenseType && 'Sin licencia'}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Clave de Licencia</h3>
+                  <p className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg font-mono text-sm">{selectedUser.licenseKey || 'N/A'}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Expira</h3>
+                  <p className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                    {selectedUser.licenseExpiresAt ? formatDateUTC(selectedUser.licenseExpiresAt) : 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Última Subida</h3>
+                  <p className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                    {selectedUser.lastUploadAt ? formatDateUTC(selectedUser.lastUploadAt) : 'Nunca'}
+                  </p>
+                </div>
+              </div>
+              
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Plataformas Conectadas</h3>
+                <div className="flex flex-wrap gap-2">
+                  {selectedUser.connectedPlatforms?.google && (
+                    <span className="px-3 py-2 text-sm font-semibold bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded border border-red-300 dark:border-red-700">
+                      🔴 Google
+                    </span>
+                  )}
+                  {selectedUser.connectedPlatforms?.twitch && (
+                    <span className="px-3 py-2 text-sm font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded border border-purple-300 dark:border-purple-700">
+                      🟣 Twitch
+                    </span>
+                  )}
+                  {selectedUser.connectedPlatforms?.discord && (
+                    <span className="px-3 py-2 text-sm font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200 rounded border border-indigo-300 dark:border-indigo-700">
+                      🔵 Discord
+                    </span>
+                  )}
+                  {selectedUser.connectedPlatforms?.email && (
+                    <span className="px-3 py-2 text-sm font-semibold bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 rounded border border-gray-300 dark:border-gray-600">
+                      ✉️ Email/Password
+                    </span>
+                  )}
+                  {selectedUser.connectedPlatforms?.twitter && (
+                    <span className="px-3 py-2 text-sm font-semibold bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 rounded border border-gray-300 dark:border-gray-600">
+                      𝕏 X (Twitter)
+                    </span>
+                  )}
+                  {(!selectedUser.connectedPlatforms?.google && !selectedUser.connectedPlatforms?.twitch && !selectedUser.connectedPlatforms?.discord && !selectedUser.connectedPlatforms?.twitter && !selectedUser.connectedPlatforms?.email) && (
+                    <span className="text-gray-400 dark:text-gray-500 text-sm">Ninguna plataforma conectada</span>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex flex-wrap gap-2 justify-end mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => { setShowUserModal(false); handleResetPassword(selectedUser.id); }}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm flex items-center gap-2"
+                disabled={resetting === selectedUser.id}
+              >
+                🔑 {resetting === selectedUser.id ? 'Enviando...' : 'Enviar correo para cambio de contraseña'}
+              </button>
+              <button
+                onClick={() => setShowUserModal(false)}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

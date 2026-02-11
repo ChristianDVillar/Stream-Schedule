@@ -16,6 +16,11 @@ import { PAYMENT_STATUS, PAYMENT_STATUS_VALUES } from '../constants/paymentStatu
 import { sequelize, usePostgres, nodeEnv, enableLogging, isProduction, requireSSL } from '../config/database.js';
 import AuditLog from './AuditLog.js';
 import ContentTemplate from './ContentTemplate.js';
+import Integration from './Integration.js';
+import FeatureFlag from './FeatureFlag.js';
+import Entitlement from './Entitlement.js';
+import Message from './Message.js';
+import MessageReply from './MessageReply.js';
 
 // 👤 User
 const User = sequelize.define('User', {
@@ -235,6 +240,22 @@ const Content = sequelize.define('Content', {
     type: DataTypes.STRING,
     allowNull: true,
     comment: 'Error message when publication failed'
+  },
+  idempotencyKeys: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+    comment: 'Map of platform -> idempotency_key for publication tracking'
+  },
+  retryCount: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+    comment: 'Number of retry attempts for failed publications'
+  },
+  lastRetryAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'Timestamp of last retry attempt'
   }
 });
 
@@ -404,6 +425,23 @@ Media.belongsToMany(Content, {
   onDelete: 'CASCADE'
 });
 
+// Define relationships for new models (after all models are defined)
+User.hasMany(Integration, { foreignKey: 'userId', as: 'integrations' });
+Integration.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+User.hasMany(Entitlement, { foreignKey: 'userId', as: 'entitlements' });
+Entitlement.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+User.hasMany(Message, { foreignKey: 'userId', as: 'messages' });
+Message.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+Message.belongsTo(User, { foreignKey: 'repliedBy', as: 'repliedByUser' });
+Message.belongsTo(User, { foreignKey: 'readBy', as: 'readByUser' });
+Message.belongsTo(User, { foreignKey: 'resolvedBy', as: 'resolvedByUser' });
+
+Message.hasMany(MessageReply, { foreignKey: 'messageId', as: 'replies' });
+MessageReply.belongsTo(Message, { foreignKey: 'messageId', as: 'message' });
+MessageReply.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
 // ⚙️ System Configuration
 const SystemConfig = sequelize.define('SystemConfig', {
   key: {
@@ -422,4 +460,20 @@ const SystemConfig = sequelize.define('SystemConfig', {
   }
 });
 
-export { sequelize, User, Content, Platform, Payment, Media, ContentMedia, SystemConfig, AuditLog, ContentTemplate };
+export { 
+  sequelize, 
+  User, 
+  Content, 
+  Platform, 
+  Payment, 
+  Media, 
+  ContentMedia, 
+  SystemConfig, 
+  AuditLog, 
+  ContentTemplate,
+  Integration,
+  FeatureFlag,
+  Entitlement,
+  Message,
+  MessageReply
+};

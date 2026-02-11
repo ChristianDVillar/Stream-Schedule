@@ -257,3 +257,56 @@ If you have any questions, please contact our support team.
 
   return await sendEmail(user.email, subject, html, text);
 }
+
+/**
+ * Send password reset email
+ * @param {Object} user - User object
+ * @param {string} tempPassword - Temporary password generated
+ */
+export async function sendPasswordResetEmail(user, tempPassword) {
+  const subject = 'Password Reset - Streamer Scheduler';
+  
+  const html = `
+    <html>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #3b82f6;">Password Reset Request</h2>
+          <p>Hello ${user.username},</p>
+          <p>Your password has been reset by an administrator.</p>
+          <p style="background-color: #f3f4f6; padding: 15px; border-radius: 5px; border-left: 4px solid #3b82f6; margin: 20px 0;">
+            <strong>Your new temporary password is:</strong><br>
+            <code style="font-size: 18px; font-weight: bold; color: #1f2937;">${tempPassword}</code>
+          </p>
+          <p style="color: #f44336; font-weight: bold;">⚠️ Please change this password immediately after logging in for security reasons.</p>
+          <div style="margin: 30px 0;">
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" 
+               style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
+              Login Now
+            </a>
+          </div>
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            If you did not request this password reset, please contact our support team immediately.
+          </p>
+        </div>
+      </body>
+    </html>
+  `;
+
+  const text = `
+Password Reset Request
+
+Hello ${user.username},
+
+Your password has been reset by an administrator.
+
+Your new temporary password is: ${tempPassword}
+
+⚠️ Please change this password immediately after logging in for security reasons.
+
+Login: ${process.env.FRONTEND_URL || 'http://localhost:3000'}/login
+
+If you did not request this password reset, please contact our support team immediately.
+  `;
+
+  return await sendEmail(user.email, subject, html, text);
+}
