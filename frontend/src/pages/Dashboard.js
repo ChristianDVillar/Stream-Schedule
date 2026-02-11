@@ -123,8 +123,6 @@ const Dashboard = ({ user, token, ...props }) => {
         return <Twitch className={className} />;
       case 'twitter':
         return <Twitter className={className} />;
-      case 'youtube':
-        return <Video className={className} />;
       case 'instagram':
         return <Instagram className={className} />;
       case 'discord':
@@ -143,7 +141,7 @@ const Dashboard = ({ user, token, ...props }) => {
   };
 
   const getPlatformLabel = (platform) => {
-    const labels = { twitch: 'Twitch', twitter: 'Twitter', youtube: 'YouTube', instagram: 'Instagram', discord: 'Discord', tiktok: 'TikTok' };
+    const labels = { twitch: 'Twitch', twitter: 'Twitter', instagram: 'Instagram', discord: 'Discord', tiktok: 'TikTok' };
     return labels[platform] || platform;
   };
 
@@ -722,17 +720,17 @@ const Dashboard = ({ user, token, ...props }) => {
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {postsForSelectedDay.map((content) => (
-                    <tr key={content.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <tr key={content.id} className="group hover:bg-gray-50 dark:hover:bg-gray-700/80 transition-colors">
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap max-w-[120px] sm:max-w-none">
                         <div>
-                              <div className="text-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400" 
+                              <div className="text-sm font-medium text-gray-900 dark:text-gray-100 group-hover:dark:text-white cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors" 
                                    onClick={() => {
                                      setSelectedContent(content);
                                      setShowContentModal(true);
                                    }}>
                                 {content.title}
                               </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-300 truncate max-w-xs">{content.content}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-300 group-hover:dark:text-gray-200 truncate max-w-xs transition-colors">{content.content}</div>
                         </div>
                       </td>
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
@@ -746,14 +744,14 @@ const Dashboard = ({ user, token, ...props }) => {
                                 : null}
                         </div>
                       </td>
-                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 hidden sm:table-cell" title={content.scheduledFor ? formatDateWithUTC(content.scheduledFor).utc + ' (UTC)' : ''}>
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 group-hover:dark:text-white hidden sm:table-cell transition-colors" title={content.scheduledFor ? formatDateWithUTC(content.scheduledFor).utc + ' (UTC)' : ''}>
                             {formatDate(content.scheduledFor)}
-                            <span className="block text-xs text-gray-500 dark:text-gray-400">{t('dashboard.localTime') || 'hora local'}</span>
+                            <span className="block text-xs text-gray-500 dark:text-gray-400 group-hover:dark:text-gray-300 transition-colors">{t('dashboard.localTime') || 'hora local'}</span>
                       </td>
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           {getStatusIcon(content.status)}
-                          <span className="ml-2 text-sm text-gray-900 dark:text-gray-100 capitalize">{content.status}</span>
+                          <span className="ml-2 text-sm text-gray-900 dark:text-gray-100 group-hover:dark:text-white capitalize transition-colors">{content.status}</span>
                         </div>
                       </td>
                           <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
@@ -763,21 +761,21 @@ const Dashboard = ({ user, token, ...props }) => {
                                   setSelectedContent(content);
                                   setShowContentModal(true);
                                 }}
-                                className="p-1 text-blue-600 hover:text-blue-800"
+                                className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
                                 title={t('dashboard.viewDetails') || 'View details'}
                               >
                                 <Eye className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => handleCopyPostToClipboard(content)}
-                                className="p-1 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+                                className="p-1 text-gray-600 hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100 transition-colors"
                                 title={t('dashboard.copyPost') || 'Copy post (paste in Schedule)'}
                               >
                                 <Clipboard className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => handleDuplicateContent(content)}
-                                className="p-1 text-green-600 hover:text-green-800"
+                                className="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 transition-colors"
                                 title={t('dashboard.duplicate') || 'Duplicate'}
                               >
                                 <Copy className="w-4 h-4" />
@@ -785,7 +783,7 @@ const Dashboard = ({ user, token, ...props }) => {
                               {content.status === 'scheduled' && (
                                 <button
                                   onClick={() => handleCancelContent(content.id)}
-                                  className="p-1 text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
+                                  className="p-1 text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300 transition-colors"
                                   title={t('dashboard.cancelPublication') || 'Cancel publication'}
                                 >
                                   <XCircle className="w-4 h-4" />
@@ -793,7 +791,7 @@ const Dashboard = ({ user, token, ...props }) => {
                               )}
                               <button
                                 onClick={() => handleDeleteContent(content.id)}
-                                className="p-1 text-red-600 hover:text-red-800"
+                                className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors"
                                 title={t('common.delete')}
                               >
                                 <Trash2 className="w-4 h-4" />

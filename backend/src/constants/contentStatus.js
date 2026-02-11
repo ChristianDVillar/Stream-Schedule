@@ -1,20 +1,41 @@
 /**
  * Content Status Constants
  * Centralized constants for content status to avoid magic strings
+ * Enhanced with fine-grained states for better observability and UX
  */
 
 export const CONTENT_STATUS = {
+  DRAFT: 'draft',
   SCHEDULED: 'scheduled',
+  QUEUED: 'queued',
+  PUBLISHING: 'publishing',
   PUBLISHED: 'published',
   FAILED: 'failed',
+  RETRYING: 'retrying',
   CANCELED: 'canceled'
 };
 
 export const CONTENT_STATUS_VALUES = Object.values(CONTENT_STATUS);
 
 export const CONTENT_STATUS_LABELS = {
+  [CONTENT_STATUS.DRAFT]: 'Draft',
   [CONTENT_STATUS.SCHEDULED]: 'Scheduled',
+  [CONTENT_STATUS.QUEUED]: 'Queued',
+  [CONTENT_STATUS.PUBLISHING]: 'Publishing',
   [CONTENT_STATUS.PUBLISHED]: 'Published',
   [CONTENT_STATUS.FAILED]: 'Failed',
+  [CONTENT_STATUS.RETRYING]: 'Retrying',
   [CONTENT_STATUS.CANCELED]: 'Canceled'
+};
+
+// Status transitions map for validation
+export const CONTENT_STATUS_TRANSITIONS = {
+  [CONTENT_STATUS.DRAFT]: [CONTENT_STATUS.SCHEDULED, CONTENT_STATUS.CANCELED],
+  [CONTENT_STATUS.SCHEDULED]: [CONTENT_STATUS.QUEUED, CONTENT_STATUS.CANCELED],
+  [CONTENT_STATUS.QUEUED]: [CONTENT_STATUS.PUBLISHING, CONTENT_STATUS.CANCELED],
+  [CONTENT_STATUS.PUBLISHING]: [CONTENT_STATUS.PUBLISHED, CONTENT_STATUS.FAILED, CONTENT_STATUS.RETRYING],
+  [CONTENT_STATUS.RETRYING]: [CONTENT_STATUS.PUBLISHING, CONTENT_STATUS.FAILED, CONTENT_STATUS.CANCELED],
+  [CONTENT_STATUS.PUBLISHED]: [], // Terminal state
+  [CONTENT_STATUS.FAILED]: [CONTENT_STATUS.RETRYING, CONTENT_STATUS.CANCELED],
+  [CONTENT_STATUS.CANCELED]: [] // Terminal state
 };

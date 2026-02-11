@@ -29,6 +29,7 @@ import uploadsRoutes from './routes/uploads.js';
 import discordRoutes from './routes/discord.js';
 import healthRoutes from './routes/health.js';
 import templatesRoutes from './routes/templates.js';
+import messagesRoutes from './routes/messages.js';
 import { sequelize } from './models/index.js';
 import { authenticateToken, requireAuth } from './middleware/auth.js';
 import { authLimiter, apiLimiter, uploadLimiter } from './middleware/rateLimit.js';
@@ -143,6 +144,7 @@ app.use('/api/upload', (req, res, next) => {
 }, uploadsRoutes);
 // CSRF disabled for templates until frontend sends X-CSRF-Token
 app.use('/api/templates', templatesRoutes);
+app.use('/api/messages', messagesRoutes);
 
 // Enhanced health check endpoint
 app.use('/api/health', healthRoutes);
@@ -216,9 +218,18 @@ async function initServer() {
     logger.info('Database connection established', { dbType, environment: nodeEnv });
     
     // Only sync in non-production environments
+    // Note: sync({ alter: true }) can cause issues with existing tables
+    // Migrations handle schema changes, so sync is mainly for initial setup
     if (nodeEnv !== 'production') {
-      await sequelize.sync({ alter: true });
-      logger.debug('Database schema synchronized');
+      try {
+        await sequelize.sync({ alter: false }); // Use alter: false to avoid conflicts with migrations
+        logger.debug('Database schema synchronized');
+      } catch (syncError) {
+        // If sync fails, it's okay - migrations handle schema changes
+        logger.warn('Database sync skipped (migrations handle schema)', {
+          error: syncError.message
+        });
+      }
     }
   } catch (err) {
     logger.error('Database initialization failed', {

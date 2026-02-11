@@ -178,15 +178,33 @@ export class ContentService {
 
   /**
    * Get content due for publishing
+   * Includes SCHEDULED, QUEUED, and RETRYING content
    */
   async getDueContent() {
     const now = new Date();
     return await Content.findAll({
       where: {
-        status: CONTENT_STATUS.SCHEDULED,
-        scheduledFor: { [Op.lte]: now },
+        [Op.or]: [
+          {
+            status: CONTENT_STATUS.SCHEDULED,
+            scheduledFor: { [Op.lte]: now }
+          },
+          {
+            status: CONTENT_STATUS.QUEUED
+          },
+          {
+            status: CONTENT_STATUS.RETRYING,
+            lastRetryAt: {
+              [Op.or]: [
+                null,
+                { [Op.lt]: new Date(now.getTime() - 5 * 60 * 1000) } // Retry after 5 minutes
+              ]
+            }
+          }
+        ]
       },
       order: [['scheduledFor', 'ASC']],
+      limit: 100
     });
   }
 }

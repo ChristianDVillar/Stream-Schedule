@@ -39,13 +39,13 @@ export const contentSchema = Joi.object({
     'any.required': 'Scheduled date is required'
   }),
   platforms: Joi.array()
-    .items(Joi.string().valid('twitch', 'twitter', 'instagram', 'discord', 'youtube', 'tiktok'))
+    .items(Joi.string().valid('twitch', 'twitter', 'instagram', 'discord', 'tiktok'))
     .min(1)
     .required()
     .messages({
       'array.min': 'At least one platform must be selected',
       'any.required': 'Platforms are required',
-      'any.only': 'Platform must be one of: twitch, twitter, instagram, discord, youtube, tiktok'
+      'any.only': 'Platform must be one of: twitch, twitter, instagram, discord, tiktok'
     }),
   hashtags: Joi.string().max(500).allow('', null).optional(),
   mentions: Joi.string().max(500).allow('', null).optional(),
@@ -84,7 +84,7 @@ export const updateContentSchema = Joi.object({
     .optional(),
   scheduledFor: Joi.date().iso().optional(),
   platforms: Joi.array()
-    .items(Joi.string().valid('twitch', 'twitter', 'instagram', 'discord', 'youtube', 'tiktok'))
+    .items(Joi.string().valid('twitch', 'twitter', 'instagram', 'discord', 'tiktok'))
     .min(1)
     .optional(),
   hashtags: Joi.string().max(500).allow('', null).optional(),

@@ -16,7 +16,7 @@ const CONTENT_TYPES = [
   { id: 'reel', name: 'Reel' },
 ];
 
-const PLATFORM_IDS = ['twitch', 'twitter', 'youtube', 'instagram', 'discord', 'tiktok'];
+const PLATFORM_IDS = ['twitch', 'twitter', 'instagram', 'discord', 'tiktok'];
 
 export default function Templates({ user, token }) {
   const { t } = useLanguage();

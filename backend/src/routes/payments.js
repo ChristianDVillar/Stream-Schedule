@@ -10,6 +10,7 @@ import { validateBody } from '../middleware/validate.js';
 import { checkoutSchema, verifySessionSchema, subscribeSchema, createCheckoutSessionSchema } from '../validators/paymentSchemas.js';
 import logger from '../utils/logger.js';
 import { sendPaymentSuccessNotification, sendPaymentFailedNotification } from '../utils/notifications.js';
+import { syncEntitlementsFromLicense } from '../services/entitlementService.js';
 
 const router = express.Router();
 
@@ -284,6 +285,9 @@ router.post('/verify-session', requireAuth, validateBody(verifySessionSchema), a
       user.licenseExpiresAt = expiresAt;
       await user.save();
 
+      // Sync entitlements after license assignment
+      await syncEntitlementsFromLicense(user.id, user.licenseType, user.licenseExpiresAt);
+
       return res.json({
         status: 'paid',
         licenseKey: user.licenseKey,
@@ -370,6 +374,9 @@ router.post('/webhook', async (req, res) => {
             user.licenseExpiresAt = expiresAt;
             await user.save();
             
+            // Sync entitlements after license assignment
+            await syncEntitlementsFromLicense(user.id, user.licenseType, user.licenseExpiresAt);
+            
             // Create payment record for subscription
             const plan = PLANS[licenseType];
             if (plan) {
@@ -436,6 +443,9 @@ router.post('/webhook', async (req, res) => {
         user.licenseExpiresAt = expiresAt;
         await user.save();
         
+        // Sync entitlements after license assignment
+        await syncEntitlementsFromLicense(user.id, user.licenseType, user.licenseExpiresAt);
+        
         logger.info('License assigned via webhook', {
           userId,
           licenseType: payment.licenseType,
@@ -468,6 +478,8 @@ router.post('/webhook', async (req, res) => {
           const licenseType = subscription.metadata?.licenseType || user.licenseType;
           const expiryResult = resolveLicenseExpiry({ licenseType });
           user.licenseExpiresAt = expiryResult.value;
+          // Sync entitlements when subscription is active
+          await syncEntitlementsFromLicense(user.id, user.licenseType, user.licenseExpiresAt);
         }
         
         await user.save();
@@ -527,6 +539,9 @@ router.post('/webhook', async (req, res) => {
             const expiryResult = resolveLicenseExpiry({ licenseType });
             user.licenseExpiresAt = expiryResult.value;
             await user.save();
+            
+            // Sync entitlements after license extension
+            await syncEntitlementsFromLicense(user.id, user.licenseType, user.licenseExpiresAt);
             
             logger.info('Recurring payment processed', {
               userId: user.id,
@@ -598,6 +613,9 @@ router.post('/webhook', async (req, res) => {
             const expiryResult = resolveLicenseExpiry({ licenseType });
             user.licenseExpiresAt = expiryResult.value;
             await user.save();
+            
+            // Sync entitlements after license extension
+            await syncEntitlementsFromLicense(user.id, user.licenseType, user.licenseExpiresAt);
             
             logger.info('Recurring payment processed', {
               userId: user.id,

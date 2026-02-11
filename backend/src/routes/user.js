@@ -13,6 +13,7 @@ import checkLicense from '../middleware/checkLicense.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { auditLog } from '../middleware/audit.js';
 import { normalizeLicenseType, resolveLicenseExpiry, buildLicenseSummary } from '../utils/licenseUtils.js';
+import { syncEntitlementsFromLicense } from '../services/entitlementService.js';
 import { generateLicenseKey, generateTemporaryPassword, generateUsernameSuffix } from '../utils/cryptoUtils.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -1837,6 +1838,10 @@ router.post('/admin/update-license', requireAdmin, validateBody(adminUpdateLicen
     user.licenseType = normalized;
     user.licenseExpiresAt = expiry.value;
     await user.save();
+    
+    // Sync entitlements after license update
+    await syncEntitlementsFromLicense(user.id, user.licenseType, user.licenseExpiresAt);
+    
     const summary = buildLicenseSummary(user);
     res.json({
       licenseKey: user.licenseKey,
@@ -1846,6 +1851,12 @@ router.post('/admin/update-license', requireAdmin, validateBody(adminUpdateLicen
       licenseDaysLeft: summary.daysLeft
     });
   } catch (err) {
+    logger.error('Error updating license', {
+      error: err.message,
+      userId: req.body.userId,
+      adminId: req.user?.id,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -1876,6 +1887,9 @@ router.post('/admin/assign-trial', requireAdmin, validateBody(adminAssignTrialSc
     user.licenseKey = generateLicenseKey('TRIAL', 12);
     user.hasUsedTrial = true; // Mark as used
     await user.save();
+    
+    // Sync entitlements after trial assignment
+    await syncEntitlementsFromLicense(user.id, user.licenseType, user.licenseExpiresAt);
     
     const summary = buildLicenseSummary(user);
     res.json({
@@ -1937,6 +1951,9 @@ router.post('/admin/extend-trial', requireAdmin, validateBody(extendTrialSchema)
     user.trialExtensions = (user.trialExtensions || 0) + 1;
     await user.save();
     
+    // Sync entitlements after trial extension
+    await syncEntitlementsFromLicense(user.id, user.licenseType, user.licenseExpiresAt);
+    
     // Reload user to get fresh data
     await user.reload();
     const updatedSummary = buildLicenseSummary(user);
@@ -1987,6 +2004,16 @@ router.post('/admin/reset-password', requireAdmin, validateBody(adminResetPasswo
     const user = await User.findByPk(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
     
+    // Check if user has email
+    if (!user.email) {
+      return res.status(400).json({ error: 'User does not have an email address. Cannot send password reset email.' });
+    }
+    
+    // Check if user is OAuth-only
+    if (!user.passwordHash && (user.oauthProvider === 'google' || user.oauthProvider === 'twitch' || user.oauthProvider === 'discord')) {
+      return res.status(400).json({ error: 'This user uses OAuth authentication and does not have a password. They should sign in with their OAuth provider.' });
+    }
+    
     // Generate secure temporary password
     const tempPassword = generateTemporaryPassword(12);
     const hash = await bcrypt.hash(tempPassword, 10);
@@ -1994,11 +2021,44 @@ router.post('/admin/reset-password', requireAdmin, validateBody(adminResetPasswo
     user.lastPasswordChange = new Date();
     await user.save();
     
-    // TODO: Send password via secure channel (email, SMS, etc.)
-    // NEVER expose passwords in API responses
-    res.json({ 
-      message: 'Password reset successful. The new password has been sent to the user via secure channel.'
-    });
+    // Send password reset email
+    try {
+      const { sendPasswordResetEmail } = await import('../utils/notifications.js');
+      const emailResult = await sendPasswordResetEmail(user, tempPassword);
+      
+      if (emailResult.success) {
+        logger.info('Password reset email sent', {
+          userId: user.id,
+          email: user.email,
+          adminId: req.user?.id
+        });
+        res.json({ 
+          message: 'Password reset successful. The new password has been sent to the user\'s email address.'
+        });
+      } else {
+        logger.warn('Password reset email failed to send', {
+          userId: user.id,
+          email: user.email,
+          reason: emailResult.reason,
+          adminId: req.user?.id
+        });
+        res.json({ 
+          message: 'Password reset successful, but email notification failed. Please contact the user directly with the new password.',
+          warning: 'Email notification disabled or failed'
+        });
+      }
+    } catch (emailError) {
+      logger.error('Error sending password reset email', {
+        error: emailError.message,
+        userId: user.id,
+        email: user.email,
+        adminId: req.user?.id
+      });
+      res.json({ 
+        message: 'Password reset successful, but email notification failed. Please contact the user directly with the new password.',
+        warning: 'Email notification error'
+      });
+    }
   } catch (err) {
     logger.error('Error resetting password', {
       error: err.message,
