@@ -18,10 +18,15 @@ import {
   AlertTriangle,
   Camera,
   MessageSquare,
+  Image as ImageIcon,
+  Upload,
+  X,
 } from 'lucide-react';
 import ContactAdmin from '../components/ContactAdmin';
 import MyMessages from '../components/MyMessages';
-import { handleUpload } from '../utils/uploadHelper';
+import { handleUpload, getUploadStats } from '../utils/uploadHelper';
+import { getPublicImageUrl } from '../utils/supabaseClient';
+import { BANNER_CONFIG_KEY, getBannersFromEnv } from '../components/HeaderBanners';
 
 const Settings = ({ user, token, setUser }) => {
   const { t } = useLanguage();
@@ -76,6 +81,22 @@ const Settings = ({ user, token, setUser }) => {
 
   const [platformColors, setPlatformColorsState] = useState(() => getPlatformColors());
 
+  // Header banner(s) config (persisted in localStorage; editable in Appearance)
+  const [bannerConfig, setBannerConfig] = useState(() => {
+    try {
+      const raw = localStorage.getItem(BANNER_CONFIG_KEY);
+      if (raw != null) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (_) {}
+    return getBannersFromEnv().length ? getBannersFromEnv() : [];
+  });
+  const [bannerMediaPickerFor, setBannerMediaPickerFor] = useState(null);
+  const [bannerMediaList, setBannerMediaList] = useState([]);
+  const [bannerUploadingFor, setBannerUploadingFor] = useState(null);
+  const bannerImageInputRef = React.useRef(null);
+
   // Theme settings (accentColor persisted and applied in themeUtils)
   const [themeSettings, setThemeSettings] = useState({
     theme: localStorage.getItem('theme') || 'light',
@@ -126,6 +147,29 @@ const Settings = ({ user, token, setUser }) => {
     { id: 'red', name: 'Red', color: 'bg-red-500' },
     { id: 'orange', name: 'Orange', color: 'bg-orange-500' }
   ];
+
+  useEffect(() => {
+    if (bannerMediaPickerFor === null || !user?.id) return;
+    let cancelled = false;
+    (async () => {
+      setBannerMediaList([]);
+      try {
+        const stats = await getUploadStats(user.id.toString());
+        const uploads = (stats?.uploads || []).filter((u) => u?.bucket === 'images' && u?.file_path);
+        const list = [];
+        for (const upload of uploads) {
+          try {
+            const url = getPublicImageUrl(upload.file_path);
+            if (url) list.push({ url, file_path: upload.file_path });
+          } catch (_) {}
+        }
+        if (!cancelled) setBannerMediaList(list);
+      } catch (_) {
+        if (!cancelled) setBannerMediaList([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [bannerMediaPickerFor, user?.id]);
 
   useEffect(() => {
     if (user) {
@@ -1066,6 +1110,214 @@ const Settings = ({ user, token, setUser }) => {
                   {t('settings.resetPlatformColors') || 'Reset to defaults'}
                 </button>
               </div>
+
+              <div>
+                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">{t('settings.headerBanner') || 'Header banner'}</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{t('settings.headerBannerHelp') || 'Banner shown below the top bar. Optional image URL. Leave text empty to hide.'}</p>
+                <div className="space-y-4">
+                  {bannerConfig.map((banner, index) => (
+                    <div key={index} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.banner') || 'Banner'} {bannerConfig.length > 1 ? index + 1 : ''}</span>
+                        {bannerConfig.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setBannerConfig(prev => prev.filter((_, i) => i !== index))}
+                            className="text-sm text-red-600 hover:text-red-700 dark:text-red-400"
+                          >
+                            {t('common.delete') || 'Delete'}
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('settings.bannerTextEn') || 'Text (EN)'}</label>
+                          <input
+                            type="text"
+                            value={banner.text || ''}
+                            onChange={(e) => setBannerConfig(prev => prev.map((b, i) => i === index ? { ...b, text: e.target.value } : b))}
+                            placeholder="Welcome!"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('settings.bannerTextEs') || 'Text (ES)'}</label>
+                          <input
+                            type="text"
+                            value={banner.textEs || ''}
+                            onChange={(e) => setBannerConfig(prev => prev.map((b, i) => i === index ? { ...b, textEs: e.target.value } : b))}
+                            placeholder="¡Bienvenido!"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('settings.bannerImageUrl') || 'Image (optional)'}</label>
+                        <div className="flex flex-wrap gap-2 items-center">
+                          <input
+                            type="url"
+                            value={banner.imageUrl || ''}
+                            onChange={(e) => setBannerConfig(prev => prev.map((b, i) => i === index ? { ...b, imageUrl: e.target.value || undefined } : b))}
+                            placeholder="https://... or choose below"
+                            className="flex-1 min-w-[180px] px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setBannerMediaPickerFor(index)}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                          >
+                            <ImageIcon className="w-4 h-4" />
+                            {t('settings.bannerChooseFromMedia') || 'From Media'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBannerUploadingFor(index);
+                              bannerImageInputRef.current?.click();
+                            }}
+                            disabled={bannerUploadingFor !== null}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-50"
+                          >
+                            {bannerUploadingFor === index ? (
+                              <span className="animate-pulse">{t('media.uploading') || 'Uploading...'}</span>
+                            ) : (
+                              <>
+                                <Upload className="w-4 h-4" />
+                                {t('settings.bannerUploadImage') || 'Upload'}
+                              </>
+                            )}
+                          </button>
+                        </div>
+                        <input
+                          ref={bannerImageInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = '';
+                            const idx = bannerUploadingFor;
+                            if (!file || idx == null) return;
+                            const result = await handleUpload({ file, bucket: 'images', userId: user?.id?.toString() });
+                            setBannerUploadingFor(null);
+                            if (result?.url) setBannerConfig(prev => prev.map((b, i) => i === idx ? { ...b, imageUrl: result.url } : b));
+                          }}
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('settings.bannerLinkUrl') || 'Link URL (optional)'}</label>
+                          <input
+                            type="url"
+                            value={banner.url || ''}
+                            onChange={(e) => setBannerConfig(prev => prev.map((b, i) => i === index ? { ...b, url: e.target.value || undefined } : b))}
+                            placeholder="https://..."
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('settings.bannerStyle') || 'Style'}</label>
+                          <select
+                            value={banner.style || 'neutral'}
+                            onChange={(e) => setBannerConfig(prev => prev.map((b, i) => i === index ? { ...b, style: e.target.value } : b))}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                          >
+                            <option value="info">Info (blue)</option>
+                            <option value="success">Success (green)</option>
+                            <option value="warning">Warning (amber)</option>
+                            <option value="neutral">Neutral (gray)</option>
+                          </select>
+                        </div>
+                      </div>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!banner.dismissible}
+                          onChange={(e) => setBannerConfig(prev => prev.map((b, i) => i === index ? { ...b, dismissible: e.target.checked } : b))}
+                          className="rounded border-gray-300 dark:border-gray-600"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.bannerDismissible') || 'Users can close this banner'}</span>
+                      </label>
+                    </div>
+                  ))}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setBannerConfig(prev => [...prev, { text: '', style: 'neutral', dismissible: true }])}
+                      className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                    >
+                      + {t('settings.addBanner') || 'Add banner'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const payload = bannerConfig.map(b => ({
+                          id: b.id || `banner-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                          text: (b.text || '').trim(),
+                          textEs: (b.textEs || '').trim() || undefined,
+                          url: (b.url || '').trim() || undefined,
+                          imageUrl: (b.imageUrl || '').trim() || undefined,
+                          style: b.style || 'neutral',
+                          dismissible: !!b.dismissible
+                        })).filter(b => b.text);
+                        localStorage.setItem(BANNER_CONFIG_KEY, JSON.stringify(payload));
+                        setBannerConfig(payload.length ? payload : [{ text: '', style: 'neutral', dismissible: true }]);
+                        window.dispatchEvent(new CustomEvent('headerBannersUpdated'));
+                        toast.success(t('settings.bannerSaved') || 'Banner saved');
+                      }}
+                      className="px-3 py-2 text-sm bg-accent text-white rounded-lg hover:opacity-90"
+                    >
+                      {t('common.save') || 'Save'} {t('settings.banner') || 'banner'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        localStorage.removeItem(BANNER_CONFIG_KEY);
+                        setBannerConfig(getBannersFromEnv().length ? getBannersFromEnv() : []);
+                        window.dispatchEvent(new CustomEvent('headerBannersUpdated'));
+                        toast.success(t('settings.bannerReset') || 'Banner reset to default');
+                      }}
+                      className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                    >
+                      {t('settings.resetToDefault') || 'Reset to default'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {bannerMediaPickerFor !== null && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setBannerMediaPickerFor(null)}>
+                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                      <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('settings.bannerChooseFromMedia') || 'Choose from Media'}</h4>
+                      <button type="button" onClick={() => setBannerMediaPickerFor(null)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <div className="p-4 overflow-y-auto flex-1">
+                      {bannerMediaList.length === 0 ? (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('settings.bannerNoImagesInMedia') || 'No images in Media. Upload images in the Media section first.'}</p>
+                      ) : (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                          {bannerMediaList.map((item, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => {
+                                setBannerConfig(prev => prev.map((b, j) => j === bannerMediaPickerFor ? { ...b, imageUrl: item.url } : b));
+                                setBannerMediaPickerFor(null);
+                              }}
+                              className="aspect-square rounded-lg border-2 border-gray-200 dark:border-gray-600 hover:border-accent overflow-hidden focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2"
+                            >
+                              <img src={item.url} alt="" className="w-full h-full object-cover" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         );

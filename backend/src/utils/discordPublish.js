@@ -223,3 +223,126 @@ export async function postToDiscordChannelWithAttachments(channelId, content, it
   logger.info('Discord publish: success', { messageId: data?.id });
   return data;
 }
+
+/**
+ * Create a scheduled event in a Discord guild (server).
+ * Discord automatically converts the UTC timestamp to each user's local timezone.
+ * 
+ * @param {string} guildId - Discord guild (server) ID
+ * @param {string} name - Event name (max 100 chars)
+ * @param {string|Date} scheduledStartTime - Start time in UTC (ISO 8601 string or Date object)
+ * @param {object} options - Additional options
+ * @param {string} [options.description] - Event description (max 1000 chars)
+ * @param {number} [options.entityType] - Entity type: 1=Stage, 2=Voice, 3=External (default: 3)
+ * @param {string} [options.channelId] - Channel ID (required for Stage/Voice, optional for External)
+ * @param {string} [options.location] - Location (required for External, max 100 chars)
+ * @param {string} [options.image] - Cover image URL
+ * @returns {Promise<{ id: string, ... }>} Event object from Discord
+ * @throws {Error} On API error
+ * 
+ * @example
+ * // Create external event (like a stream)
+ * createDiscordScheduledEvent('123456789', 'My Stream', '2026-02-20T18:00:00.000Z', {
+ *   description: 'Join us for an amazing stream!',
+ *   location: 'Twitch'
+ * })
+ */
+export async function createDiscordScheduledEvent(guildId, name, scheduledStartTime, options = {}) {
+  const botToken = getBotToken();
+  if (!botToken) {
+    throw new Error('Discord bot not configured');
+  }
+
+  // Ensure scheduledStartTime is in ISO 8601 format (UTC)
+  let startTimeISO;
+  if (scheduledStartTime instanceof Date) {
+    startTimeISO = scheduledStartTime.toISOString();
+  } else if (typeof scheduledStartTime === 'string') {
+    // Validate it's a valid ISO string
+    const date = new Date(scheduledStartTime);
+    if (isNaN(date.getTime())) {
+      throw new Error('Invalid scheduledStartTime: must be ISO 8601 UTC string or Date object');
+    }
+    startTimeISO = date.toISOString();
+  } else {
+    throw new Error('scheduledStartTime must be ISO 8601 UTC string or Date object');
+  }
+
+  const {
+    description = '',
+    entityType = 3, // External event (most common for streams)
+    channelId = null,
+    location = null,
+    image = null
+  } = options;
+
+  // Validate name length
+  if (!name || name.length > 100) {
+    throw new Error('Event name is required and must be 100 characters or less');
+  }
+
+  // Build request body based on entity type
+  const body = {
+    name: name.slice(0, 100),
+    scheduled_start_time: startTimeISO, // Discord expects ISO 8601 UTC
+    entity_type: entityType
+  };
+
+  if (description) {
+    body.description = description.slice(0, 1000);
+  }
+
+  // Entity type specific fields
+  if (entityType === 1 || entityType === 2) {
+    // Stage or Voice channel event
+    if (!channelId) {
+      throw new Error(`channelId is required for entity type ${entityType} (Stage/Voice)`);
+    }
+    body.channel_id = channelId;
+  } else if (entityType === 3) {
+    // External event
+    if (location) {
+      body.entity_metadata = { location: location.slice(0, 100) };
+    }
+  }
+
+  if (image) {
+    body.image = image;
+  }
+
+  logger.info('Creating Discord scheduled event', {
+    guildId,
+    name,
+    scheduledStartTime: startTimeISO,
+    entityType
+  });
+
+  const res = await fetch(`${DISCORD_API}/guilds/${guildId}/scheduled-events`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bot ${botToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  
+  if (!res.ok) {
+    logger.error('Discord scheduled event creation failed', {
+      status: res.status,
+      data,
+      guildId,
+      name
+    });
+    throwOnDiscordError(res, data);
+  }
+
+  logger.info('Discord scheduled event created successfully', {
+    eventId: data?.id,
+    guildId,
+    name
+  });
+
+  return data;
+}

@@ -12,7 +12,7 @@
 import { Content, User, Integration } from '../models/index.js';
 import { Op } from 'sequelize';
 import { CONTENT_STATUS } from '../constants/contentStatus.js';
-import { postToDiscordChannel, postToDiscordChannelWithAttachments } from '../utils/discordPublish.js';
+import { postToDiscordChannel, postToDiscordChannelWithAttachments, createDiscordScheduledEvent } from '../utils/discordPublish.js';
 import { postTweet } from '../utils/twitterPublish.js';
 import { supabase } from '../utils/supabaseClient.js';
 import { contentService } from './contentService.js';
@@ -176,6 +176,42 @@ async function publishToPlatform(content, platform) {
       logger.info('Posting tweet', { contentId: content.id, textLength: text.length });
       await postTweet(accessToken, text);
     } else if (platform === 'discord' && content.discordChannelId) {
+      // If contentType is "event" and we have a guildId, create a Discord scheduled event
+      // Discord will automatically show the time in each user's local timezone
+      if (content.contentType === 'event' && content.discordGuildId) {
+        try {
+          const eventName = content.title || 'Scheduled Event';
+          const eventDescription = content.content || '';
+          const eventLocation = content.content || 'Stream'; // Default location for external events
+          
+          // Create the scheduled event (Discord handles timezone conversion automatically)
+          await createDiscordScheduledEvent(
+            content.discordGuildId,
+            eventName,
+            content.scheduledFor, // Already in UTC from database
+            {
+              description: eventDescription,
+              entityType: 3, // External event (works for streams)
+              location: eventLocation
+            }
+          );
+          
+          logger.info('Discord scheduled event created', {
+            contentId: content.id,
+            guildId: content.discordGuildId,
+            scheduledFor: content.scheduledFor
+          });
+        } catch (eventError) {
+          logger.error('Failed to create Discord scheduled event', {
+            contentId: content.id,
+            error: eventError.message,
+            guildId: content.discordGuildId
+          });
+          // Continue to publish message even if event creation fails
+        }
+      }
+      
+      // Always publish the message to the channel
       const rawItems = content.files?.items ?? (content.files?.urls ? content.files.urls.map((u) => ({ url: u })) : []) ?? [];
       const items = rawItems.length > 0 ? await resolveMediaUrls(rawItems) : [];
       
