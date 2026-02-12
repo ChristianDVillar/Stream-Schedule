@@ -16,12 +16,14 @@
  * 
  * @param {string|Date} dateString - Date in UTC from backend
  * @param {object} options - Intl.DateTimeFormat options
+ * @param {boolean} showTimezone - Whether to show timezone abbreviation (default: false)
  * @returns {string} Formatted date string in user's local timezone
  * 
  * @example
  * formatDate('2026-01-29T12:00:00Z') // Shows in user's local time
+ * formatDate('2026-01-29T12:00:00Z', {}, true) // Shows with timezone: "Jan 29, 2026, 1:00 PM GMT+1"
  */
-export function formatDate(dateString, options = {}) {
+export function formatDate(dateString, options = {}, showTimezone = false) {
   if (!dateString) return '—';
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return 'Invalid date';
@@ -34,6 +36,11 @@ export function formatDate(dateString, options = {}) {
     minute: '2-digit',
     ...options
   };
+  
+  // Si showTimezone es true, agregar timeZoneName
+  if (showTimezone && !defaultOptions.timeZoneName) {
+    defaultOptions.timeZoneName = 'short';
+  }
   
   // Automáticamente usa la zona horaria del navegador/usuario
   return date.toLocaleString(undefined, defaultOptions);
@@ -94,20 +101,27 @@ export function formatDateTime(dateString, options = {}) {
  * Muestra fecha y hora de forma amigable para eventos programados
  * 
  * @param {string|Date} dateString - Date in UTC from backend
- * @returns {string} Formatted string like "2 feb 2026, 21:00"
+ * @param {boolean} showTimezone - Whether to show timezone abbreviation (default: false)
+ * @returns {string} Formatted string like "2 feb 2026, 21:00" or "2 feb 2026, 21:00 GMT+1"
  */
-export function formatScheduledDate(dateString) {
+export function formatScheduledDate(dateString, showTimezone = false) {
   if (!dateString) return '—';
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return 'Invalid date';
   
-  return date.toLocaleString(undefined, {
+  const options = {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
-  });
+  };
+  
+  if (showTimezone) {
+    options.timeZoneName = 'short';
+  }
+  
+  return date.toLocaleString(undefined, options);
 }
 
 /**
@@ -176,4 +190,47 @@ export function formatDateWithUTC(dateString) {
  */
 export function getUserTimezone() {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
+/**
+ * Format date with timezone info displayed prominently (like Discord events)
+ * Shows date/time in user's local timezone with timezone abbreviation
+ * 
+ * @param {string|Date} dateString - Date in UTC from backend
+ * @returns {string} Formatted string like "Feb 20, 2026, 7:00 PM GMT+1"
+ * 
+ * @example
+ * formatDateWithTimezone('2026-02-20T18:00:00Z') // "Feb 20, 2026, 7:00 PM GMT+1" (in Spain)
+ */
+export function formatDateWithTimezone(dateString) {
+  if (!dateString) return '—';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'Invalid date';
+  
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZoneName: 'short'
+  });
+}
+
+/**
+ * Get a friendly message about timezone conversion (like Discord shows)
+ * @param {string|Date} dateString - Date in UTC from backend
+ * @returns {string} Message like "Se mostrará automáticamente en tu hora local" or "Will be shown in your local time"
+ */
+export function getTimezoneMessage(dateString) {
+  if (!dateString) return '';
+  const timezone = getUserTimezone();
+  // Return message in Spanish or English based on browser locale
+  const locale = Intl.DateTimeFormat().resolvedOptions().locale;
+  const isSpanish = locale.startsWith('es');
+  
+  if (isSpanish) {
+    return `Se mostrará automáticamente en tu hora local (${timezone})`;
+  }
+  return `Will be shown automatically in your local time (${timezone})`;
 }
