@@ -9,7 +9,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import toast from 'react-hot-toast';
-import { formatDate, formatDateWithUTC } from '../utils/dateUtils';
+import { formatDate, formatDateWithUTC, formatDateWithTimezone, getTimezoneMessage } from '../utils/dateUtils';
 import { getPlatformColor } from '../utils/platformColors';
 import { copyPostToClipboard } from '../utils/copyPastePost';
 import TrialWarning from '../components/TrialWarning';
@@ -745,7 +745,7 @@ const Dashboard = ({ user, token, ...props }) => {
                         </div>
                       </td>
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 group-hover:dark:text-white hidden sm:table-cell transition-colors" title={content.scheduledFor ? formatDateWithUTC(content.scheduledFor).utc + ' (UTC)' : ''}>
-                            {formatDate(content.scheduledFor)}
+                            {formatDate(content.scheduledFor, {}, true)}
                             <span className="block text-xs text-gray-500 dark:text-gray-400 group-hover:dark:text-gray-300 transition-colors">{t('dashboard.localTime') || 'hora local'}</span>
                       </td>
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
@@ -863,9 +863,9 @@ const Dashboard = ({ user, token, ...props }) => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('dashboard.scheduledFor')}</h3>
-                    <p className="text-gray-900 dark:text-gray-100">{formatDate(selectedContent.scheduledFor)}</p>
+                    <p className="text-gray-900 dark:text-gray-100">{formatDateWithTimezone(selectedContent.scheduledFor)}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {t('dashboard.yourLocalTime') || 'Tu hora local'} · UTC: {selectedContent.scheduledFor ? formatDateWithUTC(selectedContent.scheduledFor).utc : '—'}
+                      {getTimezoneMessage(selectedContent.scheduledFor)}
                     </p>
                   </div>
                   <div>

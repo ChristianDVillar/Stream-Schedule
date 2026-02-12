@@ -163,12 +163,25 @@ See `LICENSE` file for details.
 
 ## Documentation
 
-- `SECURITY_AUDIT.md` – Security audit and recommendations
-- `SECURITY_FIXES_APPLIED.md` – Applied security fixes
-- `COPYRIGHT_NOTICE.md` – Copyright information
-- `TERMS_OF_SERVICE.md` – Terms of service
-- `LEGAL_PROTECTION.md` – Legal protection information
-- `TWITTER_SETUP.md` – Twitter/X OAuth setup for publishing (⚠️ important)
+Full index: **[docs/README.md](docs/README.md)**.
+
+Documentation in the repo root:
+
+| File | Description |
+|------|-------------|
+| [COPYRIGHT_NOTICE.md](COPYRIGHT_NOTICE.md) | Copyright notice and contact. |
+| [TERMS_OF_SERVICE.md](TERMS_OF_SERVICE.md) | Terms of service (EN/ES). |
+| [LEGAL_PROTECTION.md](LEGAL_PROTECTION.md) | Legal protection guide. |
+| [DEPLOY_RENDER.md](DEPLOY_RENDER.md) | Deploying on Render (CORS, migrations). |
+| [SUPABASE_PRODUCTION.md](SUPABASE_PRODUCTION.md) | Supabase in production and Resend. |
+| [TWITTER_SETUP.md](TWITTER_SETUP.md) | Twitter/X OAuth setup for publishing. |
+| [SISTEMA_Y_TECNOLOGIAS.md](SISTEMA_Y_TECNOLOGIAS.md) | Architecture, flows, and technologies. |
+| [SCHEDULER_MEJORAS_IMPLEMENTADAS.md](SCHEDULER_MEJORAS_IMPLEMENTADAS.md) | Scheduler improvements (states, idempotency, etc.). |
+
+SQL scripts for Supabase (run in the project SQL Editor):
+
+- `SUPABASE_RLS_ALL_TABLES.sql` – Enable RLS on public tables.
+- `SUPABASE_STORAGE_POLICIES.sql` – Storage bucket policies.
 
 ---
 

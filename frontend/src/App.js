@@ -10,6 +10,7 @@ import Login from './pages/Login';
 import AuthCallback from './pages/AuthCallback';
 import AdminDashboard from './pages/AdminDashboard';
 import { ShieldOff, UserX, Menu, X, ShoppingBag, Globe } from 'lucide-react';
+import HeaderBanners from './components/HeaderBanners';
 import { Toaster } from 'react-hot-toast';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { AuthProvider, useAuth } from './store/authStore';
@@ -62,7 +63,12 @@ function Header({ user, onLogout, onMenuClick, installPromptEvent, onInstallApp 
     <header className="bg-white dark:bg-gray-800 shadow-sm border-b mb-4">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 flex items-center justify-between h-14 sm:h-16 min-h-[44px] gap-2">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
-          <button className="md:hidden flex-shrink-0 p-2 -ml-1" onClick={onMenuClick} aria-label={t('common.openMenu')}>
+          <button
+            type="button"
+            className="md:hidden flex-shrink-0 p-2 -ml-1 rounded focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800"
+            onClick={onMenuClick}
+            aria-label={t('common.openMenu')}
+          >
             <Menu className="w-6 h-6 text-accent" />
           </button>
           <span className="font-bold text-accent truncate text-sm sm:text-base">Streamer Scheduler</span>
@@ -71,28 +77,32 @@ function Header({ user, onLogout, onMenuClick, installPromptEvent, onInstallApp 
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
           {process.env.REACT_APP_SHOW_PWA_INSTALL === 'true' && installPromptEvent && onInstallApp && (
             <button
+              type="button"
               onClick={onInstallApp}
-              className="px-3 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 hidden sm:inline"
+              className="px-3 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 hidden sm:inline focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800"
             >
               {t('common.installApp') || 'Install app'}
             </button>
           )}
           <button
+            type="button"
             onClick={toggleLanguage}
-            className="p-2 sm:px-3 sm:py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-1 sm:gap-2"
+            className="p-2 sm:px-3 sm:py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-1 sm:gap-2 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800"
             title={language === 'es' ? t('common.switchToEnglish') : t('common.switchToSpanish')}
           >
-            <Globe className="w-5 h-5" />
+            <Globe className="w-5 h-5 flex-shrink-0" />
             <span className="hidden sm:inline text-sm font-medium">{language.toUpperCase()}</span>
           </button>
           <button
+            type="button"
             onClick={() => { onLogout(); navigate('/login'); }}
-            className="px-3 py-2 sm:px-4 bg-red-600 text-white rounded hover:bg-red-700 text-sm whitespace-nowrap"
+            className="px-3 py-2 sm:px-4 bg-red-600 text-white rounded hover:bg-red-700 text-sm whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800"
           >
             {t('common.logout')}
           </button>
         </div>
       </div>
+      <HeaderBanners />
     </header>
   );
 }
