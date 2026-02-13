@@ -47,30 +47,6 @@ export function formatDate(dateString, options = {}, showTimezone = false) {
 }
 
 /**
- * Format a date to a short date string (hora local del usuario)
- * @param {string|Date} dateString - Date in UTC from backend
- * @returns {string} Short date string in user's local timezone
- */
-export function formatShortDate(dateString) {
-  if (!dateString) return '—';
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return 'Invalid date';
-  return date.toLocaleDateString();
-}
-
-/**
- * Format a date to time only (hora local del usuario)
- * @param {string|Date} dateString - Date in UTC from backend
- * @returns {string} Time string in user's local timezone
- */
-export function formatTime(dateString) {
-  if (!dateString) return '—';
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return 'Invalid time';
-  return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-}
-
-/**
  * Format date with date and time style (hora local del usuario)
  * Más controlado y limpio para UI
  * 
@@ -94,34 +70,6 @@ export function formatDateTime(dateString, options = {}) {
   };
   
   return date.toLocaleString(undefined, defaultOptions);
-}
-
-/**
- * Format date for scheduler display (hora local del usuario)
- * Muestra fecha y hora de forma amigable para eventos programados
- * 
- * @param {string|Date} dateString - Date in UTC from backend
- * @param {boolean} showTimezone - Whether to show timezone abbreviation (default: false)
- * @returns {string} Formatted string like "2 feb 2026, 21:00" or "2 feb 2026, 21:00 GMT+1"
- */
-export function formatScheduledDate(dateString, showTimezone = false) {
-  if (!dateString) return '—';
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return 'Invalid date';
-  
-  const options = {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  };
-  
-  if (showTimezone) {
-    options.timeZoneName = 'short';
-  }
-  
-  return date.toLocaleString(undefined, options);
 }
 
 /**

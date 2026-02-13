@@ -15,6 +15,7 @@
 - **[DEPLOY_RENDER.md](../DEPLOY_RENDER.md)** – Despliegue en Render (CORS, migraciones, variables).
 - **[SUPABASE_PRODUCTION.md](../SUPABASE_PRODUCTION.md)** – Configuración de Supabase en producción y Resend.
 - **[TWITTER_SETUP.md](../TWITTER_SETUP.md)** – Configuración de Twitter/X OAuth para publicación.
+- **[STRIPE_INTEGRATION.md](../STRIPE_INTEGRATION.md)** – Integración de pagos con Stripe (checkout, suscripciones, webhooks).
 
 ## Arquitectura y sistema
 

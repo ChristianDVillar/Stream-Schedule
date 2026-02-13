@@ -21,10 +21,3 @@ export function maskEmail(email) {
   return `${visiblePart}***@${domain}`;
 }
 
-/**
- * Muestra el correo completo solo cuando se hace hover o click (opcional)
- * Por ahora solo retorna el correo enmascarado
- */
-export function getMaskedEmail(email) {
-  return maskEmail(email);
-}

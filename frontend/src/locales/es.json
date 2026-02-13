@@ -318,6 +318,8 @@
     "paymentStatus": "Estado de pagos",
     "paymentEnabled": "Habilitado",
     "paymentDisabled": "Deshabilitado",
+    "stripeModeTest": "Modo prueba (sin cargos reales)",
+    "stripeModeLive": "Producción",
     "changing": "Cambiando...",
     "exportData": "Exportar datos",
     "exporting": "Exportando...",
