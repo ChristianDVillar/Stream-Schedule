@@ -175,6 +175,7 @@ Documentation in the repo root:
 | [DEPLOY_RENDER.md](DEPLOY_RENDER.md) | Deploying on Render (CORS, migrations). |
 | [SUPABASE_PRODUCTION.md](SUPABASE_PRODUCTION.md) | Supabase in production and Resend. |
 | [TWITTER_SETUP.md](TWITTER_SETUP.md) | Twitter/X OAuth setup for publishing. |
+| [STRIPE_INTEGRATION.md](STRIPE_INTEGRATION.md) | Stripe payment integration (checkout, subscriptions, webhooks). |
 | [SISTEMA_Y_TECNOLOGIAS.md](SISTEMA_Y_TECNOLOGIAS.md) | Architecture, flows, and technologies. |
 | [SCHEDULER_MEJORAS_IMPLEMENTADAS.md](SCHEDULER_MEJORAS_IMPLEMENTADAS.md) | Scheduler improvements (states, idempotency, etc.). |
 

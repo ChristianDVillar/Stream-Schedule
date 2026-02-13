@@ -51,14 +51,11 @@ async function checkStripe() {
   if (!stripeKey || stripeKey === 'your-stripe-secret-key') {
     return { status: 'warning', message: 'Stripe not configured' };
   }
-  
-  // Note: We don't make an actual API call to avoid rate limits
-  // Just check if key is present and looks valid
-  if (stripeKey.startsWith('sk_')) {
-    return { status: 'ok', message: 'Stripe configured' };
+  if (!stripeKey.startsWith('sk_')) {
+    return { status: 'warning', message: 'Stripe key format invalid' };
   }
-  
-  return { status: 'warning', message: 'Stripe key format invalid' };
+  const mode = stripeKey.startsWith('sk_test_') ? 'test' : (stripeKey.startsWith('sk_live_') ? 'live' : 'unknown');
+  return { status: 'ok', message: `Stripe configured (${mode})` };
 }
 
 /**

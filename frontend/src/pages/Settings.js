@@ -1414,6 +1414,16 @@ const Settings = ({ user, token, setUser }) => {
                         : 'text-red-800 dark:text-red-200'
                     }`}>
                       {paymentConfig.message}
+                      {paymentConfig.stripeMode === 'test' && (
+                        <span className="block mt-1 font-medium text-amber-700 dark:text-amber-300">
+                          🧪 {t('settings.stripeModeTest')}
+                        </span>
+                      )}
+                      {paymentConfig.stripeMode === 'live' && (
+                        <span className="block mt-1 text-xs text-gray-600 dark:text-gray-400">
+                          {t('settings.stripeModeLive')}
+                        </span>
+                      )}
                       {paymentConfig.manualVerificationRequired && (
                         <span className="block mt-1 text-xs">
                           ⚠️ Los pagos funcionarán pero requieren verificación manual después del pago.

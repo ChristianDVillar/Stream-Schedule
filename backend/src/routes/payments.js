@@ -242,52 +242,58 @@ router.post('/checkout', requireAuth, validateBody(checkoutSchema), async (req, 
   }
 });
 
-// Verify payment status from Stripe session
+// Verify payment status from Stripe session (used after redirect when webhook may not have run yet)
 router.post('/verify-session', requireAuth, validateBody(verifySessionSchema), async (req, res) => {
   if (!stripe) return res.status(500).json({ error: 'Stripe is not configured' });
   
   const { sessionId } = req.body;
+  const userId = req.user.id;
 
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
-    
-    if (session.payment_status === 'paid') {
-      const payment = await Payment.findOne({ 
-        where: { stripeSessionId: sessionId, userId: req.user.id } 
-      });
-      
-      if (!payment) {
-        return res.status(404).json({ error: 'Payment not found' });
-      }
+    if (session.metadata?.userId && String(session.metadata.userId) !== String(userId)) {
+      return res.status(403).json({ error: 'Session does not belong to this user' });
+    }
 
-      if (payment.status === PAYMENT_STATUS.COMPLETED) {
-        return res.json({ 
-          status: 'paid',
-          licenseKey: req.user.licenseKey,
-          licenseType: req.user.licenseType,
-          licenseExpiresAt: req.user.licenseExpiresAt
+    if (session.payment_status !== 'paid') {
+      return res.json({ status: session.payment_status });
+    }
+
+    let payment = await Payment.findOne({
+      where: { stripeSessionId: sessionId, userId }
+    });
+
+    // Subscription: webhook may not have run (e.g. wrong webhook URL). Create/update from session.
+    if (session.mode === 'subscription' && session.subscription) {
+      const licenseType = session.metadata?.licenseType || 'monthly';
+      const user = await User.findByPk(userId);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      const subscription = await stripe.subscriptions.retrieve(session.subscription);
+      user.stripeCustomerId = subscription.customer;
+      user.stripeSubscriptionId = subscription.id;
+      user.subscriptionStatus = subscription.status;
+      const licenseKey = generateLicenseKey('', 16);
+      const expiryResult = resolveLicenseExpiry({ licenseType });
+      user.licenseKey = licenseKey;
+      user.licenseType = licenseType;
+      user.licenseExpiresAt = expiryResult.value;
+      await user.save();
+      await syncEntitlementsFromLicense(user.id, user.licenseType, user.licenseExpiresAt);
+      const plan = PLANS[licenseType];
+      if (plan && !payment) {
+        await Payment.create({
+          userId,
+          licenseType,
+          amount: plan.amount,
+          currency: plan.currency,
+          status: PAYMENT_STATUS.COMPLETED,
+          provider: 'stripe',
+          stripeCustomerId: subscription.customer,
+          stripeSubscriptionId: subscription.id,
+          isRecurring: true,
+          paidAt: new Date()
         });
       }
-
-      // Update payment status
-      payment.status = PAYMENT_STATUS.COMPLETED;
-      payment.paidAt = new Date();
-      payment.stripePaymentIntentId = session.payment_intent;
-      await payment.save();
-
-      // Assign license to user
-      const licenseKey = generateLicenseKey('', 16);
-      const expiryResult = resolveLicenseExpiry({ licenseType: payment.licenseType });
-      const expiresAt = expiryResult.value;
-      const user = await User.findByPk(req.user.id);
-      user.licenseKey = licenseKey;
-      user.licenseType = payment.licenseType;
-      user.licenseExpiresAt = expiresAt;
-      await user.save();
-
-      // Sync entitlements after license assignment
-      await syncEntitlementsFromLicense(user.id, user.licenseType, user.licenseExpiresAt);
-
       return res.json({
         status: 'paid',
         licenseKey: user.licenseKey,
@@ -296,7 +302,38 @@ router.post('/verify-session', requireAuth, validateBody(verifySessionSchema), a
       });
     }
 
-    res.json({ status: session.payment_status });
+    // One-time payment
+    if (!payment) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+    if (payment.status === PAYMENT_STATUS.COMPLETED) {
+      return res.json({
+        status: 'paid',
+        licenseKey: req.user.licenseKey,
+        licenseType: req.user.licenseType,
+        licenseExpiresAt: req.user.licenseExpiresAt
+      });
+    }
+    payment.status = PAYMENT_STATUS.COMPLETED;
+    payment.paidAt = new Date();
+    payment.stripePaymentIntentId = session.payment_intent;
+    payment.stripeCustomerId = session.customer;
+    await payment.save();
+    const licenseKey = generateLicenseKey('', 16);
+    const expiryResult = resolveLicenseExpiry({ licenseType: payment.licenseType });
+    const expiresAt = expiryResult.value;
+    const user = await User.findByPk(userId);
+    user.licenseKey = licenseKey;
+    user.licenseType = payment.licenseType;
+    user.licenseExpiresAt = expiresAt;
+    await user.save();
+    await syncEntitlementsFromLicense(user.id, user.licenseType, user.licenseExpiresAt);
+    return res.json({
+      status: 'paid',
+      licenseKey: user.licenseKey,
+      licenseType: user.licenseType,
+      licenseExpiresAt: user.licenseExpiresAt
+    });
   } catch (error) {
     logger.error('Stripe session verification error', {
       error: error.message,
@@ -309,9 +346,11 @@ router.post('/verify-session', requireAuth, validateBody(verifySessionSchema), a
   }
 });
 
-// Webhook endpoint for Stripe
-// Note: Webhook is optional - payments can work without it using manual verification
-router.post('/webhook', async (req, res) => {
+/**
+ * Stripe webhook handler. Must be used with express.raw({ type: 'application/json' }) so req.body is the raw buffer.
+ * Used by app.js for both /api/payments/webhook and /stripe/webhook (Stripe Dashboard often uses /stripe/webhook).
+ */
+export async function handleStripeWebhook(req, res) {
   if (!stripe) {
     logger.warn('Stripe webhook received but Stripe is not configured');
     return res.status(500).json({ 
@@ -517,12 +556,11 @@ router.post('/webhook', async (req, res) => {
         const user = await User.findOne({ where: { stripeSubscriptionId: invoice.subscription } });
         
         if (user) {
-          // Create payment record for recurring payment
           const licenseType = user.licenseType;
           const plan = PLANS[licenseType];
           
           if (plan) {
-            await Payment.create({
+            const payment = await Payment.create({
               userId: user.id,
               licenseType,
               amount: plan.amount,
@@ -535,12 +573,10 @@ router.post('/webhook', async (req, res) => {
               paidAt: new Date()
             });
             
-            // Extend license
             const expiryResult = resolveLicenseExpiry({ licenseType });
             user.licenseExpiresAt = expiryResult.value;
             await user.save();
             
-            // Sync entitlements after license extension
             await syncEntitlementsFromLicense(user.id, user.licenseType, user.licenseExpiresAt);
             
             logger.info('Recurring payment processed', {
@@ -548,6 +584,15 @@ router.post('/webhook', async (req, res) => {
               subscriptionId: invoice.subscription,
               invoiceId: invoice.id
             });
+            
+            try {
+              await sendPaymentSuccessNotification(user, payment);
+            } catch (error) {
+              logger.error('Failed to send payment success notification', {
+                userId: user.id,
+                error: error.message
+              });
+            }
           }
         }
       }
@@ -578,60 +623,6 @@ router.post('/webhook', async (req, res) => {
               userId: user.id,
               error: error.message
             });
-          }
-        }
-      }
-      
-      res.json({ received: true });
-    }
-    else if (event.type === 'invoice.paid') {
-      const invoice = event.data.object;
-      
-      if (invoice.subscription) {
-        const user = await User.findOne({ where: { stripeSubscriptionId: invoice.subscription } });
-        
-        if (user) {
-          // Create payment record for recurring payment
-          const licenseType = user.licenseType;
-          const plan = PLANS[licenseType];
-          
-          if (plan) {
-            const payment = await Payment.create({
-              userId: user.id,
-              licenseType,
-              amount: plan.amount,
-              currency: plan.currency,
-              status: PAYMENT_STATUS.COMPLETED,
-              provider: 'stripe',
-              stripeCustomerId: invoice.customer,
-              stripeSubscriptionId: invoice.subscription,
-              isRecurring: true,
-              paidAt: new Date()
-            });
-            
-            // Extend license
-            const expiryResult = resolveLicenseExpiry({ licenseType });
-            user.licenseExpiresAt = expiryResult.value;
-            await user.save();
-            
-            // Sync entitlements after license extension
-            await syncEntitlementsFromLicense(user.id, user.licenseType, user.licenseExpiresAt);
-            
-            logger.info('Recurring payment processed', {
-              userId: user.id,
-              subscriptionId: invoice.subscription,
-              invoiceId: invoice.id
-            });
-            
-            // Send success notification
-            try {
-              await sendPaymentSuccessNotification(user, payment);
-            } catch (error) {
-              logger.error('Failed to send payment success notification', {
-                userId: user.id,
-                error: error.message
-              });
-            }
           }
         }
       }
@@ -691,16 +682,21 @@ router.post('/webhook', async (req, res) => {
     });
     res.status(500).json({ error: 'Error processing webhook' });
   }
-});
+}
+
+router.post('/webhook', handleStripeWebhook);
 
 // Get Stripe configuration status (public endpoint for frontend to check)
 router.get('/config-status', async (req, res) => {
   const stripeConfigured = !!stripe;
   const webhookConfigured = !!process.env.STRIPE_WEBHOOK_SECRET;
-  
+  const key = process.env.STRIPE_SECRET_KEY || '';
+  const stripeMode = key.startsWith('sk_test_') ? 'test' : (key.startsWith('sk_live_') ? 'live' : null);
+
   res.json({
     stripeConfigured,
     webhookConfigured,
+    stripeMode,
     paymentEnabled: stripeConfigured,
     automaticProcessingEnabled: stripeConfigured && webhookConfigured,
     manualVerificationRequired: stripeConfigured && !webhookConfigured,

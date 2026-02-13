@@ -24,7 +24,7 @@ import userRoutes, {
 } from './routes/user.js';
 import contentRoutes from './routes/content.js';
 import platformsRoutes from './routes/platforms.js';
-import paymentsRoutes from './routes/payments.js';
+import paymentsRoutes, { handleStripeWebhook } from './routes/payments.js';
 import uploadsRoutes from './routes/uploads.js';
 import discordRoutes from './routes/discord.js';
 import healthRoutes from './routes/health.js';
@@ -103,8 +103,10 @@ app.use(helmet({
 app.use(apiLimiter);
 app.use(passport.initialize());
 
-// Stripe webhook must be before JSON parsing middleware
-app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
+// Stripe webhook must be before JSON parsing (raw body required for signature verification).
+// Support both /api/payments/webhook and /stripe/webhook (Stripe Dashboard often uses /stripe/webhook).
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }), handleStripeWebhook);
+app.use('/stripe/webhook', express.raw({ type: 'application/json' }), handleStripeWebhook);
 
 app.use(express.json());
 

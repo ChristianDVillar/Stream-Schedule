@@ -318,6 +318,8 @@
     "paymentStatus": "Payment status",
     "paymentEnabled": "Enabled",
     "paymentDisabled": "Disabled",
+    "stripeModeTest": "Test mode (no real charges)",
+    "stripeModeLive": "Production",
     "changing": "Changing...",
     "exportData": "Export Data",
     "exporting": "Exporting...",

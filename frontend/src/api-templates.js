@@ -14,14 +14,6 @@ export async function getTemplates(includePublic = false) {
 }
 
 /**
- * GET /templates/:id - Get template by ID
- */
-export async function getTemplate(id) {
-  const res = await apiClient.get(`/templates/${id}`);
-  return res.data;
-}
-
-/**
  * POST /templates - Create template
  */
 export async function createTemplate(templateData) {
