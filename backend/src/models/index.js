@@ -21,6 +21,8 @@ import FeatureFlag from './FeatureFlag.js';
 import Entitlement from './Entitlement.js';
 import Message from './Message.js';
 import MessageReply from './MessageReply.js';
+import Notification from './Notification.js';
+import NotificationRead from './NotificationRead.js';
 
 // 👤 User
 const User = sequelize.define('User', {
@@ -442,6 +444,15 @@ Message.hasMany(MessageReply, { foreignKey: 'messageId', as: 'replies' });
 MessageReply.belongsTo(Message, { foreignKey: 'messageId', as: 'message' });
 MessageReply.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
+Notification.belongsTo(User, { foreignKey: 'userId', as: 'targetUser' });
+Notification.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+Notification.hasMany(NotificationRead, { foreignKey: 'notificationId', as: 'reads' });
+NotificationRead.belongsTo(Notification, { foreignKey: 'notificationId' });
+NotificationRead.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(Notification, { foreignKey: 'userId', as: 'targetedNotifications' });
+User.hasMany(Notification, { foreignKey: 'createdBy', as: 'createdNotifications' });
+User.hasMany(NotificationRead, { foreignKey: 'userId', as: 'notificationReads' });
+
 // ⚙️ System Configuration
 const SystemConfig = sequelize.define('SystemConfig', {
   key: {
@@ -475,5 +486,7 @@ export {
   FeatureFlag,
   Entitlement,
   Message,
-  MessageReply
+  MessageReply,
+  Notification,
+  NotificationRead
 };

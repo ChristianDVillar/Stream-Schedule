@@ -1104,22 +1104,43 @@ router.get('/admin/stats', requireAdmin, async (req, res) => {
   const totals = {};
   let totalPaid = 0;
   let recurringRevenue = 0;
+  const weekTotals = {};
+  const byLicenseType = {};
 
   payments.forEach(payment => {
     const date = payment.paidAt || payment.createdAt;
     if (!date) return;
-    const monthKey = new Date(date).toISOString().slice(0, 7);
+    const d = new Date(date);
+    const monthKey = d.toISOString().slice(0, 7);
     const amount = Number(payment.amount) || 0;
+    const type = payment.licenseType || 'monthly';
     totalPaid += amount;
     if (payment.isRecurring) {
       recurringRevenue += amount;
     }
     totals[monthKey] = (totals[monthKey] || 0) + amount;
+    byLicenseType[type] = (byLicenseType[type] || 0) + amount;
+    // ISO week: get start of week (Monday)
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(d);
+    monday.setDate(diff);
+    const weekKey = monday.toISOString().slice(0, 10);
+    weekTotals[weekKey] = (weekTotals[weekKey] || 0) + amount;
   });
 
   const monthlyTotals = Object.entries(totals)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([month, amount]) => ({ month, amount }));
+
+  const weeklyTotals = Object.entries(weekTotals)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-12)
+    .map(([week, amount]) => ({ week, amount }));
+
+  const totalsByLicenseType = Object.entries(byLicenseType)
+    .map(([name, amount]) => ({ name, value: amount }))
+    .filter(row => row.value > 0);
 
   const currentMonth = new Date().toISOString().slice(0, 7);
   const currentMonthAmount = totals[currentMonth] || 0;
@@ -1130,7 +1151,9 @@ router.get('/admin/stats', requireAdmin, async (req, res) => {
     recurringRevenue,
     oneTimeRevenue: totalPaid - recurringRevenue,
     currentMonthAmount,
-    monthlyTotals
+    monthlyTotals,
+    weeklyTotals,
+    totalsByLicenseType
   });
 });
 

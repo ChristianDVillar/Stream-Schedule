@@ -755,3 +755,28 @@ export async function deleteMessage(messageId, token) {
     headers: { Authorization: `Bearer ${token}` }
   });
 }
+
+// ——— Notifications (admin announcements to users) ———
+export async function getNotifications(token) {
+  return apiClient.get('/notifications', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function getNotificationsUnreadCount(token) {
+  return apiClient.get('/notifications/unread-count', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function markNotificationRead(notificationId, token) {
+  return apiClient.patch(`/notifications/${notificationId}/read`, {}, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function sendNotification({ title, content, broadcast = true, userId, token }) {
+  return apiClient.post('/notifications', { title, content, broadcast, userId }, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}

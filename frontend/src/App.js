@@ -9,12 +9,16 @@ import MediaUpload from './pages/MediaUpload';
 import Login from './pages/Login';
 import AuthCallback from './pages/AuthCallback';
 import AdminDashboard from './pages/AdminDashboard';
+import MessagesPage from './pages/MessagesPage';
 import { ShieldOff, UserX, Menu, X, ShoppingBag, Globe } from 'lucide-react';
 import HeaderBanners from './components/HeaderBanners';
+import MessagesAndNotificationsDropdown from './components/MessagesAndNotificationsDropdown';
 import { Toaster } from 'react-hot-toast';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { AuthProvider, useAuth } from './store/authStore';
 import { getStoredAccentColor, applyAccentColor } from './utils/themeUtils';
+import { APP_VERSION } from './version';
+import { getUnreadMessageCount } from './api';
 
 function PrivateRoute({ user, children }) {
   if (!user) return <Navigate to="/login" replace />;
@@ -55,7 +59,7 @@ function UserRoute({ user, children }) {
   return children;
 }
 
-function Header({ user, onLogout, onMenuClick, installPromptEvent, onInstallApp }) {
+function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInstallApp }) {
   const navigate = useNavigate();
   const { t, toggleLanguage, language } = useLanguage();
   if (!user) return null;
@@ -84,6 +88,7 @@ function Header({ user, onLogout, onMenuClick, installPromptEvent, onInstallApp 
               {t('common.installApp') || 'Install app'}
             </button>
           )}
+          {!user.isAdmin && token && <MessagesAndNotificationsDropdown token={token} />}
           <button
             type="button"
             onClick={toggleLanguage}
@@ -107,8 +112,9 @@ function Header({ user, onLogout, onMenuClick, installPromptEvent, onInstallApp 
   );
 }
 
-function Sidebar({ user, open, onClose }) {
+function Sidebar({ user, open, onClose, adminUnreadMessageCount = 0 }) {
   const { t } = useLanguage();
+  const supportCount = adminUnreadMessageCount ?? 0;
   return (
     <>
       {/* Mobile overlay: tap to close sidebar */}
@@ -132,9 +138,21 @@ function Sidebar({ user, open, onClose }) {
         {!user?.isAdmin && <Link to="/schedule" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('schedule.newPost')}</Link>}
         {!user?.isAdmin && <Link to="/templates" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('templates.menu') || 'Templates'}</Link>}
         {!user?.isAdmin && <Link to="/media" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('media.menu') || t('media.title') || 'Media'}</Link>}
+        {!user?.isAdmin && <Link to="/messages" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('common.messages')}</Link>}
         <Link to="/settings" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('settings.title')}</Link>
         <Link to="/profile" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('profile.title')}</Link>
-        {user?.isAdmin && <Link to="/admin" className="block px-3 py-2 rounded hover:bg-purple-100 dark:hover:bg-gray-700 font-medium">{t('admin.title')}</Link>}
+        {user?.isAdmin && (
+          <>
+            <Link to="/admin?section=overview" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium pl-6 text-sm">{t('admin.menuOverview')}</Link>
+            <Link to="/admin?section=users" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium pl-6 text-sm">{t('admin.menuUsers')}</Link>
+            <Link to="/admin?section=support" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium pl-6 text-sm flex items-center justify-between">
+              <span>{t('admin.menuSupport')}</span>
+              <span className={`min-w-[1.25rem] text-center text-xs font-semibold rounded-full px-1.5 py-0.5 ${supportCount > 0 ? 'bg-red-500 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'}`}>{supportCount}</span>
+            </Link>
+            <Link to="/admin?section=notifications" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium pl-6 text-sm">{t('admin.menuNotifications')}</Link>
+            <Link to="/admin?section=payments" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium pl-6 text-sm">{t('admin.menuPayments')}</Link>
+          </>
+        )}
       </nav>
     </div>
     </>
@@ -147,6 +165,18 @@ function AppContent() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
+  const [adminUnreadMessageCount, setAdminUnreadMessageCount] = useState(0);
+
+  // Admin: fetch unread support message count for sidebar badge
+  useEffect(() => {
+    if (!user?.isAdmin || !token) {
+      setAdminUnreadMessageCount(0);
+      return;
+    }
+    getUnreadMessageCount(token)
+      .then((r) => setAdminUnreadMessageCount(r.data?.unreadCount ?? 0))
+      .catch(() => setAdminUnreadMessageCount(0));
+  }, [user?.isAdmin, token, location.pathname]);
 
   // Close sidebar on mobile/tablet when route changes (e.g. after tapping Dashboard, Profile, Settings)
   useEffect(() => {
@@ -209,9 +239,9 @@ function AppContent() {
     <>
       <Toaster position="top-right" />
       <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900 min-w-0">
-        {user && <Sidebar user={user} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
+        {user && <Sidebar user={user} open={sidebarOpen} onClose={() => setSidebarOpen(false)} adminUnreadMessageCount={adminUnreadMessageCount} />}
         <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
-          <Header user={user} onLogout={clearAuth} onMenuClick={() => setSidebarOpen(true)} installPromptEvent={deferredInstallPrompt} onInstallApp={handleInstallClick} />
+          <Header user={user} token={token} onLogout={clearAuth} onMenuClick={() => setSidebarOpen(true)} installPromptEvent={deferredInstallPrompt} onInstallApp={handleInstallClick} />
           <div className="flex-1">
             <Routes>
               <Route path="/login" element={<Login setAuth={setAuth} />} />
@@ -252,6 +282,11 @@ function AppContent() {
                   <MediaUpload user={user} token={token} />
                 </PrivateRoute>
               } />
+              <Route path="/messages" element={
+                <PrivateRoute user={user}>
+                  <MessagesPage token={token} />
+                </PrivateRoute>
+              } />
               <Route path="/" element={
                 user
                   ? user.isAdmin
@@ -273,7 +308,9 @@ function AppContent() {
               <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
             </a>
           )}
-          <footer className="text-center text-gray-500 py-3 sm:py-4 px-4 text-sm border-t bg-white dark:bg-gray-800">© 2025 Christian - Develop</footer>
+          <footer className="text-center text-gray-500 dark:text-gray-400 py-3 sm:py-4 px-4 text-sm border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            © 2025 Christian · Develop · v{APP_VERSION}
+          </footer>
         </div>
       </div>
     </>

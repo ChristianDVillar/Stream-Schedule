@@ -1,9 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 // Admin: usuarios, licencias, pagos (listado/export), modal detalle, mensajes
-import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob } from '../api';
+import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob, sendNotification } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatDateUTC } from '../utils/dateUtils';
 import { maskEmail } from '../utils/emailUtils';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { buildPaymentsInvoicePdf } from '../utils/paymentInvoicePdf';
 
 const mockLogs = [
   { id: 1, action: 'User admin@example.com created', date: '2025-07-21 10:00' },
@@ -59,6 +62,10 @@ export default function AdminDashboard({ token, user, onLogout }) {
   const paymentsLimit = 50;
   const [paymentListFilters, setPaymentListFilters] = useState({ status: '', from: '', to: '' });
   const [exporting, setExporting] = useState(false);
+  const [notifTitle, setNotifTitle] = useState('');
+  const [notifContent, setNotifContent] = useState('');
+  const [notifBroadcast, setNotifBroadcast] = useState(true);
+  const [sendingNotif, setSendingNotif] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -172,6 +179,77 @@ export default function AdminDashboard({ token, user, onLogout }) {
       URL.revokeObjectURL(url);
     } catch (err) {
       window.alert(err.response?.data?.error || 'Error al descargar');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleDownloadPaymentsPdf = async () => {
+    if (!token) return;
+    setExporting(true);
+    try {
+      const blob = await getAdminPaymentsExportBlob({
+        token,
+        format: 'json',
+        status: paymentListFilters.status || undefined,
+        from: paymentListFilters.from || undefined,
+        to: paymentListFilters.to || undefined,
+      });
+      const text = await blob.text();
+      const data = JSON.parse(text);
+      if (!Array.isArray(data) || data.length === 0) {
+        window.alert(t('admin.noPaymentsMatch') || 'No hay pagos que coincidan con los filtros.');
+        return;
+      }
+      let logoDataUrl = null;
+      try {
+        const base = window.location.origin + (process.env.PUBLIC_URL || '');
+        const logoUrl = `${base}/Bot.png`;
+        logoDataUrl = await new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.naturalWidth || img.width;
+              canvas.height = img.naturalHeight || img.height;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(img, 0, 0);
+                resolve(canvas.toDataURL('image/png'));
+              } else {
+                resolve(null);
+              }
+            } catch (e) {
+              resolve(null);
+            }
+          };
+          img.onerror = () => resolve(null);
+          img.src = logoUrl;
+        });
+      } catch (_) {
+        // omit logo if load fails
+      }
+      const pdfBlob = buildPaymentsInvoicePdf(data, {
+        logoDataUrl,
+        appName: t('dashboard.appTitle') || 'Streamer Scheduler',
+        ownerName: 'Christian David Villar Colodro',
+        ownerEmail: 'christiandvillar@gmail.com',
+        colUsuario: t('admin.pdfColUsuario'),
+        colTipoSuscripcion: t('admin.pdfColTipoSuscripcion'),
+        colPago: t('admin.pdfColPago'),
+        colMoneda: t('admin.pdfColMoneda'),
+        totalLabel: t('admin.pdfTotalLabel'),
+      });
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `facturas_pagos_${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      window.alert(err.response?.data?.error || err.message || 'Error al generar PDF');
     } finally {
       setExporting(false);
     }
@@ -486,15 +564,20 @@ export default function AdminDashboard({ token, user, onLogout }) {
   };
 
   const expiringUsers = users.filter(u => u.licenseAlert === '7_days' || u.licenseAlert === '3_days' || u.licenseAlert === 'expired');
+  const [searchParams] = useSearchParams();
+  const section = searchParams.get('section') || 'overview';
 
   return (
-    <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8 min-w-0">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 min-w-0">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold text-blue-900 dark:text-blue-100">{t('admin.title')}</h1>
         {onLogout && (
           <button onClick={onLogout} className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded hover:from-blue-700 hover:to-purple-700 text-sm w-full sm:w-auto">{t('common.logout')}</button>
         )}
       </div>
+      <main className="space-y-6">
+          {section === 'overview' && (
+            <>
       <div className="mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg shadow-lg bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-900 border border-blue-100 dark:border-gray-700">
         <h2 className="text-lg sm:text-xl font-semibold text-blue-800 dark:text-blue-200 mb-2">{t('admin.welcome')}, <span className="font-bold">{user?.username}</span></h2>
         <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300">{t('admin.manageDescription') || 'Manage users, licenses and review system logs.'}</p>
@@ -527,13 +610,13 @@ export default function AdminDashboard({ token, user, onLogout }) {
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 sm:p-4 border-t-4 border-teal-400 col-span-2 sm:col-span-1">
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">Total ingresos</p>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">{t('admin.totalRevenueLabel')}</p>
           <p className="text-xl sm:text-2xl font-bold text-teal-700 dark:text-teal-200">
             {revenue.currency} {Number(stats.totalPaid).toFixed(2)}
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 sm:p-4 border-t-4 border-cyan-400 col-span-2 sm:col-span-1">
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">Ingresos recurrentes</p>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">{t('admin.recurringRevenueLabel')}</p>
           <p className="text-xl sm:text-2xl font-bold text-cyan-700 dark:text-cyan-200">
             {revenue.currency} {Number(stats.recurringRevenue).toFixed(2)}
           </p>
@@ -550,7 +633,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
             </div>
             <div className="ml-3 flex-1">
               <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                Password Change Reminder
+                {t('admin.passwordReminderTitle')}
               </h3>
               <div className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
                 {passwordReminders.filter(r => r.needsChange).map((reminder, idx) => (
@@ -567,18 +650,18 @@ export default function AdminDashboard({ token, user, onLogout }) {
       {/* License Configuration */}
       <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-blue-400">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-blue-700">License Configuration</h3>
+          <h3 className="text-lg font-bold text-blue-700 dark:text-blue-300">{t('admin.licenseConfigTitle')}</h3>
           <button
             onClick={() => setShowLicenseConfig(!showLicenseConfig)}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
-            {showLicenseConfig ? 'Hide' : 'Manage Available Licenses'}
+            {showLicenseConfig ? t('admin.hide') : t('admin.manageAvailableLicenses')}
           </button>
         </div>
         {showLicenseConfig && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Enable or disable license types that users can purchase. Only enabled types will appear in user settings.
+              {t('admin.licenseConfigDescription')}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
               <label className="flex items-center space-x-2 cursor-pointer">
@@ -588,7 +671,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                   onChange={(e) => setLicenseConfig(prev => ({ ...prev, monthly: e.target.checked }))}
                   className="w-4 h-4"
                 />
-                <span className="text-sm">Monthly</span>
+                <span className="text-sm">{t('admin.monthly')}</span>
               </label>
               <label className="flex items-center space-x-2">
                 <input
@@ -597,7 +680,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                   onChange={(e) => setLicenseConfig(prev => ({ ...prev, quarterly: e.target.checked }))}
                   className="w-4 h-4"
                 />
-                <span className="text-sm">Quarterly (3 months)</span>
+                <span className="text-sm">{t('admin.quarterly')}</span>
               </label>
               <label className="flex items-center space-x-2">
                 <input
@@ -606,7 +689,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                   onChange={(e) => setLicenseConfig(prev => ({ ...prev, lifetime: e.target.checked }))}
                   className="w-4 h-4"
                 />
-                <span className="text-sm">Lifetime</span>
+                <span className="text-sm">{t('admin.lifetime')}</span>
               </label>
               <label className="flex items-center space-x-2">
                 <input
@@ -615,14 +698,14 @@ export default function AdminDashboard({ token, user, onLogout }) {
                   onChange={(e) => setLicenseConfig(prev => ({ ...prev, temporary: e.target.checked }))}
                   className="w-4 h-4"
                 />
-                <span className="text-sm">Temporary (30 days)</span>
+                <span className="text-sm">{t('admin.temporary')}</span>
               </label>
             </div>
             <button
               onClick={handleUpdateLicenseConfig}
               className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
             >
-              Save Configuration
+              {t('admin.saveConfiguration')}
             </button>
           </div>
         )}
@@ -709,17 +792,17 @@ export default function AdminDashboard({ token, user, onLogout }) {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-yellow-500 mb-8">
         <h3 className="text-lg font-bold text-yellow-700 dark:text-yellow-300 mb-4">{t('admin.licensesToRenew')}</h3>
         {expiringUsers.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400">No hay licencias próximas a vencer.</p>
+          <p className="text-gray-500 dark:text-gray-400">{t('admin.noLicensesExpiringSoon')}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full bg-white dark:bg-gray-800 border dark:border-gray-700 rounded">
               <thead className="bg-yellow-50 dark:bg-gray-700">
                 <tr>
-                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">Usuario</th>
-                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">Email</th>
-                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">Tipo</th>
-                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">Expira</th>
-                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">Alerta</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.userTableHeader')}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('common.email')}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.licenseTypeLabel')}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.expiresLabel')}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.alert')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -728,18 +811,18 @@ export default function AdminDashboard({ token, user, onLogout }) {
                     <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">{u.username}</td>
                     <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white" title={u.email}>{maskEmail(u.email)}</td>
                     <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">
-                      {u.licenseType === 'lifetime' && 'De por vida'}
-                      {u.licenseType === 'monthly' && 'Mensual'}
-                      {u.licenseType === 'quarterly' && 'Cada 3 meses'}
-                      {u.licenseType === 'temporary' && 'Temporal 30 días'}
-                      {u.licenseType === 'trial' && 'Prueba 7 días'}
+                      {u.licenseType === 'lifetime' && t('admin.lifetime')}
+                      {u.licenseType === 'monthly' && t('admin.monthly')}
+                      {u.licenseType === 'quarterly' && t('admin.quarterly')}
+                      {u.licenseType === 'temporary' && t('admin.temporary')}
+                      {u.licenseType === 'trial' && t('admin.trial')}
                       {!u.licenseType && '—'}
                     </td>
                     <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">{u.licenseExpiresAt ? formatDateUTC(u.licenseExpiresAt) : '—'}</td>
                     <td className="px-4 py-2 border dark:border-gray-700">
-                      {u.licenseAlert === 'expired' && <span className="text-red-600 dark:text-red-400 font-semibold">Vencida</span>}
-                      {u.licenseAlert === '3_days' && <span className="text-red-600 dark:text-red-400 font-semibold">3 días</span>}
-                      {u.licenseAlert === '7_days' && <span className="text-yellow-600 dark:text-yellow-400 font-semibold">7 días</span>}
+                      {u.licenseAlert === 'expired' && <span className="text-red-600 dark:text-red-400 font-semibold">{t('admin.expired')}</span>}
+                      {u.licenseAlert === '3_days' && <span className="text-red-600 dark:text-red-400 font-semibold">{t('admin.days3')}</span>}
+                      {u.licenseAlert === '7_days' && <span className="text-yellow-600 dark:text-yellow-400 font-semibold">{t('admin.days7')}</span>}
                     </td>
                   </tr>
                 ))}
@@ -751,14 +834,14 @@ export default function AdminDashboard({ token, user, onLogout }) {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-emerald-500 mb-8">
         <h3 className="text-lg font-bold text-emerald-700 dark:text-emerald-300 mb-4">{t('admin.monthlyEarnings')}</h3>
         {revenue.monthlyTotals.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400">No hay pagos registrados.</p>
+          <p className="text-gray-500 dark:text-gray-400">{t('admin.noPaymentsRegistered')}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full bg-white dark:bg-gray-800 border dark:border-gray-700 rounded">
               <thead className="bg-emerald-50 dark:bg-gray-700">
                 <tr>
-                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">Mes</th>
-                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">Monto</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.monthLabel')}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.amountLabel')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -775,120 +858,119 @@ export default function AdminDashboard({ token, user, onLogout }) {
           </div>
         )}
       </div>
+            </>
+          )}
 
-      {/* Listado de pagos y descarga para gestores */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-indigo-500 mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-          <h3 className="text-lg font-bold text-indigo-700 dark:text-indigo-300">Pagos (listado)</h3>
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={paymentListFilters.status}
-              onChange={(e) => { setPaymentListFilters(prev => ({ ...prev, status: e.target.value })); setPaymentsOffset(0); }}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
-            >
-              <option value="">Todos los estados</option>
-              <option value="completed">Completados</option>
-              <option value="pending">Pendientes</option>
-              <option value="refunded">Reembolsados</option>
-              <option value="failed">Fallidos</option>
-            </select>
+          {section === 'users' && (
+            <>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+        {/* Create user */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-green-400">
+          <h3 className="text-lg font-bold text-green-700 mb-4">{t('admin.createUser')}</h3>
+          <div className="space-y-3">
             <input
-              type="date"
-              value={paymentListFilters.from}
-              onChange={(e) => { setPaymentListFilters(prev => ({ ...prev, from: e.target.value })); setPaymentsOffset(0); }}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
-              title="Desde"
+              type="text"
+              placeholder={t('common.username')}
+              value={createData.username}
+              onChange={e => setCreateData(prev => ({ ...prev, username: e.target.value }))}
+              className="w-full border px-3 py-2 rounded bg-white dark:bg-gray-900 dark:border-gray-700"
             />
             <input
-              type="date"
-              value={paymentListFilters.to}
-              onChange={(e) => { setPaymentListFilters(prev => ({ ...prev, to: e.target.value })); setPaymentsOffset(0); }}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
-              title="Hasta"
+              type="email"
+              placeholder={t('common.email')}
+              value={createData.email}
+              onChange={e => setCreateData(prev => ({ ...prev, email: e.target.value }))}
+              className="w-full border px-3 py-2 rounded bg-white dark:bg-gray-900 dark:border-gray-700"
             />
+            <input
+              type="password"
+              placeholder={t('common.password')}
+              value={createData.password}
+              onChange={e => setCreateData(prev => ({ ...prev, password: e.target.value }))}
+              className="w-full border px-3 py-2 rounded bg-white dark:bg-gray-900 dark:border-gray-700"
+            />
+            <label className="flex items-center space-x-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={createData.isAdmin}
+                onChange={e => setCreateData(prev => ({ ...prev, isAdmin: e.target.checked }))}
+              />
+              <span>{t('common.admin')}</span>
+            </label>
             <button
-              onClick={() => handleDownloadPayments('csv')}
-              disabled={exporting}
-              className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm"
+              onClick={handleCreateUser}
+              disabled={creating}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
             >
-              {exporting ? '...' : 'Descargar CSV'}
-            </button>
-            <button
-              onClick={() => handleDownloadPayments('json')}
-              disabled={exporting}
-              className="px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 text-sm"
-            >
-              Descargar JSON
+              {creating ? t('admin.creating') : t('common.create')}
             </button>
           </div>
         </div>
-        {paymentsListError ? (
-          <p className="text-amber-600 dark:text-amber-400 py-4 text-sm">{paymentsListError}</p>
-        ) : paymentsLoading ? (
-          <p className="text-gray-500 dark:text-gray-400 py-4">Cargando pagos...</p>
-        ) : paymentsList.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400 py-4">No hay pagos que coincidan con los filtros.</p>
+        {/* Licencias asignadas */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-blue-400">
+          <h3 className="text-lg font-bold text-blue-700 dark:text-blue-300 mb-4">{t('admin.assignedLicenses')}</h3>
+          <ul className="space-y-2">
+            {users.filter(u => u.licenseKey).length === 0 ? (
+              <li className="text-gray-500 dark:text-gray-400">{t('admin.noLicenses')}</li>
+            ) : (
+              users.filter(u => u.licenseKey).map(u => (
+                <li key={u.id} className="flex items-center justify-between bg-blue-50 dark:bg-gray-700/50 rounded px-3 py-2 group hover:bg-blue-100 dark:hover:bg-gray-700 transition-colors">
+                  <div className="flex flex-col">
+                    <span className="font-mono text-blue-900 dark:text-blue-200 group-hover:dark:text-blue-100">{u.licenseKey}</span>
+                    <span className="text-xs text-gray-600 dark:text-gray-300 group-hover:dark:text-gray-200">
+                      {u.licenseType === 'lifetime' ? t('admin.lifetime') : u.licenseType === 'trial' ? t('admin.trial') : t('admin.temporary')}
+                      {u.licenseExpiresAt ? ` · ${t('admin.expiresAt')} ${formatDateUTC(u.licenseExpiresAt)}` : ''}
+                    </span>
+                  </div>
+                  <span className="text-sm text-gray-700 dark:text-gray-200 group-hover:dark:text-gray-100">{u.username}</span>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+      </div>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-yellow-500 mb-8">
+        <h3 className="text-lg font-bold text-yellow-700 dark:text-yellow-300 mb-4">{t('admin.licensesToRenew')}</h3>
+        {expiringUsers.length === 0 ? (
+          <p className="text-gray-500 dark:text-gray-400">{t('admin.noLicensesExpiringSoon')}</p>
         ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="min-w-full bg-white dark:bg-gray-800 border dark:border-gray-700 rounded">
-                <thead className="bg-indigo-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">ID</th>
-                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">Usuario</th>
-                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">Email</th>
-                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">Tipo</th>
-                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-right">Monto</th>
-                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">Estado</th>
-                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">Recurrente</th>
-                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">Fecha</th>
+          <div className="overflow-x-auto">
+            <table className="min-w-full bg-white dark:bg-gray-800 border dark:border-gray-700 rounded">
+              <thead className="bg-yellow-50 dark:bg-gray-700">
+                <tr>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.userTableHeader')}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('common.email')}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.licenseTypeLabel')}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.expiresLabel')}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.alert')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {expiringUsers.map(u => (
+                  <tr key={u.id} className="group hover:bg-yellow-50 dark:hover:bg-gray-700/80 transition-colors">
+                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">{u.username}</td>
+                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white" title={u.email}>{maskEmail(u.email)}</td>
+                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">
+                      {u.licenseType === 'lifetime' && t('admin.lifetime')}
+                      {u.licenseType === 'monthly' && t('admin.monthly')}
+                      {u.licenseType === 'quarterly' && t('admin.quarterly')}
+                      {u.licenseType === 'temporary' && t('admin.temporary')}
+                      {u.licenseType === 'trial' && t('admin.trial')}
+                      {!u.licenseType && '—'}
+                    </td>
+                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">{u.licenseExpiresAt ? formatDateUTC(u.licenseExpiresAt) : '—'}</td>
+                    <td className="px-4 py-2 border dark:border-gray-700">
+                      {u.licenseAlert === 'expired' && <span className="text-red-600 dark:text-red-400 font-semibold">{t('admin.expired')}</span>}
+                      {u.licenseAlert === '3_days' && <span className="text-red-600 dark:text-red-400 font-semibold">{t('admin.days3')}</span>}
+                      {u.licenseAlert === '7_days' && <span className="text-yellow-600 dark:text-yellow-400 font-semibold">{t('admin.days7')}</span>}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {paymentsList.map(p => (
-                    <tr key={p.id} className="hover:bg-indigo-50 dark:hover:bg-gray-700/80 transition-colors">
-                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100">{p.id}</td>
-                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100">{p.username || '—'}</td>
-                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100" title={p.email}>{maskEmail(p.email || '')}</td>
-                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100">{p.licenseType || '—'}</td>
-                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 text-right">{p.currency} {Number(p.amount).toFixed(2)}</td>
-                      <td className="px-4 py-2 border dark:border-gray-700">
-                        <span className={`px-2 py-0.5 text-xs rounded ${p.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' : p.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300' : p.status === 'refunded' ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}`}>
-                          {p.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100">{p.isRecurring ? t('common.yes') : t('common.no')}</td>
-                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm">{(p.paidAt || p.createdAt) ? formatDateUTC(p.paidAt || p.createdAt) : '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Mostrando {paymentsList.length} de {paymentsTotal} pagos
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPaymentsOffset(Math.max(0, paymentsOffset - paymentsLimit))}
-                  disabled={paymentsOffset === 0}
-                  className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm disabled:opacity-50"
-                >
-                  Anterior
-                </button>
-                <button
-                  onClick={() => setPaymentsOffset(paymentsOffset + paymentsLimit)}
-                  disabled={paymentsOffset + paymentsList.length >= paymentsTotal}
-                  className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm disabled:opacity-50"
-                >
-                  Siguiente
-                </button>
-              </div>
-            </div>
-          </>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
-      {/* Tabla de usuarios */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-blue-600">
         <h3 className="text-lg font-bold text-blue-800 dark:text-blue-200 mb-4">{t('admin.users')}</h3>
         {loading ? (
@@ -912,7 +994,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                   <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.alert')}</th>
                   <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.connectedPlatforms') || 'Plataformas'}</th>
                   <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.isAdmin')}</th>
-                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">Ext. Trial</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.extendTrialShort')}</th>
                   <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.actions')}</th>
                 </tr>
               </thead>
@@ -1002,7 +1084,6 @@ export default function AdminDashboard({ token, user, onLogout }) {
                     </td>
                     <td className="px-4 py-2 border dark:border-gray-700">
                       <div className="flex flex-wrap gap-2 items-center" onClick={(e) => e.stopPropagation()}>
-                        {/* Extend Trial Button - Only show for users with active trial */}
                         {u.licenseType === 'trial' && u.licenseExpiresAt && (u.trialExtensions || 0) < 2 && (
                           <div className="flex items-center gap-1">
                             <input
@@ -1012,21 +1093,18 @@ export default function AdminDashboard({ token, user, onLogout }) {
                               value={extendTrialDays[u.id] || 7}
                               onChange={(e) => {
                                 const value = parseInt(e.target.value) || 7;
-                                setExtendTrialDays(prev => ({ 
-                                  ...prev, 
-                                  [u.id]: Math.min(7, Math.max(1, value)) 
-                                }));
+                                setExtendTrialDays(prev => ({ ...prev, [u.id]: Math.min(7, Math.max(1, value)) }));
                               }}
                               className="w-12 px-1 py-1 text-xs border rounded bg-white dark:bg-gray-900"
-                              title="Días a extender (1-7)"
+                              title={t('admin.extendTrialDaysTitle')}
                             />
                             <button
                               className="px-2 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
                               disabled={extendingTrial === u.id}
                               onClick={() => handleExtendTrial(u.id)}
-                              title={`Extender trial (${u.trialExtensions || 0}/2 extensiones usadas)`}
+                              title={`${t('admin.extendTrial')} (${u.trialExtensions || 0}/2)`}
                             >
-                              {extendingTrial === u.id ? '...' : `Extender`}
+                              {extendingTrial === u.id ? '...' : t('admin.extendTrial')}
                             </button>
                           </div>
                         )}
@@ -1036,31 +1114,31 @@ export default function AdminDashboard({ token, user, onLogout }) {
                               className="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                               disabled={generating[u.id] || u.hasUsedTrial}
                               onClick={() => handleAssignTrial(u.id)}
-                              title={u.hasUsedTrial ? 'Este usuario ya usó su trial' : 'Asignar trial de 7 días (solo una vez)'}
+                              title={u.hasUsedTrial ? t('admin.trialUsed') : t('admin.assignTrialTooltip')}
                             >
-                              {generating[u.id] ? '...' : u.hasUsedTrial ? 'Trial usado' : 'Trial 7d'}
+                              {generating[u.id] ? '...' : u.hasUsedTrial ? t('admin.trialUsedLabel') : t('admin.trial7Days')}
                             </button>
                             <button
                               className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                               disabled={generating[u.id]}
                               onClick={() => handleGenerateLicense(u.id, 'monthly')}
-                              title="Generar licencia mensual"
+                              title={t('admin.generateMonthly')}
                             >
-                              {generating[u.id] ? '...' : 'Mensual'}
+                              {generating[u.id] ? '...' : t('admin.monthly')}
                             </button>
                             <button
                               className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                               disabled={generating[u.id]}
                               onClick={() => handleGenerateLicense(u.id, 'lifetime')}
-                              title="Generar licencia de por vida"
+                              title={t('admin.generateLifetime')}
                             >
-                              {generating[u.id] ? '...' : 'Vida'}
+                              {generating[u.id] ? '...' : t('admin.lifetime')}
                             </button>
                             <button
                               className="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                               disabled={generating[u.id]}
                               onClick={() => handleGenerateLicense(u.id, 'quarterly')}
-                              title="Generar licencia trimestral"
+                              title={t('admin.generateQuarterly')}
                             >
                               {generating[u.id] ? '...' : '3M'}
                             </button>
@@ -1071,18 +1149,18 @@ export default function AdminDashboard({ token, user, onLogout }) {
                             value={licenseEdits[u.id] || u.licenseType || 'none'}
                             onChange={e => setLicenseEdits(prev => ({ ...prev, [u.id]: e.target.value }))}
                             className="border px-2 py-1 rounded text-xs bg-white dark:bg-gray-900"
-                            title="Seleccionar tipo de licencia"
+                            title={t('admin.selectLicenseType')}
                           >
-                            <option value="none">Sin licencia</option>
-                            <option value="monthly">Mensual</option>
-                            <option value="quarterly">Cada 3 meses</option>
-                            <option value="temporary">Temporal 30 días</option>
-                            <option value="lifetime">De por vida</option>
+                            <option value="none">{t('admin.none')}</option>
+                            <option value="monthly">{t('admin.monthly')}</option>
+                            <option value="quarterly">{t('admin.quarterly')}</option>
+                            <option value="temporary">{t('admin.temporary')}</option>
+                            <option value="lifetime">{t('admin.lifetime')}</option>
                           </select>
                           <button
                             className="px-2 py-1 text-xs bg-gray-700 text-white rounded hover:bg-gray-800"
                             onClick={() => handleUpdateLicense(u.id)}
-                            title="Actualizar licencia"
+                            title={t('admin.updateLicense')}
                           >
                             ✓
                           </button>
@@ -1090,7 +1168,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                         <button
                           className="px-2 py-1 text-xs bg-yellow-500 text-white rounded hover:bg-yellow-600"
                           onClick={(e) => { e.stopPropagation(); handleEditEmail(u); }}
-                          title="Editar email"
+                          title={t('admin.changeEmail')}
                         >
                           📧
                         </button>
@@ -1098,7 +1176,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                           className="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                           disabled={resetting === u.id}
                           onClick={(e) => { e.stopPropagation(); handleResetPassword(u.id); }}
-                          title="Enviar correo para cambio de contraseña"
+                          title={t('admin.sendPasswordResetEmail')}
                         >
                           {resetting === u.id ? '...' : '🔑'}
                         </button>
@@ -1106,7 +1184,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                           className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                           disabled={deletingUserId === u.id || u.id === user?.id}
                           onClick={(e) => { e.stopPropagation(); handleDeleteUser(u.id); }}
-                          title={u.id === user?.id ? 'No puedes eliminarte a ti mismo' : t('admin.deleteUser')}
+                          title={u.id === user?.id ? '' : t('admin.deleteUser')}
                         >
                           {deletingUserId === u.id ? '...' : t('admin.deleteUser')}
                         </button>
@@ -1119,73 +1197,72 @@ export default function AdminDashboard({ token, user, onLogout }) {
           </div>
         )}
       </div>
+            </>
+          )}
 
-      {/* Messages Section */}
+          {section === 'support' && (
+            <>
       <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-            Messages {unreadCount > 0 && <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">{unreadCount}</span>}
+            {t('admin.supportMessages')} {unreadCount > 0 && <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">{unreadCount}</span>}
           </h2>
         </div>
-
-        {/* Filters */}
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
           <select
             value={messageFilters.status}
             onChange={(e) => setMessageFilters({ ...messageFilters, status: e.target.value })}
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
           >
-            <option value="">All Status</option>
-            <option value="unread">Unread</option>
-            <option value="read">Read</option>
-            <option value="replied">Replied</option>
-            <option value="archived">Archived</option>
+            <option value="">{t('admin.allStatus')}</option>
+            <option value="unread">{t('admin.unread')}</option>
+            <option value="read">{t('admin.read')}</option>
+            <option value="replied">{t('admin.replied')}</option>
+            <option value="archived">{t('admin.archived')}</option>
           </select>
           <select
             value={messageFilters.resolved || ''}
             onChange={(e) => setMessageFilters({ ...messageFilters, resolved: e.target.value })}
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
           >
-            <option value="">All</option>
-            <option value="false">Active</option>
-            <option value="true">Resolved</option>
+            <option value="">{t('common.filter')}</option>
+            <option value="false">{t('admin.active')}</option>
+            <option value="true">{t('admin.resolved')}</option>
           </select>
           <select
             value={messageFilters.priority}
             onChange={(e) => setMessageFilters({ ...messageFilters, priority: e.target.value })}
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
           >
-            <option value="">All Priorities</option>
-            <option value="urgent">Urgent</option>
-            <option value="high">High</option>
-            <option value="normal">Normal</option>
-            <option value="low">Low</option>
+            <option value="">{t('admin.allPriorities')}</option>
+            <option value="urgent">{t('admin.urgent')}</option>
+            <option value="high">{t('admin.high')}</option>
+            <option value="normal">{t('admin.normal')}</option>
+            <option value="low">{t('admin.low')}</option>
           </select>
           <select
             value={messageFilters.category}
             onChange={(e) => setMessageFilters({ ...messageFilters, category: e.target.value })}
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
           >
-            <option value="">All Categories</option>
-            <option value="support">Support</option>
-            <option value="bug">Bug</option>
-            <option value="feature">Feature</option>
-            <option value="billing">Billing</option>
-            <option value="account">Account</option>
-            <option value="other">Other</option>
+            <option value="">{t('admin.allCategories')}</option>
+            <option value="support">{t('admin.support')}</option>
+            <option value="bug">{t('admin.bug')}</option>
+            <option value="feature">{t('admin.feature')}</option>
+            <option value="billing">{t('admin.billing')}</option>
+            <option value="account">{t('admin.account')}</option>
+            <option value="other">{t('admin.other')}</option>
           </select>
         </div>
-
-        {/* Messages List */}
         {messagesLoading ? (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">Loading messages...</div>
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">{t('admin.loadingMessages')}</div>
         ) : messages.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">No messages found</div>
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">{t('admin.noMessagesFound')}</div>
         ) : (
-          <div className="space-y-2 max-h-96 overflow-y-auto">
+          <div className="space-y-2 max-h-[70vh] overflow-y-auto">
             {messages.map((msg) => (
               <div
                 key={msg.id}
@@ -1220,7 +1297,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                     </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{msg.content}</p>
                     <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-500">
-                      <span>From: {msg.user?.username || msg.user?.email || 'Unknown'}</span>
+                      <span>{t('admin.from')}: {msg.user?.username || msg.user?.email || 'Unknown'}</span>
                       <span>{new Date(msg.createdAt).toLocaleString()}</span>
                       {msg.attachments && msg.attachments.length > 0 && (
                         <span className="flex items-center gap-1">
@@ -1235,12 +1312,12 @@ export default function AdminDashboard({ token, user, onLogout }) {
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                           </svg>
-                          Resolved
+                          {t('admin.resolved')}
                         </span>
                       )}
                       {msg.replies && msg.replies.length > 0 && !msg.resolved && (
                         <span className="text-green-600 dark:text-green-400">
-                          {msg.replies.length} {msg.replies.length === 1 ? 'reply' : 'replies'}
+                          {msg.replies.length === 1 ? t('admin.replyCount', { count: 1 }) : t('admin.replyCount_other', { count: msg.replies.length })}
                         </span>
                       )}
                     </div>
@@ -1251,14 +1328,14 @@ export default function AdminDashboard({ token, user, onLogout }) {
                         onClick={() => handleUpdateStatus(msg.id, 'archived')}
                         className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-500"
                       >
-                        Archive
+                        {t('admin.archive')}
                       </button>
                     )}
                     <button
                       onClick={() => handleDeleteMessage(msg.id)}
                       className="px-2 py-1 text-xs bg-red-200 dark:bg-red-900/40 text-red-800 dark:text-red-300 rounded hover:bg-red-300 dark:hover:bg-red-900/60"
                     >
-                      Delete
+                      {t('admin.delete')}
                     </button>
                   </div>
                 </div>
@@ -1267,7 +1344,251 @@ export default function AdminDashboard({ token, user, onLogout }) {
           </div>
         )}
       </div>
+            </>
+          )}
 
+          {section === 'notifications' && (
+            <>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-amber-400">
+        <h3 className="text-lg font-bold text-amber-700 dark:text-amber-300 mb-4">{t('admin.sendNotificationTitle')}</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          {t('admin.sendNotificationDescription')}
+        </p>
+        <div className="space-y-3 max-w-xl">
+          <input
+            type="text"
+            placeholder={t('admin.notificationTitlePlaceholder')}
+            value={notifTitle}
+            onChange={(e) => setNotifTitle(e.target.value)}
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+          />
+          <textarea
+            placeholder={t('admin.notificationContentPlaceholder')}
+            value={notifContent}
+            onChange={(e) => setNotifContent(e.target.value)}
+            rows={3}
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+          />
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              checked={notifBroadcast}
+              onChange={(e) => setNotifBroadcast(e.target.checked)}
+              className="rounded"
+            />
+            {t('admin.sendToAllUsers')}
+          </label>
+          <button
+            onClick={async () => {
+              if (!notifTitle.trim() || !notifContent.trim()) {
+                window.alert(t('admin.titleAndContentRequired'));
+                return;
+              }
+              setSendingNotif(true);
+              try {
+                await sendNotification({ title: notifTitle.trim(), content: notifContent.trim(), broadcast: notifBroadcast, token });
+                window.alert(t('admin.notificationSent'));
+                setNotifTitle('');
+                setNotifContent('');
+              } catch (err) {
+                window.alert(err.response?.data?.error || t('common.error'));
+              } finally {
+                setSendingNotif(false);
+              }
+            }}
+            disabled={sendingNotif}
+            className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50"
+          >
+            {sendingNotif ? t('admin.sendingNotification') : t('admin.sendNotification')}
+          </button>
+        </div>
+      </div>
+            </>
+          )}
+
+          {section === 'payments' && (
+            <>
+      {/* Gráfico de ingresos por semana */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-emerald-500 mb-6">
+        <h3 className="text-lg font-bold text-emerald-700 dark:text-emerald-300 mb-4">{t('admin.revenueChartWeekly') || 'Ingresos por semana'}</h3>
+        {(revenue.weeklyTotals && revenue.weeklyTotals.length > 0) ? (
+          <div className="w-full" style={{ minWidth: 280, height: 300 }}>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart
+                data={revenue.weeklyTotals.map((row) => ({ week: row.week, amount: Number(row.amount) }))}
+                margin={{ top: 12, right: 16, left: 8, bottom: 24 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-600" />
+                <XAxis dataKey="week" tick={{ fill: 'currentColor', fontSize: 11 }} className="text-gray-600 dark:text-gray-400" tickFormatter={(v) => (v || '').slice(0, 10)} />
+                <YAxis tick={{ fill: 'currentColor', fontSize: 12 }} className="text-gray-600 dark:text-gray-400" tickFormatter={(v) => `${revenue.currency} ${v}`} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: 'var(--tw-bg-opacity, 1)', border: '1px solid rgba(0,0,0,0.1)' }}
+                  labelStyle={{ color: 'inherit' }}
+                  formatter={(value) => [`${revenue.currency} ${Number(value).toFixed(2)}`, t('admin.amountLabel')]}
+                  labelFormatter={(label) => (label ? String(label).slice(0, 10) : '')}
+                />
+                <Bar dataKey="amount" fill="#10b981" name={t('admin.amountLabel')} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <p className="text-gray-500 dark:text-gray-400 py-6 text-center">{t('admin.noPaymentsRegistered')}</p>
+        )}
+      </div>
+      {/* Gráfico mensual por tipo de suscripción (torta) */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-emerald-600 mb-6">
+        <h3 className="text-lg font-bold text-emerald-700 dark:text-emerald-300 mb-4">{t('admin.revenueChartMonthly') || 'Ingresos por tipo de suscripción'}</h3>
+        {(revenue.totalsByLicenseType && revenue.totalsByLicenseType.length > 0) ? (
+          <div className="w-full" style={{ minWidth: 280, height: 300 }}>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={revenue.totalsByLicenseType}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  labelLine={{ stroke: 'currentColor' }}
+                >
+                  {revenue.totalsByLicenseType.map((_, index) => (
+                    <Cell key={index} fill={['#059669', '#0d9488', '#0891b2', '#6366f1', '#8b5cf6'][index % 5]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value) => [`${revenue.currency} ${Number(value).toFixed(2)}`, t('admin.amountLabel')]}
+                />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <p className="text-gray-500 dark:text-gray-400 py-6 text-center">{t('admin.noPaymentsRegistered')}</p>
+        )}
+      </div>
+      {/* Listado de pagos y descarga para gestores */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-indigo-500">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+          <h3 className="text-lg font-bold text-indigo-700 dark:text-indigo-300">{t('admin.paymentsListTitle')}</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={paymentListFilters.status}
+              onChange={(e) => { setPaymentListFilters(prev => ({ ...prev, status: e.target.value })); setPaymentsOffset(0); }}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+            >
+              <option value="">{t('admin.allStatuses')}</option>
+              <option value="completed">completed</option>
+              <option value="pending">pending</option>
+              <option value="refunded">refunded</option>
+              <option value="failed">failed</option>
+            </select>
+            <input
+              type="date"
+              value={paymentListFilters.from}
+              onChange={(e) => { setPaymentListFilters(prev => ({ ...prev, from: e.target.value })); setPaymentsOffset(0); }}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+              title={t('admin.fromDate')}
+            />
+            <input
+              type="date"
+              value={paymentListFilters.to}
+              onChange={(e) => { setPaymentListFilters(prev => ({ ...prev, to: e.target.value })); setPaymentsOffset(0); }}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+              title={t('admin.toDate')}
+            />
+            <button
+              onClick={() => handleDownloadPayments('csv')}
+              disabled={exporting}
+              className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm"
+            >
+              {exporting ? '...' : t('admin.downloadCsv')}
+            </button>
+            <button
+              onClick={() => handleDownloadPayments('json')}
+              disabled={exporting}
+              className="px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 text-sm"
+            >
+              {t('admin.downloadJson')}
+            </button>
+            <button
+              onClick={handleDownloadPaymentsPdf}
+              disabled={exporting}
+              className="px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 text-sm"
+            >
+              {exporting ? '...' : t('admin.downloadPdfInvoices')}
+            </button>
+          </div>
+        </div>
+        {paymentsListError ? (
+          <p className="text-amber-600 dark:text-amber-400 py-4 text-sm">{paymentsListError}</p>
+        ) : paymentsLoading ? (
+          <p className="text-gray-500 dark:text-gray-400 py-4">{t('admin.loadingPayments')}</p>
+        ) : paymentsList.length === 0 ? (
+          <p className="text-gray-500 dark:text-gray-400 py-4">{t('admin.noPaymentsMatch')}</p>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="min-w-full bg-white dark:bg-gray-800 border dark:border-gray-700 rounded">
+                <thead className="bg-indigo-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">{t('admin.id')}</th>
+                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">{t('admin.userTableHeader')}</th>
+                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">{t('common.email')}</th>
+                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">{t('admin.licenseTypeLabel')}</th>
+                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-right">{t('admin.amountLabel')}</th>
+                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">{t('dashboard.status') || 'Status'}</th>
+                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">{t('admin.recurring')}</th>
+                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">{t('admin.date')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paymentsList.map(p => (
+                    <tr key={p.id} className="hover:bg-indigo-50 dark:hover:bg-gray-700/80 transition-colors">
+                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100">{p.id}</td>
+                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100">{p.username || '—'}</td>
+                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100" title={p.email}>{maskEmail(p.email || '')}</td>
+                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100">{p.licenseType || '—'}</td>
+                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 text-right">{p.currency} {Number(p.amount).toFixed(2)}</td>
+                      <td className="px-4 py-2 border dark:border-gray-700">
+                        <span className={`px-2 py-0.5 text-xs rounded ${p.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' : p.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300' : p.status === 'refunded' ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}`}>
+                          {p.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100">{p.isRecurring ? t('common.yes') : t('common.no')}</td>
+                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm">{(p.paidAt || p.createdAt) ? formatDateUTC(p.paidAt || p.createdAt) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {t('admin.showingPayments', { count: paymentsList.length, total: paymentsTotal })}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPaymentsOffset(Math.max(0, paymentsOffset - paymentsLimit))}
+                  disabled={paymentsOffset === 0}
+                  className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm disabled:opacity-50"
+                >
+                  {t('admin.previous')}
+                </button>
+                <button
+                  onClick={() => setPaymentsOffset(paymentsOffset + paymentsLimit)}
+                  disabled={paymentsOffset + paymentsList.length >= paymentsTotal}
+                  className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm disabled:opacity-50"
+                >
+                  {t('admin.next')}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+            </>
+          )}
+      </main>
       {/* Message Modal */}
       {showMessageModal && selectedMessage && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowMessageModal(false)}>
