@@ -1,7 +1,8 @@
 /**
  * Compress images and videos to stay under Discord bot API limit (8MB).
  * Images: sharp (resize + quality).
- * Videos: native FFmpeg (bitrate fijo 800k/64k, 480p) si está instalado; si no, ffmpeg.wasm.
+ * Videos: native FFmpeg (bitrate fijo 800k/64k, 480p) si está instalado; si no, ffmpeg.wasm (salvo en prod con USE_FFMPEG_NATIVE_ONLY).
+ * Concurrencia de compresión de video: 1 (cola global) para no saturar CPU/RAM.
  */
 
 import { execFile } from 'child_process';
@@ -14,10 +15,20 @@ import logger from './logger.js';
 const execFileAsync = promisify(execFile);
 const TARGET_MAX_BYTES = 7.5 * 1024 * 1024; // 7.5MB to leave room for multipart overhead
 
-// Parámetros recomendados para Discord: 480p, bitrate controlado, ~6–8 MB
+// Parámetros recomendados para Discord: 480p, bitrate controlado, ~6–8 MB. Preset veryfast para menos CPU.
 const FFMPEG_VIDEO_BITRATE = '800k';
 const FFMPEG_AUDIO_BITRATE = '64k';
 const FFMPEG_SCALE = '854:-2'; // 480p, aspect ratio kept
+const FFMPEG_PRESET = 'veryfast'; // CPU-friendly; evita veryslow en servidor compartido
+
+/** Timeout para FFmpeg nativo (ms). Evita procesos colgados. */
+const COMPRESS_VIDEO_TIMEOUT_MS = Number(process.env.COMPRESS_VIDEO_TIMEOUT_MS) || 10 * 60 * 1000; // 10 min default
+
+/** En producción no usar ffmpeg.wasm por defecto (solo nativo). Si FFmpeg no está instalado en el servidor, setear USE_FFMPEG_NATIVE_ONLY=false hasta instalarlo. */
+const USE_FFMPEG_NATIVE_ONLY = process.env.USE_FFMPEG_NATIVE_ONLY !== 'false' && (process.env.USE_FFMPEG_NATIVE_ONLY === 'true' || process.env.NODE_ENV === 'production');
+
+/** Cola global: solo 1 compresión de video a la vez para no saturar CPU/RAM. */
+let videoCompressionTail = Promise.resolve();
 
 let ffmpegInstance = null;
 
@@ -30,7 +41,7 @@ async function getFFmpeg() {
 
 /**
  * Comprimir video con FFmpeg nativo (si está instalado).
- * Método profesional: bitrate fijo, 480p, baseline, faststart. Tamaño predecible.
+ * Preset veryfast para menos CPU; timeout para no colgar el proceso.
  * @param {Buffer} buffer
  * @param {number} maxBytes
  * @returns {Promise<Buffer|null>}
@@ -47,7 +58,7 @@ async function compressVideoNative(buffer, maxBytes) {
       [
         '-i', inputPath,
         '-vcodec', 'libx264',
-        '-preset', 'veryslow',
+        '-preset', FFMPEG_PRESET,
         '-profile:v', 'baseline',
         '-level', '3.0',
         '-vf', `scale=${FFMPEG_SCALE}`,
@@ -57,6 +68,7 @@ async function compressVideoNative(buffer, maxBytes) {
         '-y',
         outputPath,
       ],
+      { timeout: COMPRESS_VIDEO_TIMEOUT_MS },
     );
     const outBuf = await fs.promises.readFile(outputPath);
     if (outBuf.length > 0 && outBuf.length <= maxBytes) {
@@ -71,7 +83,7 @@ async function compressVideoNative(buffer, maxBytes) {
     }
     return null;
   } catch (err) {
-    logger.warn('Compress: native FFmpeg failed (will try WASM)', { error: err.message });
+    logger.warn('Compress: native FFmpeg failed (will try WASM unless native-only)', { error: err.message });
     return null;
   } finally {
     await fs.promises.unlink(inputPath).catch(() => {});
@@ -115,7 +127,7 @@ export async function compressImage(buffer, maxBytes = TARGET_MAX_BYTES) {
 }
 
 /**
- * Compress video: intenta FFmpeg nativo (bitrate fijo 800k/64k, 480p); si no, ffmpeg.wasm.
+ * Compress video: intenta FFmpeg nativo; si no, ffmpeg.wasm (salvo USE_FFMPEG_NATIVE_ONLY o NODE_ENV=production).
  * @param {Buffer} buffer - Raw video (e.g. mp4)
  * @param {number} maxBytes - Max size in bytes (default 7.5MB)
  * @returns {Promise<Buffer|null>} Compressed buffer or null if fails
@@ -123,12 +135,26 @@ export async function compressImage(buffer, maxBytes = TARGET_MAX_BYTES) {
 export async function compressVideo(buffer, maxBytes = TARGET_MAX_BYTES) {
   if (buffer.length <= maxBytes) return buffer;
 
-  // 1) Intentar FFmpeg nativo (recomendado: tamaño predecible, mejor calidad/tamaño)
   const nativeResult = await compressVideoNative(buffer, maxBytes);
   if (nativeResult) return nativeResult;
 
-  // 2) Fallback: ffmpeg.wasm con mismo objetivo (bitrate fijo, 480p)
+  if (USE_FFMPEG_NATIVE_ONLY) {
+    logger.warn('Compress: native FFmpeg failed and USE_FFMPEG_NATIVE_ONLY is set; skipping WASM');
+    return null;
+  }
   return compressVideoWasm(buffer, maxBytes);
+}
+
+/**
+ * Compresión de video con cola global de concurrencia 1. Usar en uploads y publicación para no saturar CPU/RAM.
+ * @param {Buffer} buffer
+ * @param {number} maxBytes
+ * @returns {Promise<Buffer|null>}
+ */
+export function compressVideoQueued(buffer, maxBytes = TARGET_MAX_BYTES) {
+  const next = videoCompressionTail.then(() => compressVideo(buffer, maxBytes));
+  videoCompressionTail = next.catch(() => null);
+  return next;
 }
 
 /**

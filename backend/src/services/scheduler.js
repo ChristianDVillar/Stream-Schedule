@@ -23,6 +23,7 @@ import { canPublish, recordPublication } from './rateLimitService.js';
 import { isFeatureEnabled } from './featureFlagService.js';
 import { enqueuePublication } from './queueService.js';
 
+const INTERVAL_MS = APP_CONFIG.SCHEDULER_INTERVAL_MS;
 const SIGNED_URL_EXPIRES_SEC = APP_CONFIG.SIGNED_URL_EXPIRES_SEC;
 
 /**
@@ -69,8 +70,6 @@ async function resolveMediaUrls(items) {
   }
   return resolved;
 }
-
-const INTERVAL_MS = 60 * 1000; // 1 minute
 
 /**
  * Find content that is scheduled and due (scheduledFor <= now).

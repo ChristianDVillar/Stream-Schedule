@@ -1,0 +1,18 @@
+# Render configuration for backend (stream-schedule-api)
+# Root Directory en Render debe ser: backend
+#
+# NOTA: En el entorno de build "Node" de Render puede que apt-get no esté disponible.
+# Si el build falla con "apt-get: not found", configura el servicio con Docker y un
+# Dockerfile que haga RUN apt-get update && apt-get install -y ffmpeg.
+
+# Build: instalar FFmpeg nativo (si el entorno lo permite) y dependencias
+buildCommand: |
+  apt-get update && apt-get install -y ffmpeg || true
+  npm install
+
+# Arranque del API (entrypoint real del proyecto)
+startCommand: node src/app.js
+
+# Variables de entorno recomendadas (ajustar en Dashboard si hace falta)
+envVars:
+  - NODE_ENV=production

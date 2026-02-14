@@ -12,6 +12,19 @@ import logger from '../utils/logger.js';
 const router = express.Router();
 
 /**
+ * GET /api/health/ping - Health check ligero para Render (sin Supabase/Stripe).
+ * Responde 200 rápido; opcionalmente comprueba DB. Usar como Health Check path en Render.
+ */
+router.get('/ping', async (req, res) => {
+  try {
+    await sequelize.authenticate();
+    res.status(200).json({ ok: true, service: 'stream-schedule-api' });
+  } catch (error) {
+    res.status(503).json({ ok: false, error: error.message });
+  }
+});
+
+/**
  * Check database connection
  */
 async function checkDatabase() {

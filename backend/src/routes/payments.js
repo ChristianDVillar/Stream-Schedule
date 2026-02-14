@@ -1,5 +1,6 @@
 import express from 'express';
 import Stripe from 'stripe';
+import { Op } from 'sequelize';
 import { Payment, User } from '../models/index.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { resolveLicenseExpiry } from '../utils/licenseUtils.js';
@@ -1131,6 +1132,135 @@ router.get('/admin/stats', requireAdmin, async (req, res) => {
     currentMonthAmount,
     monthlyTotals
   });
+});
+
+const ADMIN_LIST_DEFAULT_LIMIT = 50;
+const ADMIN_LIST_MAX_LIMIT = 500;
+const ADMIN_EXPORT_MAX = 10000;
+
+/**
+ * GET /payments/admin/list - List payments for admin (paginated, with user info).
+ * Query: limit, offset, status, from (YYYY-MM-DD), to (YYYY-MM-DD).
+ */
+router.get('/admin/list', requireAdmin, async (req, res) => {
+  try {
+    const limit = Math.min(
+      parseInt(req.query.limit, 10) || ADMIN_LIST_DEFAULT_LIMIT,
+      ADMIN_LIST_MAX_LIMIT
+    );
+    const offset = parseInt(req.query.offset, 10) || 0;
+    const status = req.query.status || null;
+    const from = req.query.from || null;
+    const to = req.query.to || null;
+
+    const where = {};
+    if (status) where.status = status;
+    if (from || to) {
+      where.createdAt = {};
+      if (from) where.createdAt[Op.gte] = new Date(from + 'T00:00:00.000Z');
+      if (to) where.createdAt[Op.lte] = new Date(to + 'T23:59:59.999Z');
+    }
+
+    const { rows, count } = await Payment.findAndCountAll({
+      where,
+      include: [{ model: User, as: 'User', attributes: ['id', 'username', 'email'] }],
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset,
+    });
+
+    const payments = rows.map(p => {
+      const u = p.User || {};
+      return {
+        id: p.id,
+        userId: p.userId,
+        username: u.username,
+        email: u.email,
+        licenseType: p.licenseType,
+        amount: p.amount,
+        currency: p.currency,
+        status: p.status,
+        isRecurring: p.isRecurring,
+        paidAt: p.paidAt,
+        createdAt: p.createdAt,
+      };
+    });
+
+    res.json({ payments, total: count, limit, offset });
+  } catch (error) {
+    logger.error('Admin payments list error', { error: error.message });
+    res.status(500).json({ error: 'Failed to list payments' });
+  }
+});
+
+/**
+ * GET /payments/admin/export - Export payments for admin (CSV or JSON download).
+ * Query: format=csv|json, status, from, to. Max ADMIN_EXPORT_MAX rows.
+ */
+router.get('/admin/export', requireAdmin, async (req, res) => {
+  try {
+    const format = (req.query.format || 'csv').toLowerCase();
+    const status = req.query.status || null;
+    const from = req.query.from || null;
+    const to = req.query.to || null;
+
+    const where = {};
+    if (status) where.status = status;
+    if (from || to) {
+      where.createdAt = {};
+      if (from) where.createdAt[Op.gte] = new Date(from + 'T00:00:00.000Z');
+      if (to) where.createdAt[Op.lte] = new Date(to + 'T23:59:59.999Z');
+    }
+
+    const rows = await Payment.findAll({
+      where,
+      include: [{ model: User, as: 'User', attributes: ['id', 'username', 'email'] }],
+      order: [['createdAt', 'DESC']],
+      limit: ADMIN_EXPORT_MAX,
+    });
+
+    const data = rows.map(p => {
+      const u = p.User || {};
+      return {
+        id: p.id,
+        userId: p.userId,
+        username: u.username || '',
+        email: u.email || '',
+        licenseType: p.licenseType,
+        amount: p.amount,
+        currency: p.currency,
+        status: p.status,
+        isRecurring: p.isRecurring,
+        paidAt: p.paidAt ? new Date(p.paidAt).toISOString() : '',
+        createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : '',
+      };
+    });
+
+    const filename = `payments_export_${new Date().toISOString().slice(0, 10)}`;
+
+    if (format === 'json') {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}.json"`);
+      return res.send(JSON.stringify(data, null, 2));
+    }
+
+    // CSV
+    const header = 'id,userId,username,email,licenseType,amount,currency,status,isRecurring,paidAt,createdAt';
+    const escape = (v) => {
+      if (v == null) return '';
+      const s = String(v).replace(/"/g, '""');
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s}"` : s;
+    };
+    const lines = [header, ...data.map(row =>
+      [row.id, row.userId, row.username, row.email, row.licenseType, row.amount, row.currency, row.status, row.isRecurring, row.paidAt, row.createdAt].map(escape).join(',')
+    )];
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}.csv"`);
+    res.send('\uFEFF' + lines.join('\r\n'));
+  } catch (error) {
+    logger.error('Admin payments export error', { error: error.message });
+    res.status(500).json({ error: 'Failed to export payments' });
+  }
 });
 
 export default router;

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage } from '../api';
+import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatDateUTC } from '../utils/dateUtils';
 import { maskEmail } from '../utils/emailUtils';
@@ -50,6 +50,13 @@ export default function AdminDashboard({ token, user, onLogout }) {
   const [replying, setReplying] = useState(false);
   const [replyAttachments, setReplyAttachments] = useState([]);
   const replyFileInputRef = useRef(null);
+  const [paymentsList, setPaymentsList] = useState([]);
+  const [paymentsTotal, setPaymentsTotal] = useState(0);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [paymentsOffset, setPaymentsOffset] = useState(0);
+  const paymentsLimit = 50;
+  const [paymentListFilters, setPaymentListFilters] = useState({ status: '', from: '', to: '' });
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -59,6 +66,11 @@ export default function AdminDashboard({ token, user, onLogout }) {
     fetchUnreadCount();
     // eslint-disable-next-line
   }, []);
+
+  useEffect(() => {
+    if (token) fetchPaymentsList(paymentsOffset, paymentListFilters);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, paymentsOffset, paymentListFilters.status, paymentListFilters.from, paymentListFilters.to]);
 
   useEffect(() => {
     fetchMessages();
@@ -106,6 +118,55 @@ export default function AdminDashboard({ token, user, onLogout }) {
       setUnreadCount(res.data.unreadCount || 0);
     } catch (err) {
       console.error('Error fetching unread count:', err);
+    }
+  };
+
+  const fetchPaymentsList = async (offset = paymentsOffset, filters = paymentListFilters) => {
+    if (!token) return;
+    setPaymentsLoading(true);
+    try {
+      const res = await getAdminPaymentsList({
+        token,
+        limit: paymentsLimit,
+        offset,
+        status: filters.status || undefined,
+        from: filters.from || undefined,
+        to: filters.to || undefined,
+      });
+      setPaymentsList(res.data.payments || []);
+      setPaymentsTotal(res.data.total ?? 0);
+    } catch (err) {
+      console.error('Error fetching payments list:', err);
+      setPaymentsList([]);
+      setPaymentsTotal(0);
+    } finally {
+      setPaymentsLoading(false);
+    }
+  };
+
+  const handleDownloadPayments = async (format) => {
+    if (!token) return;
+    setExporting(true);
+    try {
+      const blob = await getAdminPaymentsExportBlob({
+        token,
+        format,
+        status: paymentListFilters.status || undefined,
+        from: paymentListFilters.from || undefined,
+        to: paymentListFilters.to || undefined,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pagos_${new Date().toISOString().slice(0, 10)}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      window.alert(err.response?.data?.error || 'Error al descargar');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -412,7 +473,9 @@ export default function AdminDashboard({ token, user, onLogout }) {
     licensed: users.filter(u => u.licenseKey).length,
     expiringSoon: users.filter(u => u.licenseAlert === '7_days' || u.licenseAlert === '3_days').length,
     expired: users.filter(u => u.licenseAlert === 'expired').length,
-    monthlyRevenue: revenue.currentMonthAmount || 0
+    monthlyRevenue: revenue.currentMonthAmount || 0,
+    totalPaid: revenue.totalPaid ?? 0,
+    recurringRevenue: revenue.recurringRevenue ?? 0,
   };
 
   const expiringUsers = users.filter(u => u.licenseAlert === '7_days' || u.licenseAlert === '3_days' || u.licenseAlert === 'expired');
@@ -454,6 +517,18 @@ export default function AdminDashboard({ token, user, onLogout }) {
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">{t('admin.monthlyRevenue')}</p>
           <p className="text-xl sm:text-2xl font-bold text-emerald-700 dark:text-emerald-200">
             {revenue.currency} {stats.monthlyRevenue.toFixed(2)}
+          </p>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 sm:p-4 border-t-4 border-teal-400 col-span-2 sm:col-span-1">
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">Total ingresos</p>
+          <p className="text-xl sm:text-2xl font-bold text-teal-700 dark:text-teal-200">
+            {revenue.currency} {Number(stats.totalPaid).toFixed(2)}
+          </p>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 sm:p-4 border-t-4 border-cyan-400 col-span-2 sm:col-span-1">
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">Ingresos recurrentes</p>
+          <p className="text-xl sm:text-2xl font-bold text-cyan-700 dark:text-cyan-200">
+            {revenue.currency} {Number(stats.recurringRevenue).toFixed(2)}
           </p>
         </div>
       </div>
@@ -691,6 +766,117 @@ export default function AdminDashboard({ token, user, onLogout }) {
               </tbody>
             </table>
           </div>
+        )}
+      </div>
+
+      {/* Listado de pagos y descarga para gestores */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-indigo-500 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+          <h3 className="text-lg font-bold text-indigo-700 dark:text-indigo-300">Pagos (listado)</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={paymentListFilters.status}
+              onChange={(e) => { setPaymentListFilters(prev => ({ ...prev, status: e.target.value })); setPaymentsOffset(0); }}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+            >
+              <option value="">Todos los estados</option>
+              <option value="completed">Completados</option>
+              <option value="pending">Pendientes</option>
+              <option value="refunded">Reembolsados</option>
+              <option value="failed">Fallidos</option>
+            </select>
+            <input
+              type="date"
+              value={paymentListFilters.from}
+              onChange={(e) => { setPaymentListFilters(prev => ({ ...prev, from: e.target.value })); setPaymentsOffset(0); }}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+              title="Desde"
+            />
+            <input
+              type="date"
+              value={paymentListFilters.to}
+              onChange={(e) => { setPaymentListFilters(prev => ({ ...prev, to: e.target.value })); setPaymentsOffset(0); }}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+              title="Hasta"
+            />
+            <button
+              onClick={() => handleDownloadPayments('csv')}
+              disabled={exporting}
+              className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm"
+            >
+              {exporting ? '...' : 'Descargar CSV'}
+            </button>
+            <button
+              onClick={() => handleDownloadPayments('json')}
+              disabled={exporting}
+              className="px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 text-sm"
+            >
+              Descargar JSON
+            </button>
+          </div>
+        </div>
+        {paymentsLoading ? (
+          <p className="text-gray-500 dark:text-gray-400 py-4">Cargando pagos...</p>
+        ) : paymentsList.length === 0 ? (
+          <p className="text-gray-500 dark:text-gray-400 py-4">No hay pagos que coincidan con los filtros.</p>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="min-w-full bg-white dark:bg-gray-800 border dark:border-gray-700 rounded">
+                <thead className="bg-indigo-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">ID</th>
+                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">Usuario</th>
+                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">Email</th>
+                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">Tipo</th>
+                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-right">Monto</th>
+                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">Estado</th>
+                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">Recurrente</th>
+                    <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100 text-left">Fecha</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paymentsList.map(p => (
+                    <tr key={p.id} className="hover:bg-indigo-50 dark:hover:bg-gray-700/80 transition-colors">
+                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100">{p.id}</td>
+                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100">{p.username || '—'}</td>
+                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100" title={p.email}>{maskEmail(p.email || '')}</td>
+                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100">{p.licenseType || '—'}</td>
+                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 text-right">{p.currency} {Number(p.amount).toFixed(2)}</td>
+                      <td className="px-4 py-2 border dark:border-gray-700">
+                        <span className={`px-2 py-0.5 text-xs rounded ${p.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' : p.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300' : p.status === 'refunded' ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}`}>
+                          {p.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100">{p.isRecurring ? t('common.yes') : t('common.no')}</td>
+                      <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 text-sm">{(p.paidAt || p.createdAt) ? formatDateUTC(p.paidAt || p.createdAt) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Mostrando {paymentsList.length} de {paymentsTotal} pagos
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPaymentsOffset(Math.max(0, paymentsOffset - paymentsLimit))}
+                  disabled={paymentsOffset === 0}
+                  className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm disabled:opacity-50"
+                >
+                  Anterior
+                </button>
+                <button
+                  onClick={() => setPaymentsOffset(paymentsOffset + paymentsLimit)}
+                  disabled={paymentsOffset + paymentsList.length >= paymentsTotal}
+                  className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm disabled:opacity-50"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
       {/* Tabla de usuarios */}

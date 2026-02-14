@@ -17,7 +17,7 @@ import { validateBody, validateParams } from '../middleware/validate.js';
 import { registerUploadSchema, getUploadStatsSchema } from '../validators/uploadSchemas.js';
 import logger from '../utils/logger.js';
 import { cache } from '../utils/cache.js';
-import { compressVideo, compressImage } from '../utils/compressMedia.js';
+import { compressVideoQueued, compressImage } from '../utils/compressMedia.js';
 
 const router = express.Router();
 
@@ -584,7 +584,7 @@ router.post('/file', requireAuth, (req, res, next) => {
         userId: authenticatedUserId,
         originalSizeMB: (file.buffer.length / 1024 / 1024).toFixed(2),
       });
-      const compressed = await compressVideo(file.buffer);
+      const compressed = await compressVideoQueued(file.buffer);
       if (compressed && compressed.length > 0) {
         bufferToUpload = compressed;
         contentTypeToUse = 'video/mp4';

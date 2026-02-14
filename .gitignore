@@ -29,6 +29,10 @@ frontend/.env.example
 *.swo
 *~
 
+# git filter-repo (strip-cursor-coauthor / mailmap)
+scripts/callback_body.txt
+mailmap.txt
+
 # OS generated files
 .DS_Store
 .DS_Store?

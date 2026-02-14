@@ -13,8 +13,8 @@ export const APP_CONFIG = {
   MAX_CONTENT_LENGTH: 5000,
   MAX_TITLE_LENGTH: 200,
   
-  // Scheduler
-  SCHEDULER_INTERVAL_MS: 60 * 1000, // 1 minute
+  // Scheduler (configurable vía SCHEDULER_INTERVAL_MS en env; default 1 min)
+  SCHEDULER_INTERVAL_MS: Number(process.env.SCHEDULER_INTERVAL_MS) || 60 * 1000,
   
   // Cache TTL (seconds)
   CACHE_TTL: {
