@@ -18,7 +18,7 @@
 - **[STRIPE_INTEGRATION.md](../STRIPE_INTEGRATION.md)** – Integración de pagos con Stripe (checkout, suscripciones, webhooks).
 
 ## Arquitectura y sistema
-
+- Panel admin: estadisticas, listado y export de pagos, modal usuario.
 - **[SISTEMA_Y_TECNOLOGIAS.md](../SISTEMA_Y_TECNOLOGIAS.md)** – Visión general, arquitectura, flujos y tecnologías.
 - **[SCHEDULER_MEJORAS_IMPLEMENTADAS.md](../SCHEDULER_MEJORAS_IMPLEMENTADAS.md)** – Mejoras del scheduler (estados, idempotencia, colas).
 

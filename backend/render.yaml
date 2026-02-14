@@ -16,3 +16,4 @@ startCommand: node src/app.js
 # Variables de entorno recomendadas (ajustar en Dashboard si hace falta)
 envVars:
   - NODE_ENV=production
+# Backend: health ping, scheduler env, compression queue

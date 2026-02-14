@@ -1,4 +1,5 @@
 # Documentación del Sistema - Streamer Scheduler
+<!-- referencia: panel admin, pagos, Render -->
 
 ## Índice
 1. [Visión General](#visión-general)

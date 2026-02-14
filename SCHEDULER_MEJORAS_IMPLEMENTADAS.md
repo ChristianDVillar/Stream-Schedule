@@ -1,4 +1,5 @@
 # Scheduler Mejorado - Cambios Implementados
+<!-- doc alineado con mejoras AdminDashboard y backend -->
 
 ## ✅ Correcciones Realizadas
 
