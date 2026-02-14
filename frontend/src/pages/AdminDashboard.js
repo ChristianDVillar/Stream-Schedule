@@ -74,6 +74,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
 
   useEffect(() => {
     fetchMessages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run only when messageFilters change
   }, [messageFilters]);
 
   const fetchLicenseConfig = async () => {
