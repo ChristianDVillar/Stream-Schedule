@@ -29,6 +29,12 @@ frontend/.env.example
 *.swo
 *~
 
+# git filter-repo (strip-coauthor / mailmap) - keep local only
+scripts/callback_body.txt
+mailmap.txt
+scripts/strip-cursor-coauthor.py
+docs/REMOVE_CURSORAGENT_CONTRIBUTOR.md
+
 # OS generated files
 .DS_Store
 .DS_Store?

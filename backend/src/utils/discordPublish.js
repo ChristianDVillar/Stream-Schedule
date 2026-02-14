@@ -6,7 +6,7 @@
 
 import FormData from 'form-data';
 import logger from './logger.js';
-import { compressImage, compressVideo } from './compressMedia.js';
+import { compressImage, compressVideoQueued } from './compressMedia.js';
 
 const DISCORD_API = 'https://discord.com/api/v10';
 const MAX_ATTACHMENTS = 10;
@@ -140,7 +140,7 @@ export async function postToDiscordChannelWithAttachments(channelId, content, it
         logger.info('Discord publish: compressing attachment over limit', { type, sizeMB: (buf.length / 1024 / 1024).toFixed(2), maxMB: maxSize / 1024 / 1024 });
         try {
           const compressed = type === 'video'
-            ? await compressVideo(buf, maxSize)
+            ? await compressVideoQueued(buf, maxSize)
             : await compressImage(buf, maxSize);
           if (compressed && compressed.length > 0 && compressed.length <= maxSize) {
             finalBuf = compressed;

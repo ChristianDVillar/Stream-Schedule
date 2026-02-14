@@ -483,6 +483,34 @@ export async function getPaymentStats(token) {
   });
 }
 
+/** List payments for admin (paginated). Params: { limit, offset, status, from, to, token } */
+export async function getAdminPaymentsList({ limit, offset, status, from, to, token }) {
+  const params = new URLSearchParams();
+  if (limit != null) params.set('limit', limit);
+  if (offset != null) params.set('offset', offset);
+  if (status) params.set('status', status);
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const qs = params.toString();
+  return apiClient.get(`/payments/admin/list${qs ? `?${qs}` : ''}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+/** Get export URL for admin payments (CSV or JSON). Call and use window.open or location.href with token in header - use blob download instead. */
+export async function getAdminPaymentsExportBlob({ format, status, from, to, token }) {
+  const params = new URLSearchParams();
+  params.set('format', format || 'csv');
+  if (status) params.set('status', status);
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const res = await apiClient.get(`/payments/admin/export?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    responseType: 'blob'
+  });
+  return res.data;
+}
+
 export async function getPaymentConfigStatus() {
   return apiClient.get('/payments/config-status');
 }
