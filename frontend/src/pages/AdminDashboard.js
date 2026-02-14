@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+// Admin: usuarios, licencias, pagos (listado/export), modal detalle, mensajes
 import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatDateUTC } from '../utils/dateUtils';
@@ -53,6 +54,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
   const [paymentsList, setPaymentsList] = useState([]);
   const [paymentsTotal, setPaymentsTotal] = useState(0);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [paymentsListError, setPaymentsListError] = useState(null);
   const [paymentsOffset, setPaymentsOffset] = useState(0);
   const paymentsLimit = 50;
   const [paymentListFilters, setPaymentListFilters] = useState({ status: '', from: '', to: '' });
@@ -125,6 +127,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
   const fetchPaymentsList = async (offset = paymentsOffset, filters = paymentListFilters) => {
     if (!token) return;
     setPaymentsLoading(true);
+    setPaymentsListError(null);
     try {
       const res = await getAdminPaymentsList({
         token,
@@ -140,6 +143,9 @@ export default function AdminDashboard({ token, user, onLogout }) {
       console.error('Error fetching payments list:', err);
       setPaymentsList([]);
       setPaymentsTotal(0);
+      setPaymentsListError(err.response?.status === 404
+        ? 'Listado de pagos no disponible. Despliega la última versión del backend (stream-schedule-api) en Render.'
+        : err.response?.data?.error || 'Error al cargar pagos.');
     } finally {
       setPaymentsLoading(false);
     }
@@ -816,7 +822,9 @@ export default function AdminDashboard({ token, user, onLogout }) {
             </button>
           </div>
         </div>
-        {paymentsLoading ? (
+        {paymentsListError ? (
+          <p className="text-amber-600 dark:text-amber-400 py-4 text-sm">{paymentsListError}</p>
+        ) : paymentsLoading ? (
           <p className="text-gray-500 dark:text-gray-400 py-4">Cargando pagos...</p>
         ) : paymentsList.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 py-4">No hay pagos que coincidan con los filtros.</p>
@@ -910,7 +918,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
               </thead>
               <tbody>
                 {users.map(u => (
-                  <tr key={u.id} className="group hover:bg-blue-50 dark:hover:bg-gray-700/80 transition-colors cursor-pointer" onClick={() => setSelectedUser(u)}>
+                  <tr key={u.id} className="group hover:bg-blue-50 dark:hover:bg-gray-700/80 transition-colors cursor-pointer" onClick={() => { setSelectedUser(u); setShowUserModal(true); }}>
                     <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">{u.id}</td>
                     <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">{u.username}</td>
                     <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">

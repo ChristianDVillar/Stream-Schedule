@@ -34,6 +34,7 @@ scripts/callback_body.txt
 mailmap.txt
 scripts/strip-cursor-coauthor.py
 docs/REMOVE_CURSORAGENT_CONTRIBUTOR.md
+# (AdminDashboard: docs y scripts locales)
 
 # OS generated files
 .DS_Store
