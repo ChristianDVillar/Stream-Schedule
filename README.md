@@ -163,7 +163,7 @@ Ver archivo `LICENSE` para más detalles.
 
 ## Documentación
 
-Índice completo: **[docs/README.md](docs/README.md)**.
+Índice completo: **[docs/README.md](docs/README.md)** (protección legal, términos y scripts SQL).
 
 Documentación en la raíz del repo:
 
@@ -172,12 +172,8 @@ Documentación en la raíz del repo:
 | [COPYRIGHT_NOTICE.md](COPYRIGHT_NOTICE.md) | Aviso de copyright y contacto. |
 | [TERMS_OF_SERVICE.md](TERMS_OF_SERVICE.md) | Términos de servicio (EN/ES). |
 | [LEGAL_PROTECTION.md](LEGAL_PROTECTION.md) | Guía de protección legal. |
-| [DEPLOY_RENDER.md](DEPLOY_RENDER.md) | Despliegue en Render (CORS, migraciones). |
-| [SUPABASE_PRODUCTION.md](SUPABASE_PRODUCTION.md) | Supabase en producción y Resend. |
-| [TWITTER_SETUP.md](TWITTER_SETUP.md) | Configuración de Twitter/X OAuth para publicación. |
-| [STRIPE_INTEGRATION.md](STRIPE_INTEGRATION.md) | Integración de pagos con Stripe (checkout, suscripciones, webhooks). |
-| [SISTEMA_Y_TECNOLOGIAS.md](SISTEMA_Y_TECNOLOGIAS.md) | Arquitectura, flujos y tecnologías. |
-| [SCHEDULER_MEJORAS_IMPLEMENTADAS.md](SCHEDULER_MEJORAS_IMPLEMENTADAS.md) | Mejoras del scheduler (estados, idempotencia, etc.). |
+| [PROTECTION_SUMMARY.md](PROTECTION_SUMMARY.md) | Resumen de protecciones implementadas. |
+| [PROTECTION_CHECKLIST.md](PROTECTION_CHECKLIST.md) | Checklist pre-despliegue. |
 
 Scripts SQL para Supabase (ejecutar en el SQL Editor del proyecto):
 

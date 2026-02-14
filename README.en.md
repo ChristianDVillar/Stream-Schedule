@@ -163,7 +163,7 @@ See `LICENSE` file for details.
 
 ## Documentation
 
-Full index: **[docs/README.md](docs/README.md)**.
+Full index: **[docs/README.md](docs/README.md)** (legal protection, terms, and SQL scripts).
 
 Documentation in the repo root:
 
@@ -172,12 +172,8 @@ Documentation in the repo root:
 | [COPYRIGHT_NOTICE.md](COPYRIGHT_NOTICE.md) | Copyright notice and contact. |
 | [TERMS_OF_SERVICE.md](TERMS_OF_SERVICE.md) | Terms of service (EN/ES). |
 | [LEGAL_PROTECTION.md](LEGAL_PROTECTION.md) | Legal protection guide. |
-| [DEPLOY_RENDER.md](DEPLOY_RENDER.md) | Deploying on Render (CORS, migrations). |
-| [SUPABASE_PRODUCTION.md](SUPABASE_PRODUCTION.md) | Supabase in production and Resend. |
-| [TWITTER_SETUP.md](TWITTER_SETUP.md) | Twitter/X OAuth setup for publishing. |
-| [STRIPE_INTEGRATION.md](STRIPE_INTEGRATION.md) | Stripe payment integration (checkout, subscriptions, webhooks). |
-| [SISTEMA_Y_TECNOLOGIAS.md](SISTEMA_Y_TECNOLOGIAS.md) | Architecture, flows, and technologies. |
-| [SCHEDULER_MEJORAS_IMPLEMENTADAS.md](SCHEDULER_MEJORAS_IMPLEMENTADAS.md) | Scheduler improvements (states, idempotency, etc.). |
+| [PROTECTION_SUMMARY.md](PROTECTION_SUMMARY.md) | Summary of protections implemented. |
+| [PROTECTION_CHECKLIST.md](PROTECTION_CHECKLIST.md) | Pre-deployment checklist. |
 
 SQL scripts for Supabase (run in the project SQL Editor):
 
