@@ -30,6 +30,7 @@ import discordRoutes from './routes/discord.js';
 import healthRoutes from './routes/health.js';
 import templatesRoutes from './routes/templates.js';
 import messagesRoutes from './routes/messages.js';
+import notificationsRoutes from './routes/notifications.js';
 import { sequelize } from './models/index.js';
 import { authenticateToken, requireAuth } from './middleware/auth.js';
 import { authLimiter, apiLimiter, uploadLimiter } from './middleware/rateLimit.js';
@@ -147,6 +148,7 @@ app.use('/api/upload', (req, res, next) => {
 // CSRF disabled for templates until frontend sends X-CSRF-Token
 app.use('/api/templates', templatesRoutes);
 app.use('/api/messages', messagesRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 // Enhanced health check endpoint
 app.use('/api/health', healthRoutes);

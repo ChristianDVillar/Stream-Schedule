@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient, getTwitchDashboardStats, getTwitchSubs, getTwitchBits, getTwitchDonations, cancelContent } from '../api';
-import AdminDashboard from './AdminDashboard';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
@@ -32,7 +31,6 @@ import {
   Copy,
   Clipboard,
   RefreshCw,
-  CalendarPlus,
   Image as ImageIcon,
   Video,
   Paperclip
@@ -458,11 +456,6 @@ const Dashboard = ({ user, token, ...props }) => {
       toast.error('Failed to reschedule');
     }
   };
-
-  // Si es admin, muestra el dashboard de admin
-  if (user && user.isAdmin) {
-    return <AdminDashboard user={user} token={token} {...props} />;
-  }
 
   // Filtrar posts por día seleccionado
   const postsForSelectedDay = filteredContents.filter(content => {
