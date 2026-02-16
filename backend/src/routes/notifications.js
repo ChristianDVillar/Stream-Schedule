@@ -99,24 +99,34 @@ router.get('/unread-count', requireAuth, async (req, res) => {
 router.patch('/:id/read', requireAuth, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
+    const userId = req.user?.id;
     if (Number.isNaN(id)) {
       return res.status(400).json({ error: 'Invalid notification id' });
+    }
+    if (!userId) {
+      return res.status(401).json({ error: 'User id not found' });
     }
     const notification = await Notification.findByPk(id);
     if (!notification) {
       return res.status(404).json({ error: 'Notification not found' });
     }
-    const canRead = notification.userId === null || notification.userId === req.user.id;
+    const canRead = notification.userId === null || notification.userId === userId;
     if (!canRead) {
       return res.status(403).json({ error: 'Not allowed to read this notification' });
     }
-    const [read] = await NotificationRead.findOrCreate({
-      where: { notificationId: id, userId: req.user.id },
-      defaults: { notificationId: id, userId: req.user.id }
+    let read = await NotificationRead.findOne({
+      where: { notificationId: id, userId }
     });
+    if (!read) {
+      read = await NotificationRead.create({
+        notificationId: id,
+        userId,
+        readAt: new Date()
+      });
+    }
     res.json({ message: 'Marked as read', data: read });
   } catch (error) {
-    logger.error('Error marking notification read', { error: error.message, userId: req.user?.id });
+    logger.error('Error marking notification read', { error: error.message, stack: error.stack, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to mark as read' });
   }
 });

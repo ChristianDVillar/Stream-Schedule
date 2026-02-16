@@ -4,9 +4,9 @@
  */
 
 import logger from './logger.js';
+import { TWITTER_MAX_CHARS } from '../constants/platforms.js';
 
 const X_API_TWEETS = 'https://api.x.com/2/tweets';
-const TWITTER_MAX_CHARS = 280;
 
 /**
  * Post a tweet with the given text.

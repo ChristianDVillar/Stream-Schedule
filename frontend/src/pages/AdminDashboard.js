@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { X } from 'lucide-react';
 // Admin: usuarios, licencias, pagos (listado/export), modal detalle, mensajes
-import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob, sendNotification } from '../api';
+import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob, sendNotification, getPlatformConfig, updatePlatformConfig } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatDateUTC } from '../utils/dateUtils';
 import { maskEmail } from '../utils/emailUtils';
@@ -66,6 +68,9 @@ export default function AdminDashboard({ token, user, onLogout }) {
   const [notifContent, setNotifContent] = useState('');
   const [notifBroadcast, setNotifBroadcast] = useState(true);
   const [sendingNotif, setSendingNotif] = useState(false);
+  const [platformConfig, setPlatformConfig] = useState({});
+  const [platformConfigLoading, setPlatformConfigLoading] = useState(false);
+  const [viewingImage, setViewingImage] = useState(null);
 
   useEffect(() => {
     fetchUsers();
@@ -73,6 +78,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
     fetchPasswordReminders();
     fetchMessages();
     fetchUnreadCount();
+    fetchPlatformConfig();
     // eslint-disable-next-line
   }, []);
 
@@ -91,6 +97,36 @@ export default function AdminDashboard({ token, user, onLogout }) {
       const res = await getLicenseConfig(token);
       setLicenseConfig(res.data.availableLicenseTypes || { monthly: true, quarterly: false, lifetime: false, temporary: false });
     } catch (err) {
+    }
+  };
+
+  const fetchPlatformConfig = async () => {
+    try {
+      setPlatformConfigLoading(true);
+      const res = await getPlatformConfig(token);
+      setPlatformConfig(res.data.platforms || {});
+    } catch (err) {
+      toast.error('Failed to load platform configuration');
+    } finally {
+      setPlatformConfigLoading(false);
+    }
+  };
+
+  const handleUpdatePlatformConfig = async () => {
+    try {
+      setPlatformConfigLoading(true);
+      const enabledPlatforms = Object.entries(platformConfig)
+        .filter(([_, config]) => config.enabled)
+        .map(([platform, _]) => platform);
+      
+      await updatePlatformConfig({ platforms: enabledPlatforms, token });
+      toast.success('Platform configuration updated successfully');
+      // Reload config to ensure UI is in sync
+      await fetchPlatformConfig();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update platform configuration');
+    } finally {
+      setPlatformConfigLoading(false);
     }
   };
 
@@ -1406,6 +1442,88 @@ export default function AdminDashboard({ token, user, onLogout }) {
             </>
           )}
 
+          {section === 'platforms' && (
+            <>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-purple-400">
+        <h3 className="text-lg font-bold text-purple-700 dark:text-purple-300 mb-4">{t('admin.platformsTitle')}</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+          {t('admin.platformsDescription')}
+        </p>
+        {platformConfigLoading ? (
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+            <p className="mt-2 text-gray-600 dark:text-gray-400">{t('common.loading')}</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {Object.entries(platformConfig).map(([platform, config]) => (
+                <div
+                  key={platform}
+                  className={`p-4 border-2 rounded-lg transition-all ${
+                    config.enabled
+                      ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                      : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-3 h-3 rounded-full ${
+                        config.enabled ? 'bg-green-500' : 'bg-gray-400'
+                      }`}></div>
+                      <div>
+                        <h4 className="font-semibold text-gray-900 dark:text-gray-100 capitalize">
+                          {config.label || platform}
+                        </h4>
+                        <p className={`text-sm ${
+                          config.enabled
+                            ? 'text-green-700 dark:text-green-300'
+                            : 'text-gray-500 dark:text-gray-400'
+                        }`}>
+                          {config.enabled ? t('admin.platformActive') : t('admin.platformInactive')}
+                        </p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={config.enabled || false}
+                        onChange={(e) => setPlatformConfig(prev => ({
+                          ...prev,
+                          [platform]: { ...prev[platform], enabled: e.target.checked }
+                        }))}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={handleUpdatePlatformConfig}
+                disabled={platformConfigLoading}
+                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+              >
+                {platformConfigLoading ? (
+                  <>
+                    <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>{t('admin.saving')}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>{t('admin.savePlatformConfig')}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+            </>
+          )}
+
           {section === 'payments' && (
             <>
       {/* Gráfico de ingresos por semana */}
@@ -1665,7 +1783,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                             src={att.url}
                             alt={att.name || `Attachment ${idx + 1}`}
                             className="w-full h-24 object-cover rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:opacity-80"
-                            onClick={() => window.open(att.url, '_blank')}
+                            onClick={() => setViewingImage(att.url)}
                           />
                           <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-1">{att.name}</p>
                         </div>
@@ -1706,7 +1824,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                                   src={att.url}
                                   alt={att.name || `Attachment ${attIdx + 1}`}
                                   className="w-full h-20 object-cover rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:opacity-80"
-                                  onClick={() => window.open(att.url, '_blank')}
+                                  onClick={() => setViewingImage(att.url)}
                                 />
                                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-1">{att.name}</p>
                               </div>
@@ -1796,10 +1914,10 @@ export default function AdminDashboard({ token, user, onLogout }) {
                       className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
                     >
                       Mark as Resolved
-                    </button>
-                  </div>
-                </div>
-              )}
+          </button>
+        </div>
+      </div>
+      )}
             </div>
           </div>
         </div>
@@ -1917,6 +2035,27 @@ export default function AdminDashboard({ token, user, onLogout }) {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Image Viewer Modal */}
+      {viewingImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
+          onClick={() => setViewingImage(null)}
+        >
+          <button
+            onClick={() => setViewingImage(null)}
+            className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+          >
+            <X className="w-8 h-8" />
+          </button>
+          <img
+            src={viewingImage}
+            alt="Viewing"
+            className="max-w-full max-h-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </div>

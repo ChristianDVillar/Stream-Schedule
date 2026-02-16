@@ -15,9 +15,10 @@ export class ContentService {
    */
   async createContent(userId, contentData) {
     const scheduledFor = new Date(contentData.scheduledFor);
+    const eventEndTime = contentData.eventEndTime ? new Date(contentData.eventEndTime) : null;
     const occurrences = this.buildOccurrences(scheduledFor, contentData.recurrence);
     
-    const { mediaUrls, mediaItems, ...restData } = contentData;
+    const { mediaUrls, mediaItems, eventDates, ...restData } = contentData;
     let filesData = null;
     if (mediaItems && mediaItems.length > 0) {
       filesData = { items: mediaItems };
@@ -26,12 +27,23 @@ export class ContentService {
     }
     
     const created = await Promise.all(
-      occurrences.map(date => Content.create({
-        ...restData,
-        scheduledFor: date,
-        userId,
-        files: filesData,
-      }))
+      occurrences.map((date, index) => {
+        // Calculate eventEndTime for this occurrence if it exists
+        let occurrenceEventEndTime = null;
+        if (eventEndTime) {
+          const timeDiff = eventEndTime.getTime() - scheduledFor.getTime();
+          occurrenceEventEndTime = new Date(date.getTime() + timeDiff);
+        }
+        
+        return Content.create({
+          ...restData,
+          scheduledFor: date,
+          eventEndTime: occurrenceEventEndTime,
+          eventDates: eventDates || null, // Store eventDates array for events with multiple dates
+          userId,
+          files: filesData,
+        });
+      })
     );
     
     logger.info('Content created via service', {

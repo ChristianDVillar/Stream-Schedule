@@ -43,7 +43,9 @@ export function validate(schema, source = 'body') {
         // Format validation errors
         const errors = error.details.map(detail => ({
           field: detail.path.join('.'),
-          message: detail.message
+          message: detail.message,
+          type: detail.type,
+          context: detail.context
         }));
 
         logger.warn('Validation failed', {

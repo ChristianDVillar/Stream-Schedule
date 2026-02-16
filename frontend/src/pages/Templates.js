@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTemplates, createTemplate, updateTemplate, deleteTemplate, createContentFromTemplate } from '../api-templates';
+import { getEnabledPlatforms } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
 import { FileText, Plus, Pencil, Trash2, Calendar, X } from 'lucide-react';
@@ -16,7 +17,7 @@ const CONTENT_TYPES = [
   { id: 'reel', name: 'Reel' },
 ];
 
-const PLATFORM_IDS = ['twitch', 'twitter', 'instagram', 'discord', 'tiktok'];
+const ALL_PLATFORM_IDS = ['twitch', 'twitter', 'instagram', 'discord', 'youtube'];
 
 export default function Templates({ user, token }) {
   const { t } = useLanguage();
@@ -27,6 +28,7 @@ export default function Templates({ user, token }) {
   const [useTemplateId, setUseTemplateId] = useState(null);
   const [useDate, setUseDate] = useState('');
   const [useTime, setUseTime] = useState('12:00');
+  const [enabledPlatforms, setEnabledPlatforms] = useState(ALL_PLATFORM_IDS);
   const [form, setForm] = useState({
     name: '',
     title: '',
@@ -40,6 +42,18 @@ export default function Templates({ user, token }) {
 
   useEffect(() => {
     loadTemplates();
+    
+    // Load enabled platforms
+    const loadEnabledPlatforms = async () => {
+      try {
+        const res = await getEnabledPlatforms();
+        setEnabledPlatforms(res.data.platforms || ALL_PLATFORM_IDS);
+      } catch (err) {
+        // Fallback to all platforms if error
+        setEnabledPlatforms(ALL_PLATFORM_IDS);
+      }
+    };
+    loadEnabledPlatforms();
   }, []);
 
   const loadTemplates = async () => {
@@ -205,7 +219,7 @@ export default function Templates({ user, token }) {
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('schedule.platforms') || 'Platforms'}</label>
               <div className="flex flex-wrap gap-2">
-                {PLATFORM_IDS.map((id) => {
+                {enabledPlatforms.map((id) => {
                   const selected = form.platforms.includes(id);
                   return (
                   <button

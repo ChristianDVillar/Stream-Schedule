@@ -1,7 +1,10 @@
 import express from 'express';
 import { Platform } from '../models/index.js';
 import checkLicense from '../middleware/checkLicense.js';
+
 const router = express.Router();
+
+// Note: /enabled endpoint is registered directly in app.js before authenticateToken middleware
 
 router.use(checkLicense);
 
@@ -37,4 +40,4 @@ router.get('/status', async (req, res) => {
   res.json(platforms);
 });
 
-export default router; 
+export default router;

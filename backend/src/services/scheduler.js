@@ -14,6 +14,8 @@ import { Op } from 'sequelize';
 import { CONTENT_STATUS } from '../constants/contentStatus.js';
 import { postToDiscordChannel, postToDiscordChannelWithAttachments, createDiscordScheduledEvent } from '../utils/discordPublish.js';
 import { postTweet } from '../utils/twitterPublish.js';
+import { uploadVideoToYouTube } from '../utils/youtubePublish.js';
+import { formatTwitterContent, formatDiscordContent, getDiscordEventLocation, formatYouTubeContent, formatInstagramContent, formatTwitchContent } from '../utils/contentFormatter.js';
 import { supabase } from '../utils/supabaseClient.js';
 import { contentService } from './contentService.js';
 import { APP_CONFIG } from '../constants/app.js';
@@ -22,6 +24,7 @@ import { checkIdempotency, markPublicationAttempted } from './idempotencyService
 import { canPublish, recordPublication } from './rateLimitService.js';
 import { isFeatureEnabled } from './featureFlagService.js';
 import { enqueuePublication } from './queueService.js';
+import platformConfigService from './platformConfigService.js';
 
 const INTERVAL_MS = APP_CONFIG.SCHEDULER_INTERVAL_MS;
 const SIGNED_URL_EXPIRES_SEC = APP_CONFIG.SIGNED_URL_EXPIRES_SEC;
@@ -108,6 +111,16 @@ async function getDueContent() {
  * Enhanced with idempotency, rate limiting, and fine-grained status tracking.
  */
 async function publishToPlatform(content, platform) {
+  // Check if platform is enabled globally
+  const isEnabled = await platformConfigService.isPlatformEnabled(platform);
+  if (!isEnabled) {
+    logger.warn('Platform is disabled globally', {
+      contentId: content.id,
+      platform
+    });
+    throw new Error(`Platform ${platform} is currently disabled. Please contact an administrator.`);
+  }
+
   // Check idempotency
   const idempotencyCheck = await checkIdempotency(content.id, platform, content.scheduledFor);
   if (idempotencyCheck.isDuplicate) {
@@ -143,6 +156,7 @@ async function publishToPlatform(content, platform) {
   try {
     // Get integration token (prefer Integration model, fallback to User for backward compatibility)
     let accessToken = null;
+    let refreshToken = null;
     let integration = await Integration.findOne({
       where: {
         userId: content.userId,
@@ -151,8 +165,13 @@ async function publishToPlatform(content, platform) {
       }
     });
 
-    if (integration && integration.accessToken) {
-      accessToken = integration.accessToken;
+    if (integration) {
+      // For YouTube, we need refreshToken; for others, accessToken
+      if (platform === 'youtube') {
+        refreshToken = integration.refreshToken;
+      } else {
+        accessToken = integration.accessToken;
+      }
     } else {
       // Fallback: check User model for backward compatibility
       const user = await User.findByPk(content.userId, {
@@ -165,40 +184,176 @@ async function publishToPlatform(content, platform) {
       }
     }
 
-    if (!accessToken) {
+    // Check if we have the required token
+    if (platform === 'youtube' && !refreshToken) {
+      throw new Error(`${platform} not linked. Connect ${platform} in Settings.`);
+    } else if (platform !== 'youtube' && !accessToken) {
       throw new Error(`${platform} not linked. Connect ${platform} in Settings.`);
     }
 
     // Publish based on platform
     if (platform === 'twitter') {
-      const text = [content.title, content.content].filter(Boolean).join('\n\n') || ' ';
-      logger.info('Posting tweet', { contentId: content.id, textLength: text.length });
+      const text = formatTwitterContent(content);
+      logger.info('Posting tweet', { contentId: content.id, contentType: content.contentType, textLength: text.length });
       await postTweet(accessToken, text);
     } else if (platform === 'discord' && content.discordChannelId) {
-      // If contentType is "event" and we have a guildId, create a Discord scheduled event
+      // If contentType is "event" or "stream" and we have a guildId, create a Discord scheduled event
       // Discord will automatically show the time in each user's local timezone
-      if (content.contentType === 'event' && content.discordGuildId) {
+      if ((content.contentType === 'event' || content.contentType === 'stream') && content.discordGuildId) {
         try {
-          const eventName = content.title || 'Scheduled Event';
-          const eventDescription = content.content || '';
-          const eventLocation = content.content || 'Stream'; // Default location for external events
+          const eventName = content.title || (content.contentType === 'stream' ? 'Stream' : 'Scheduled Event');
+          let eventDescription = content.content || '';
+          
+          // If multiple event dates, include them in description and use first/last for event times
+          let eventStartTime = content.scheduledFor;
+          let eventEndTime = content.eventEndTime || null;
+          
+          if (content.contentType === 'event' && content.eventDates && Array.isArray(content.eventDates) && content.eventDates.length > 1) {
+            // Sort dates chronologically
+            const sortedDates = content.eventDates
+              .filter(ed => ed.date && ed.time)
+              .map(ed => {
+                try {
+                  // Ensure date and time are in correct format (YYYY-MM-DD and HH:mm)
+                  const dateStr = ed.date.includes('T') ? ed.date.split('T')[0] : ed.date;
+                  const timeStr = ed.time.includes('T') ? ed.time.split('T')[1] : ed.time;
+                  const datetime = new Date(`${dateStr}T${timeStr}`);
+                  if (isNaN(datetime.getTime())) {
+                    logger.warn('Invalid event date/time', { date: ed.date, time: ed.time });
+                    return null;
+                  }
+                  return {
+                    ...ed,
+                    datetime
+                  };
+                } catch (err) {
+                  logger.warn('Error parsing event date', { error: err.message, date: ed.date, time: ed.time });
+                  return null;
+                }
+              })
+              .filter(ed => ed !== null)
+              .sort((a, b) => a.datetime.getTime() - b.datetime.getTime());
+            
+            if (sortedDates.length > 0) {
+              // Use first date as start time
+              const firstDateObj = sortedDates[0].datetime;
+              if (firstDateObj && !isNaN(firstDateObj.getTime())) {
+                eventStartTime = firstDateObj;
+              } else {
+                logger.error('Invalid first event date', { sortedDates });
+                throw new Error('Invalid first event date');
+              }
+              
+              // Use last date's end time or last date's start time as end time
+              const lastDate = sortedDates[sortedDates.length - 1];
+              if (lastDate.endDate && lastDate.endTime) {
+                try {
+                  const endDateStr = lastDate.endDate.includes('T') ? lastDate.endDate.split('T')[0] : lastDate.endDate;
+                  const endTimeStr = lastDate.endTime.includes('T') ? lastDate.endTime.split('T')[1] : lastDate.endTime;
+                  const calculatedEndTime = new Date(`${endDateStr}T${endTimeStr}`);
+                  if (!isNaN(calculatedEndTime.getTime()) && calculatedEndTime > eventStartTime) {
+                    eventEndTime = calculatedEndTime;
+                  } else {
+                    // If invalid or before start, use last date start + 1 hour
+                    eventEndTime = new Date(lastDate.datetime.getTime() + 60 * 60 * 1000);
+                  }
+                } catch (err) {
+                  logger.warn('Error parsing last date end time', { error: err.message, lastDate });
+                  eventEndTime = new Date(lastDate.datetime.getTime() + 60 * 60 * 1000);
+                }
+              } else {
+                // If no end time specified, use last date start + 1 hour as default
+                eventEndTime = new Date(lastDate.datetime.getTime() + 60 * 60 * 1000);
+              }
+              
+              // Format dates for description (already formatted in formatDiscordContent, but add here too for event description)
+              const datesList = sortedDates.map((ed, idx) => {
+                try {
+                  const dateStr = ed.datetime.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+                  const timeStr = ed.datetime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                  let dateTimeStr = `${dateStr} at ${timeStr}`;
+                  
+                  if (ed.endDate && ed.endTime) {
+                    try {
+                      const endDateStr = ed.endDate.includes('T') ? ed.endDate.split('T')[0] : ed.endDate;
+                      const endTimeStr = ed.endTime.includes('T') ? ed.endTime.split('T')[1] : ed.endTime;
+                      const endDate = new Date(`${endDateStr}T${endTimeStr}`);
+                      if (!isNaN(endDate.getTime())) {
+                        const endTimeStrFormatted = endDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                        dateTimeStr += ` - ${endTimeStrFormatted}`;
+                      }
+                    } catch (err) {
+                      logger.warn('Error parsing end date/time', { error: err.message, endDate: ed.endDate, endTime: ed.endTime });
+                    }
+                  }
+                  
+                  return `${idx + 1}. ${dateTimeStr}`;
+                } catch (err) {
+                  logger.warn('Error formatting date for description', { error: err.message, ed });
+                  return null;
+                }
+              }).filter(item => item !== null).join('\n');
+              
+              eventDescription = eventDescription ? `${eventDescription}\n\n**📅 Event Dates & Times:**\n${datesList}` : `**📅 Event Dates & Times:**\n${datesList}`;
+            }
+          }
+          
+          const eventLocation = getDiscordEventLocation(content);
+          
+          // Get cover image from media items if available
+          const rawItems = content.files?.items ?? (content.files?.urls ? content.files.urls.map((u) => ({ url: u })) : []) ?? [];
+          const imageItems = rawItems.filter(item => {
+            const type = item.type || (String(item.url || item.file_path || '').toLowerCase().includes('video') ? 'video' : 'image');
+            return type === 'image';
+          });
+          let coverImage = null;
+          if (imageItems.length > 0) {
+            const resolvedImages = await resolveMediaUrls(imageItems);
+            if (resolvedImages.length > 0) {
+              coverImage = resolvedImages[0].url;
+            }
+          }
+          
+          // Ensure eventStartTime is a valid Date object
+          let finalStartTime = eventStartTime;
+          if (!(finalStartTime instanceof Date)) {
+            finalStartTime = new Date(finalStartTime);
+          }
+          if (isNaN(finalStartTime.getTime())) {
+            logger.error('Invalid event start time', { eventStartTime, contentType: content.contentType });
+            throw new Error('Invalid event start time');
+          }
+          
+          // Ensure eventEndTime is a valid Date object if provided
+          let finalEndTime = eventEndTime;
+          if (finalEndTime && !(finalEndTime instanceof Date)) {
+            finalEndTime = new Date(finalEndTime);
+          }
+          if (finalEndTime && isNaN(finalEndTime.getTime())) {
+            logger.warn('Invalid event end time, using default', { eventEndTime });
+            finalEndTime = null;
+          }
           
           // Create the scheduled event (Discord handles timezone conversion automatically)
           await createDiscordScheduledEvent(
             content.discordGuildId,
             eventName,
-            content.scheduledFor, // Already in UTC from database
+            finalStartTime, // Already in UTC from database or calculated from eventDates
             {
               description: eventDescription,
+              scheduledEndTime: finalEndTime, // Optional end time in UTC
               entityType: 3, // External event (works for streams)
-              location: eventLocation
+              location: eventLocation,
+              image: coverImage
             }
           );
           
           logger.info('Discord scheduled event created', {
             contentId: content.id,
+            contentType: content.contentType,
             guildId: content.discordGuildId,
-            scheduledFor: content.scheduledFor
+            scheduledFor: content.scheduledFor,
+            location: eventLocation
           });
         } catch (eventError) {
           logger.error('Failed to create Discord scheduled event', {
@@ -210,23 +365,99 @@ async function publishToPlatform(content, platform) {
         }
       }
       
-      // Always publish the message to the channel
+      // Always publish the message to the channel with formatted content
       const rawItems = content.files?.items ?? (content.files?.urls ? content.files.urls.map((u) => ({ url: u })) : []) ?? [];
       const items = rawItems.length > 0 ? await resolveMediaUrls(rawItems) : [];
       
-      if (content.title) {
-        await postToDiscordChannel(content.discordChannelId, `**${content.title}**`);
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
+      // Format Discord message based on contentType
+      const discordMessage = formatDiscordContent(content);
       
-      if (items.length > 0) {
+      // Post formatted message
+      if (discordMessage) {
+        if (items.length > 0) {
+          // Post message with attachments
+          await postToDiscordChannelWithAttachments(content.discordChannelId, discordMessage, items);
+        } else {
+          // Post text-only message
+          await postToDiscordChannel(content.discordChannelId, discordMessage);
+        }
+      } else if (items.length > 0) {
+        // Only attachments, no text
         await postToDiscordChannelWithAttachments(content.discordChannelId, '\u200b', items);
-        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    } else if (platform === 'youtube') {
+      // YouTube video upload
+      const rawItems = content.files?.items ?? (content.files?.urls ? content.files.urls.map((u) => ({ url: u })) : []) ?? [];
+      const videoItems = rawItems.filter(item => {
+        const type = item.type || (String(item.url || item.file_path || '').toLowerCase().includes('video') ? 'video' : 'image');
+        return type === 'video';
+      });
+
+      if (videoItems.length === 0) {
+        throw new Error('No video file found for YouTube upload. YouTube requires a video file.');
+      }
+
+      // Get the first video URL
+      const videoItemsResolved = await resolveMediaUrls(videoItems);
+      if (videoItemsResolved.length === 0) {
+        throw new Error('Could not resolve video URL for YouTube upload');
       }
       
-      if (content.content) {
-        await postToDiscordChannel(content.discordChannelId, content.content);
+      // Format YouTube content based on contentType
+      const youtubeContent = formatYouTubeContent(content);
+      const videoUrl = videoItemsResolved[0].url;
+      
+      // Extract tags from hashtags (convert #hashtag to tag)
+      let tags = [];
+      if (content.hashtags) {
+        tags = content.hashtags.split(',').map(h => {
+          const tag = h.trim();
+          return tag.startsWith('#') ? tag.substring(1) : tag;
+        }).filter(Boolean);
       }
+      
+      // Upload video to YouTube
+      logger.info('Uploading video to YouTube', {
+        contentId: content.id,
+        contentType: content.contentType,
+        title: youtubeContent.title,
+        videoUrl
+      });
+
+      const result = await uploadVideoToYouTube(refreshToken, videoUrl, {
+        title: youtubeContent.title,
+        description: youtubeContent.description,
+        tags,
+        privacyStatus: 'private' // Default to private, can be made configurable
+      });
+
+      logger.info('Video uploaded to YouTube successfully', {
+        contentId: content.id,
+        videoId: result.videoId,
+        videoUrl: result.url
+      });
+    } else if (platform === 'instagram') {
+      // Instagram content formatting (when Instagram API is implemented)
+      const formattedContent = formatInstagramContent(content);
+      logger.info('Instagram content formatted', {
+        contentId: content.id,
+        contentType: content.contentType,
+        formattedLength: formattedContent.length
+      });
+      // TODO: Implement Instagram API publishing
+      throw new Error('Instagram publishing not yet implemented');
+    } else if (platform === 'twitch') {
+      // Twitch content formatting (when Twitch API is implemented)
+      const formattedContent = formatTwitchContent(content);
+      logger.info('Twitch content formatted', {
+        contentId: content.id,
+        contentType: content.contentType,
+        formattedLength: formattedContent.length
+      });
+      // TODO: Implement Twitch API publishing
+      throw new Error('Twitch publishing not yet implemented');
+    } else {
+      throw new Error(`Platform ${platform} not supported`);
     }
 
     // Record successful publication

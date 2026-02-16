@@ -10,6 +10,7 @@ import { contentService } from '../services/contentService.js';
 import { contentCreationLimiter } from '../middleware/rateLimit.js';
 import { auditLog } from '../middleware/audit.js';
 import { postTweet } from '../utils/twitterPublish.js';
+import platformConfigService from '../services/platformConfigService.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();
@@ -20,6 +21,20 @@ router.post('/', requireAuth, checkLicense, contentCreationLimiter, validateBody
   try {
     const platforms = req.body?.platforms;
     const content = req.body?.content;
+    
+    // Validate that all platforms are enabled
+    if (Array.isArray(platforms) && platforms.length > 0) {
+      const enabledPlatforms = await platformConfigService.getEnabledPlatforms();
+      const disabledPlatforms = platforms.filter(p => !enabledPlatforms.includes(p));
+      if (disabledPlatforms.length > 0) {
+        return res.status(400).json({
+          error: `The following platforms are currently disabled: ${disabledPlatforms.join(', ')}. Please contact an administrator.`,
+          details: 'platforms',
+          disabledPlatforms
+        });
+      }
+    }
+    
     if (Array.isArray(platforms) && platforms.includes('twitter') && typeof content === 'string' && content.length > TWITTER_MAX_CHARS) {
       return res.status(400).json({
         error: 'For X (Twitter), content must be 280 characters or less.',
@@ -85,6 +100,20 @@ router.put('/:id', requireAuth, checkLicense, validateBody(updateContentSchema),
   try {
     const platforms = req.body?.platforms;
     const contentBody = req.body?.content;
+    
+    // Validate that all platforms are enabled (if platforms are being updated)
+    if (Array.isArray(platforms) && platforms.length > 0) {
+      const enabledPlatforms = await platformConfigService.getEnabledPlatforms();
+      const disabledPlatforms = platforms.filter(p => !enabledPlatforms.includes(p));
+      if (disabledPlatforms.length > 0) {
+        return res.status(400).json({
+          error: `The following platforms are currently disabled: ${disabledPlatforms.join(', ')}. Please contact an administrator.`,
+          details: 'platforms',
+          disabledPlatforms
+        });
+      }
+    }
+    
     if (Array.isArray(platforms) && platforms.includes('twitter') && typeof contentBody === 'string' && contentBody.length > TWITTER_MAX_CHARS) {
       return res.status(400).json({
         error: 'For X (Twitter), content must be 280 characters or less.',

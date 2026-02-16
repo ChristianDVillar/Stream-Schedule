@@ -38,14 +38,18 @@ export const contentSchema = Joi.object({
     'date.format': 'Scheduled date must be in ISO format',
     'any.required': 'Scheduled date is required'
   }),
+  eventEndTime: Joi.date().iso().optional().messages({
+    'date.base': 'Event end time must be a valid date',
+    'date.format': 'Event end time must be in ISO format'
+  }),
   platforms: Joi.array()
-    .items(Joi.string().valid('twitch', 'twitter', 'instagram', 'discord', 'tiktok'))
+    .items(Joi.string().valid('twitch', 'twitter', 'instagram', 'discord', 'youtube'))
     .min(1)
     .required()
     .messages({
       'array.min': 'At least one platform must be selected',
       'any.required': 'Platforms are required',
-      'any.only': 'Platform must be one of: twitch, twitter, instagram, discord, tiktok'
+      'any.only': 'Platform must be one of: twitch, twitter, instagram, discord, youtube'
     }),
   hashtags: Joi.string().max(500).allow('', null).optional(),
   mentions: Joi.string().max(500).allow('', null).optional(),
@@ -59,12 +63,13 @@ export const contentSchema = Joi.object({
     }),
   mediaItems: Joi.array()
     .items(Joi.object({
-      url: Joi.string().uri().optional(),
-      file_path: Joi.string().max(500).optional(),
+      url: Joi.string().uri().allow('').optional(),
+      file_path: Joi.string().max(500).allow('').optional(),
       fileName: Joi.string().allow('', null).optional(),
       type: Joi.string().valid('image', 'video').optional(),
       durationSeconds: Joi.number().min(0).optional()
-    }).or('url', 'file_path'))
+    }).or('url', 'file_path').unknown(true)) // Allow unknown fields, require at least url or file_path
+    .allow(null)
     .optional()
     .messages({
       'array.base': 'Media items must be an array',
@@ -72,7 +77,27 @@ export const contentSchema = Joi.object({
     }),
   recurrence: recurrenceSchema,
   discordGuildId: Joi.string().max(100).allow('', null).optional(),
-  discordChannelId: Joi.string().max(100).allow('', null).optional()
+  discordChannelId: Joi.string().max(100).allow('', null).optional(),
+  eventDates: Joi.array()
+    .items(Joi.object({
+      date: Joi.string().min(1).required().messages({
+        'string.min': 'Event date is required',
+        'any.required': 'Event date is required'
+      }),
+      time: Joi.string().min(1).required().messages({
+        'string.min': 'Event time is required',
+        'any.required': 'Event time is required'
+      }),
+      endDate: Joi.string().allow('', null).optional(),
+      endTime: Joi.string().allow('', null).optional()
+    }))
+    .min(0) // Allow empty arrays
+    .allow(null)
+    .optional()
+    .messages({
+      'array.base': 'Event dates must be an array',
+      'object.missing': 'Each event date must have date and time'
+    })
 }).required();
 
 // Update content schema (all fields optional)
@@ -83,8 +108,12 @@ export const updateContentSchema = Joi.object({
     .valid(...CONTENT_TYPE_VALUES)
     .optional(),
   scheduledFor: Joi.date().iso().optional(),
+  eventEndTime: Joi.date().iso().optional().messages({
+    'date.base': 'Event end time must be a valid date',
+    'date.format': 'Event end time must be in ISO format'
+  }),
   platforms: Joi.array()
-    .items(Joi.string().valid('twitch', 'twitter', 'instagram', 'discord', 'tiktok'))
+    .items(Joi.string().valid('twitch', 'twitter', 'instagram', 'discord', 'youtube'))
     .min(1)
     .optional(),
   hashtags: Joi.string().max(500).allow('', null).optional(),
@@ -109,6 +138,18 @@ export const updateContentSchema = Joi.object({
   recurrence: recurrenceSchema,
   discordGuildId: Joi.string().max(100).allow('', null).optional(),
   discordChannelId: Joi.string().max(100).allow('', null).optional(),
+  eventDates: Joi.array()
+    .items(Joi.object({
+      date: Joi.string().required(),
+      time: Joi.string().required(),
+      endDate: Joi.string().allow('', null).optional(),
+      endTime: Joi.string().allow('', null).optional()
+    }))
+    .optional()
+    .messages({
+      'array.base': 'Event dates must be an array',
+      'object.missing': 'Each event date must have date and time'
+    }),
   status: Joi.string()
     .valid(...CONTENT_STATUS_VALUES)
     .optional()

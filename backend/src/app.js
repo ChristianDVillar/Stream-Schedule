@@ -27,10 +27,12 @@ import platformsRoutes from './routes/platforms.js';
 import paymentsRoutes, { handleStripeWebhook } from './routes/payments.js';
 import uploadsRoutes from './routes/uploads.js';
 import discordRoutes from './routes/discord.js';
+import youtubeRoutes from './routes/youtube.js';
 import healthRoutes from './routes/health.js';
 import templatesRoutes from './routes/templates.js';
 import messagesRoutes from './routes/messages.js';
 import notificationsRoutes from './routes/notifications.js';
+import adminPlatformsRoutes from './routes/admin/platforms.js';
 import { sequelize } from './models/index.js';
 import { authenticateToken, requireAuth } from './middleware/auth.js';
 import { authLimiter, apiLimiter, uploadLimiter } from './middleware/rateLimit.js';
@@ -39,6 +41,8 @@ import { metricsMiddleware, metrics } from './utils/metrics.js';
 import { setupSwagger } from './app-swagger.js';
 import logger from './utils/logger.js';
 import { startScheduler } from './services/scheduler.js';
+import platformConfigService from './services/platformConfigService.js';
+import { PLATFORM_VALUES } from './constants/platforms.js';
 
 // Load environment variables
 // For local development: loads from .env file
@@ -129,6 +133,18 @@ app.get('/api/user/auth/twitter/callback', twitterOAuth2Callback);
 app.get('/api/user/auth/twitter/link', twitterLinkStart);
 app.get('/api/user/auth/twitter/link/callback', twitterLinkCallback);
 
+// Public endpoint: Get enabled platforms (no auth required)
+app.get('/api/platforms/enabled', async (req, res) => {
+  try {
+    const enabled = await platformConfigService.getEnabledPlatforms();
+    res.json({ platforms: enabled });
+  } catch (error) {
+    logger.error('Error getting enabled platforms', { error: error.message });
+    // Fail open: return all platforms if error
+    res.json({ platforms: PLATFORM_VALUES });
+  }
+});
+
 // JWT authentication middleware - attaches user to req.user if token is valid
 app.use(authenticateToken);
 
@@ -136,6 +152,7 @@ app.use(authenticateToken);
 app.get('/api/user/connected-accounts', requireAuth, connectedAccountsHandler);
 app.use('/api/user', userRoutes);
 app.use('/api/discord', discordRoutes);
+app.use('/api/youtube', youtubeRoutes);
 // CSRF disabled for content until frontend sends X-CSRF-Token (GET /api/csrf-token)
 app.use('/api/content', contentRoutes);
 app.use('/api/platforms', platformsRoutes);
@@ -149,6 +166,7 @@ app.use('/api/upload', (req, res, next) => {
 app.use('/api/templates', templatesRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/admin/platforms', adminPlatformsRoutes);
 
 // Enhanced health check endpoint
 app.use('/api/health', healthRoutes);
