@@ -9,6 +9,7 @@ import { templateService } from '../services/templateService.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { auditLog } from '../middleware/audit.js';
+import platformConfigService from '../services/platformConfigService.js';
 import logger from '../utils/logger.js';
 import Joi from 'joi';
 
@@ -20,7 +21,7 @@ const templateSchema = Joi.object({
   title: Joi.string().max(500).allow('', null).optional(),
   content: Joi.string().min(1).max(10000).required(),
   contentType: Joi.string().valid('post', 'stream', 'event', 'reel').required(),
-  platforms: Joi.array().items(Joi.string().valid('twitch', 'twitter', 'instagram', 'discord', 'tiktok')).min(1).required(),
+  platforms: Joi.array().items(Joi.string().valid('twitch', 'twitter', 'instagram', 'discord', 'youtube')).min(1).required(),
   hashtags: Joi.string().max(500).allow('', null).optional(),
   mentions: Joi.string().max(500).allow('', null).optional(),
   variables: Joi.object().optional(),
@@ -32,6 +33,19 @@ const updateTemplateSchema = templateSchema.fork(['name', 'content', 'contentTyp
 // Create template
 router.post('/', requireAuth, validateBody(templateSchema), auditLog('template_created', 'ContentTemplate'), async (req, res) => {
   try {
+    // Validate that all platforms are enabled
+    if (Array.isArray(req.body.platforms) && req.body.platforms.length > 0) {
+      const enabledPlatforms = await platformConfigService.getEnabledPlatforms();
+      const disabledPlatforms = req.body.platforms.filter(p => !enabledPlatforms.includes(p));
+      if (disabledPlatforms.length > 0) {
+        return res.status(400).json({
+          error: `The following platforms are currently disabled: ${disabledPlatforms.join(', ')}. Please contact an administrator.`,
+          details: 'platforms',
+          disabledPlatforms
+        });
+      }
+    }
+    
     const template = await templateService.createTemplate(req.user.id, req.body);
     res.status(201).json(template);
   } catch (err) {
@@ -74,6 +88,19 @@ router.get('/:id', requireAuth, async (req, res) => {
 // Update template
 router.put('/:id', requireAuth, validateBody(updateTemplateSchema), auditLog('template_updated', 'ContentTemplate'), async (req, res) => {
   try {
+    // Validate that all platforms are enabled (if platforms are being updated)
+    if (Array.isArray(req.body.platforms) && req.body.platforms.length > 0) {
+      const enabledPlatforms = await platformConfigService.getEnabledPlatforms();
+      const disabledPlatforms = req.body.platforms.filter(p => !enabledPlatforms.includes(p));
+      if (disabledPlatforms.length > 0) {
+        return res.status(400).json({
+          error: `The following platforms are currently disabled: ${disabledPlatforms.join(', ')}. Please contact an administrator.`,
+          details: 'platforms',
+          disabledPlatforms
+        });
+      }
+    }
+    
     const template = await templateService.updateTemplate(req.params.id, req.user.id, req.body);
     res.json(template);
   } catch (err) {

@@ -233,19 +233,13 @@ export async function postToDiscordChannelWithAttachments(channelId, content, it
  * @param {string|Date} scheduledStartTime - Start time in UTC (ISO 8601 string or Date object)
  * @param {object} options - Additional options
  * @param {string} [options.description] - Event description (max 1000 chars)
+ * @param {string|Date} [options.scheduledEndTime] - End time in UTC (ISO 8601 string or Date object, optional)
  * @param {number} [options.entityType] - Entity type: 1=Stage, 2=Voice, 3=External (default: 3)
  * @param {string} [options.channelId] - Channel ID (required for Stage/Voice, optional for External)
  * @param {string} [options.location] - Location (required for External, max 100 chars)
  * @param {string} [options.image] - Cover image URL
  * @returns {Promise<{ id: string, ... }>} Event object from Discord
  * @throws {Error} On API error
- * 
- * @example
- * // Create external event (like a stream)
- * createDiscordScheduledEvent('123456789', 'My Stream', '2026-02-20T18:00:00.000Z', {
- *   description: 'Join us for an amazing stream!',
- *   location: 'Twitch'
- * })
  */
 export async function createDiscordScheduledEvent(guildId, name, scheduledStartTime, options = {}) {
   const botToken = getBotToken();
@@ -270,6 +264,7 @@ export async function createDiscordScheduledEvent(guildId, name, scheduledStartT
 
   const {
     description = '',
+    scheduledEndTime = null,
     entityType = 3, // External event (most common for streams)
     channelId = null,
     location = null,
@@ -281,6 +276,26 @@ export async function createDiscordScheduledEvent(guildId, name, scheduledStartT
     throw new Error('Event name is required and must be 100 characters or less');
   }
 
+  // Handle scheduled end time if provided
+  let endTimeISO = null;
+  if (scheduledEndTime) {
+    if (scheduledEndTime instanceof Date) {
+      endTimeISO = scheduledEndTime.toISOString();
+    } else if (typeof scheduledEndTime === 'string') {
+      const date = new Date(scheduledEndTime);
+      if (isNaN(date.getTime())) {
+        throw new Error('Invalid scheduledEndTime: must be ISO 8601 UTC string or Date object');
+      }
+      endTimeISO = date.toISOString();
+    } else {
+      throw new Error('scheduledEndTime must be ISO 8601 UTC string or Date object');
+    }
+    // Validate end time is after start time
+    if (new Date(endTimeISO) <= new Date(startTimeISO)) {
+      throw new Error('Event end time must be after start time');
+    }
+  }
+
   // Build request body based on entity type
   const body = {
     name: name.slice(0, 100),
@@ -290,6 +305,10 @@ export async function createDiscordScheduledEvent(guildId, name, scheduledStartT
 
   if (description) {
     body.description = description.slice(0, 1000);
+  }
+
+  if (endTimeISO) {
+    body.scheduled_end_time = endTimeISO;
   }
 
   // Entity type specific fields
@@ -314,6 +333,7 @@ export async function createDiscordScheduledEvent(guildId, name, scheduledStartT
     guildId,
     name,
     scheduledStartTime: startTimeISO,
+    scheduledEndTime: endTimeISO,
     entityType
   });
 

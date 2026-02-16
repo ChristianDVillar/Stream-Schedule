@@ -35,9 +35,7 @@ import {
   Video,
   Paperclip
 } from 'lucide-react';
-
-// Discord icon - Icons8 id 30888
-const DISCORD_ICON_URL = 'https://img.icons8.com/?size=100&id=30888&format=png&color=000000';
+import { DISCORD_ICON_URL } from '../constants/platforms';
 
 const Dashboard = ({ user, token, ...props }) => {
   const { t } = useLanguage();
@@ -56,6 +54,22 @@ const Dashboard = ({ user, token, ...props }) => {
   const [twitchStats, setTwitchStats] = useState(null);
   const [twitchStatsLoading, setTwitchStatsLoading] = useState(false);
   const [bitsFormat, setBitsFormat] = useState('chronological'); // 'chronological' o 'total'
+  const [calendarView, setCalendarView] = useState('week');
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+      if (window.innerWidth < 640 && calendarView === 'week') {
+        setCalendarView('day');
+      }
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [calendarView]);
 
   const showTwitchOnDashboard = user && !user.isAdmin && (
     user.dashboardShowTwitchSubs || user.dashboardShowTwitchBits || user.dashboardShowTwitchDonations
@@ -131,7 +145,7 @@ const Dashboard = ({ user, token, ...props }) => {
             className={`${className} object-contain dark:invert`}
           />
         );
-      case 'tiktok':
+      case 'youtube':
         return <Video className={className} />;
       default:
         return null;
@@ -139,7 +153,7 @@ const Dashboard = ({ user, token, ...props }) => {
   };
 
   const getPlatformLabel = (platform) => {
-    const labels = { twitch: 'Twitch', twitter: 'Twitter', instagram: 'Instagram', discord: 'Discord', tiktok: 'TikTok' };
+    const labels = { twitch: 'Twitch', twitter: 'Twitter', instagram: 'Instagram', discord: 'Discord', youtube: 'YouTube' };
     return labels[platform] || platform;
   };
 
@@ -607,28 +621,32 @@ const Dashboard = ({ user, token, ...props }) => {
         )}
 
         {/* Calendario */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border-t-4 border-blue-400 mb-6 sm:mb-8">
-          <h3 className="text-base sm:text-lg font-bold text-blue-700 dark:text-blue-400 mb-4 flex items-center"><CalendarIcon className="w-5 h-5 mr-2 flex-shrink-0" />Calendar</h3>
-          <div className="h-[350px] sm:h-[450px] lg:h-[600px] min-h-[280px]">
-            <DragAndDropCalendar
-              localizer={localizer}
-              events={calendarEvents}
-              startAccessor="start"
-              endAccessor="end"
-              defaultView="week"
-              views={['week', 'month', 'day']}
-              onEventDrop={handleEventDrop}
-              eventPropGetter={eventStyleGetter}
-              selectable
-              onSelectSlot={(slotInfo) => setSelectedDate(slotInfo.start)}
-              onSelectEvent={(event) => {
-                setSelectedContent(event.resource);
-                setShowContentModal(true);
-              }}
-              style={{ height: '100%' }}
-            />
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 sm:p-4 lg:p-6 border-t-4 border-blue-400 mb-6 sm:mb-8 overflow-hidden">
+          <h3 className="text-base sm:text-lg font-bold text-blue-700 dark:text-blue-400 mb-3 sm:mb-4 flex items-center"><CalendarIcon className="w-5 h-5 mr-2 flex-shrink-0" />Calendar</h3>
+          <div className={`h-[350px] sm:h-[450px] lg:h-[600px] min-h-[280px] ${isMobile ? 'overflow-x-auto overflow-y-hidden -mx-3 px-3' : 'overflow-hidden'} sm:mx-0 sm:px-0`}>
+            <div className={`${isMobile ? 'min-w-[600px]' : 'w-full'} h-full`}>
+              <DragAndDropCalendar
+                localizer={localizer}
+                events={calendarEvents}
+                startAccessor="start"
+                endAccessor="end"
+                view={calendarView}
+                onView={(view) => setCalendarView(view)}
+                defaultView={calendarView}
+                views={['week', 'month', 'day']}
+                onEventDrop={handleEventDrop}
+                eventPropGetter={eventStyleGetter}
+                selectable
+                onSelectSlot={(slotInfo) => setSelectedDate(slotInfo.start)}
+                onSelectEvent={(event) => {
+                  setSelectedContent(event.resource);
+                  setShowContentModal(true);
+                }}
+                style={{ height: '100%' }}
+              />
+            </div>
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">Selected: {selectedDate.toLocaleDateString()}</p>
+          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mt-2 px-1">Selected: {selectedDate.toLocaleDateString()}</p>
         </div>
 
         {/* Lista de posts del día */}

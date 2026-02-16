@@ -19,20 +19,17 @@ import {
   Instagram,
   Server,
   Hash,
-  ClipboardPaste
+  ClipboardPaste,
+  Plus,
+  Trash2
 } from 'lucide-react';
-import { apiClient, getDiscordGuilds, getDiscordChannels, getDiscordInviteUrl } from '../api';
+import { apiClient, getDiscordGuilds, getDiscordChannels, getDiscordInviteUrl, getEnabledPlatforms } from '../api';
 import FileUpload from '../components/FileUpload';
 import MediaGallery from '../components/MediaGallery';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getPlatformColors } from '../utils/platformColors';
 import { parsePastedPost } from '../utils/copyPastePost';
-
-/** Max characters for a single tweet (X/Twitter). */
-const TWITTER_MAX_CHARS = 280;
-
-// Discord icon - Icons8 id 30888 (https://icons8.com/icon/30888/discord)
-const DISCORD_ICON_URL = 'https://img.icons8.com/?size=100&id=30888&format=png&color=000000';
+import { TWITTER_MAX_CHARS, DISCORD_ICON_URL } from '../constants/platforms';
 
 const Schedule = ({ user, token }) => {
   const { t } = useLanguage();
@@ -44,6 +41,11 @@ const Schedule = ({ user, token }) => {
     platforms: [],
     scheduledFor: '',
     scheduledTime: '',
+    eventEndDate: '',
+    eventEndTime: '',
+    eventDates: [], // Array of { date: string, time: string, endDate?: string, endTime?: string } for events
+    hashtags: '',
+    mentions: '',
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     mediaItems: [], // Array of { url, fileName?, type?, durationSeconds? }
     recurrence: {
@@ -73,6 +75,7 @@ const Schedule = ({ user, token }) => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [showTour, setShowTour] = useState(false);
+  const [enabledPlatforms, setEnabledPlatforms] = useState([]);
 
   /** Ensure we never render an object as React child (API may return { field, message }). */
   const errStr = (v) => (typeof v === 'string' ? v : (v && typeof v.message === 'string' ? v.message : ''));
@@ -112,6 +115,18 @@ const Schedule = ({ user, token }) => {
     if (!hasSeenTour) {
       setShowTour(true);
     }
+    
+    // Load enabled platforms
+    const loadEnabledPlatforms = async () => {
+      try {
+        const res = await getEnabledPlatforms();
+        setEnabledPlatforms(res.data.platforms || []);
+      } catch (err) {
+        // Fallback to all platforms if error
+        setEnabledPlatforms(['twitch', 'twitter', 'instagram', 'discord', 'youtube']);
+      }
+    };
+    loadEnabledPlatforms();
   }, []);
 
   useEffect(() => {
@@ -119,8 +134,9 @@ const Schedule = ({ user, token }) => {
   }, [templates]);
 
   // Load Discord guilds when Discord platform is selected
+  const hasDiscordSelected = Array.isArray(formData.platforms) && formData.platforms.includes('discord');
   useEffect(() => {
-    if (!formData.platforms.includes('discord')) {
+    if (!hasDiscordSelected) {
       setDiscordGuilds([]);
       setDiscordChannels([]);
       return;
@@ -153,7 +169,7 @@ const Schedule = ({ user, token }) => {
     };
     load();
     return () => { cancelled = true; };
-  }, [formData.platforms.includes('discord')]);
+  }, [hasDiscordSelected, t]);
 
   // Load Discord channels when guild is selected
   useEffect(() => {
@@ -215,10 +231,42 @@ const Schedule = ({ user, token }) => {
       newErrors.platforms = t('schedule.validationPlatformsRequired');
     }
     
-    // Date and time are optional: if omitted, content is scheduled for the next minute (confirmed in handleSubmit)
+    // Validate event dates for events
+    if (formData.contentType === 'event') {
+      if (formData.eventDates.length === 0) {
+        newErrors.eventDates = t('schedule.validationEventDatesRequired') || 'At least one event date is required';
+      } else {
+        // Validate each event date
+        formData.eventDates.forEach((eventDate, index) => {
+          if (!eventDate.date?.trim()) {
+            newErrors[`eventDate_${index}`] = t('schedule.validationDateRequired') || 'Date is required';
+          }
+          if (!eventDate.time?.trim()) {
+            newErrors[`eventTime_${index}`] = t('schedule.validationTimeRequired') || 'Time is required';
+          }
+          // Validate end time is after start time if both are provided
+          if (eventDate.endDate && eventDate.endTime && eventDate.date && eventDate.time) {
+            const startDateTime = new Date(`${eventDate.date}T${eventDate.time}`);
+            const endDateTime = new Date(`${eventDate.endDate}T${eventDate.endTime}`);
+            if (endDateTime <= startDateTime) {
+              newErrors[`eventEndTime_${index}`] = t('schedule.eventEndTimeAfterStart') || 'End time must be after start time';
+            }
+          }
+        });
+      }
+    } else {
+      // Date and time are optional for non-events: if omitted, content is scheduled for the next minute (confirmed in handleSubmit)
+    }
 
     if (formData.platforms.includes('discord') && !formData.discordChannelId?.trim()) {
       newErrors.discordChannel = t('schedule.discordChannelRequired') || 'Select a Discord server and channel';
+    }
+    
+    // For events and streams in Discord, guildId is required
+    if ((formData.contentType === 'event' || formData.contentType === 'stream') && 
+        formData.platforms.includes('discord') && 
+        !formData.discordGuildId?.trim()) {
+      newErrors.discordChannel = 'Discord server is required for events and streams';
     }
 
     setErrors(newErrors);
@@ -245,10 +293,62 @@ const Schedule = ({ user, token }) => {
       scheduledDateTime = nextMinute;
     }
 
+    // Handle event end time for events
+    let eventEndDateTime = null;
+    if (formData.contentType === 'event') {
+      const hasEndDate = !!formData.eventEndDate?.trim();
+      const hasEndTime = !!formData.eventEndTime?.trim();
+      if (hasEndDate && hasEndTime) {
+        eventEndDateTime = new Date(`${formData.eventEndDate}T${formData.eventEndTime}`);
+        // Validate end time is after start time
+        if (eventEndDateTime <= scheduledDateTime) {
+          toast.error(t('schedule.eventEndTimeAfterStart') || 'Event end time must be after start time');
+          return;
+        }
+      }
+    }
+
     setLoading(true);
 
     try {
+      // For events with multiple dates, send all dates in a single payload
+      // For other content types or single date events, use the standard flow
+      let scheduledDateTime;
+      const hasDate = !!formData.scheduledFor?.trim();
+      const hasTime = !!formData.scheduledTime?.trim();
       
+      if (formData.contentType === 'event' && formData.eventDates.length > 0) {
+        // Use first event date as scheduledFor for the content
+        const firstDate = formData.eventDates[0];
+        scheduledDateTime = new Date(`${firstDate.date}T${firstDate.time}`);
+      } else if (hasDate && hasTime) {
+        scheduledDateTime = new Date(`${formData.scheduledFor}T${formData.scheduledTime}`);
+      } else {
+        const nextMinute = new Date(Date.now() + 60 * 1000);
+        const confirmed = window.confirm(t('schedule.confirmPublishNextMinute'));
+        if (!confirmed) {
+          setLoading(false);
+          return;
+        }
+        scheduledDateTime = nextMinute;
+      }
+
+      // Handle event end time for single date events
+      let eventEndDateTime = null;
+      if (formData.contentType === 'event' && formData.eventDates.length === 0) {
+        const hasEndDate = !!formData.eventEndDate?.trim();
+        const hasEndTime = !!formData.eventEndTime?.trim();
+        if (hasEndDate && hasEndTime) {
+          eventEndDateTime = new Date(`${formData.eventEndDate}T${formData.eventEndTime}`);
+          // Validate end time is after start time
+          if (eventEndDateTime <= scheduledDateTime) {
+            toast.error(t('schedule.eventEndTimeAfterStart') || 'Event end time must be after start time');
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
       // ⏱️ IMPORTANT: Always send dates as ISO string (UTC) to backend
       // Backend stores in UTC, frontend displays in user's local timezone
       const payload = {
@@ -261,14 +361,65 @@ const Schedule = ({ user, token }) => {
         mediaItems: normalizeMediaItems(formData.mediaItems), // Include media with metadata
         recurrence: formData.recurrence
       };
+      
+      // Add hashtags and mentions if provided
+      if (formData.hashtags?.trim()) {
+        payload.hashtags = formData.hashtags.trim();
+      }
+      if (formData.mentions?.trim()) {
+        payload.mentions = formData.mentions.trim();
+      }
+      
+      // Add event end time if provided (for single date events)
+      if (eventEndDateTime) {
+        payload.eventEndTime = eventEndDateTime.toISOString();
+      }
+      
+      // Add eventDates array if multiple dates provided
+      if (formData.contentType === 'event' && formData.eventDates && formData.eventDates.length > 0) {
+        // Validate and filter valid dates
+        const validDates = formData.eventDates
+          .filter(eventDate => {
+            if (!eventDate || !eventDate.date || !eventDate.time) return false;
+            try {
+              const testDate = new Date(`${eventDate.date}T${eventDate.time}`);
+              return !isNaN(testDate.getTime());
+            } catch {
+              return false;
+            }
+          })
+          .map(eventDate => ({
+            date: eventDate.date.trim(),
+            time: eventDate.time.trim(),
+            endDate: (eventDate.endDate && eventDate.endDate.trim()) || null,
+            endTime: (eventDate.endTime && eventDate.endTime.trim()) || null
+          }));
+        
+        if (validDates.length > 0) {
+          payload.eventDates = validDates;
+        }
+      }
+      
       if (formData.platforms.includes('discord') && formData.discordChannelId) {
         payload.discordGuildId = formData.discordGuildId || null;
         payload.discordChannelId = formData.discordChannelId;
       }
+
       const response = await apiClient.post('/content', payload, {
         headers: { Authorization: `Bearer ${token}` },
         withCredentials: true,
         timeout: 30000, // 30s - content creation can take time with recurrence
+      }).catch((error) => {
+        const data = error.response?.data;
+        if (error.response?.status === 400 && data?.details) {
+          const validationErrors = Array.isArray(data.details)
+            ? data.details.map((e) => `${e.field}: ${e.message}`).join('\n')
+            : String(data.details);
+          toast.error(`Validation error:\n${validationErrors}`, { duration: 8000 });
+        } else {
+          toast.error(data?.error || error.message || t('schedule.scheduleError'));
+        }
+        throw error;
       });
 
       const createdCount = Array.isArray(response.data) ? response.data.length : 1;
@@ -310,12 +461,17 @@ const Schedule = ({ user, token }) => {
       
       navigate('/dashboard');
     } catch (error) {
+      // Error handling is now done in the catch block above
+      // This catch block handles other errors
       
       // Handle timeout errors specifically
       if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
         toast.error(t('schedule.timeoutError') || 'La solicitud tardó demasiado. Por favor, intenta con menos ocurrencias de recurrencia o verifica tu conexión.');
-        return;
+      } else if (!error.response) {
+        // Network error or other non-HTTP errors
+        toast.error(error.message || t('schedule.networkError') || 'Error de conexión. Verifica tu internet e intenta de nuevo.');
       }
+      // Validation errors are already handled in the catch block above
       
       // Handle network errors
       if (error.code === 'ERR_NETWORK' || !error.response) {
@@ -381,7 +537,27 @@ const Schedule = ({ user, token }) => {
   };
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value };
+      
+      // When contentType changes to 'event', initialize eventDates if empty
+      // Also initialize with scheduledFor/scheduledTime if they exist
+      if (field === 'contentType' && value === 'event' && prev.eventDates.length === 0) {
+        newData.eventDates = [{ 
+          date: prev.scheduledFor || '', 
+          time: prev.scheduledTime || '', 
+          endDate: prev.eventEndDate || '', 
+          endTime: prev.eventEndTime || '' 
+        }];
+      }
+      
+      // When contentType changes away from 'event', clear eventDates
+      if (field === 'contentType' && value !== 'event') {
+        newData.eventDates = [];
+      }
+      
+      return newData;
+    });
     
     // Clear error when user starts typing
     if (errors[field]) {
@@ -445,7 +621,18 @@ const Schedule = ({ user, token }) => {
       content: formData.content,
       platforms: formData.platforms,
       contentType: formData.contentType,
-      scheduledTime: formData.scheduledTime
+      scheduledFor: formData.scheduledFor,
+      scheduledTime: formData.scheduledTime,
+      eventEndDate: formData.eventEndDate,
+      eventEndTime: formData.eventEndTime,
+      eventDates: formData.eventDates.length > 0 ? formData.eventDates : null,
+      hashtags: formData.hashtags || '',
+      mentions: formData.mentions || '',
+      mediaItems: formData.mediaItems.length > 0 ? formData.mediaItems : null,
+      recurrence: formData.recurrence,
+      timezone: formData.timezone,
+      discordGuildId: formData.discordGuildId || null,
+      discordChannelId: formData.discordChannelId || null
     };
     setTemplates(prev => [...prev, template]);
     setTemplateName('');
@@ -459,7 +646,18 @@ const Schedule = ({ user, token }) => {
       content: template.content || '',
       platforms: template.platforms || [],
       contentType: template.contentType || prev.contentType,
-      scheduledTime: template.scheduledTime || prev.scheduledTime
+      scheduledFor: template.scheduledFor || prev.scheduledFor,
+      scheduledTime: template.scheduledTime || prev.scheduledTime,
+      eventEndDate: template.eventEndDate || prev.eventEndDate,
+      eventEndTime: template.eventEndTime || prev.eventEndTime,
+      eventDates: template.eventDates || prev.eventDates,
+      hashtags: template.hashtags || prev.hashtags,
+      mentions: template.mentions || prev.mentions,
+      mediaItems: template.mediaItems || prev.mediaItems,
+      recurrence: template.recurrence || prev.recurrence,
+      timezone: template.timezone || prev.timezone,
+      discordGuildId: template.discordGuildId || prev.discordGuildId,
+      discordChannelId: template.discordChannelId || prev.discordChannelId
     }));
     toast.success(t('schedule.templateApplied', { name: template.name }));
   };
@@ -523,19 +721,32 @@ const Schedule = ({ user, token }) => {
             className={`w-6 h-6 object-contain ${discordSelected ? 'invert' : ''}`}
           />
         );
-      case 'tiktok': return <Video className="w-6 h-6" />;
+      case 'youtube': return <Video className="w-6 h-6" />;
       default: return <Share2 className="w-6 h-6" />;
     }
   };
 
   const platformColorsMap = getPlatformColors();
-  const platforms = [
-    { id: 'twitch', name: 'Twitch' },
-    { id: 'twitter', name: 'Twitter' },
-    { id: 'instagram', name: 'Instagram' },
-    { id: 'discord', name: 'Discord' },
-    { id: 'tiktok', name: 'TikTok' }
-  ];
+  
+  // Platform labels mapping
+  const platformLabels = {
+    twitch: 'Twitch',
+    twitter: 'Twitter',
+    instagram: 'Instagram',
+    discord: 'Discord',
+    youtube: 'YouTube'
+  };
+  
+  // Filter platforms to only show enabled ones
+  const platforms = enabledPlatforms.length > 0
+    ? enabledPlatforms.map(id => ({ id, name: platformLabels[id] || id.charAt(0).toUpperCase() + id.slice(1) }))
+    : [
+        { id: 'twitch', name: 'Twitch' },
+        { id: 'twitter', name: 'Twitter' },
+        { id: 'instagram', name: 'Instagram' },
+        { id: 'discord', name: 'Discord' },
+        { id: 'youtube', name: 'YouTube' }
+      ];
 
   // Common timezones for easier selection
   const commonTimezones = [
@@ -630,8 +841,10 @@ const Schedule = ({ user, token }) => {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Title */}
             <div className="title-input">
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
-                {t('schedule.contentTitle')} <span className="text-red-500">*</span>
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {formData.contentType === 'event' 
+                  ? (formData.platforms.includes('discord') ? t('schedule.eventName') : t('schedule.contentTitle'))
+                  : t('schedule.contentTitle')} <span className="text-red-500">*</span>
                     </label>
               <div className="relative">
                     <input
@@ -642,7 +855,9 @@ const Schedule = ({ user, token }) => {
                   className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                     errors.title ? 'border-red-500' : 'border-gray-300'
                   }`}
-                  placeholder={t('schedule.contentPlaceholder')}
+                  placeholder={formData.contentType === 'event' 
+                    ? (formData.platforms.includes('discord') ? t('schedule.eventNamePlaceholder') : t('schedule.contentPlaceholder'))
+                    : t('schedule.contentPlaceholder')}
                 />
                 {errors.title && (
                   <div className="absolute right-3 top-3">
@@ -657,20 +872,24 @@ const Schedule = ({ user, token }) => {
                   
             {/* Content */}
             <div className="content-textarea">
-              <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-2">
-                {t('schedule.contentLabel')} <span className="text-red-500">*</span>
+              <label htmlFor="content" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {formData.contentType === 'event' 
+                  ? (formData.platforms.includes('discord') ? t('schedule.eventDescription') : t('schedule.contentLabel'))
+                  : t('schedule.contentLabel')} <span className="text-red-500">*</span>
                     </label>
               <div className="relative">
                     <textarea
                   id="content"
-                  rows={6}
+                  rows={formData.contentType === 'event' ? 4 : 6}
                   maxLength={formData.platforms.includes('twitter') ? TWITTER_MAX_CHARS : undefined}
                   value={formData.content}
                   onChange={(e) => handleInputChange('content', e.target.value)}
                   className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
                     errors.content ? 'border-red-500' : 'border-gray-300'
                   }`}
-                  placeholder={t('schedule.contentPlaceholderText')}
+                  placeholder={formData.contentType === 'event' && formData.platforms.includes('discord')
+                    ? t('schedule.eventDescriptionPlaceholder')
+                    : t('schedule.contentPlaceholderText')}
                 />
                 {errors.content && (
                   <div className="absolute right-3 top-3">
@@ -683,12 +902,111 @@ const Schedule = ({ user, token }) => {
                   <p className="text-sm text-red-600">{errStr(errors.content)}</p>
                 )}
                 <p className={`text-sm ml-auto ${formData.platforms.includes('twitter') && formData.content.length > TWITTER_MAX_CHARS ? 'text-red-600 dark:text-red-400' : 'text-gray-500'}`}>
-                  {formData.content.length}/{formData.platforms.includes('twitter') ? TWITTER_MAX_CHARS : 500} characters
+                  {formData.content.length}/{formData.platforms.includes('twitter') ? TWITTER_MAX_CHARS : 500} {t('schedule.characters')}
                   {formData.platforms.includes('twitter') && formData.platforms.length > 1 && (
                     <span className="text-gray-400 dark:text-gray-500 font-normal"> (max {TWITTER_MAX_CHARS} for X)</span>
                   )}
                 </p>
-                    </div>
+              </div>
+              {/* Format preview for all content types */}
+              {formData.title && formData.contentType && (
+                <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">{t('schedule.formatPreviewByPlatform')}</p>
+                  <div className="space-y-2 text-sm">
+                    {formData.platforms.includes('twitter') && (
+                      <div className="p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Twitter:</span>
+                        <p className="mt-1 text-gray-900 dark:text-gray-100">
+                          {formData.contentType === 'stream' && '🔴 '}
+                          {formData.contentType === 'event' && '📅 '}
+                          {formData.contentType === 'reel' && '🎬 '}
+                          {formData.contentType === 'post' && '📝 '}
+                          {formData.title}
+                          {formData.content && (
+                            <>
+                              <br /><br />
+                              {formData.content}
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    )}
+                    {formData.platforms.includes('discord') && (
+                      <div className="p-2 bg-gray-900 text-white rounded border border-gray-700">
+                        <span className="text-xs font-medium text-gray-400">Discord:</span>
+                        <p className="mt-1">
+                          {formData.contentType === 'stream' && '🔴 '}
+                          {formData.contentType === 'event' && '📅 '}
+                          {formData.contentType === 'reel' && '🎬 '}
+                          <strong>{formData.title}</strong>
+                          {formData.content && (
+                            <>
+                              <br /><br />
+                              {formData.content}
+                            </>
+                          )}
+                        </p>
+                        {(formData.contentType === 'event' || formData.contentType === 'stream') && (
+                          <p className="text-xs text-gray-400 mt-1">+ Scheduled Event will be created</p>
+                        )}
+                      </div>
+                    )}
+                    {formData.platforms.includes('instagram') && (
+                      <div className="p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Instagram:</span>
+                        <p className="mt-1 text-gray-900 dark:text-gray-100">
+                          {formData.contentType === 'stream' && '🔴 '}
+                          {formData.contentType === 'event' && '📅 '}
+                          {formData.contentType === 'reel' && '🎬 '}
+                          {formData.title}
+                          {formData.content && (
+                            <>
+                              <br />
+                              {formData.content}
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    )}
+                    {formData.platforms.includes('twitch') && (
+                      <div className="p-2 bg-purple-900 text-white rounded border border-purple-700">
+                        <span className="text-xs font-medium text-purple-300">Twitch:</span>
+                        <p className="mt-1">
+                          {formData.contentType === 'stream' && '🔴 LIVE: '}
+                          {formData.contentType === 'event' && '📅 '}
+                          {formData.contentType === 'reel' && '🎬 '}
+                          {formData.title}
+                          {formData.content && (
+                            <>
+                              <br /><br />
+                              {formData.content}
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    )}
+                    {formData.platforms.includes('youtube') && (
+                      <div className="p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">YouTube:</span>
+                        <p className="mt-1">
+                          <strong className="text-gray-900 dark:text-gray-100">
+                            {formData.contentType === 'stream' && '🔴 LIVE: '}
+                            {formData.contentType === 'event' && '📅 '}
+                            {formData.contentType === 'reel' && '🎬 '}
+                            {formData.title}
+                          </strong>
+                          {formData.content && (
+                            <>
+                              <br />
+                              <span className="text-sm text-gray-600 dark:text-gray-400">{formData.content}</span>
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
                   </div>
 
             {/* Media Section */}
@@ -780,7 +1098,7 @@ const Schedule = ({ user, token }) => {
 
             {/* Content Type */}
             <div>
-              <label htmlFor="contentType" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="contentType" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Content Type <span className="text-red-500">*</span>
               </label>
               <select
@@ -791,13 +1109,41 @@ const Schedule = ({ user, token }) => {
                   errors.contentType ? 'border-red-500' : 'border-gray-300'
                 }`}
               >
-                <option value="post">Post</option>
-                <option value="stream">Stream</option>
-                <option value="event">Event</option>
-                <option value="reel">Reel</option>
+                <option value="post">📝 Post</option>
+                <option value="stream">🔴 Stream</option>
+                <option value="event">📅 Event</option>
+                <option value="reel">🎬 Reel</option>
               </select>
               {errors.contentType && (
                 <p className="mt-1 text-sm text-red-600">{errStr(errors.contentType)}</p>
+              )}
+              {/* Info message for Event type */}
+              {formData.contentType === 'event' && (
+                <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <strong>📅 {t('schedule.event')}:</strong> {formData.platforms.includes('discord') 
+                      ? t('schedule.eventInfoDiscord')
+                      : t('schedule.eventInfoDiscordGeneral')}
+                  </p>
+                </div>
+              )}
+              {/* Info message for Stream type */}
+              {formData.contentType === 'stream' && (
+                <div className="mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <p className="text-sm text-red-800 dark:text-red-200">
+                    <strong>🔴 {t('schedule.stream')}:</strong> {formData.platforms.includes('discord') 
+                      ? t('schedule.streamInfoDiscord')
+                      : t('schedule.streamInfoDiscordGeneral')}
+                  </p>
+                </div>
+              )}
+              {/* Info message for Reel type */}
+              {formData.contentType === 'reel' && (
+                <div className="mt-2 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+                  <p className="text-sm text-purple-800 dark:text-purple-200">
+                    <strong>🎬 Reel:</strong> Formato optimizado para contenido de video corto. Asegúrate de incluir un archivo de video.
+                  </p>
+                </div>
               )}
             </div>
                   
@@ -836,6 +1182,19 @@ const Schedule = ({ user, token }) => {
               )}
               {formData.platforms.includes('discord') && (
                 <div className="mt-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                  {/* Event-specific info for Discord */}
+                  {(formData.contentType === 'event' || formData.contentType === 'stream') && (
+                    <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                      <p className="text-sm font-medium text-green-800 dark:text-green-200 mb-1">
+                        📅 {formData.contentType === 'event' ? t('schedule.discordEventTitle') : `🔴 ${t('schedule.discordStreamEventTitle')}`}
+                      </p>
+                      <p className="text-sm text-green-700 dark:text-green-300">
+                        {formData.contentType === 'event' 
+                          ? t('schedule.discordEventDescription')
+                          : t('schedule.discordStreamEventDescription')}
+                      </p>
+                    </div>
+                  )}
                   {!loadingDiscordGuilds && discordGuilds.length === 0 && !discordGuildsError && (
                     <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
                       <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-1">{t('discord.addBotTitle')}</p>
@@ -860,7 +1219,7 @@ const Schedule = ({ user, token }) => {
                   )}
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     <Server className="w-4 h-4 inline mr-1" />
-                    {t('schedule.discordServer') || 'Discord server'}
+                    {t('schedule.discordServer') || 'Discord server'} {(formData.contentType === 'event' || formData.contentType === 'stream') && <span className="text-red-500">*</span>}
                   </label>
                   <select
                     value={formData.discordGuildId}
@@ -874,7 +1233,7 @@ const Schedule = ({ user, token }) => {
                   </select>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     <Hash className="w-4 h-4 inline mr-1" />
-                    {t('schedule.discordChannel') || 'Discord channel'}
+                    {t('schedule.discordChannel') || 'Discord channel'} <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={formData.discordChannelId}
@@ -895,54 +1254,253 @@ const Schedule = ({ user, token }) => {
                     </div>
                     
             {/* Date and Time */}
-            <div className="datetime-section grid grid-cols-1 md:grid-cols-2 gap-6">
-              <p className="col-span-full text-sm text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2">
-                {t('schedule.timezoneHint') || 'La fecha y hora que eliges son en tu zona horaria (tu navegador).'} {formData.timezone && (
-                  <span className="font-medium">{formData.timezone.replace(/_/g, ' ')}</span>
-                )}
-              </p>
-              <div>
-                <label htmlFor="scheduledFor" className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('schedule.date')} <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                      <input
-                    id="scheduledFor"
-                    type="date"
-                    value={formData.scheduledFor}
-                    onChange={(e) => handleInputChange('scheduledFor', e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      errors.scheduledFor ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  />
-                  <Calendar className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
+            {formData.contentType === 'event' ? (
+              // Multiple dates interface for events
+              <div className="datetime-section space-y-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2">
+                  {t('schedule.timezoneHint')} {formData.timezone && (
+                    <span className="font-medium">{formData.timezone.replace(/_/g, ' ')}</span>
+                  )}
+                </p>
+                
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('schedule.eventDates') || 'Event Dates & Times'} <span className="text-red-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData(prev => ({
+                        ...prev,
+                        eventDates: [...prev.eventDates, { date: '', time: '', endDate: '', endTime: '' }]
+                      }));
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {t('schedule.addEventDate') || 'Add Date'}
+                  </button>
                 </div>
-                {errors.scheduledFor && (
-                  <p className="mt-1 text-sm text-red-600">{errStr(errors.scheduledFor)}</p>
-                )}
-              </div>
 
-              <div>
-                <label htmlFor="scheduledTime" className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('schedule.time')} <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    id="scheduledTime"
-                    type="time"
-                    value={formData.scheduledTime}
-                    onChange={(e) => handleInputChange('scheduledTime', e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      errors.scheduledTime ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  />
-                  <Clock className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
+                {/* Show date/time fields when eventDates is empty - auto-initialize on input */}
+                {formData.eventDates.length === 0 ? (
+                  <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900/50 space-y-4">
+                    <div className="mb-2">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {t('schedule.eventDate') || 'Event'} #1
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          {t('schedule.date')} <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="date"
+                            value={formData.scheduledFor || ''}
+                            onChange={(e) => {
+                              const dateValue = e.target.value;
+                              setFormData(prev => ({
+                                ...prev,
+                                scheduledFor: dateValue,
+                                eventDates: [{ date: dateValue, time: prev.scheduledTime || '', endDate: '', endTime: '' }]
+                              }));
+                            }}
+                            className="w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                          />
+                          <Calendar className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          {t('schedule.time')} <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="time"
+                            value={formData.scheduledTime || ''}
+                            onChange={(e) => {
+                              const timeValue = e.target.value;
+                              setFormData(prev => ({
+                                ...prev,
+                                scheduledTime: timeValue,
+                                eventDates: [{ date: prev.scheduledFor || '', time: timeValue, endDate: '', endTime: '' }]
+                              }));
+                            }}
+                            className="w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                          />
+                          <Clock className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {formData.eventDates.map((eventDate, index) => (
+                  <div key={index} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900/50 space-y-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {t('schedule.eventDate') || 'Event'} #{index + 1}
+                      </span>
+                      {formData.eventDates.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData(prev => ({
+                              ...prev,
+                              eventDates: prev.eventDates.filter((_, i) => i !== index)
+                            }));
+                          }}
+                          className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          {t('schedule.date')} <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="date"
+                            value={eventDate.date}
+                            onChange={(e) => {
+                              const newDates = [...formData.eventDates];
+                              newDates[index].date = e.target.value;
+                              setFormData(prev => ({ ...prev, eventDates: newDates }));
+                            }}
+                            className="w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                          />
+                          <Calendar className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          {t('schedule.time')} <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="time"
+                            value={eventDate.time}
+                            onChange={(e) => {
+                              const newDates = [...formData.eventDates];
+                              newDates[index].time = e.target.value;
+                              setFormData(prev => ({ ...prev, eventDates: newDates }));
+                            }}
+                            className="w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                          />
+                          <Clock className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          {t('schedule.eventEndDate')} <span className="text-gray-400 text-xs">({t('schedule.optional')})</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="date"
+                            value={eventDate.endDate || ''}
+                            onChange={(e) => {
+                              const newDates = [...formData.eventDates];
+                              newDates[index].endDate = e.target.value;
+                              setFormData(prev => ({ ...prev, eventDates: newDates }));
+                            }}
+                            min={eventDate.date || undefined}
+                            className="w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                          />
+                          <Calendar className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          {t('schedule.eventEndTime')} <span className="text-gray-400 text-xs">({t('schedule.optional')})</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="time"
+                            value={eventDate.endTime || ''}
+                            onChange={(e) => {
+                              const newDates = [...formData.eventDates];
+                              newDates[index].endTime = e.target.value;
+                              setFormData(prev => ({ ...prev, eventDates: newDates }));
+                            }}
+                            disabled={!eventDate.endDate}
+                            className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300 ${
+                              !eventDate.endDate ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                          />
+                          <Clock className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {formData.platforms.includes('discord') && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {t('schedule.eventEndTimeHint')}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              // Single date/time interface for non-events
+              <div className="datetime-section grid grid-cols-1 md:grid-cols-2 gap-6">
+                <p className="col-span-full text-sm text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2">
+                  {t('schedule.timezoneHint')} {formData.timezone && (
+                    <span className="font-medium">{formData.timezone.replace(/_/g, ' ')}</span>
+                  )}
+                </p>
+                <div>
+                  <label htmlFor="scheduledFor" className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('schedule.date')} <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="scheduledFor"
+                      type="date"
+                      value={formData.scheduledFor}
+                      onChange={(e) => handleInputChange('scheduledFor', e.target.value)}
+                      className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        errors.scheduledFor ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    />
+                    <Calendar className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
+                  </div>
+                  {errors.scheduledFor && (
+                    <p className="mt-1 text-sm text-red-600">{errStr(errors.scheduledFor)}</p>
+                  )}
                 </div>
-                {errors.scheduledTime && (
-                  <p className="mt-1 text-sm text-red-600">{errStr(errors.scheduledTime)}</p>
-                )}
+
+                <div>
+                  <label htmlFor="scheduledTime" className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('schedule.time')} <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="scheduledTime"
+                      type="time"
+                      value={formData.scheduledTime}
+                      onChange={(e) => handleInputChange('scheduledTime', e.target.value)}
+                      className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        errors.scheduledTime ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    />
+                    <Clock className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
+                  </div>
+                  {errors.scheduledTime && (
+                    <p className="mt-1 text-sm text-red-600">{errStr(errors.scheduledTime)}</p>
+                  )}
+                </div>
               </div>
-              </div>
+            )}
 
               {/* Actions */}
             <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 sm:gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">

@@ -193,6 +193,16 @@ const Content = sequelize.define('Content', {
     type: DataTypes.DATE,
     allowNull: false
   },
+  eventEndTime: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'End time for events (optional, used for Discord scheduled events)'
+  },
+  eventDates: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+    comment: 'Array of event dates/times for events with multiple occurrences [{date, time, endDate?, endTime?}]'
+  },
   hashtags: {
     type: DataTypes.STRING
   },

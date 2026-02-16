@@ -780,3 +780,21 @@ export async function sendNotification({ title, content, broadcast = true, userI
     headers: { Authorization: `Bearer ${token}` }
   });
 }
+
+// ——— Platform Configuration (admin) ———
+export async function getPlatformConfig(token) {
+  return apiClient.get('/admin/platforms/config', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function updatePlatformConfig({ platforms, token }) {
+  return apiClient.put('/admin/platforms/config', { platforms }, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+// ——— Get Enabled Platforms (public) ———
+export async function getEnabledPlatforms() {
+  return apiClient.get('/platforms/enabled');
+}

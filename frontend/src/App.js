@@ -150,6 +150,7 @@ function Sidebar({ user, open, onClose, adminUnreadMessageCount = 0 }) {
               <span className={`min-w-[1.25rem] text-center text-xs font-semibold rounded-full px-1.5 py-0.5 ${supportCount > 0 ? 'bg-red-500 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'}`}>{supportCount}</span>
             </Link>
             <Link to="/admin?section=notifications" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium pl-6 text-sm">{t('admin.menuNotifications')}</Link>
+            <Link to="/admin?section=platforms" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium pl-6 text-sm">{t('admin.menuPlatforms')}</Link>
             <Link to="/admin?section=payments" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium pl-6 text-sm">{t('admin.menuPayments')}</Link>
           </>
         )}

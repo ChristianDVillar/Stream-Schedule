@@ -3,12 +3,22 @@
  * Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Filter, X } from 'lucide-react';
+import { getEnabledPlatforms } from '../api';
+
+const PLATFORM_LABELS = {
+  twitch: 'Twitch',
+  twitter: 'Twitter',
+  instagram: 'Instagram',
+  discord: 'Discord',
+  youtube: 'YouTube'
+};
 
 export function SearchAdvanced({ onSearch, onFilterChange, filters = {} }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [enabledPlatforms, setEnabledPlatforms] = useState(['twitch', 'twitter', 'instagram', 'discord', 'youtube']);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -18,6 +28,20 @@ export function SearchAdvanced({ onSearch, onFilterChange, filters = {} }) {
   const handleFilterChange = (key, value) => {
     onFilterChange({ ...filters, [key]: value });
   };
+
+  useEffect(() => {
+    // Load enabled platforms
+    const loadEnabledPlatforms = async () => {
+      try {
+        const res = await getEnabledPlatforms();
+        setEnabledPlatforms(res.data.platforms || ['twitch', 'twitter', 'instagram', 'discord', 'youtube']);
+      } catch (err) {
+        // Fallback to all platforms if error
+        setEnabledPlatforms(['twitch', 'twitter', 'instagram', 'discord', 'youtube']);
+      }
+    };
+    loadEnabledPlatforms();
+  }, []);
 
   const clearFilters = () => {
     onFilterChange({});
@@ -88,10 +112,11 @@ export function SearchAdvanced({ onSearch, onFilterChange, filters = {} }) {
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800"
             >
               <option value="all">All Platforms</option>
-              <option value="twitch">Twitch</option>
-              <option value="twitter">Twitter</option>
-              <option value="instagram">Instagram</option>
-              <option value="discord">Discord</option>
+              {enabledPlatforms.map(platform => (
+                <option key={platform} value={platform}>
+                  {PLATFORM_LABELS[platform] || platform.charAt(0).toUpperCase() + platform.slice(1)}
+                </option>
+              ))}
             </select>
           </div>
 

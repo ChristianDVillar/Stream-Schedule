@@ -316,10 +316,12 @@ code {
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
+    padding: 8px 4px;
   }
   .rbc-toolbar-label {
     text-align: center;
-    font-size: 0.9rem;
+    font-size: 0.875rem;
+    padding: 4px 0;
   }
   .rbc-btn-group {
     display: flex;
@@ -329,6 +331,38 @@ code {
   }
   .rbc-btn-group button {
     padding: 6px 10px;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    min-width: 60px;
+  }
+  /* Make calendar events more readable on mobile */
+  .rbc-event {
+    font-size: 11px;
+    padding: 2px 4px;
+    line-height: 1.2;
+  }
+  .rbc-event-label {
+    font-size: 10px;
+  }
+  /* Improve header readability */
+  .rbc-header {
+    padding: 6px 4px;
+    font-size: 0.75rem;
+  }
+  /* Better time slot visibility */
+  .rbc-time-slot {
+    font-size: 11px;
+  }
+  .rbc-time-gutter {
+    font-size: 11px;
+  }
+  /* Month view improvements */
+  .rbc-month-view {
+    font-size: 0.875rem;
+  }
+  .rbc-date-cell {
+    padding: 4px;
+  }
+  .rbc-day-bg {
+    min-height: 60px;
   }
 } 

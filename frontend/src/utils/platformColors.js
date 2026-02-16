@@ -3,14 +3,14 @@
  * Defaults: Discord violet, Instagram black, Twitter light blue.
  */
 
-export const PLATFORM_IDS = ['discord', 'instagram', 'twitter', 'twitch', 'tiktok'];
+export const PLATFORM_IDS = ['discord', 'twitter', 'instagram', 'twitch', 'youtube'];
 
 export const DEFAULT_PLATFORM_COLORS = {
   discord: '#8B5CF6',
-  instagram: '#000000',
   twitter: '#1DA1F2',
+  instagram: '#E4405F',
   twitch: '#9146FF',
-  tiktok: '#000000',
+  youtube: '#FF0000',
 };
 
 const STORAGE_KEY = 'platformColors';

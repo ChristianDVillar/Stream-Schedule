@@ -13,6 +13,7 @@ export default function MyMessages({ token }) {
   const [replyText, setReplyText] = useState('');
   const [replyAttachments, setReplyAttachments] = useState([]);
   const [replying, setReplying] = useState(false);
+  const [viewingImage, setViewingImage] = useState(null);
   const replyFileInputRef = useRef(null);
 
   useEffect(() => {
@@ -271,7 +272,7 @@ export default function MyMessages({ token }) {
                             src={att.url}
                             alt={att.name || `Attachment ${idx + 1}`}
                             className="w-full h-24 object-cover rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:opacity-80"
-                            onClick={() => window.open(att.url, '_blank')}
+                            onClick={() => setViewingImage(att.url)}
                           />
                           <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-1">{att.name}</p>
                         </div>
@@ -400,6 +401,27 @@ export default function MyMessages({ token }) {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Image Viewer Modal */}
+      {viewingImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
+          onClick={() => setViewingImage(null)}
+        >
+          <button
+            onClick={() => setViewingImage(null)}
+            className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+          >
+            <X className="w-8 h-8" />
+          </button>
+          <img
+            src={viewingImage}
+            alt="Viewing"
+            className="max-w-full max-h-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </div>

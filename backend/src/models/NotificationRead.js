@@ -26,6 +26,7 @@ const NotificationRead = sequelize.define('NotificationRead', {
   }
 }, {
   tableName: 'NotificationReads',
+  timestamps: false,
   indexes: [
     { fields: ['notificationId'] },
     { fields: ['userId'] },

@@ -28,21 +28,21 @@ const DEFAULT_ENTITLEMENTS = {
   },
   monthly: {
     maxScheduledPosts: 100,
-    platformsAllowed: ['twitter', 'discord', 'instagram'],
+    platformsAllowed: ['twitter', 'discord', 'instagram', 'youtube'],
     automationEnabled: true,
     maxUploadSizeMB: 50,
     canScheduleRecurring: true
   },
   quarterly: {
     maxScheduledPosts: 300,
-    platformsAllowed: ['twitter', 'discord', 'instagram'],
+    platformsAllowed: ['twitter', 'discord', 'instagram', 'youtube'],
     automationEnabled: true,
     maxUploadSizeMB: 100,
     canScheduleRecurring: true
   },
   lifetime: {
     maxScheduledPosts: -1, // Unlimited
-    platformsAllowed: ['twitter', 'discord', 'instagram', 'youtube'],
+    platformsAllowed: ['twitter', 'discord', 'instagram', 'youtube', 'twitch'],
     automationEnabled: true,
     maxUploadSizeMB: 500,
     canScheduleRecurring: true
