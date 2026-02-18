@@ -4,7 +4,7 @@
  * Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import FileUpload from '../components/FileUpload';
 import MediaGallery from '../components/MediaGallery';
@@ -29,19 +29,30 @@ export default function MediaUpload({ user, token }) {
     loadStats();
   }, [user]);
 
-  const handleUploadComplete = (url, bucket) => {
-    // Reload stats after upload
+  const reloadStats = useCallback(() => {
     if (user?.id) {
       getUploadStats(user.id.toString()).then(setUploadStats).catch(() => {});
     }
-  };
+  }, [user?.id]);
 
-  const handleFileDelete = () => {
-    // Reload stats after deletion
-    if (user?.id) {
-      getUploadStats(user.id.toString()).then(setUploadStats).catch(() => {});
+  const handleUploadComplete = useCallback((url, bucket) => {
+    reloadStats();
+  }, [reloadStats]);
+
+  const handleFileDelete = useCallback(() => {
+    reloadStats();
+  }, [reloadStats]);
+
+  // Memoized stats calculations
+  const statsCalculations = useMemo(() => {
+    if (!uploadStats?.uploads) {
+      return { imageCount: 0, videoCount: 0 };
     }
-  };
+    return {
+      imageCount: uploadStats.uploads.filter(u => u.bucket === 'images').length,
+      videoCount: uploadStats.uploads.filter(u => u.bucket === 'videos').length
+    };
+  }, [uploadStats]);
 
   return (
     <div className="max-w-4xl mx-auto px-3 sm:p-6 py-4 min-w-0">
@@ -73,7 +84,7 @@ export default function MediaUpload({ user, token }) {
                 </span>
               </div>
               <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {uploadStats.uploads?.filter(u => u.bucket === 'images').length || 0}
+                {statsCalculations.imageCount}
               </p>
             </div>
 
@@ -85,7 +96,7 @@ export default function MediaUpload({ user, token }) {
                 </span>
               </div>
               <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                {uploadStats.uploads?.filter(u => u.bucket === 'videos').length || 0}
+                {statsCalculations.videoCount}
               </p>
             </div>
 

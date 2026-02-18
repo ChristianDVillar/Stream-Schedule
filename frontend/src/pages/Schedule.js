@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Joyride, { STATUS } from 'react-joyride';
 import toast from 'react-hot-toast';
 import {
@@ -34,6 +34,7 @@ import { TWITTER_MAX_CHARS, DISCORD_ICON_URL } from '../constants/platforms';
 const Schedule = ({ user, token }) => {
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({
     title: '',
     content: '',
@@ -133,6 +134,34 @@ const Schedule = ({ user, token }) => {
   useEffect(() => {
     localStorage.setItem('contentTemplates', JSON.stringify(templates));
   }, [templates]);
+
+  // Apply template when navigated from Templates page with state.applyTemplate
+  useEffect(() => {
+    const template = location.state?.applyTemplate;
+    if (!template || typeof template !== 'object') return;
+    setFormData((prev) => ({
+      ...prev,
+      title: template.title || '',
+      content: template.content || '',
+      platforms: Array.isArray(template.platforms) ? template.platforms : prev.platforms,
+      contentType: template.contentType || prev.contentType,
+      scheduledFor: template.scheduledFor || prev.scheduledFor,
+      scheduledTime: template.scheduledTime || prev.scheduledTime,
+      eventEndDate: template.eventEndDate || prev.eventEndDate,
+      eventEndTime: template.eventEndTime || prev.eventEndTime,
+      eventDates: Array.isArray(template.eventDates) ? template.eventDates : prev.eventDates,
+      eventLocationUrl: template.eventLocationUrl || prev.eventLocationUrl,
+      hashtags: template.hashtags || prev.hashtags,
+      mentions: template.mentions || prev.mentions,
+      mediaItems: Array.isArray(template.mediaItems) ? template.mediaItems : prev.mediaItems,
+      recurrence: template.recurrence && typeof template.recurrence === 'object' ? template.recurrence : prev.recurrence,
+      timezone: template.timezone || prev.timezone,
+      discordGuildId: template.discordGuildId || prev.discordGuildId,
+      discordChannelId: template.discordChannelId || prev.discordChannelId,
+    }));
+    toast.success(t('schedule.templateApplied', { name: template.name }));
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.state?.applyTemplate, location.pathname, navigate, t]);
 
   // Load Discord guilds when Discord platform is selected
   const hasDiscordSelected = Array.isArray(formData.platforms) && formData.platforms.includes('discord');

@@ -24,6 +24,9 @@ import { jsPDF } from 'jspdf';
  *   placeholderBase?: string,
  *   placeholderVat?: string,
  *   placeholderSubscriber?: string,
+ *   titleLabel?: string,
+ *   accountingSectionLabel?: string,
+ *   noteText?: string,
  * }} options
  * @returns {Blob}
  */
@@ -48,6 +51,9 @@ export function buildPaymentsInvoicePdf(payments, options = {}) {
     placeholderBase = '[Base imponible]',
     placeholderVat = '[IVA aplicable - consultar con gestoría]',
     placeholderSubscriber = '[Suscriptor]',
+    titleLabel = 'Resumen de ingresos por suscripciones',
+    accountingSectionLabel = 'Datos para gestoría (España)',
+    noteText = 'Documento generado a partir de suscripciones. Completar con la gestoría: NIF/CIF, domicilio, período, IVA si aplica.',
   } = options;
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -74,7 +80,7 @@ export function buildPaymentsInvoicePdf(payments, options = {}) {
   doc.setFontSize(14);
   doc.setFont(undefined, 'bold');
   doc.setTextColor(55, 48, 163);
-  doc.text('Resumen de ingresos por suscripciones', margin, y);
+  doc.text(titleLabel, margin, y);
   y += 8;
 
   // ----- Datos del emisor (placeholders o reales) -----
@@ -187,7 +193,7 @@ export function buildPaymentsInvoicePdf(payments, options = {}) {
   // ----- Bloque para gestoría (España): base, IVA, forma de pago -----
   doc.setFontSize(10);
   doc.setFont(undefined, 'bold');
-  doc.text('Datos para gestoría (España)', margin, y);
+  doc.text(accountingSectionLabel, margin, y);
   y += 6;
   doc.setFont(undefined, 'normal');
   doc.text(placeholderBase, margin, y);
@@ -198,12 +204,11 @@ export function buildPaymentsInvoicePdf(payments, options = {}) {
   y += 6;
   doc.setFontSize(8);
   doc.setTextColor(100, 100, 100);
-  const note = 'Documento generado a partir de suscripciones. Completar con la gestoría: NIF/CIF, domicilio, período, IVA si aplica.';
   try {
-    const noteLines = doc.splitTextToSize(note, pageW - 2 * margin);
+    const noteLines = doc.splitTextToSize(noteText, pageW - 2 * margin);
     doc.text(noteLines, margin, y);
   } catch (e) {
-    doc.text(note.substring(0, 80) + '...', margin, y);
+    doc.text(noteText.substring(0, 80) + '...', margin, y);
   }
   doc.setTextColor(0, 0, 0);
 

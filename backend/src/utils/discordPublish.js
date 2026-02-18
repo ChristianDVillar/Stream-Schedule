@@ -319,10 +319,15 @@ export async function createDiscordScheduledEvent(guildId, name, scheduledStartT
     }
     body.channel_id = channelId;
   } else if (entityType === 3) {
-    // External event
-    if (location) {
-      body.entity_metadata = { location: location.slice(0, 100) };
+    // External event - entity_metadata.location is REQUIRED for external events
+    // Also scheduled_end_time is required for external events
+    if (!endTimeISO) {
+      throw new Error('scheduled_end_time is required for external events (entity_type = 3)');
     }
+    if (!location || !location.trim()) {
+      throw new Error('location is required for external events (entity_type = 3). Provide eventLocationUrl or ensure platform is set.');
+    }
+    body.entity_metadata = { location: location.trim().slice(0, 100) };
   }
 
   if (image) {

@@ -241,6 +241,11 @@ const Content = sequelize.define('Content', {
     allowNull: true,
     comment: 'Discord channel ID where to publish when platforms includes discord'
   },
+  discordEventId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Discord scheduled event ID after creation; link: https://discord.com/events/{guildId}/{eventId}'
+  },
   status: {
     type: DataTypes.STRING,
     defaultValue: CONTENT_STATUS.SCHEDULED,
