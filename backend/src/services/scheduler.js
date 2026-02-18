@@ -196,10 +196,11 @@ async function publishToPlatform(content, platform) {
       const text = formatTwitterContent(content);
       logger.info('Posting tweet', { contentId: content.id, contentType: content.contentType, textLength: text.length });
       await postTweet(accessToken, text);
-    } else if (platform === 'discord' && content.discordChannelId) {
-      // If contentType is "event" or "stream" and we have a guildId, create a Discord scheduled event
-      // Discord will automatically show the time in each user's local timezone
-      if ((content.contentType === 'event' || content.contentType === 'stream') && content.discordGuildId) {
+    } else if (platform === 'discord') {
+      // For events: only create scheduled event, no channel message needed
+      // For streams and posts: create scheduled event if applicable AND post message to channel
+      if (content.contentType === 'event' && content.discordGuildId) {
+        // Events only need guild (server), not channel - create scheduled event only
         try {
           const eventName = content.title || (content.contentType === 'stream' ? 'Stream' : 'Scheduled Event');
           let eventDescription = content.content || '';
@@ -361,29 +362,118 @@ async function publishToPlatform(content, platform) {
             error: eventError.message,
             guildId: content.discordGuildId
           });
-          // Continue to publish message even if event creation fails
+          throw eventError; // Fail the publication if event creation fails
+        }
+      } else if ((content.contentType === 'stream' || content.contentType === 'post' || content.contentType === 'reel') && content.discordGuildId) {
+        // For streams/posts/reels: create scheduled event if applicable AND post message to channel
+        try {
+          const eventName = content.title || (content.contentType === 'stream' ? 'Stream' : 'Scheduled Post');
+          let eventDescription = content.content || '';
+          
+          // Use scheduledFor as start time
+          let eventStartTime = content.scheduledFor;
+          let eventEndTime = content.eventEndTime || null;
+          
+          const eventLocation = getDiscordEventLocation(content);
+          
+          // Get cover image from media items if available
+          const rawItems = content.files?.items ?? (content.files?.urls ? content.files.urls.map((u) => ({ url: u })) : []) ?? [];
+          const imageItems = rawItems.filter(item => {
+            const type = item.type || (String(item.url || item.file_path || '').toLowerCase().includes('video') ? 'video' : 'image');
+            return type === 'image';
+          });
+          let coverImage = null;
+          if (imageItems.length > 0) {
+            const resolvedImages = await resolveMediaUrls(imageItems);
+            if (resolvedImages.length > 0) {
+              coverImage = resolvedImages[0].url;
+            }
+          }
+          
+          // Ensure eventStartTime is a valid Date object
+          let finalStartTime = eventStartTime;
+          if (!(finalStartTime instanceof Date)) {
+            finalStartTime = new Date(finalStartTime);
+          }
+          if (isNaN(finalStartTime.getTime())) {
+            logger.error('Invalid event start time', { eventStartTime, contentType: content.contentType });
+            throw new Error('Invalid event start time');
+          }
+          
+          // Ensure eventEndTime is a valid Date object if provided
+          let finalEndTime = eventEndTime;
+          if (finalEndTime && !(finalEndTime instanceof Date)) {
+            finalEndTime = new Date(finalEndTime);
+          }
+          if (finalEndTime && isNaN(finalEndTime.getTime())) {
+            logger.warn('Invalid event end time, using default', { eventEndTime });
+            finalEndTime = null;
+          }
+          
+          // Create the scheduled event for streams (optional, doesn't fail if it fails)
+          try {
+            await createDiscordScheduledEvent(
+              content.discordGuildId,
+              eventName,
+              finalStartTime,
+              {
+                description: eventDescription,
+                scheduledEndTime: finalEndTime,
+                entityType: 3, // External event
+                location: eventLocation,
+                image: coverImage
+              }
+            );
+            logger.info('Discord scheduled event created for stream/post', {
+              contentId: content.id,
+              contentType: content.contentType,
+              guildId: content.discordGuildId
+            });
+          } catch (eventError) {
+            logger.warn('Failed to create Discord scheduled event for stream/post (continuing with message)', {
+              contentId: content.id,
+              error: eventError.message
+            });
+            // Continue to publish message even if event creation fails for streams/posts
+          }
+        } catch (eventError) {
+          logger.warn('Error creating Discord scheduled event for stream/post', {
+            contentId: content.id,
+            error: eventError.message
+          });
+          // Continue to publish message
         }
       }
       
-      // Always publish the message to the channel with formatted content
-      const rawItems = content.files?.items ?? (content.files?.urls ? content.files.urls.map((u) => ({ url: u })) : []) ?? [];
-      const items = rawItems.length > 0 ? await resolveMediaUrls(rawItems) : [];
-      
-      // Format Discord message based on contentType
-      const discordMessage = formatDiscordContent(content);
-      
-      // Post formatted message
-      if (discordMessage) {
-        if (items.length > 0) {
-          // Post message with attachments
-          await postToDiscordChannelWithAttachments(content.discordChannelId, discordMessage, items);
-        } else {
-          // Post text-only message
-          await postToDiscordChannel(content.discordChannelId, discordMessage);
+      // Publish message to channel (only for non-event content types, or if channel is specified)
+      if (content.discordChannelId && content.contentType !== 'event') {
+        const rawItems = content.files?.items ?? (content.files?.urls ? content.files.urls.map((u) => ({ url: u })) : []) ?? [];
+        const items = rawItems.length > 0 ? await resolveMediaUrls(rawItems) : [];
+        
+        // Format Discord message based on contentType
+        const discordMessage = formatDiscordContent(content);
+        
+        // Post formatted message
+        if (discordMessage) {
+          if (items.length > 0) {
+            // Post message with attachments
+            await postToDiscordChannelWithAttachments(content.discordChannelId, discordMessage, items);
+          } else {
+            // Post text-only message
+            await postToDiscordChannel(content.discordChannelId, discordMessage);
+          }
+        } else if (items.length > 0) {
+          // Only attachments, no text
+          await postToDiscordChannelWithAttachments(content.discordChannelId, '\u200b', items);
         }
-      } else if (items.length > 0) {
-        // Only attachments, no text
-        await postToDiscordChannelWithAttachments(content.discordChannelId, '\u200b', items);
+      } else if (content.contentType === 'event' && !content.discordChannelId) {
+        // Event without channel is OK - event was already created above
+        logger.info('Discord event created without channel message', {
+          contentId: content.id,
+          guildId: content.discordGuildId
+        });
+      } else if (!content.discordChannelId) {
+        throw new Error('Discord channel is required for non-event content types');
       }
     } else if (platform === 'youtube') {
       // YouTube video upload

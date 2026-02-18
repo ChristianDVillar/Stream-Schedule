@@ -174,17 +174,20 @@ const Dashboard = ({ user, token, ...props }) => {
 
 
   const handleDeleteContent = async (contentId) => {
-    if (window.confirm('Are you sure you want to delete this content?')) {
-      try {
-        await apiClient.delete(`/content/${contentId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-          withCredentials: true
-        });
-        toast.success('Content deleted successfully');
-        fetchContents();
-      } catch (error) {
-        toast.error('Failed to delete content');
+    if (!window.confirm(t('dashboard.deleteContentConfirm') || 'Are you sure you want to delete this content?')) return;
+    try {
+      await apiClient.delete(`/content/${contentId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
+      });
+      toast.success(t('dashboard.contentDeleted') || 'Content deleted successfully');
+      if (selectedContent?.id === contentId) {
+        setShowContentModal(false);
+        setSelectedContent(null);
       }
+      fetchContents();
+    } catch (error) {
+      toast.error(error.response?.data?.error || t('dashboard.deleteFailed') || 'Failed to delete content');
     }
   };
 

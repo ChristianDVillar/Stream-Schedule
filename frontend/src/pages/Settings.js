@@ -363,7 +363,10 @@ const Settings = ({ user, token, setUser }) => {
       }
       toast.success(t('settings.profileUpdated'));
     } catch (error) {
-      toast.error(t('settings.profileUpdateFailed'));
+      const msg = error.response?.data?.details
+        ? (Array.isArray(error.response.data.details) ? error.response.data.details.map((d) => d.message).join('. ') : error.response.data.details)
+        : error.response?.data?.error || t('settings.profileUpdateFailed');
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

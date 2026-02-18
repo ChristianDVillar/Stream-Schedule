@@ -203,6 +203,11 @@ const Content = sequelize.define('Content', {
     allowNull: true,
     comment: 'Array of event dates/times for events with multiple occurrences [{date, time, endDate?, endTime?}]'
   },
+  eventLocationUrl: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'External URL for Discord events (e.g. Twitch stream URL, YouTube link) - used as event location'
+  },
   hashtags: {
     type: DataTypes.STRING
   },

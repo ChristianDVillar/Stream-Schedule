@@ -97,7 +97,10 @@ export const contentSchema = Joi.object({
     .messages({
       'array.base': 'Event dates must be an array',
       'object.missing': 'Each event date must have date and time'
-    })
+    }),
+  eventLocationUrl: Joi.string().uri().max(500).allow('', null).optional().messages({
+    'string.uri': 'Event location URL must be a valid URL (e.g. https://twitch.tv/yourchannel)'
+  })
 }).required();
 
 // Update content schema (all fields optional)
@@ -150,6 +153,9 @@ export const updateContentSchema = Joi.object({
       'array.base': 'Event dates must be an array',
       'object.missing': 'Each event date must have date and time'
     }),
+  eventLocationUrl: Joi.string().uri().max(500).allow('', null).optional().messages({
+    'string.uri': 'Event location URL must be a valid URL (e.g. https://twitch.tv/yourchannel)'
+  }),
   status: Joi.string()
     .valid(...CONTENT_STATUS_VALUES)
     .optional()

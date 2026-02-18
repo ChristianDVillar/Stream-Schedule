@@ -18,7 +18,7 @@ export class ContentService {
     const eventEndTime = contentData.eventEndTime ? new Date(contentData.eventEndTime) : null;
     const occurrences = this.buildOccurrences(scheduledFor, contentData.recurrence);
     
-    const { mediaUrls, mediaItems, eventDates, ...restData } = contentData;
+    const { mediaUrls, mediaItems, eventDates, eventLocationUrl, ...restData } = contentData;
     let filesData = null;
     if (mediaItems && mediaItems.length > 0) {
       filesData = { items: mediaItems };
@@ -40,6 +40,7 @@ export class ContentService {
           scheduledFor: date,
           eventEndTime: occurrenceEventEndTime,
           eventDates: eventDates || null, // Store eventDates array for events with multiple dates
+          eventLocationUrl: eventLocationUrl || null, // Store event location URL (e.g. Twitch link)
           userId,
           files: filesData,
         });

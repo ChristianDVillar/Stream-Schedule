@@ -44,6 +44,7 @@ const Schedule = ({ user, token }) => {
     eventEndDate: '',
     eventEndTime: '',
     eventDates: [], // Array of { date: string, time: string, endDate?: string, endTime?: string } for events
+    eventLocationUrl: '', // External URL for Discord events (e.g. Twitch stream URL)
     hashtags: '',
     mentions: '',
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -258,15 +259,23 @@ const Schedule = ({ user, token }) => {
       // Date and time are optional for non-events: if omitted, content is scheduled for the next minute (confirmed in handleSubmit)
     }
 
-    if (formData.platforms.includes('discord') && !formData.discordChannelId?.trim()) {
-      newErrors.discordChannel = t('schedule.discordChannelRequired') || 'Select a Discord server and channel';
-    }
-    
-    // For events and streams in Discord, guildId is required
-    if ((formData.contentType === 'event' || formData.contentType === 'stream') && 
-        formData.platforms.includes('discord') && 
-        !formData.discordGuildId?.trim()) {
-      newErrors.discordChannel = 'Discord server is required for events and streams';
+    // For events: only guild (server) is required, channel is optional
+    // For other content types: both guild and channel are required
+    if (formData.platforms.includes('discord')) {
+      if (formData.contentType === 'event') {
+        // Events only need server, not channel
+        if (!formData.discordGuildId?.trim()) {
+          newErrors.discordChannel = t('schedule.discordServerRequired') || 'Discord server is required for events';
+        }
+      } else {
+        // Posts, streams, reels need both server and channel
+        if (!formData.discordGuildId?.trim()) {
+          newErrors.discordChannel = t('schedule.discordServerRequired') || 'Discord server is required';
+        }
+        if (!formData.discordChannelId?.trim()) {
+          newErrors.discordChannel = t('schedule.discordChannelRequired') || 'Select a Discord server and channel';
+        }
+      }
     }
 
     setErrors(newErrors);
@@ -400,9 +409,21 @@ const Schedule = ({ user, token }) => {
         }
       }
       
-      if (formData.platforms.includes('discord') && formData.discordChannelId) {
+      if (formData.platforms.includes('discord')) {
         payload.discordGuildId = formData.discordGuildId || null;
-        payload.discordChannelId = formData.discordChannelId;
+        // Channel is only required for non-event content types
+        if (formData.contentType !== 'event' && formData.discordChannelId) {
+          payload.discordChannelId = formData.discordChannelId;
+        } else if (formData.contentType !== 'event') {
+          // For non-events, channel is required
+          payload.discordChannelId = formData.discordChannelId || null;
+        }
+        // For events, channel is optional (not included in payload)
+      }
+      
+      // Add event location URL if provided (for Discord external events)
+      if (formData.contentType === 'event' && formData.eventLocationUrl?.trim()) {
+        payload.eventLocationUrl = formData.eventLocationUrl.trim();
       }
 
       const response = await apiClient.post('/content', payload, {
@@ -626,6 +647,7 @@ const Schedule = ({ user, token }) => {
       eventEndDate: formData.eventEndDate,
       eventEndTime: formData.eventEndTime,
       eventDates: formData.eventDates.length > 0 ? formData.eventDates : null,
+      eventLocationUrl: formData.eventLocationUrl || null,
       hashtags: formData.hashtags || '',
       mentions: formData.mentions || '',
       mediaItems: formData.mediaItems.length > 0 ? formData.mediaItems : null,
@@ -651,6 +673,7 @@ const Schedule = ({ user, token }) => {
       eventEndDate: template.eventEndDate || prev.eventEndDate,
       eventEndTime: template.eventEndTime || prev.eventEndTime,
       eventDates: template.eventDates || prev.eventDates,
+      eventLocationUrl: template.eventLocationUrl || prev.eventLocationUrl,
       hashtags: template.hashtags || prev.hashtags,
       mentions: template.mentions || prev.mentions,
       mediaItems: template.mediaItems || prev.mediaItems,
@@ -660,6 +683,14 @@ const Schedule = ({ user, token }) => {
       discordChannelId: template.discordChannelId || prev.discordChannelId
     }));
     toast.success(t('schedule.templateApplied', { name: template.name }));
+  };
+
+  const handleDeleteTemplate = (templateId, templateName, e) => {
+    e.stopPropagation(); // Prevent applying template when clicking delete
+    if (window.confirm(t('schedule.deleteTemplateConfirm', { name: templateName }) || `Are you sure you want to delete "${templateName}"?`)) {
+      setTemplates(prev => prev.filter(t => t.id !== templateId));
+      toast.success(t('schedule.templateDeleted', { name: templateName }) || `Template "${templateName}" deleted`);
+    }
   };
 
   const normalizeMediaItems = (items) => {
@@ -1231,23 +1262,33 @@ const Schedule = ({ user, token }) => {
                       <option key={g.id} value={g.id}>{g.name}</option>
                     ))}
                   </select>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    <Hash className="w-4 h-4 inline mr-1" />
-                    {t('schedule.discordChannel') || 'Discord channel'} <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={formData.discordChannelId}
-                    onChange={(e) => setFormData(prev => ({ ...prev, discordChannelId: e.target.value }))}
-                    className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 focus:ring-2 focus:ring-indigo-500 ${errors.discordChannel ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
-                    disabled={!formData.discordGuildId || loadingDiscordChannels}
-                  >
-                    <option value="">{loadingDiscordChannels ? (t('common.loading') || 'Loading...') : (t('schedule.discordChooseChannel') || 'Choose channel')}</option>
-                    {discordChannels.filter((c) => c.type === 0).map((c) => (
-                      <option key={c.id} value={c.id}>#{c.name}</option>
-                    ))}
-                  </select>
-                  {errors.discordChannel && (
-                    <p className="mt-1 text-sm text-red-600">{errStr(errors.discordChannel)}</p>
+                  {/* Channel selector - only show for non-event content types */}
+                  {formData.contentType !== 'event' && (
+                    <>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <Hash className="w-4 h-4 inline mr-1" />
+                        {t('schedule.discordChannel') || 'Discord channel'} <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={formData.discordChannelId}
+                        onChange={(e) => setFormData(prev => ({ ...prev, discordChannelId: e.target.value }))}
+                        className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 focus:ring-2 focus:ring-indigo-500 ${errors.discordChannel ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+                        disabled={!formData.discordGuildId || loadingDiscordChannels}
+                      >
+                        <option value="">{loadingDiscordChannels ? (t('common.loading') || 'Loading...') : (t('schedule.discordChooseChannel') || 'Choose channel')}</option>
+                        {discordChannels.filter((c) => c.type === 0).map((c) => (
+                          <option key={c.id} value={c.id}>#{c.name}</option>
+                        ))}
+                      </select>
+                      {errors.discordChannel && (
+                        <p className="mt-1 text-sm text-red-600">{errStr(errors.discordChannel)}</p>
+                      )}
+                    </>
+                  )}
+                  {formData.contentType === 'event' && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                      {t('schedule.eventNoChannelNeeded') || 'Events are created directly on the server and do not require a channel.'}
+                    </p>
                   )}
                 </div>
               )}
@@ -1296,6 +1337,7 @@ const Schedule = ({ user, token }) => {
                           {t('schedule.date')} <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
+                          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
                           <input
                             type="date"
                             value={formData.scheduledFor || ''}
@@ -1307,9 +1349,8 @@ const Schedule = ({ user, token }) => {
                                 eventDates: [{ date: dateValue, time: prev.scheduledTime || '', endDate: '', endTime: '' }]
                               }));
                             }}
-                            className="w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                            className="w-full pl-11 pr-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300 cursor-pointer"
                           />
-                          <Calendar className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
                         </div>
                       </div>
 
@@ -1318,6 +1359,7 @@ const Schedule = ({ user, token }) => {
                           {t('schedule.time')} <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
+                          <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
                           <input
                             type="time"
                             value={formData.scheduledTime || ''}
@@ -1329,9 +1371,8 @@ const Schedule = ({ user, token }) => {
                                 eventDates: [{ date: prev.scheduledFor || '', time: timeValue, endDate: '', endTime: '' }]
                               }));
                             }}
-                            className="w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                            className="w-full pl-11 pr-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300 cursor-pointer"
                           />
-                          <Clock className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
                         </div>
                       </div>
                     </div>
@@ -1366,6 +1407,7 @@ const Schedule = ({ user, token }) => {
                           {t('schedule.date')} <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
+                          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
                           <input
                             type="date"
                             value={eventDate.date}
@@ -1374,9 +1416,8 @@ const Schedule = ({ user, token }) => {
                               newDates[index].date = e.target.value;
                               setFormData(prev => ({ ...prev, eventDates: newDates }));
                             }}
-                            className="w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                            className="w-full pl-11 pr-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300 cursor-pointer"
                           />
-                          <Calendar className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
                         </div>
                       </div>
 
@@ -1385,6 +1426,7 @@ const Schedule = ({ user, token }) => {
                           {t('schedule.time')} <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
+                          <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
                           <input
                             type="time"
                             value={eventDate.time}
@@ -1393,9 +1435,8 @@ const Schedule = ({ user, token }) => {
                               newDates[index].time = e.target.value;
                               setFormData(prev => ({ ...prev, eventDates: newDates }));
                             }}
-                            className="w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                            className="w-full pl-11 pr-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300 cursor-pointer"
                           />
-                          <Clock className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
                         </div>
                       </div>
 
@@ -1404,6 +1445,7 @@ const Schedule = ({ user, token }) => {
                           {t('schedule.eventEndDate')} <span className="text-gray-400 text-xs">({t('schedule.optional')})</span>
                         </label>
                         <div className="relative">
+                          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
                           <input
                             type="date"
                             value={eventDate.endDate || ''}
@@ -1413,9 +1455,8 @@ const Schedule = ({ user, token }) => {
                               setFormData(prev => ({ ...prev, eventDates: newDates }));
                             }}
                             min={eventDate.date || undefined}
-                            className="w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                            className="w-full pl-11 pr-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300 cursor-pointer"
                           />
-                          <Calendar className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
                         </div>
                       </div>
 
@@ -1424,6 +1465,9 @@ const Schedule = ({ user, token }) => {
                           {t('schedule.eventEndTime')} <span className="text-gray-400 text-xs">({t('schedule.optional')})</span>
                         </label>
                         <div className="relative">
+                          <Clock className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none z-10 ${
+                            !eventDate.endDate ? 'text-gray-300 dark:text-gray-600' : 'text-gray-400 dark:text-gray-500'
+                          }`} />
                           <input
                             type="time"
                             value={eventDate.endTime || ''}
@@ -1433,11 +1477,10 @@ const Schedule = ({ user, token }) => {
                               setFormData(prev => ({ ...prev, eventDates: newDates }));
                             }}
                             disabled={!eventDate.endDate}
-                            className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300 ${
-                              !eventDate.endDate ? 'opacity-50 cursor-not-allowed' : ''
+                            className={`w-full pl-11 pr-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300 ${
+                              !eventDate.endDate ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                             }`}
                           />
-                          <Clock className="absolute right-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" />
                         </div>
                       </div>
                     </div>
@@ -1449,6 +1492,26 @@ const Schedule = ({ user, token }) => {
                     )}
                   </div>
                 ))}
+                
+                {/* Event Location URL field (for Discord external events) */}
+                {formData.contentType === 'event' && formData.platforms.includes('discord') && (
+                  <div className="mt-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                    <label htmlFor="eventLocationUrl" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {t('schedule.eventLocationUrl') || 'Event Location URL'} <span className="text-gray-500 text-xs">({t('schedule.optional') || 'Optional'})</span>
+                    </label>
+                    <input
+                      id="eventLocationUrl"
+                      type="url"
+                      value={formData.eventLocationUrl || ''}
+                      onChange={(e) => handleInputChange('eventLocationUrl', e.target.value)}
+                      placeholder={t('schedule.eventLocationUrlPlaceholder') || 'https://twitch.tv/yourchannel or https://youtube.com/...'}
+                      className="w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                    />
+                    <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                      {t('schedule.eventLocationUrlHint') || 'This URL will be used as the event location in Discord. Leave empty to use default platform name.'}
+                    </p>
+                  </div>
+                )}
               </div>
             ) : (
               // Single date/time interface for non-events
@@ -1463,16 +1526,16 @@ const Schedule = ({ user, token }) => {
                     {t('schedule.date')} <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
                     <input
                       id="scheduledFor"
                       type="date"
                       value={formData.scheduledFor}
                       onChange={(e) => handleInputChange('scheduledFor', e.target.value)}
-                      className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      className={`w-full pl-11 pr-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer ${
                         errors.scheduledFor ? 'border-red-500' : 'border-gray-300'
                       }`}
                     />
-                    <Calendar className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
                   </div>
                   {errors.scheduledFor && (
                     <p className="mt-1 text-sm text-red-600">{errStr(errors.scheduledFor)}</p>
@@ -1484,16 +1547,16 @@ const Schedule = ({ user, token }) => {
                     {t('schedule.time')} <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
+                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
                     <input
                       id="scheduledTime"
                       type="time"
                       value={formData.scheduledTime}
                       onChange={(e) => handleInputChange('scheduledTime', e.target.value)}
-                      className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      className={`w-full pl-11 pr-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer ${
                         errors.scheduledTime ? 'border-red-500' : 'border-gray-300'
                       }`}
                     />
-                    <Clock className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
                   </div>
                   {errors.scheduledTime && (
                     <p className="mt-1 text-sm text-red-600">{errStr(errors.scheduledTime)}</p>
@@ -1571,10 +1634,15 @@ const Schedule = ({ user, token }) => {
                 <input
                   type="checkbox"
                   checked={formData.recurrence.enabled}
-                  onChange={(e) => handleInputChange('recurrence', {
-                    ...formData.recurrence,
-                    enabled: e.target.checked
-                  })}
+                  onChange={(e) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      recurrence: {
+                        ...prev.recurrence,
+                        enabled: e.target.checked
+                      }
+                    }));
+                  }}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
@@ -1586,10 +1654,15 @@ const Schedule = ({ user, token }) => {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('schedule.frequency')}</label>
                   <select
                     value={formData.recurrence.frequency}
-                    onChange={(e) => handleInputChange('recurrence', {
-                      ...formData.recurrence,
-                      frequency: e.target.value
-                    })}
+                    onChange={(e) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        recurrence: {
+                          ...prev.recurrence,
+                          frequency: e.target.value
+                        }
+                      }));
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900"
                   >
                     <option value="daily">{t('schedule.daily')}</option>
@@ -1603,10 +1676,15 @@ const Schedule = ({ user, token }) => {
                     min="1"
                     max="50"
                     value={formData.recurrence.count}
-                    onChange={(e) => handleInputChange('recurrence', {
-                      ...formData.recurrence,
-                      count: Number(e.target.value)
-                    })}
+                    onChange={(e) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        recurrence: {
+                          ...prev.recurrence,
+                          count: Number(e.target.value) || 1
+                        }
+                      }));
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900"
                   />
                 </div>
@@ -1648,14 +1726,26 @@ const Schedule = ({ user, token }) => {
             ) : (
               <div className="flex flex-wrap gap-2">
                 {templates.map(template => (
-                  <button
+                  <div
                     key={template.id}
-                    type="button"
-                    onClick={() => handleApplyTemplate(template)}
-                    className="px-3 py-1 border rounded-full text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    className="group relative inline-flex items-center gap-1 px-3 py-1 border rounded-full text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   >
-                    {template.name}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyTemplate(template)}
+                      className="flex-1 text-left"
+                    >
+                      {template.name}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handleDeleteTemplate(template.id, template.name, e)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 ml-1"
+                      title={t('schedule.deleteTemplate') || 'Delete template'}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
