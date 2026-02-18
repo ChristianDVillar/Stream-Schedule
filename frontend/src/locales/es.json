@@ -147,7 +147,8 @@
     "cancelPublicationFailed": "Error al cancelar la publicación",
     "viewDetails": "Ver detalles",
     "duplicate": "Duplicar",
-    "appTitle": "Streamer Scheduler"
+    "appTitle": "Streamer Scheduler",
+    "viewDiscordEvent": "Ver evento en Discord"
   },
   "templates": {
     "title": "Plantillas de contenido",
@@ -172,7 +173,10 @@
     "createContent": "Crear contenido",
     "contentCreated": "Contenido creado desde plantilla",
     "selectDate": "Elige una fecha",
-    "invalidDateTime": "Fecha u hora no válidas"
+    "invalidDateTime": "Fecha u hora no válidas",
+    "local": "Local",
+    "useInSchedule": "Usar en Programar",
+    "editInSchedule": "Abriendo Programar para editar esta plantilla"
   },
   "discord": {
     "title": "Publicar en Discord",
@@ -339,9 +343,33 @@
     "themeLight": "Claro",
     "themeDark": "Oscuro",
     "themeAuto": "Automático",
-    "support": "Soporte"
+    "support": "Soporte",
+    "currentLicense": "Licencia actual",
+    "expires": "Expira",
+    "licenseAlert7Days": "Alerta: tu licencia vence en 7 días.",
+    "licenseAlert3Days": "Alerta: tu licencia vence en 3 días.",
+    "licenseExpired": "Tu licencia está vencida.",
+    "licenseLoadError": "No se pudo cargar el estado de la licencia.",
+    "activeSubscription": "Suscripción activa",
+    "status": "Estado",
+    "currentPeriod": "Periodo actual",
+    "subscriptionCancelAtEnd": "La suscripción se cancelará al final del periodo",
+    "paymentHistory": "Historial de pagos",
+    "noPaymentHistoryAvailable": "No hay historial de pagos",
+    "recurring": "Recurrente",
+    "statusCompleted": "Completado",
+    "statusPending": "Pendiente",
+    "statusFailed": "Fallido",
+    "monthlySubscription": "Suscripción mensual",
+    "quarterlySubscription": "Suscripción trimestral",
+    "lifetimeLicense": "Licencia de por vida",
+    "recurringMonthlyDescription": "Licencia mensual con renovación automática.",
+    "quarterlyDescription": "Cada 3 meses.",
+    "oneTimePaymentDescription": "Pago único para acceso ilimitado.",
+    "noLicense": "Sin licencia"
   },
   "messages": {
+    "noMessages": "Ningún mensaje",
     "contactAdmin": "Contacta Administrador",
     "category": "Categoría",
     "categorySupport": "Soporte",
@@ -497,6 +525,11 @@
     "pdfColPago": "Pago",
     "pdfColMoneda": "Moneda",
     "pdfTotalLabel": "Total",
+    "pdfTitle": "Resumen de ingresos por suscripciones",
+    "pdfAccountingSection": "Datos para gestoría (España)",
+    "pdfNote": "Documento generado a partir de suscripciones. Completar con la gestoría: NIF/CIF, domicilio, período, IVA si aplica.",
+    "pdfGenerateError": "Error al generar PDF",
+    "downloadError": "Error al descargar",
     "fromDate": "Desde",
     "toDate": "Hasta",
     "loadingPayments": "Cargando pagos...",

@@ -326,6 +326,7 @@ async function publishToPlatform(content, platform) {
           }
           
           // Ensure eventEndTime is a valid Date object if provided
+          // For external events, Discord REQUIRES scheduled_end_time
           let finalEndTime = eventEndTime;
           if (finalEndTime && !(finalEndTime instanceof Date)) {
             finalEndTime = new Date(finalEndTime);
@@ -335,26 +336,66 @@ async function publishToPlatform(content, platform) {
             finalEndTime = null;
           }
           
+          // If no end time provided, calculate default (start time + 1 hour)
+          // Discord REQUIRES scheduled_end_time for external events
+          if (!finalEndTime) {
+            finalEndTime = new Date(finalStartTime.getTime() + 60 * 60 * 1000); // +1 hour
+            logger.info('No end time provided, using default (start + 1 hour)', {
+              startTime: finalStartTime,
+              endTime: finalEndTime
+            });
+          }
+          
+          // Ensure location is provided (required for external events)
+          // If no location provided, use a default descriptive location
+          let finalLocation = eventLocation;
+          if (!finalLocation || !finalLocation.trim()) {
+            // Generate a descriptive default location based on platforms
+            if (Array.isArray(content.platforms)) {
+              const platformNames = content.platforms
+                .filter(p => p !== 'discord')
+                .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+                .join(', ');
+              finalLocation = platformNames || 'Online Event';
+            } else {
+              finalLocation = 'Online Event';
+            }
+            logger.info('No location provided, using default', { location: finalLocation });
+          }
+          
           // Create the scheduled event (Discord handles timezone conversion automatically)
-          await createDiscordScheduledEvent(
+          const eventData = await createDiscordScheduledEvent(
             content.discordGuildId,
             eventName,
             finalStartTime, // Already in UTC from database or calculated from eventDates
             {
               description: eventDescription,
-              scheduledEndTime: finalEndTime, // Optional end time in UTC
+              scheduledEndTime: finalEndTime, // Required for external events
               entityType: 3, // External event (works for streams)
-              location: eventLocation,
+              location: finalLocation, // Required for external events
               image: coverImage
             }
           );
+          
+          // Store Discord event ID so we can show the public link: https://discord.com/events/{guildId}/{eventId}
+          if (eventData?.id) {
+            await Content.update(
+              { discordEventId: eventData.id },
+              { where: { id: content.id } }
+            );
+            logger.info('Discord event ID saved to content', {
+              contentId: content.id,
+              discordEventId: eventData.id,
+              eventUrl: `https://discord.com/events/${content.discordGuildId}/${eventData.id}`
+            });
+          }
           
           logger.info('Discord scheduled event created', {
             contentId: content.id,
             contentType: content.contentType,
             guildId: content.discordGuildId,
             scheduledFor: content.scheduledFor,
-            location: eventLocation
+            location: finalLocation
           });
         } catch (eventError) {
           logger.error('Failed to create Discord scheduled event', {
@@ -401,6 +442,7 @@ async function publishToPlatform(content, platform) {
           }
           
           // Ensure eventEndTime is a valid Date object if provided
+          // For external events, Discord REQUIRES scheduled_end_time
           let finalEndTime = eventEndTime;
           if (finalEndTime && !(finalEndTime instanceof Date)) {
             finalEndTime = new Date(finalEndTime);
@@ -410,20 +452,56 @@ async function publishToPlatform(content, platform) {
             finalEndTime = null;
           }
           
+          // If no end time provided, calculate default (start time + 1 hour)
+          // Discord REQUIRES scheduled_end_time for external events
+          if (!finalEndTime) {
+            finalEndTime = new Date(finalStartTime.getTime() + 60 * 60 * 1000); // +1 hour
+            logger.info('No end time provided for stream/post event, using default (start + 1 hour)', {
+              startTime: finalStartTime,
+              endTime: finalEndTime
+            });
+          }
+          
+          // Ensure location is provided (required for external events)
+          let finalLocation = eventLocation;
+          if (!finalLocation || !finalLocation.trim()) {
+            // Generate a descriptive default location based on platforms
+            if (Array.isArray(content.platforms)) {
+              const platformNames = content.platforms
+                .filter(p => p !== 'discord')
+                .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+                .join(', ');
+              finalLocation = platformNames || 'Online Event';
+            } else {
+              finalLocation = 'Online Event';
+            }
+            logger.info('No location provided for stream/post event, using default', { location: finalLocation });
+          }
+          
           // Create the scheduled event for streams (optional, doesn't fail if it fails)
           try {
-            await createDiscordScheduledEvent(
+            const eventData = await createDiscordScheduledEvent(
               content.discordGuildId,
               eventName,
               finalStartTime,
               {
                 description: eventDescription,
-                scheduledEndTime: finalEndTime,
+                scheduledEndTime: finalEndTime, // Required for external events
                 entityType: 3, // External event
-                location: eventLocation,
+                location: finalLocation, // Required for external events
                 image: coverImage
               }
             );
+            if (eventData?.id) {
+              await Content.update(
+                { discordEventId: eventData.id },
+                { where: { id: content.id } }
+              );
+              logger.info('Discord event ID saved to content (stream/post)', {
+                contentId: content.id,
+                discordEventId: eventData.id
+              });
+            }
             logger.info('Discord scheduled event created for stream/post', {
               contentId: content.id,
               contentType: content.contentType,

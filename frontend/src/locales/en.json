@@ -147,7 +147,8 @@
     "cancelPublicationFailed": "Failed to cancel publication",
     "viewDetails": "View details",
     "duplicate": "Duplicate",
-    "appTitle": "Streamer Scheduler"
+    "appTitle": "Streamer Scheduler",
+    "viewDiscordEvent": "View event on Discord"
   },
   "templates": {
     "title": "Content templates",
@@ -172,7 +173,10 @@
     "createContent": "Create content",
     "contentCreated": "Content created from template",
     "selectDate": "Select a date",
-    "invalidDateTime": "Invalid date or time"
+    "invalidDateTime": "Invalid date or time",
+    "local": "Local",
+    "useInSchedule": "Use in Schedule",
+    "editInSchedule": "Opening Schedule to edit this template"
   },
   "discord": {
     "title": "Publish to Discord",
@@ -339,9 +343,33 @@
     "themeLight": "Light",
     "themeDark": "Dark",
     "themeAuto": "Auto",
-    "support": "Support"
+    "support": "Support",
+    "currentLicense": "Current License",
+    "expires": "Expires",
+    "licenseAlert7Days": "Alert: your license expires in 7 days.",
+    "licenseAlert3Days": "Alert: your license expires in 3 days.",
+    "licenseExpired": "Your license has expired.",
+    "licenseLoadError": "Could not load license status.",
+    "activeSubscription": "Active Subscription",
+    "status": "Status",
+    "currentPeriod": "Current Period",
+    "subscriptionCancelAtEnd": "Subscription will cancel at end of period",
+    "paymentHistory": "Payment History",
+    "noPaymentHistoryAvailable": "No payment history available",
+    "recurring": "Recurring",
+    "statusCompleted": "Completed",
+    "statusPending": "Pending",
+    "statusFailed": "Failed",
+    "monthlySubscription": "Monthly Subscription",
+    "quarterlySubscription": "Quarterly Subscription",
+    "lifetimeLicense": "Lifetime License",
+    "recurringMonthlyDescription": "Recurring monthly license with automatic renewal.",
+    "quarterlyDescription": "Recurring every 3 months.",
+    "oneTimePaymentDescription": "One-time payment for unlimited access.",
+    "noLicense": "No license"
   },
   "messages": {
+    "noMessages": "No Messages",
     "contactAdmin": "Contact Admin",
     "category": "Category",
     "categorySupport": "Support",
@@ -497,6 +525,11 @@
     "pdfColPago": "Amount",
     "pdfColMoneda": "Currency",
     "pdfTotalLabel": "Total",
+    "pdfTitle": "Subscription revenue summary",
+    "pdfAccountingSection": "Data for accounting (Spain)",
+    "pdfNote": "Document generated from subscriptions. Complete with your accountant: Tax ID, address, period, VAT if applicable.",
+    "pdfGenerateError": "Error generating PDF",
+    "downloadError": "Error downloading",
     "fromDate": "From",
     "toDate": "To",
     "loadingPayments": "Loading payments...",

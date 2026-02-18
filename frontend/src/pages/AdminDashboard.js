@@ -214,7 +214,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
-      window.alert(err.response?.data?.error || 'Error al descargar');
+      window.alert(err.response?.data?.error || t('admin.downloadError'));
     } finally {
       setExporting(false);
     }
@@ -275,6 +275,9 @@ export default function AdminDashboard({ token, user, onLogout }) {
         colPago: t('admin.pdfColPago'),
         colMoneda: t('admin.pdfColMoneda'),
         totalLabel: t('admin.pdfTotalLabel'),
+        titleLabel: t('admin.pdfTitle'),
+        accountingSectionLabel: t('admin.pdfAccountingSection'),
+        noteText: t('admin.pdfNote'),
       });
       const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
@@ -285,7 +288,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
-      window.alert(err.response?.data?.error || err.message || 'Error al generar PDF');
+      window.alert(err.response?.data?.error || err.message || t('admin.pdfGenerateError'));
     } finally {
       setExporting(false);
     }

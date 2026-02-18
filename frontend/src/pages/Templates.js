@@ -1,7 +1,7 @@
 /**
  * Content Templates - list, create, edit, delete, create content from template
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTemplates, createTemplate, updateTemplate, deleteTemplate, createContentFromTemplate } from '../api-templates';
 import { getEnabledPlatforms } from '../api';
@@ -19,6 +19,30 @@ const CONTENT_TYPES = [
 
 const ALL_PLATFORM_IDS = ['twitch', 'twitter', 'instagram', 'discord', 'youtube'];
 
+const LOCAL_TEMPLATES_KEY = 'contentTemplates';
+
+/** Read templates saved from Schedule (New post) - stored in localStorage */
+function getLocalTemplates() {
+  try {
+    const stored = localStorage.getItem(LOCAL_TEMPLATES_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+/** Persist local templates after removing one */
+function removeLocalTemplateById(id) {
+  try {
+    const list = getLocalTemplates();
+    const next = list.filter((t) => String(t.id) !== String(id));
+    localStorage.setItem(LOCAL_TEMPLATES_KEY, JSON.stringify(next));
+    return next;
+  } catch (e) {
+    return getLocalTemplates();
+  }
+}
+
 export default function Templates({ user, token }) {
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -26,6 +50,7 @@ export default function Templates({ user, token }) {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
   const [useTemplateId, setUseTemplateId] = useState(null);
+  const [useTemplateSource, setUseTemplateSource] = useState(null); // 'api' | 'local'
   const [useDate, setUseDate] = useState('');
   const [useTime, setUseTime] = useState('12:00');
   const [enabledPlatforms, setEnabledPlatforms] = useState(ALL_PLATFORM_IDS);
@@ -40,36 +65,39 @@ export default function Templates({ user, token }) {
     isPublic: false,
   });
 
+  const loadTemplates = useCallback(async () => {
+    setLoading(true);
+    try {
+      const apiList = await getTemplates().catch(() => []);
+      const apiTemplates = Array.isArray(apiList) ? apiList : [];
+      const localTemplates = getLocalTemplates();
+      const fromApi = apiTemplates.map((t) => ({ ...t, _source: 'api' }));
+      const fromLocal = localTemplates.map((t) => ({ ...t, _source: 'local' }));
+      setTemplates([...fromApi, ...fromLocal]);
+    } catch (err) {
+      toast.error(err.response?.data?.error || t('templates.errorLoad') || 'Failed to load templates');
+      const localOnly = getLocalTemplates().map((t) => ({ ...t, _source: 'local' }));
+      setTemplates(localOnly);
+    } finally {
+      setLoading(false);
+    }
+  }, [t]);
+
   useEffect(() => {
     loadTemplates();
-    
-    // Load enabled platforms
+
     const loadEnabledPlatforms = async () => {
       try {
         const res = await getEnabledPlatforms();
         setEnabledPlatforms(res.data.platforms || ALL_PLATFORM_IDS);
       } catch (err) {
-        // Fallback to all platforms if error
         setEnabledPlatforms(ALL_PLATFORM_IDS);
       }
     };
     loadEnabledPlatforms();
-  }, []);
+  }, [loadTemplates]);
 
-  const loadTemplates = async () => {
-    setLoading(true);
-    try {
-      const data = await getTemplates();
-      setTemplates(Array.isArray(data) ? data : []);
-    } catch (err) {
-      toast.error(err.response?.data?.error || t('templates.errorLoad') || 'Failed to load templates');
-      setTemplates([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!form.name.trim() || !form.content.trim()) {
       toast.error(t('templates.nameAndContentRequired') || 'Name and content are required');
       return;
@@ -92,21 +120,28 @@ export default function Templates({ user, token }) {
     } catch (err) {
       toast.error(err.response?.data?.details || err.response?.data?.error || 'Failed to save template');
     }
-  };
+  }, [editingId, form, loadTemplates, t]);
 
-  const handleDelete = async (id) => {
+  const handleDelete = useCallback(async (template) => {
     if (!window.confirm(t('templates.confirmDelete') || 'Delete this template?')) return;
-    try {
-      await deleteTemplate(id);
+    if (template._source === 'local') {
+      removeLocalTemplateById(template.id);
+      setTemplates((prev) => prev.filter((x) => !(x._source === 'local' && x.id === template.id)));
       toast.success(t('templates.deleted') || 'Template deleted');
-      if (editingId === id) setEditingId(null);
+      setEditingId(prev => prev === template.id ? null : prev);
+      return;
+    }
+    try {
+      await deleteTemplate(template.id);
+      toast.success(t('templates.deleted') || 'Template deleted');
+      setEditingId(prev => prev === template.id ? null : prev);
       loadTemplates();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to delete');
     }
-  };
+  }, [t, loadTemplates]);
 
-  const handleUseTemplate = async () => {
+  const handleUseTemplate = useCallback(async () => {
     if (!useTemplateId || !useDate) {
       toast.error(t('templates.selectDate') || 'Select a date');
       return;
@@ -120,36 +155,42 @@ export default function Templates({ user, token }) {
       await createContentFromTemplate(useTemplateId, scheduledFor.toISOString(), {});
       toast.success(t('templates.contentCreated') || 'Content created from template');
       setUseTemplateId(null);
+      setUseTemplateSource(null);
       setUseDate('');
       setUseTime('12:00');
       navigate('/dashboard');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to create content');
     }
-  };
+  }, [useTemplateId, useDate, useTime, t, navigate]);
 
-  const startEdit = (t) => {
-    setEditingId(t.id);
+  const startEdit = useCallback((template) => {
+    if (template._source === 'local') {
+      navigate('/schedule', { state: { applyTemplate: template } });
+      toast.success(t('templates.editInSchedule') || 'Opening Schedule to edit this template');
+      return;
+    }
+    setEditingId(template.id);
     setForm({
-      name: t.name || '',
-      title: t.title || '',
-      content: t.content || '',
-      contentType: t.contentType || 'post',
-      platforms: Array.isArray(t.platforms) ? [...t.platforms] : [],
-      hashtags: t.hashtags || '',
-      mentions: t.mentions || '',
-      isPublic: !!t.isPublic,
+      name: template.name || '',
+      title: template.title || '',
+      content: template.content || '',
+      contentType: template.contentType || 'post',
+      platforms: Array.isArray(template.platforms) ? [...template.platforms] : [],
+      hashtags: template.hashtags || '',
+      mentions: template.mentions || '',
+      isPublic: !!template.isPublic,
     });
-  };
+  }, [navigate, t]);
 
-  const togglePlatform = (id) => {
+  const togglePlatform = useCallback((id) => {
     setForm((prev) => ({
       ...prev,
       platforms: prev.platforms.includes(id)
         ? prev.platforms.filter((p) => p !== id)
         : [...prev.platforms, id],
     }));
-  };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-6 px-4">
@@ -257,29 +298,44 @@ export default function Templates({ user, token }) {
             <p className="text-gray-500 dark:text-gray-400">{t('templates.noTemplates') || 'No templates yet. Create one above.'}</p>
           ) : (
             <ul className="space-y-3">
-              {templates.map((t) => (
-                <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 p-4 border border-gray-200 dark:border-gray-600 rounded-lg">
+              {templates.map((template) => (
+                <li key={template._source === 'local' ? `local-${template.id}` : template.id} className="flex flex-wrap items-center justify-between gap-2 p-4 border border-gray-200 dark:border-gray-600 rounded-lg">
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-gray-900 dark:text-gray-100">{t.name}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{t.content?.slice(0, 80)}...</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{template.name}</p>
+                      {template._source === 'local' && (
+                        <span className="px-2 py-0.5 text-xs rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200">
+                          {t('templates.local') || 'Local'}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{template.content?.slice(0, 80)}{(template.content?.length || 0) > 80 ? '...' : ''}</p>
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {Array.isArray(t.platforms) && t.platforms.map((p) => (
+                      {Array.isArray(template.platforms) && template.platforms.map((p) => (
                         <span key={p} className="px-2 py-0.5 rounded text-xs text-white capitalize" style={{ backgroundColor: getPlatformColor(p) }}>{p}</span>
                       ))}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setUseTemplateId(t.id)}
+                      onClick={() => {
+                        if (template._source === 'local') {
+                          navigate('/schedule', { state: { applyTemplate: template } });
+                          toast.success(t('templates.useInSchedule') || 'Opening Schedule');
+                        } else {
+                          setUseTemplateId(template.id);
+                          setUseTemplateSource('api');
+                        }
+                      }}
                       className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"
-                      title={t('templates.useTemplate') || 'Create content from template'}
+                      title={template._source === 'local' ? (t('templates.useInSchedule') || 'Use in Schedule') : (t('templates.useTemplate') || 'Create content from template')}
                     >
                       <Calendar className="w-5 h-5" />
                     </button>
-                    <button onClick={() => startEdit(t)} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded">
+                    <button onClick={() => startEdit(template)} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded">
                       <Pencil className="w-5 h-5" />
                     </button>
-                    <button onClick={() => handleDelete(t.id)} className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded">
+                    <button onClick={() => handleDelete(template)} className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded">
                       <Trash2 className="w-5 h-5" />
                     </button>
                   </div>
@@ -291,12 +347,12 @@ export default function Templates({ user, token }) {
       </div>
 
       {/* Modal: Use template (pick date) */}
-      {useTemplateId && (
+      {useTemplateId && useTemplateSource === 'api' && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm w-full">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('templates.createContentFrom') || 'Create content from template'}</h3>
-              <button onClick={() => setUseTemplateId(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              <button onClick={() => { setUseTemplateId(null); setUseTemplateSource(null); }} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-4">
               <div>
@@ -311,7 +367,7 @@ export default function Templates({ user, token }) {
                 <button onClick={handleUseTemplate} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                   {t('templates.createContent') || 'Create content'}
                 </button>
-                <button onClick={() => setUseTemplateId(null)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg">{t('common.cancel')}</button>
+                <button onClick={() => { setUseTemplateId(null); setUseTemplateSource(null); }} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg">{t('common.cancel')}</button>
               </div>
             </div>
           </div>

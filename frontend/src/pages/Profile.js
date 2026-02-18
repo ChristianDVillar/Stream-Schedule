@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { formatDate } from '../utils/dateUtils';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../api';
@@ -38,11 +38,7 @@ const Profile = ({ user, token }) => {
   const [achievements, setAchievements] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchProfileData();
-  }, []);
-
-  const fetchProfileData = async () => {
+  const fetchProfileData = useCallback(async () => {
     try {
       // Fetch user stats
       const statsResponse = await apiClient.get('/user/stats', {
@@ -72,7 +68,12 @@ const Profile = ({ user, token }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    fetchProfileData();
+  }, [fetchProfileData]);
+
 
   const getActivityIcon = (type) => {
     switch (type) {
@@ -90,9 +91,23 @@ const Profile = ({ user, token }) => {
   };
 
 
-  const getProgressPercentage = (current, target) => {
+  const getProgressPercentage = useCallback((current, target) => {
     return Math.min((current / target) * 100, 100);
-  };
+  }, []);
+
+  // Memoized calculations
+  const engagementRate = useMemo(() => {
+    return stats.totalViews > 0 ? ((stats.totalLikes / stats.totalViews) * 100).toFixed(1) : 0;
+  }, [stats.totalViews, stats.totalLikes]);
+
+  const progressPercentages = useMemo(() => ({
+    posts: getProgressPercentage(stats.totalPosts, 100),
+    views: getProgressPercentage(stats.totalViews, 10000),
+    engagement: getProgressPercentage(
+      stats.totalViews > 0 ? (stats.totalLikes / stats.totalViews) * 100 : 0,
+      5
+    )
+  }), [stats.totalPosts, stats.totalViews, stats.totalLikes, getProgressPercentage]);
 
   if (loading) {
     return (
@@ -249,7 +264,7 @@ const Profile = ({ user, token }) => {
               <div>
                 <p className="text-sm font-medium text-gray-600">Engagement Rate</p>
                 <p className="text-3xl font-bold text-gray-900">
-                  {stats.totalViews > 0 ? ((stats.totalLikes / stats.totalViews) * 100).toFixed(1) : 0}%
+                  {engagementRate}%
                 </p>
               </div>
               <BarChart3 className="w-8 h-8 text-indigo-500" />
@@ -356,7 +371,7 @@ const Profile = ({ user, token }) => {
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${getProgressPercentage(stats.totalPosts, 100)}%` }}
+                  style={{ width: `${progressPercentages.posts}%` }}
                 ></div>
               </div>
             </div>
@@ -369,7 +384,7 @@ const Profile = ({ user, token }) => {
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${getProgressPercentage(stats.totalViews, 10000)}%` }}
+                  style={{ width: `${progressPercentages.views}%` }}
                 ></div>
               </div>
             </div>
@@ -378,17 +393,14 @@ const Profile = ({ user, token }) => {
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700">Engagement Goal</span>
                 <span className="text-sm text-gray-500">
-                  {stats.totalViews > 0 ? ((stats.totalLikes / stats.totalViews) * 100).toFixed(1) : 0}%/5%
+                  {engagementRate}%/5%
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-purple-600 h-2 rounded-full transition-all duration-300"
                   style={{ 
-                    width: `${getProgressPercentage(
-                      stats.totalViews > 0 ? (stats.totalLikes / stats.totalViews) * 100 : 0, 
-                      5
-                    )}%` 
+                    width: `${progressPercentages.engagement}%` 
                   }}
                 ></div>
               </div>

@@ -1,3 +1,5 @@
+import React from 'react';
+
 /**
  * Accent color values (hex) for CSS variables.
  * Used by Settings and App to apply and persist accent color.
@@ -34,4 +36,30 @@ export function applyAccentColor(id) {
   } catch (e) {
     // ignore
   }
+}
+
+/** Event name dispatched when theme (light/dark) is applied. Listen to re-render theme-dependent UI. */
+export const THEME_CHANGE_EVENT = 'themechange';
+
+/**
+ * Current effective theme: 'dark' if document has .dark class, else 'light'.
+ * Matches what the user sees (Settings applies the class for light/dark/auto).
+ */
+export function getEffectiveTheme() {
+  if (typeof document === 'undefined') return 'light';
+  return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+}
+
+/**
+ * Hook that returns the current effective theme and updates when theme changes.
+ * Theme is applied in Settings; Settings dispatches THEME_CHANGE_EVENT so this hook re-runs.
+ */
+export function useEffectiveTheme() {
+  const [theme, setTheme] = React.useState(getEffectiveTheme);
+  React.useEffect(() => {
+    const handler = () => setTheme(getEffectiveTheme());
+    window.addEventListener(THEME_CHANGE_EVENT, handler);
+    return () => window.removeEventListener(THEME_CHANGE_EVENT, handler);
+  }, []);
+  return theme;
 }

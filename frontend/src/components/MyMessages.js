@@ -5,7 +5,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
 
 export default function MyMessages({ token }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedMessage, setSelectedMessage] = useState(null);
@@ -145,7 +145,7 @@ export default function MyMessages({ token }) {
     return (
       <div className="text-center py-8 text-gray-500 dark:text-gray-400">
         <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
-        <p>{t('messages.noMessages') || 'No messages yet. Send a message to an administrator from the Support tab.'}</p>
+        <p>{t('messages.noMessages') || (language === 'es' ? 'Ningún mensaje' : 'No Messages')}</p>
       </div>
     );
   }

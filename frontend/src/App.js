@@ -16,7 +16,7 @@ import MessagesAndNotificationsDropdown from './components/MessagesAndNotificati
 import { Toaster } from 'react-hot-toast';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { AuthProvider, useAuth } from './store/authStore';
-import { getStoredAccentColor, applyAccentColor } from './utils/themeUtils';
+import { getStoredAccentColor, applyAccentColor, THEME_CHANGE_EVENT } from './utils/themeUtils';
 import { APP_VERSION } from './version';
 import { getUnreadMessageCount } from './api';
 
@@ -75,7 +75,25 @@ function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInst
           >
             <Menu className="w-6 h-6 text-accent" />
           </button>
+          <img
+            src="/Bot.png"
+            alt=""
+            className="h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0 object-contain rounded-lg ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white dark:ring-offset-gray-800"
+            aria-hidden
+          />
           <span className="font-bold text-accent truncate text-sm sm:text-base">Streamer Scheduler</span>
+          {user.profileImageUrl ? (
+            <img
+              src={user.profileImageUrl}
+              alt=""
+              className="h-8 w-8 sm:h-9 sm:w-9 rounded-full flex-shrink-0 object-cover ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white dark:ring-offset-gray-800"
+              aria-hidden
+            />
+          ) : (
+            <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full flex-shrink-0 flex items-center justify-center text-white text-sm font-bold ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white dark:ring-offset-gray-800" style={{ backgroundColor: 'var(--accent)' }}>
+              {user.username?.charAt(0).toUpperCase() || '?'}
+            </div>
+          )}
           <span className="hidden sm:inline text-gray-600 dark:text-gray-300 truncate text-sm">{user.isAdmin ? t('common.admin') : t('common.user')}: <span className="font-semibold">{user.username}</span></span>
         </div>
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
@@ -219,6 +237,7 @@ function AppContent() {
       } else {
         document.documentElement.classList.remove('dark');
       }
+      window.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT));
     };
 
     applyTheme();

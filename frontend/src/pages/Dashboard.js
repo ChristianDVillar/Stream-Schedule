@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient, getTwitchDashboardStats, getTwitchSubs, getTwitchBits, getTwitchDonations, cancelContent } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -33,7 +33,8 @@ import {
   RefreshCw,
   Image as ImageIcon,
   Video,
-  Paperclip
+  Paperclip,
+  ExternalLink
 } from 'lucide-react';
 import { DISCORD_ICON_URL } from '../constants/platforms';
 
@@ -75,32 +76,7 @@ const Dashboard = ({ user, token, ...props }) => {
     user.dashboardShowTwitchSubs || user.dashboardShowTwitchBits || user.dashboardShowTwitchDonations
   );
 
-  useEffect(() => {
-    if (user && !user.isAdmin) fetchContents();
-    // eslint-disable-next-line
-  }, [user]);
-
-  useEffect(() => {
-    if (!showTwitchOnDashboard) {
-      setTwitchStats(null);
-      return;
-    }
-    let cancelled = false;
-    setTwitchStatsLoading(true);
-    getTwitchDashboardStats()
-      .then((data) => {
-        if (!cancelled) setTwitchStats(data);
-      })
-      .catch(() => {
-        if (!cancelled) setTwitchStats(null);
-      })
-      .finally(() => {
-        if (!cancelled) setTwitchStatsLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [showTwitchOnDashboard]);
-
-  const fetchContents = async (options = {}) => {
+  const fetchContents = useCallback(async (options = {}) => {
     try {
       const response = await apiClient.get('/content', {
         params: {
@@ -126,7 +102,31 @@ const Dashboard = ({ user, token, ...props }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters.status, filters.platform, filters.dateRange, searchTerm, token]);
+
+  useEffect(() => {
+    if (user && !user.isAdmin) fetchContents();
+  }, [user, fetchContents]);
+
+  useEffect(() => {
+    if (!showTwitchOnDashboard) {
+      setTwitchStats(null);
+      return;
+    }
+    let cancelled = false;
+    setTwitchStatsLoading(true);
+    getTwitchDashboardStats()
+      .then((data) => {
+        if (!cancelled) setTwitchStats(data);
+      })
+      .catch(() => {
+        if (!cancelled) setTwitchStats(null);
+      })
+      .finally(() => {
+        if (!cancelled) setTwitchStatsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [showTwitchOnDashboard]);
 
   const getPlatformIcon = (platform, size = 'w-5 h-5') => {
     const className = `${size}`;
@@ -173,7 +173,7 @@ const Dashboard = ({ user, token, ...props }) => {
   };
 
 
-  const handleDeleteContent = async (contentId) => {
+  const handleDeleteContent = useCallback(async (contentId) => {
     if (!window.confirm(t('dashboard.deleteContentConfirm') || 'Are you sure you want to delete this content?')) return;
     try {
       await apiClient.delete(`/content/${contentId}`, {
@@ -181,29 +181,37 @@ const Dashboard = ({ user, token, ...props }) => {
         withCredentials: true
       });
       toast.success(t('dashboard.contentDeleted') || 'Content deleted successfully');
-      if (selectedContent?.id === contentId) {
-        setShowContentModal(false);
-        setSelectedContent(null);
-      }
+      setSelectedContent(prev => {
+        if (prev?.id === contentId) {
+          setShowContentModal(false);
+          return null;
+        }
+        return prev;
+      });
       fetchContents();
     } catch (error) {
       toast.error(error.response?.data?.error || t('dashboard.deleteFailed') || 'Failed to delete content');
     }
-  };
+  }, [token, t, fetchContents]);
 
-  const handleCancelContent = async (contentId) => {
+  const handleCancelContent = useCallback(async (contentId) => {
     if (!window.confirm(t('dashboard.cancelPublicationConfirm') || 'Cancel this scheduled publication? It will not be published.')) return;
     try {
       await cancelContent(contentId, token);
       toast.success(t('dashboard.publicationCanceled') || 'Publication canceled');
       fetchContents();
-      if (selectedContent?.id === contentId) setShowContentModal(false);
+      setSelectedContent(prev => {
+        if (prev?.id === contentId) {
+          setShowContentModal(false);
+        }
+        return prev;
+      });
     } catch (error) {
       toast.error(error.response?.data?.error || t('dashboard.cancelPublicationFailed') || 'Failed to cancel publication');
     }
-  };
+  }, [token, t, fetchContents]);
 
-  const handleCopyPostToClipboard = async (content) => {
+  const handleCopyPostToClipboard = useCallback(async (content) => {
     try {
       const text = copyPostToClipboard(content);
       await navigator.clipboard.writeText(text);
@@ -211,9 +219,9 @@ const Dashboard = ({ user, token, ...props }) => {
     } catch (err) {
       toast.error(t('dashboard.copyFailed') || 'Could not copy to clipboard');
     }
-  };
+  }, [t]);
 
-  const handleDuplicateContent = async (content) => {
+  const handleDuplicateContent = useCallback(async (content) => {
     try {
       const items = content.files?.items ?? (content.files?.urls ? content.files.urls.map((url) => ({ url })) : []);
       const newContent = {
@@ -236,9 +244,9 @@ const Dashboard = ({ user, token, ...props }) => {
     } catch (error) {
       toast.error('Failed to duplicate content');
     }
-  };
+  }, [token, fetchContents]);
 
-  const handleExportData = async () => {
+  const handleExportData = useCallback(async () => {
     try {
       const response = await apiClient.get('/content/export', {
         headers: { Authorization: `Bearer ${token}` },
@@ -258,10 +266,10 @@ const Dashboard = ({ user, token, ...props }) => {
     } catch (error) {
       toast.error('Failed to export data');
     }
-  };
+  }, [token]);
 
-  // Función para convertir datos a CSV
-  const convertToCSV = (data, headers) => {
+  // Función para convertir datos a CSV - memoizada
+  const convertToCSV = useCallback((data, headers) => {
     const csvHeaders = headers.join(',');
     const csvRows = data.map(row => headers.map(header => {
       const value = row[header] || '';
@@ -271,10 +279,23 @@ const Dashboard = ({ user, token, ...props }) => {
         : value;
     }).join(','));
     return [csvHeaders, ...csvRows].join('\n');
-  };
+  }, []);
+
+  // Helper function to download CSV file
+  const downloadCSV = useCallback((csvContent, filename) => {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  }, []);
 
   // Descargar lista de suscriptores
-  const handleDownloadSubs = async () => {
+  const handleDownloadSubs = useCallback(async () => {
     try {
       const data = await getTwitchSubs();
       if (!data.subscriptions || data.subscriptions.length === 0) {
@@ -291,24 +312,15 @@ const Dashboard = ({ user, token, ...props }) => {
       }));
       
       const csv = convertToCSV(csvData, ['usuario', 'fecha', 'tipo', 'meses']);
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `twitch-subs-${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      
+      downloadCSV(csv, `twitch-subs-${new Date().toISOString().split('T')[0]}.csv`);
       toast.success(t('dashboard.subsDownloaded'));
     } catch (error) {
       toast.error(t('dashboard.errorDownloadingSubs'));
     }
-  };
+  }, [t, convertToCSV, downloadCSV]);
 
   // Descargar lista de bits
-  const handleDownloadBits = async () => {
+  const handleDownloadBits = useCallback(async () => {
     try {
       const data = await getTwitchBits(bitsFormat);
       if (!data.bits || data.bits.length === 0) {
@@ -341,24 +353,15 @@ const Dashboard = ({ user, token, ...props }) => {
         ? ['usuario', 'cantidad', 'fecha']
         : ['usuario', 'total'];
       const csv = convertToCSV(csvData, headers);
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `twitch-bits-${bitsFormat}-${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      
+      downloadCSV(csv, `twitch-bits-${bitsFormat}-${new Date().toISOString().split('T')[0]}.csv`);
       toast.success(t('dashboard.bitsDownloaded'));
     } catch (error) {
       toast.error(t('dashboard.errorDownloadingBits'));
     }
-  };
+  }, [bitsFormat, t, convertToCSV, downloadCSV]);
 
   // Descargar lista de donaciones
-  const handleDownloadDonations = async () => {
+  const handleDownloadDonations = useCallback(async () => {
     try {
       const data = await getTwitchDonations();
       if (!data.donations || data.donations.length === 0) {
@@ -375,79 +378,85 @@ const Dashboard = ({ user, token, ...props }) => {
       }));
       
       const csv = convertToCSV(csvData, ['usuario', 'cantidad', 'mensaje', 'fecha']);
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `twitch-donations-${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      
+      downloadCSV(csv, `twitch-donations-${new Date().toISOString().split('T')[0]}.csv`);
       toast.success(t('dashboard.donationsDownloaded'));
     } catch (error) {
       toast.error(t('dashboard.errorDownloadingDonations'));
     }
-  };
+  }, [t, convertToCSV, downloadCSV]);
 
-  // Filter and search logic
-  const filteredContents = contents.filter(content => {
-    const matchesSearch = content.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         content.content.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = filters.status === 'all' || content.status === filters.status;
-    
-    const matchesPlatform = filters.platform === 'all' || 
-                           (Array.isArray(content.platforms) && content.platforms.includes(filters.platform));
-    
-    const contentDate = new Date(content.scheduledFor);
+  // Memoized date calculations for date range filtering
+  const dateRangeBounds = useMemo(() => {
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     const nextWeek = new Date(today);
     nextWeek.setDate(nextWeek.getDate() + 7);
-    
-    let matchesDateRange = true;
-    switch (filters.dateRange) {
-      case 'today':
-        matchesDateRange = contentDate.toDateString() === today.toDateString();
-        break;
-      case 'tomorrow':
-        matchesDateRange = contentDate.toDateString() === tomorrow.toDateString();
-        break;
-      case 'this-week':
-        matchesDateRange = contentDate >= today && contentDate <= nextWeek;
-        break;
-      case 'past':
-        matchesDateRange = contentDate < today;
-        break;
-      default:
-        matchesDateRange = true;
-    }
-    
-    return matchesSearch && matchesStatus && matchesPlatform && matchesDateRange;
-  });
+    return { today, tomorrow, nextWeek };
+  }, []); // Only recalculate once per day if needed
 
-  const DragAndDropCalendar = withDragAndDrop(BigCalendar);
-  const locales = { 'en-US': require('date-fns/locale/en-US') };
-  const localizer = dateFnsLocalizer({
-    format,
-    parse,
-    startOfWeek,
-    getDay,
-    locales
-  });
+  // Filter and search logic - memoized
+  const filteredContents = useMemo(() => {
+    const searchLower = searchTerm.toLowerCase();
+    return contents.filter(content => {
+      const matchesSearch = content.title.toLowerCase().includes(searchLower) ||
+                           content.content.toLowerCase().includes(searchLower);
+      
+      const matchesStatus = filters.status === 'all' || content.status === filters.status;
+      
+      const matchesPlatform = filters.platform === 'all' || 
+                             (Array.isArray(content.platforms) && content.platforms.includes(filters.platform));
+      
+      const contentDate = new Date(content.scheduledFor);
+      
+      let matchesDateRange = true;
+      switch (filters.dateRange) {
+        case 'today':
+          matchesDateRange = contentDate.toDateString() === dateRangeBounds.today.toDateString();
+          break;
+        case 'tomorrow':
+          matchesDateRange = contentDate.toDateString() === dateRangeBounds.tomorrow.toDateString();
+          break;
+        case 'this-week':
+          matchesDateRange = contentDate >= dateRangeBounds.today && contentDate <= dateRangeBounds.nextWeek;
+          break;
+        case 'past':
+          matchesDateRange = contentDate < dateRangeBounds.today;
+          break;
+        default:
+          matchesDateRange = true;
+      }
+      
+      return matchesSearch && matchesStatus && matchesPlatform && matchesDateRange;
+    });
+  }, [contents, searchTerm, filters.status, filters.platform, filters.dateRange, dateRangeBounds]);
 
-  const calendarEvents = filteredContents.map(content => ({
-    id: content.id,
-    title: content.title,
-    start: new Date(content.scheduledFor),
-    end: new Date(new Date(content.scheduledFor).getTime() + 30 * 60 * 1000),
-    resource: content
-  }));
+  // Memoized calendar localizer
+  const localizer = useMemo(() => {
+    const locales = { 'en-US': require('date-fns/locale/en-US') };
+    return dateFnsLocalizer({
+      format,
+      parse,
+      startOfWeek,
+      getDay,
+      locales
+    });
+  }, []);
 
-  const eventStyleGetter = (event) => {
+  const DragAndDropCalendar = useMemo(() => withDragAndDrop(BigCalendar), []);
+
+  // Memoized calendar events
+  const calendarEvents = useMemo(() => {
+    return filteredContents.map(content => ({
+      id: content.id,
+      title: content.title,
+      start: new Date(content.scheduledFor),
+      end: new Date(new Date(content.scheduledFor).getTime() + 30 * 60 * 1000),
+      resource: content
+    }));
+  }, [filteredContents]);
+
+  const eventStyleGetter = useCallback((event) => {
     const color = getPlatformColor(event.resource?.platforms);
     return {
       style: {
@@ -457,9 +466,9 @@ const Dashboard = ({ user, token, ...props }) => {
         borderRadius: '4px',
       }
     };
-  };
+  }, []);
 
-  const handleEventDrop = async ({ event, start, end }) => {
+  const handleEventDrop = useCallback(async ({ event, start, end }) => {
     try {
       await apiClient.put(`/content/${event.id}`, {
         scheduledFor: start.toISOString()
@@ -472,17 +481,23 @@ const Dashboard = ({ user, token, ...props }) => {
     } catch (error) {
       toast.error('Failed to reschedule');
     }
-  };
+  }, [token]);
 
-  // Filtrar posts por día seleccionado
-  const postsForSelectedDay = filteredContents.filter(content => {
-    const contentDate = new Date(content.scheduledFor);
-    return (
-      contentDate.getFullYear() === selectedDate.getFullYear() &&
-      contentDate.getMonth() === selectedDate.getMonth() &&
-      contentDate.getDate() === selectedDate.getDate()
-    );
-  });
+  // Filtrar posts por día seleccionado - memoized
+  const postsForSelectedDay = useMemo(() => {
+    const selectedYear = selectedDate.getFullYear();
+    const selectedMonth = selectedDate.getMonth();
+    const selectedDay = selectedDate.getDate();
+    
+    return filteredContents.filter(content => {
+      const contentDate = new Date(content.scheduledFor);
+      return (
+        contentDate.getFullYear() === selectedYear &&
+        contentDate.getMonth() === selectedMonth &&
+        contentDate.getDate() === selectedDay
+      );
+    });
+  }, [filteredContents, selectedDate]);
 
   // Dashboard de usuario normal
   return (
@@ -865,6 +880,17 @@ const Dashboard = ({ user, token, ...props }) => {
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         Published at: {formatDate(selectedContent.publishedAt)}
                       </p>
+                    )}
+                    {selectedContent.discordEventId && selectedContent.discordGuildId && (
+                      <a
+                        href={`https://discord.com/events/${selectedContent.discordGuildId}/${selectedContent.discordEventId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 mt-2 text-sm text-[#5865F2] hover:underline"
+                      >
+                        {t('dashboard.viewDiscordEvent') || 'View event on Discord'}
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
                     )}
                     {selectedContent.status === 'failed' && selectedContent.publishError && (
                       <p className="text-xs text-red-600 dark:text-red-400 mt-1" title={selectedContent.publishError}>
