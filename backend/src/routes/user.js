@@ -1317,7 +1317,11 @@ export async function connectedAccountsHandler(req, res) {
           }
         } else {
           const errorText = await meRes.text().catch(() => 'Unknown error');
-          logger.warn('Twitter API returned non-OK status', { status: meRes.status, error: errorText });
+          if (meRes.status === 401) {
+            logger.debug('Twitter token expired or invalid (user can reconnect in Settings)', { status: 401 });
+          } else {
+            logger.warn('Twitter API returned non-OK status', { status: meRes.status, error: errorText });
+          }
         }
       } catch (err) {
         logger.warn('Failed to fetch Twitter username', { error: err.message, stack: err.stack });
@@ -2274,7 +2278,12 @@ router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog(
     
     if (username !== undefined) user.username = username;
     if (email !== undefined) user.email = email;
-    if (merchandisingLink !== undefined) user.merchandisingLink = merchandisingLink;
+    if (merchandisingLink !== undefined) {
+      const link = merchandisingLink && typeof merchandisingLink === 'string' ? merchandisingLink.trim() : '';
+      user.merchandisingLink = link
+        ? (link.startsWith('http://') || link.startsWith('https://') ? link : `https://${link}`)
+        : null;
+    }
     if (profileImageUrl !== undefined) user.profileImageUrl = profileImageUrl && profileImageUrl.trim() ? profileImageUrl.trim() : null;
     if (dashboardShowTwitchSubs !== undefined) user.dashboardShowTwitchSubs = dashboardShowTwitchSubs;
     if (dashboardShowTwitchBits !== undefined) user.dashboardShowTwitchBits = dashboardShowTwitchBits;

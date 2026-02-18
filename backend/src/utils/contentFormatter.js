@@ -160,10 +160,17 @@ export function formatDiscordContent(content) {
 }
 
 /**
- * Get Discord event location based on contentType and platforms
+ * Get Discord event location based on contentType, platforms, and eventLocationUrl
+ * If eventLocationUrl is provided, use it (e.g. Twitch stream URL)
+ * Otherwise, fall back to platform-based defaults
  */
 export function getDiscordEventLocation(content) {
-  const { contentType, platforms } = content;
+  const { contentType, platforms, eventLocationUrl } = content;
+  
+  // If user provided a custom event location URL, use it (highest priority)
+  if (eventLocationUrl && typeof eventLocationUrl === 'string' && eventLocationUrl.trim()) {
+    return eventLocationUrl.trim();
+  }
   
   // If platforms include specific streaming platforms, use them
   if (Array.isArray(platforms)) {

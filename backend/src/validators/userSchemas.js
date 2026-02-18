@@ -98,8 +98,18 @@ export const forgotPasswordSchema = Joi.object({
 export const updateProfileSchema = Joi.object({
   username: Joi.string().alphanum().min(3).max(30).optional(),
   email: Joi.string().email().max(255).optional(),
-  merchandisingLink: Joi.string().uri().max(500).allow('', null).optional().messages({
-    'string.uri': 'Merchandising link must be a valid URL'
+  merchandisingLink: Joi.string().max(500).allow('', null).optional().custom((value, helpers) => {
+    if (!value || (typeof value === 'string' && !value.trim())) return value;
+    const trimmed = value.trim();
+    try {
+      const toTest = trimmed.startsWith('http://') || trimmed.startsWith('https://') ? trimmed : `https://${trimmed}`;
+      new URL(toTest);
+      return trimmed;
+    } catch {
+      return helpers.error('any.invalid', { value: trimmed });
+    }
+  }).messages({
+    'any.invalid': 'Merchandising link must be a valid URL (e.g. https://your-store.com)'
   }),
   profileImageUrl: Joi.string().uri().max(2000).allow('', null).optional().messages({
     'string.uri': 'Profile image must be a valid URL'
