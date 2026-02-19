@@ -300,7 +300,8 @@ export async function createDiscordScheduledEvent(guildId, name, scheduledStartT
   const body = {
     name: name.slice(0, 100),
     scheduled_start_time: startTimeISO, // Discord expects ISO 8601 UTC
-    entity_type: entityType
+    entity_type: entityType,
+    privacy_level: 2 // Required: 2 = GUILD_ONLY (events are only visible to server members)
   };
 
   if (description) {
@@ -339,7 +340,8 @@ export async function createDiscordScheduledEvent(guildId, name, scheduledStartT
     name,
     scheduledStartTime: startTimeISO,
     scheduledEndTime: endTimeISO,
-    entityType
+    entityType,
+    privacyLevel: body.privacy_level
   });
 
   const res = await fetch(`${DISCORD_API}/guilds/${guildId}/scheduled-events`, {

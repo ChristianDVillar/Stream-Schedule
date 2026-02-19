@@ -942,15 +942,46 @@ export async function publishContent(content) {
       }
     }
 
-    const result = await publishToPlatform(content, platform);
-    results[platform] = result;
+    try {
+      const result = await publishToPlatform(content, platform);
+      results[platform] = result;
 
-    if (result.failed) {
+      if (result.failed) {
+        hasFailures = true;
+      } else if (result.queued) {
+        hasQueued = true;
+      } else if (!result.success) {
+        // If result doesn't have success: true, consider it a failure
+        hasFailures = true;
+        if (!result.failed) {
+          results[platform] = { ...result, failed: true };
+        }
+      }
+    } catch (error) {
+      // If publishToPlatform throws an error, mark as failed
+      logger.error('Platform publication threw error', {
+        contentId: content.id,
+        platform,
+        error: error.message
+      });
+      results[platform] = { 
+        success: false, 
+        failed: true, 
+        reason: error.message,
+        error: error.message
+      };
       hasFailures = true;
-    } else if (result.queued) {
-      hasQueued = true;
     }
   }
+
+  // Check if all platforms actually succeeded
+  const allPlatforms = Object.keys(results);
+  const successfulPlatforms = allPlatforms.filter(p => 
+    results[p]?.success === true && !results[p]?.failed && !results[p]?.skipped
+  );
+  const failedPlatforms = allPlatforms.filter(p => 
+    results[p]?.failed === true || (results[p]?.success === false && !results[p]?.queued)
+  );
 
   // Update final status based on results
   if (hasQueued) {
@@ -959,10 +990,28 @@ export async function publishContent(content) {
   } else if (hasFailures && Object.values(results).some(r => r.willRetry)) {
     // Some platforms will retry
     content.status = CONTENT_STATUS.RETRYING;
-  } else if (hasFailures) {
-    // All platforms failed
-    content.status = CONTENT_STATUS.FAILED;
-  } else {
+  } else if (hasFailures || failedPlatforms.length > 0) {
+    // Some or all platforms failed - only mark as PUBLISHED if at least one succeeded
+    if (successfulPlatforms.length > 0 && failedPlatforms.length < allPlatforms.length) {
+      // Partial success - mark as published but log the failures
+      content.status = CONTENT_STATUS.PUBLISHED;
+      content.publishedAt = new Date();
+      logger.warn('Content published with some platform failures', {
+        contentId: content.id,
+        successfulPlatforms,
+        failedPlatforms,
+        results
+      });
+    } else {
+      // All platforms failed
+      content.status = CONTENT_STATUS.FAILED;
+      logger.error('All platforms failed to publish', {
+        contentId: content.id,
+        failedPlatforms,
+        results
+      });
+    }
+  } else if (successfulPlatforms.length === allPlatforms.length && allPlatforms.length > 0) {
     // All platforms succeeded
     content.status = CONTENT_STATUS.PUBLISHED;
     content.publishedAt = new Date();
