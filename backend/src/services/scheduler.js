@@ -702,7 +702,6 @@ async function publishToPlatform(content, platform) {
           attachmentsCount: items.length
         });
       }
-      }
     } else if (platform === 'youtube') {
       // YouTube video upload
       const rawItems = content.files?.items ?? (content.files?.urls ? content.files.urls.map((u) => ({ url: u })) : []) ?? [];
