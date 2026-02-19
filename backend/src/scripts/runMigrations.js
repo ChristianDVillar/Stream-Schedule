@@ -141,13 +141,40 @@ async function executeMigration(filename) {
   logger.info(`Executed: ${filename}`);
 }
 
+// Retry authenticate with backoff (helps when DB is waking up, e.g. Render free tier)
+const AUTH_RETRIES = 5;
+const AUTH_RETRY_DELAY_MS = 5000;
+
+async function authenticateWithRetry() {
+  let lastError;
+  for (let attempt = 1; attempt <= AUTH_RETRIES; attempt++) {
+    try {
+      await sequelize.authenticate();
+      return;
+    } catch (err) {
+      lastError = err;
+      const detail = err.original?.message || err.cause?.message || err.message;
+      logger.warn(`Database connection attempt ${attempt}/${AUTH_RETRIES} failed`, {
+        error: detail,
+        code: err.original?.code || err.cause?.code,
+        attempt
+      });
+      if (attempt < AUTH_RETRIES) {
+        logger.info(`Retrying in ${AUTH_RETRY_DELAY_MS / 1000}s...`);
+        await new Promise((r) => setTimeout(r, AUTH_RETRY_DELAY_MS));
+      }
+    }
+  }
+  throw lastError;
+}
+
 async function runMigrations() {
   try {
     logger.info(`Running migrations in ${nodeEnv} environment`, {
       database: usePostgres ? 'PostgreSQL' : 'SQLite'
     });
     
-    await sequelize.authenticate();
+    await authenticateWithRetry();
     logger.info('Database connection established');
 
     // Get all migration files
@@ -187,7 +214,15 @@ async function runMigrations() {
     });
     await sequelize.close();
   } catch (error) {
-    logger.error('Migration failed', { error: error.message, stack: error.stack });
+    const detail = error.original?.message || error.cause?.message || error.message;
+    const code = error.original?.code || error.cause?.code;
+    logger.error('Migration failed', {
+      error: detail,
+      code,
+      message: error.message,
+      stack: error.stack
+    });
+    logger.info('Troubleshooting: ensure DATABASE_URL is set in Render Environment, and DATABASE_SSL=true for Supabase/Render Postgres. For Render DB, add ?sslmode=require to DATABASE_URL if needed.');
     await sequelize.close();
     process.exit(1);
   }
