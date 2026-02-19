@@ -12,13 +12,9 @@ import logger from '../utils/logger.js';
 dotenv.config();
 
 let databaseUrl = process.env.DATABASE_URL;
-// In production, ensure SSL mode for Postgres (Render, Supabase, etc.)
-if (databaseUrl && typeof databaseUrl === 'string' && (process.env.NODE_ENV === 'production' || process.env.DATABASE_SSL === 'true')) {
-  const hasSslmode = /[?&]sslmode=/i.test(databaseUrl);
-  if (!hasSslmode) {
-    const sep = databaseUrl.includes('?') ? '&' : '?';
-    databaseUrl = `${databaseUrl}${sep}sslmode=require`;
-  }
+// Strip sslmode from URL so pg uses dialectOptions.ssl (with rejectUnauthorized: false for Supabase/Render)
+if (databaseUrl && typeof databaseUrl === 'string') {
+  databaseUrl = databaseUrl.replace(/[?&]sslmode=[^&]+/gi, '').replace(/\?&/, '?').replace(/\?$/, '');
 }
 const usePostgres = Boolean(databaseUrl);
 const nodeEnv = process.env.NODE_ENV || 'development';
@@ -47,7 +43,7 @@ const sequelize = usePostgres
         ssl: requireSSL
           ? {
               require: true,
-              rejectUnauthorized: false, // Supabase uses self-signed certificates
+              rejectUnauthorized: false, // Supabase/Render Postgres use certs that trigger SELF_SIGNED_CERT_IN_CHAIN
             }
           : false,
         // Supabase pooler compatibility
