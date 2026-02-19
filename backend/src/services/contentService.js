@@ -8,6 +8,14 @@ import { Op } from 'sequelize';
 import { CONTENT_STATUS } from '../constants/contentStatus.js';
 import logger from '../utils/logger.js';
 import { parsePagination, formatPaginatedResponse } from '../utils/pagination.js';
+import { enqueueDiscordSync } from './discordQueueService.js';
+
+function isDiscordEventContent(content) {
+  const platforms = Array.isArray(content.platforms) ? content.platforms : [];
+  const hasDiscord = platforms.some((p) => (p || '').trim().toLowerCase() === 'discord');
+  const isEvent = (content.contentType || '').trim().toLowerCase() === 'event';
+  return hasDiscord && (isEvent || !!content.discordGuildId);
+}
 
 export class ContentService {
   /**
@@ -52,7 +60,16 @@ export class ContentService {
       contentCount: created.length,
       contentType: contentData.contentType,
     });
-    
+
+    // Enqueue Discord sync for event/discord content (versioned sync)
+    for (const c of created) {
+      if (isDiscordEventContent(c)) {
+        enqueueDiscordSync(c.id).catch((err) =>
+          logger.warn('Enqueue Discord sync after create failed', { contentId: c.id, error: err.message })
+        );
+      }
+    }
+
     return created;
   }
 
@@ -62,8 +79,8 @@ export class ContentService {
   async getUserContent(userId, options = {}) {
     const { page, limit, offset } = parsePagination(options.query || {});
     
-    const where = { userId };
-    
+    const where = { userId, deletedAt: null };
+
     // Apply filters
     if (options.status) {
       where.status = options.status;
@@ -106,13 +123,11 @@ export class ContentService {
    */
   async getContentById(contentId, userId) {
     const content = await Content.findOne({
-      where: { id: contentId, userId },
+      where: { id: contentId, userId, deletedAt: null },
     });
-    
     if (!content) {
       throw new Error('Content not found');
     }
-    
     return content;
   }
 
@@ -121,42 +136,56 @@ export class ContentService {
    */
   async updateContent(contentId, userId, updateData) {
     const content = await this.getContentById(contentId, userId);
-    
+
     const { mediaUrls, mediaItems, ...restData } = updateData;
     let filesData = content.files;
-    
+
     if (mediaItems !== undefined) {
       filesData = mediaItems.length > 0 ? { items: mediaItems } : null;
     } else if (mediaUrls !== undefined) {
       filesData = mediaUrls.length > 0 ? { items: mediaUrls.map((url) => ({ url })) } : null;
     }
-    
+
     if (filesData !== undefined) {
       restData.files = filesData;
     }
-    
+
+    // Bump localVersion and enqueue Discord sync for event/discord content
+    if (isDiscordEventContent({ ...content.toJSON(), ...restData })) {
+      restData.localVersion = (content.localVersion ?? 1) + 1;
+    }
+
     await content.update(restData);
-    
+
     logger.info('Content updated via service', {
       userId,
       contentId,
     });
-    
+
+    if (isDiscordEventContent(content)) {
+      enqueueDiscordSync(content.id).catch((err) =>
+        logger.warn('Enqueue Discord sync after update failed', { contentId, error: err.message })
+      );
+    }
+
     return content;
   }
 
   /**
-   * Delete content
+   * Delete content. If it has a Discord event, soft-delete and enqueue sync to remove event on Discord.
    */
   async deleteContent(contentId, userId) {
     const content = await this.getContentById(contentId, userId);
-    await content.destroy();
-    
-    logger.info('Content deleted via service', {
-      userId,
-      contentId,
-    });
-    
+    if (content.discordEventId && content.discordGuildId) {
+      await content.update({ deletedAt: new Date() });
+      enqueueDiscordSync(contentId).catch((err) =>
+        logger.warn('Enqueue Discord sync after delete failed', { contentId, error: err.message })
+      );
+      logger.info('Content soft-deleted (Discord sync enqueued)', { userId, contentId });
+    } else {
+      await content.destroy();
+      logger.info('Content deleted via service', { userId, contentId });
+    }
     return { message: 'Content deleted successfully' };
   }
 
@@ -197,6 +226,7 @@ export class ContentService {
     const now = new Date();
     return await Content.findAll({
       where: {
+        deletedAt: null,
         [Op.or]: [
           {
             status: CONTENT_STATUS.SCHEDULED,

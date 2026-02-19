@@ -246,6 +246,32 @@ const Content = sequelize.define('Content', {
     allowNull: true,
     comment: 'Discord scheduled event ID after creation; link: https://discord.com/events/{guildId}/{eventId}'
   },
+  localVersion: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 1,
+    comment: 'Internal version; incremented on every local edit (panel)'
+  },
+  discordEventVersion: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    comment: 'Last version known to be synced to Discord'
+  },
+  discordSyncHash: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Hash of payload for idempotency / change detection'
+  },
+  lastSyncedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'Last successful sync with Discord'
+  },
+  deletedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'Soft delete (Discord or local deletion)'
+  },
   status: {
     type: DataTypes.STRING,
     defaultValue: CONTENT_STATUS.SCHEDULED,

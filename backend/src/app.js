@@ -42,6 +42,9 @@ import { setupSwagger } from './app-swagger.js';
 import logger from './utils/logger.js';
 import { startScheduler } from './services/scheduler.js';
 import platformConfigService from './services/platformConfigService.js';
+import { startDiscordSyncWorker } from './services/discordQueueService.js';
+import { startDiscordGateway } from './services/discordGatewayService.js';
+import { runReconciliation } from './services/discordSyncService.js';
 import { PLATFORM_VALUES } from './constants/platforms.js';
 
 // Load environment variables
@@ -278,7 +281,25 @@ async function initServer() {
       logLevel
     });
     startScheduler();
-    
+
+    // Discord: dedicated sync queue worker + Gateway listener (bidirectional sync)
+    startDiscordSyncWorker().catch((err) =>
+      logger.debug('Discord sync worker not started', { error: err.message })
+    );
+    startDiscordGateway().catch((err) =>
+      logger.debug('Discord Gateway not started', { error: err.message })
+    );
+    // Daily reconciliation: re-enqueue out-of-sync Discord events
+    const RECONCILIATION_MS = 24 * 60 * 60 * 1000;
+    setInterval(() => {
+      runReconciliation().catch((err) =>
+        logger.warn('Discord reconciliation failed', { error: err.message })
+      );
+    }, RECONCILIATION_MS);
+    runReconciliation().catch((err) =>
+      logger.warn('Discord reconciliation (initial) failed', { error: err.message })
+    );
+
     // Initialize WebSocket if available
     try {
       const { initWebSocket } = await import('./services/websocketService.js');

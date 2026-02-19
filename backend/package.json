@@ -54,6 +54,8 @@
   },
   "optionalDependencies": {
     "bull": "^4.16.5",
+    "bullmq": "^5.34.5",
+    "discord.js": "^14.16.3",
     "ioredis": "^5.9.2",
     "socket.io": "^4.8.3",
     "swagger-jsdoc": "^6.2.8",
