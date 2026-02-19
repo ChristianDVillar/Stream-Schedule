@@ -2,10 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Accent color (set by themeUtils.applyAccentColor, used by .bg-accent etc.) */
+/* Accent and part colors (set by themeUtils; Appearance can assign custom colors per part) */
 :root {
   --accent: #3b82f6;
   --accent-hover: #2563eb;
+  --color-links: var(--accent);
+  --color-sidebar: var(--accent);
+  --color-header: var(--accent);
+  --color-focus-ring: var(--accent);
+  --color-calendar-event: var(--accent);
+  --color-calendar-event-hover: var(--accent-hover);
 }
 
 /* Utility classes that use the accent CSS variable */
@@ -25,6 +31,18 @@
 .ring-accent:focus {
   --tw-ring-color: var(--accent);
 }
+
+/* Part-based color utilities (Appearance → assign color to parts) */
+.text-color-links { color: var(--color-links); }
+.bg-color-sidebar { background-color: var(--color-sidebar); }
+.border-color-sidebar { border-color: var(--color-sidebar); }
+.text-color-sidebar { color: var(--color-sidebar); }
+.bg-color-header { background-color: var(--color-header); }
+.ring-color-focus { --tw-ring-color: var(--color-focus-ring); }
+.bg-color-calendar-event { background-color: var(--color-calendar-event); }
+.bg-color-calendar-event:hover { background-color: var(--color-calendar-event-hover); }
+.border-color-calendar-event { border-color: var(--color-calendar-event); }
+.border-color-calendar-event:hover { border-color: var(--color-calendar-event-hover); }
 
 /* Responsive: prevent horizontal scroll and ensure touch-friendly */
 html {
@@ -102,9 +120,9 @@ html.dark .rbc-toolbar button:hover {
 
 html.dark .rbc-toolbar button.rbc-active,
 html.dark .rbc-toolbar button:active {
-  background: #3b82f6;
+  background: var(--color-calendar-event);
   color: #ffffff;
-  border-color: #3b82f6;
+  border-color: var(--color-calendar-event);
 }
 
 html.dark .rbc-toolbar button:disabled {
@@ -164,11 +182,11 @@ html.dark .rbc-off-range-bg {
 }
 
 html.dark .rbc-today {
-  background: rgba(59, 130, 246, 0.1);
+  background: color-mix(in srgb, var(--color-calendar-event) 10%, transparent);
 }
 
 html.dark .rbc-current-time-indicator {
-  background-color: #3b82f6;
+  background-color: var(--color-calendar-event);
 }
 
 html.dark .rbc-time-slot {
@@ -176,7 +194,7 @@ html.dark .rbc-time-slot {
 }
 
 html.dark .rbc-time-slot.rbc-now {
-  background-color: rgba(59, 130, 246, 0.05);
+  background-color: color-mix(in srgb, var(--color-calendar-event) 5%, transparent);
 }
 
 html.dark .rbc-time-header-gutter,
@@ -195,8 +213,8 @@ html.dark .rbc-label {
 }
 
 html.dark .rbc-event {
-  background-color: #3b82f6;
-  border-color: #2563eb;
+  background-color: var(--color-calendar-event);
+  border-color: var(--color-calendar-event-hover);
   color: #ffffff;
   padding: 2px 4px;
   border-radius: 4px;
@@ -204,13 +222,13 @@ html.dark .rbc-event {
 }
 
 html.dark .rbc-event:hover {
-  background-color: #2563eb;
-  border-color: #1d4ed8;
+  background-color: var(--color-calendar-event-hover);
+  border-color: var(--color-calendar-event-hover);
 }
 
 html.dark .rbc-event.rbc-selected {
-  background-color: #1d4ed8;
-  border-color: #1e40af;
+  background-color: var(--color-calendar-event-hover);
+  border-color: var(--color-calendar-event);
 }
 
 html.dark .rbc-event-label {
@@ -266,11 +284,11 @@ html.dark .rbc-agenda-event-cell {
 }
 
 html.dark .rbc-selected {
-  background-color: rgba(59, 130, 246, 0.2);
+  background-color: color-mix(in srgb, var(--color-calendar-event) 20%, transparent);
 }
 
 html.dark .rbc-slot-selection {
-  background-color: rgba(59, 130, 246, 0.1);
+  background-color: color-mix(in srgb, var(--color-calendar-event) 10%, transparent);
 }
 
 html.dark .rbc-day-slot .rbc-time-slot {
@@ -278,7 +296,7 @@ html.dark .rbc-day-slot .rbc-time-slot {
 }
 
 html.dark .rbc-day-slot .rbc-time-slot.rbc-now {
-  background-color: rgba(59, 130, 246, 0.05);
+  background-color: color-mix(in srgb, var(--color-calendar-event) 5%, transparent);
 }
 
 html.dark .rbc-addons-dnd-dragging {
@@ -286,8 +304,8 @@ html.dark .rbc-addons-dnd-dragging {
 }
 
 html.dark .rbc-addons-dnd-drag-preview {
-  background-color: #3b82f6;
-  border: 2px solid #2563eb;
+  background-color: var(--color-calendar-event);
+  border: 2px solid var(--color-calendar-event-hover);
   color: #ffffff;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }

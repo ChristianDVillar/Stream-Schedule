@@ -110,7 +110,7 @@ export default function MessagesAndNotificationsDropdown({ token }) {
                       ))}
                       {withReplies.length > 5 && (
                         <li>
-                          <Link to="/messages" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm text-accent hover:bg-gray-100 dark:hover:bg-gray-700">
+                          <Link to="/messages" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm text-color-links hover:bg-gray-100 dark:hover:bg-gray-700">
                             Ver todas ({withReplies.length})
                           </Link>
                         </li>
@@ -143,7 +143,7 @@ export default function MessagesAndNotificationsDropdown({ token }) {
                       ))}
                       {notifications.length > 5 && (
                         <li>
-                          <Link to="/messages" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm text-accent hover:bg-gray-100 dark:hover:bg-gray-700">
+                          <Link to="/messages" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm text-color-links hover:bg-gray-100 dark:hover:bg-gray-700">
                             Ver todas ({notifications.length})
                           </Link>
                         </li>
@@ -158,7 +158,7 @@ export default function MessagesAndNotificationsDropdown({ token }) {
             <Link
               to="/messages"
               onClick={() => setOpen(false)}
-              className="flex items-center justify-center gap-1 text-sm font-medium text-accent hover:underline"
+              className="flex items-center justify-center gap-1 text-sm font-medium text-color-links hover:underline"
             >
               Abrir centro de mensajes <ChevronRight className="w-4 h-4" />
             </Link>

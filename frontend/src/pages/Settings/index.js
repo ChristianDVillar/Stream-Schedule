@@ -24,7 +24,7 @@ import {
   disconnectDiscord,
 } from '../../api';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { applyAccentColor, THEME_CHANGE_EVENT } from '../../utils/themeUtils';
+import { applyAccentColor, THEME_CHANGE_EVENT, getCustomColorConfig, setCustomColorConfig, applyCustomColors } from '../../utils/themeUtils';
 import { getPlatformColors } from '../../utils/platformColors';
 import { BANNER_CONFIG_KEY, getBannersFromEnv } from '../../components/HeaderBanners';
 import { handleUpload, getUploadStats } from '../../utils/uploadHelper';
@@ -51,7 +51,7 @@ const getTabsConfig = (t) => [
 ];
 
 export default function Settings({ user, token, setUser }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('profile');
@@ -128,6 +128,8 @@ export default function Settings({ user, token, setUser }) {
     compactMode: false,
   });
 
+  const [customColorConfig, setCustomColorConfigState] = useState(() => getCustomColorConfig());
+
   const themes = [
     { id: 'light', name: t('settings.themeLight'), preview: 'bg-white border-gray-300' },
     { id: 'dark', name: t('settings.themeDark'), preview: 'bg-gray-900 border-gray-600' },
@@ -195,9 +197,19 @@ export default function Settings({ user, token, setUser }) {
     applyTheme(themeSettings.theme);
   }, [themeSettings.theme]);
 
+  const customColorConfigRef = React.useRef(customColorConfig);
+  customColorConfigRef.current = customColorConfig;
+
   useEffect(() => {
-    applyAccentColor(themeSettings.accentColor);
+    const prev = customColorConfigRef.current;
+    const next = { ...prev, assignments: { ...(prev.assignments || {}), accent: themeSettings.accentColor } };
+    setCustomColorConfigState(next);
+    setCustomColorConfig(next);
   }, [themeSettings.accentColor]);
+
+  useEffect(() => {
+    applyCustomColors(customColorConfig);
+  }, [customColorConfig]);
 
   useEffect(() => {
     if (token) {
@@ -655,7 +667,11 @@ export default function Settings({ user, token, setUser }) {
             bannerImageInputRef={bannerImageInputRef}
             user={user}
             onBannerImageUpload={handleBannerImageUpload}
+            customColorConfig={customColorConfig}
+            setCustomColorConfigState={setCustomColorConfigState}
+            onCustomColorsApply={applyCustomColors}
             t={t}
+            language={language}
           />
         );
       case 'billing':
@@ -709,7 +725,7 @@ export default function Settings({ user, token, setUser }) {
                       onClick={() => setActiveTab(tab.id)}
                       className={`flex-shrink-0 md:w-full flex items-center gap-2 md:space-x-3 px-3 py-2.5 md:px-4 md:py-3 text-left rounded-lg transition-colors whitespace-nowrap ${
                         activeTab === tab.id
-                          ? 'bg-blue-100 dark:bg-gray-800 text-blue-700 dark:text-blue-400 md:border-r-2 md:border-blue-700'
+                          ? 'bg-color-sidebar dark:bg-gray-800 text-color-sidebar md:border-r-2 md:border-color-sidebar'
                           : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100'
                       }`}
                     >

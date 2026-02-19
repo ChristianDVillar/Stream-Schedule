@@ -10,6 +10,58 @@ import { compressImage, compressVideoQueued } from './compressMedia.js';
 
 const DISCORD_API = 'https://discord.com/api/v10';
 const MAX_ATTACHMENTS = 10;
+
+/** Error thrown on 429 so queue/worker can retry after delay */
+export class DiscordRateLimitError extends Error {
+  constructor(message, retryAfterSeconds) {
+    super(message);
+    this.name = 'DiscordRateLimitError';
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+/**
+ * Delay helper for rate limit backoff
+ */
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Discord API request with 429 handling: waits Retry-After then throws so BullMQ retries.
+ * Returns { res, data } on success. On 429: waits and throws DiscordRateLimitError.
+ */
+async function discordFetch(url, options = {}) {
+  const res = await fetch(url, options);
+  const contentType = res.headers.get('content-type') || '';
+  const isJson = contentType.includes('application/json');
+  const bodyText = await res.text();
+  let data = {};
+  if (bodyText && bodyText.trim() && isJson) {
+    try {
+      data = JSON.parse(bodyText);
+    } catch (_) {}
+  }
+
+  if (res.status === 429) {
+    const retryAfter = data.retry_after != null ? Number(data.retry_after) : null;
+    const headerRetry = res.headers.get('Retry-After');
+    const retryAfterSeconds = retryAfter ?? (headerRetry ? Number(headerRetry) : 2);
+    const waitMs = Math.ceil((retryAfterSeconds || 2) * 1000);
+    logger.warn('Discord API 429 rate limit', {
+      retryAfterSeconds: retryAfterSeconds || 2,
+      waitMs,
+      url: url.replace(DISCORD_API, ''),
+    });
+    await delay(waitMs);
+    throw new DiscordRateLimitError(
+      `Discord rate limit (429). Retry after ${retryAfterSeconds}s.`,
+      retryAfterSeconds
+    );
+  }
+
+  return { res, data };
+}
 // Discord API limit for bots is 8MB per message (25MB is for user client only)
 const MAX_IMAGE_SIZE_BYTES = 8 * 1024 * 1024; // 8MB per image
 const MAX_VIDEO_SIZE_BYTES = 8 * 1024 * 1024; // 8MB per video (Discord bot API limit)
@@ -66,7 +118,7 @@ export async function postToDiscordChannel(channelId, content, embeds = []) {
     throw new Error('Message content or embeds required');
   }
 
-  const res = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
+  const { res, data } = await discordFetch(`${DISCORD_API}/channels/${channelId}/messages`, {
     method: 'POST',
     headers: {
       Authorization: `Bot ${botToken}`,
@@ -74,8 +126,6 @@ export async function postToDiscordChannel(channelId, content, embeds = []) {
     },
     body: JSON.stringify(body),
   });
-
-  const data = await res.json().catch(() => ({}));
   throwOnDiscordError(res, data);
   return data;
 }
@@ -198,6 +248,7 @@ export async function postToDiscordChannelWithAttachments(channelId, content, it
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   let res;
+  let bodyText;
   try {
     res = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
       method: 'POST',
@@ -205,16 +256,23 @@ export async function postToDiscordChannelWithAttachments(channelId, content, it
       body: formBuffer,
       signal: controller.signal,
     });
+    bodyText = await res.text();
   } finally {
     clearTimeout(timeoutId);
   }
 
-  const bodyText = await res.text();
   let data = {};
   try {
     if (bodyText && bodyText.trim()) data = JSON.parse(bodyText);
   } catch (e) {
     logger.warn('Discord publish: parse response failed', { status: res.status, error: e?.message });
+  }
+  if (res.status === 429) {
+    const retryAfter = data.retry_after != null ? Number(data.retry_after) : 2;
+    const waitMs = Math.ceil(retryAfter * 1000);
+    logger.warn('Discord publish: 429 rate limit', { retryAfter, waitMs });
+    await delay(waitMs);
+    throw new DiscordRateLimitError(`Discord rate limit (429). Retry after ${retryAfter}s.`, retryAfter);
   }
   if (!res.ok) {
     logger.warn('Discord publish: API error', { status: res.status, data });
@@ -358,18 +416,93 @@ export async function createDiscordScheduledEvent(guildId, name, scheduledStartT
     privacyLevelValue: body.privacy_level
   });
 
-  const res = await fetch(`${DISCORD_API}/guilds/${guildId}/scheduled-events`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bot ${botToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
+  let res;
+  let data;
+  try {
+    const out = await discordFetch(`${DISCORD_API}/guilds/${guildId}/scheduled-events`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bot ${botToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    res = out.res;
+    data = out.data;
+  } catch (err) {
+    if (err instanceof DiscordRateLimitError) throw err;
+    throw err;
+  }
 
-  const data = await res.json().catch(() => ({}));
-  
   if (!res.ok) {
+    // Check for specific error codes
+    const errorCode = data?.errors?.scheduled_start_time?._errors?.[0]?.code;
+    const errorMessage = data?.errors?.scheduled_start_time?._errors?.[0]?.message;
+    
+    if (errorCode === 'GUILD_SCHEDULED_EVENT_SCHEDULE_PAST') {
+      logger.warn('Discord event scheduled in the past - adjusting to current time + 5 minutes', {
+        status: res.status,
+        originalStartTime: startTimeISO,
+        currentTime: new Date().toISOString(),
+        guildId,
+        name
+      });
+      
+      // Adjust start time to 5 minutes from now
+      const adjustedStartTime = new Date(Date.now() + 5 * 60 * 1000);
+      const adjustedEndTime = new Date(adjustedStartTime.getTime() + (endTimeISO ? (new Date(endTimeISO).getTime() - new Date(startTimeISO).getTime()) : 60 * 60 * 1000));
+      
+      // Retry with adjusted times
+      const adjustedBody = {
+        ...body,
+        scheduled_start_time: adjustedStartTime.toISOString(),
+        scheduled_end_time: adjustedEndTime.toISOString()
+      };
+      
+      logger.info('Retrying Discord event creation with adjusted time', {
+        adjustedStartTime: adjustedStartTime.toISOString(),
+        adjustedEndTime: adjustedEndTime.toISOString()
+      });
+      
+      let retryRes;
+      let retryData;
+      try {
+        const out = await discordFetch(`${DISCORD_API}/guilds/${guildId}/scheduled-events`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bot ${botToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(adjustedBody),
+        });
+        retryRes = out.res;
+        retryData = out.data;
+      } catch (err) {
+        if (err instanceof DiscordRateLimitError) throw err;
+        throw err;
+      }
+
+      if (!retryRes.ok) {
+        logger.error('Discord scheduled event creation failed even after time adjustment', {
+          status: retryRes.status,
+          data: retryData,
+          guildId,
+          name
+        });
+        throwOnDiscordError(retryRes, retryData);
+      }
+      
+      logger.info('Discord scheduled event created successfully with adjusted time', {
+        eventId: retryData?.id,
+        guildId,
+        name,
+        originalStartTime: startTimeISO,
+        adjustedStartTime: adjustedStartTime.toISOString()
+      });
+      
+      return retryData;
+    }
+    
     logger.error('Discord scheduled event creation failed', {
       status: res.status,
       data,
@@ -386,4 +519,67 @@ export async function createDiscordScheduledEvent(guildId, name, scheduledStartT
   });
 
   return data;
+}
+
+/**
+ * Update a scheduled event in a Discord guild.
+ * @param {string} guildId - Discord guild ID
+ * @param {string} eventId - Discord scheduled event ID
+ * @param {object} payload - Partial event payload (name, description, scheduled_start_time, scheduled_end_time, entity_metadata.location, etc.)
+ * @returns {Promise<object>} Updated event from Discord
+ */
+export async function updateDiscordScheduledEvent(guildId, eventId, payload) {
+  const botToken = getBotToken();
+  if (!botToken) {
+    throw new Error('Discord bot not configured');
+  }
+  const body = { ...payload };
+  if (body.scheduled_start_time instanceof Date) {
+    body.scheduled_start_time = body.scheduled_start_time.toISOString();
+  }
+  if (body.scheduled_end_time instanceof Date) {
+    body.scheduled_end_time = body.scheduled_end_time.toISOString();
+  }
+
+  const { res, data } = await discordFetch(
+    `${DISCORD_API}/guilds/${guildId}/scheduled-events/${eventId}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bot ${botToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    }
+  );
+  if (!res.ok) {
+    logger.error('Discord scheduled event update failed', { status: res.status, data, guildId, eventId });
+    throwOnDiscordError(res, data);
+  }
+  logger.info('Discord scheduled event updated', { eventId, guildId });
+  return data;
+}
+
+/**
+ * Delete a scheduled event in a Discord guild.
+ * @param {string} guildId - Discord guild ID
+ * @param {string} eventId - Discord scheduled event ID
+ */
+export async function deleteDiscordScheduledEvent(guildId, eventId) {
+  const botToken = getBotToken();
+  if (!botToken) {
+    throw new Error('Discord bot not configured');
+  }
+  const { res, data } = await discordFetch(
+    `${DISCORD_API}/guilds/${guildId}/scheduled-events/${eventId}`,
+    {
+      method: 'DELETE',
+      headers: { Authorization: `Bot ${botToken}` },
+    }
+  );
+  if (!res.ok && res.status !== 404) {
+    logger.error('Discord scheduled event delete failed', { status: res.status, data, guildId, eventId });
+    throwOnDiscordError(res, data);
+  }
+  logger.info('Discord scheduled event deleted', { eventId, guildId });
 }
