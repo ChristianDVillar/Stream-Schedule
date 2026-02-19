@@ -11,7 +11,15 @@ import logger from '../utils/logger.js';
 // Load environment variables
 dotenv.config();
 
-const databaseUrl = process.env.DATABASE_URL;
+let databaseUrl = process.env.DATABASE_URL;
+// In production, ensure SSL mode for Postgres (Render, Supabase, etc.)
+if (databaseUrl && typeof databaseUrl === 'string' && (process.env.NODE_ENV === 'production' || process.env.DATABASE_SSL === 'true')) {
+  const hasSslmode = /[?&]sslmode=/i.test(databaseUrl);
+  if (!hasSslmode) {
+    const sep = databaseUrl.includes('?') ? '&' : '?';
+    databaseUrl = `${databaseUrl}${sep}sslmode=require`;
+  }
+}
 const usePostgres = Boolean(databaseUrl);
 const nodeEnv = process.env.NODE_ENV || 'development';
 const enableLogging = process.env.ENABLE_LOGGING === 'true';

@@ -13,7 +13,11 @@ buildCommand: |
 # Arranque del API (entrypoint real del proyecto)
 startCommand: node src/app.js
 
-# Variables de entorno recomendadas (ajustar en Dashboard si hace falta)
+# Variables de entorno obligatorias para que el pre-deploy (migrate) y el API funcionen:
+# - DATABASE_URL: URL de PostgreSQL (Supabase o Render Postgres). En Render Dashboard > Service > Environment.
+# - DATABASE_SSL=true: requerido en producción (Supabase/Render exigen SSL).
+# Si usas Render PostgreSQL y la migración falla por conexión, asegúrate de que DATABASE_URL
+# esté definida en el servicio API (no solo en el servicio DB). El script de migración añade
+# sslmode=require automáticamente si no está en la URL.
 envVars:
   - NODE_ENV=production
-# Backend: health ping, scheduler env, compression queue
