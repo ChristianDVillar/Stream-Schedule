@@ -1282,6 +1282,8 @@ const Schedule = ({ user, token }) => {
                     {t('schedule.discordServer') || 'Discord server'} {(formData.contentType === 'event' || formData.contentType === 'stream') && <span className="text-red-500">*</span>}
                   </label>
                   <select
+                    id="discordGuildId"
+                    name="discordGuildId"
                     value={formData.discordGuildId}
                     onChange={(e) => setFormData(prev => ({ ...prev, discordGuildId: e.target.value, discordChannelId: '' }))}
                     className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 focus:ring-2 focus:ring-indigo-500 mb-4"
@@ -1299,6 +1301,8 @@ const Schedule = ({ user, token }) => {
                         {t('schedule.discordChannel') || 'Discord channel'} <span className="text-red-500">*</span>
                       </label>
                       <select
+                        id="discordChannelId"
+                        name="discordChannelId"
                         value={formData.discordChannelId}
                         onChange={(e) => setFormData(prev => ({ ...prev, discordChannelId: e.target.value }))}
                         className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 focus:ring-2 focus:ring-indigo-500 ${errors.discordChannel ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
@@ -1368,6 +1372,8 @@ const Schedule = ({ user, token }) => {
                         <div className="relative">
                           <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
                           <input
+                            id="event-date-initial"
+                            name="eventDateInitial"
                             type="date"
                             value={formData.scheduledFor || ''}
                             onChange={(e) => {
@@ -1390,6 +1396,8 @@ const Schedule = ({ user, token }) => {
                         <div className="relative">
                           <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
                           <input
+                            id="event-time-initial"
+                            name="eventTimeInitial"
                             type="time"
                             value={formData.scheduledTime || ''}
                             onChange={(e) => {
@@ -1438,6 +1446,8 @@ const Schedule = ({ user, token }) => {
                         <div className="relative">
                           <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
                           <input
+                            id={`event-date-${index}`}
+                            name={`eventDate-${index}`}
                             type="date"
                             value={eventDate.date}
                             onChange={(e) => {
@@ -1457,6 +1467,8 @@ const Schedule = ({ user, token }) => {
                         <div className="relative">
                           <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
                           <input
+                            id={`event-time-${index}`}
+                            name={`eventTime-${index}`}
                             type="time"
                             value={eventDate.time}
                             onChange={(e) => {
@@ -1476,6 +1488,8 @@ const Schedule = ({ user, token }) => {
                         <div className="relative">
                           <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
                           <input
+                            id={`event-end-date-${index}`}
+                            name={`eventEndDate-${index}`}
                             type="date"
                             value={eventDate.endDate || ''}
                             onChange={(e) => {
@@ -1498,6 +1512,8 @@ const Schedule = ({ user, token }) => {
                             !eventDate.endDate ? 'text-gray-300 dark:text-gray-600' : 'text-gray-400 dark:text-gray-500'
                           }`} />
                           <input
+                            id={`event-end-time-${index}`}
+                            name={`eventEndTime-${index}`}
                             type="time"
                             value={eventDate.endTime || ''}
                             onChange={(e) => {
@@ -1661,6 +1677,8 @@ const Schedule = ({ user, token }) => {
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
+                  id="recurrenceEnabled"
+                  name="recurrenceEnabled"
                   type="checkbox"
                   checked={formData.recurrence.enabled}
                   onChange={(e) => {
@@ -1680,8 +1698,10 @@ const Schedule = ({ user, token }) => {
             {formData.recurrence.enabled && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('schedule.frequency')}</label>
+                  <label htmlFor="recurrenceFrequency" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('schedule.frequency')}</label>
                   <select
+                    id="recurrenceFrequency"
+                    name="recurrenceFrequency"
                     value={formData.recurrence.frequency}
                     onChange={(e) => {
                       setFormData(prev => ({
@@ -1699,8 +1719,10 @@ const Schedule = ({ user, token }) => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('schedule.occurrences')}</label>
+                  <label htmlFor="recurrenceCount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('schedule.occurrences')}</label>
                   <input
+                    id="recurrenceCount"
+                    name="recurrenceCount"
                     type="number"
                     min="1"
                     max="50"
@@ -1731,6 +1753,8 @@ const Schedule = ({ user, token }) => {
             </div>
             <div className="flex flex-col md:flex-row gap-3 mb-3">
               <input
+                id="templateName"
+                name="templateName"
                 type="text"
                 placeholder={t('schedule.templateName')}
                 value={templateName}

@@ -111,6 +111,16 @@ async function getDueContent() {
  * Enhanced with idempotency, rate limiting, and fine-grained status tracking.
  */
 async function publishToPlatform(content, platform) {
+  // Log at start of publishToPlatform
+  logger.info('PUBLISH TO PLATFORM START', {
+    contentId: content.id,
+    platform,
+    contentType: content.contentType,
+    platforms: content.platforms,
+    normalizedContentType: (content.contentType || '').trim().toLowerCase(),
+    normalizedPlatforms: (content.platforms || []).map(p => (p || '').trim().toLowerCase())
+  });
+
   // Check if platform is enabled globally
   const isEnabled = await platformConfigService.isPlatformEnabled(platform);
   if (!isEnabled) {
@@ -197,19 +207,62 @@ async function publishToPlatform(content, platform) {
       logger.info('Posting tweet', { contentId: content.id, contentType: content.contentType, textLength: text.length });
       await postTweet(accessToken, text);
     } else if (platform === 'discord') {
-      // For events: only create scheduled event, no channel message needed
-      // For streams and posts: create scheduled event if applicable AND post message to channel
-      if (content.contentType === 'event' && content.discordGuildId) {
-        // Events only need guild (server), not channel - create scheduled event only
+      // Normalize platform name for comparison
+      const normalizedPlatform = (platform || '').trim().toLowerCase();
+      
+      // Normalize contentType for consistent comparison
+      const contentType = (content.contentType || '').trim().toLowerCase();
+      
+      // Normalize platforms array
+      const normalizedPlatforms = (content.platforms || []).map(p => 
+        (p || '').trim().toLowerCase()
+      );
+      
+      // Log entry into Discord block
+      logger.info('DISCORD BLOCK ENTERED', {
+        contentId: content.id,
+        contentType: content.contentType,
+        normalizedContentType: contentType,
+        discordGuildId: content.discordGuildId,
+        discordChannelId: content.discordChannelId,
+        platforms: content.platforms,
+        normalizedPlatforms
+      });
+      
+      // ⚠️ CRITICAL: Evaluate contentType FIRST before checking discordChannelId
+      // Events should ONLY create scheduled events, never post messages to channels
+      
+      if (contentType === 'event') {
+        // Events: only create scheduled event, no channel message needed
+        
+        // CHECK 4: Verify bot token exists
+        logger.info('CHECK 4: bot token', {
+          contentId: content.id,
+          hasToken: !!accessToken,
+          tokenLength: accessToken?.length
+        });
+        
+        // Strict validation of discordGuildId
+        if (!content.discordGuildId || 
+            typeof content.discordGuildId !== 'string' || 
+            content.discordGuildId.trim() === '') {
+          logger.error('Invalid discordGuildId for event', {
+            contentId: content.id,
+            discordGuildId: content.discordGuildId,
+            discordGuildIdType: typeof content.discordGuildId
+          });
+          throw new Error('discordGuildId is required and must be a non-empty string for events');
+        }
+        
         try {
-          const eventName = content.title || (content.contentType === 'stream' ? 'Stream' : 'Scheduled Event');
+          const eventName = content.title || 'Scheduled Event';
           let eventDescription = content.content || '';
           
           // If multiple event dates, include them in description and use first/last for event times
           let eventStartTime = content.scheduledFor;
           let eventEndTime = content.eventEndTime || null;
           
-          if (content.contentType === 'event' && content.eventDates && Array.isArray(content.eventDates) && content.eventDates.length > 1) {
+          if (content.eventDates && Array.isArray(content.eventDates) && content.eventDates.length > 1) {
             // Sort dates chronologically
             const sortedDates = content.eventDates
               .filter(ed => ed.date && ed.time)
@@ -267,7 +320,7 @@ async function publishToPlatform(content, platform) {
                 eventEndTime = new Date(lastDate.datetime.getTime() + 60 * 60 * 1000);
               }
               
-              // Format dates for description (already formatted in formatDiscordContent, but add here too for event description)
+              // Format dates for description
               const datesList = sortedDates.map((ed, idx) => {
                 try {
                   const dateStr = ed.datetime.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
@@ -340,7 +393,7 @@ async function publishToPlatform(content, platform) {
           // Discord REQUIRES scheduled_end_time for external events
           if (!finalEndTime) {
             finalEndTime = new Date(finalStartTime.getTime() + 60 * 60 * 1000); // +1 hour
-            logger.info('No end time provided, using default (start + 1 hour)', {
+            logger.info('No end time provided for event, using default (start + 1 hour)', {
               startTime: finalStartTime,
               endTime: finalEndTime
             });
@@ -360,22 +413,82 @@ async function publishToPlatform(content, platform) {
             } else {
               finalLocation = 'Online Event';
             }
-            logger.info('No location provided, using default', { location: finalLocation });
+            logger.info('No location provided for event, using default', { location: finalLocation });
           }
           
+          // CHECK 5: Log before creating event
+          logger.info('CHECK 5: before event creation', {
+            contentId: content.id,
+            eventName: eventName,
+            startTime: finalStartTime?.toISOString(),
+            endTime: finalEndTime?.toISOString(),
+            location: finalLocation,
+            hasImage: !!coverImage,
+            guildId: content.discordGuildId
+          });
+          
           // Create the scheduled event (Discord handles timezone conversion automatically)
-          const eventData = await createDiscordScheduledEvent(
-            content.discordGuildId,
-            eventName,
-            finalStartTime, // Already in UTC from database or calculated from eventDates
-            {
-              description: eventDescription,
-              scheduledEndTime: finalEndTime, // Required for external events
-              entityType: 3, // External event (works for streams)
-              location: finalLocation, // Required for external events
-              image: coverImage
-            }
-          );
+          logger.info('CREATING DISCORD EVENT', {
+            contentId: content.id,
+            guildId: content.discordGuildId,
+            eventName: eventName,
+            startTime: finalStartTime.toISOString(),
+            endTime: finalEndTime.toISOString(),
+            location: finalLocation,
+            hasImage: !!coverImage
+          });
+          
+          let eventData;
+          try {
+            eventData = await createDiscordScheduledEvent(
+              content.discordGuildId,
+              eventName,
+              finalStartTime, // Already in UTC from database or calculated from eventDates
+              {
+                description: eventDescription,
+                scheduledEndTime: finalEndTime, // Required for external events
+                entityType: 3, // External event
+                location: finalLocation, // Required for external events
+                image: coverImage
+              }
+            );
+            
+            // Log after successful creation
+            logger.info('DISCORD RESPONSE', {
+              contentId: content.id,
+              success: true,
+              eventId: eventData?.id,
+              eventData: eventData
+            });
+            
+            logger.info('DISCORD EVENT CREATED', {
+              contentId: content.id,
+              eventId: eventData?.id,
+              eventUrl: `https://discord.com/events/${content.discordGuildId}/${eventData?.id}`
+            });
+          } catch (error) {
+            // Log detailed error information
+            logger.error('DISCORD API ERROR', {
+              contentId: content.id,
+              error: error.message,
+              stack: error.stack,
+              status: error.response?.status,
+              statusText: error.response?.statusText,
+              data: error.response?.data,
+              guildId: content.discordGuildId,
+              eventName: eventName
+            });
+            
+            logger.error('DISCORD EVENT CREATION FAILED', {
+              contentId: content.id,
+              error: error.message,
+              status: error.response?.status,
+              data: error.response?.data,
+              guildId: content.discordGuildId
+            });
+            
+            throw error;
+          }
           
           // Store Discord event ID so we can show the public link: https://discord.com/events/{guildId}/{eventId}
           if (eventData?.id) {
@@ -388,24 +501,39 @@ async function publishToPlatform(content, platform) {
               discordEventId: eventData.id,
               eventUrl: `https://discord.com/events/${content.discordGuildId}/${eventData.id}`
             });
+          } else {
+            logger.warn('Discord event created but no ID returned', {
+              contentId: content.id,
+              eventData: eventData
+            });
           }
           
-          logger.info('Discord scheduled event created', {
+          logger.info('Discord scheduled event created successfully', {
             contentId: content.id,
             contentType: content.contentType,
             guildId: content.discordGuildId,
             scheduledFor: content.scheduledFor,
-            location: finalLocation
+            location: finalLocation,
+            eventId: eventData?.id
           });
+          
+          // Return early - events should NOT post messages to channels
+          return { success: true };
         } catch (eventError) {
-          logger.error('Failed to create Discord scheduled event', {
+          logger.error('DISCORD EVENT ERROR', {
             contentId: content.id,
             error: eventError.message,
+            stack: eventError.stack,
+            response: eventError.response?.data,
+            status: eventError.response?.status,
             guildId: content.discordGuildId
           });
           throw eventError; // Fail the publication if event creation fails
         }
-      } else if ((content.contentType === 'stream' || content.contentType === 'post' || content.contentType === 'reel') && content.discordGuildId) {
+      }
+      
+      // For streams/posts/reels: create scheduled event if applicable AND post message to channel
+      if ((content.contentType === 'stream' || content.contentType === 'post' || content.contentType === 'reel') && content.discordGuildId) {
         // For streams/posts/reels: create scheduled event if applicable AND post message to channel
         try {
           const eventName = content.title || (content.contentType === 'stream' ? 'Stream' : 'Scheduled Post');
@@ -523,35 +651,57 @@ async function publishToPlatform(content, platform) {
         }
       }
       
-      // Publish message to channel (only for non-event content types, or if channel is specified)
-      if (content.discordChannelId && content.contentType !== 'event') {
-        const rawItems = content.files?.items ?? (content.files?.urls ? content.files.urls.map((u) => ({ url: u })) : []) ?? [];
-        const items = rawItems.length > 0 ? await resolveMediaUrls(rawItems) : [];
-        
-        // Format Discord message based on contentType
-        const discordMessage = formatDiscordContent(content);
-        
-        // Post formatted message
-        if (discordMessage) {
-          if (items.length > 0) {
-            // Post message with attachments
-            await postToDiscordChannelWithAttachments(content.discordChannelId, discordMessage, items);
-          } else {
-            // Post text-only message
-            await postToDiscordChannel(content.discordChannelId, discordMessage);
-          }
-        } else if (items.length > 0) {
-          // Only attachments, no text
-          await postToDiscordChannelWithAttachments(content.discordChannelId, '\u200b', items);
-        }
-      } else if (content.contentType === 'event' && !content.discordChannelId) {
-        // Event without channel is OK - event was already created above
-        logger.info('Discord event created without channel message', {
+      // Publish message to channel (only for non-event content types)
+      // Note: Events are handled above and return early, so this code only runs for streams/posts/reels
+      if (!content.discordChannelId) {
+        logger.error('Discord channel required for non-event content', {
           contentId: content.id,
-          guildId: content.discordGuildId
+          contentType: content.contentType,
+          normalizedContentType: contentType
         });
-      } else if (!content.discordChannelId) {
         throw new Error('Discord channel is required for non-event content types');
+      }
+      
+      logger.info('PUBLISHING DISCORD MESSAGE', {
+        contentId: content.id,
+        contentType: content.contentType,
+        channelId: content.discordChannelId,
+        hasFiles: !!(content.files?.items?.length || content.files?.urls?.length)
+      });
+      
+      const rawItems = content.files?.items ?? (content.files?.urls ? content.files.urls.map((u) => ({ url: u })) : []) ?? [];
+      const items = rawItems.length > 0 ? await resolveMediaUrls(rawItems) : [];
+      
+      // Format Discord message based on contentType
+      const discordMessage = formatDiscordContent(content);
+      
+      // Post formatted message
+      if (discordMessage) {
+        if (items.length > 0) {
+          // Post message with attachments
+          await postToDiscordChannelWithAttachments(content.discordChannelId, discordMessage, items);
+          logger.info('Discord message posted with attachments', {
+            contentId: content.id,
+            channelId: content.discordChannelId,
+            attachmentsCount: items.length
+          });
+        } else {
+          // Post text-only message
+          await postToDiscordChannel(content.discordChannelId, discordMessage);
+          logger.info('Discord message posted (text only)', {
+            contentId: content.id,
+            channelId: content.discordChannelId
+          });
+        }
+      } else if (items.length > 0) {
+        // Only attachments, no text
+        await postToDiscordChannelWithAttachments(content.discordChannelId, '\u200b', items);
+        logger.info('Discord message posted (attachments only)', {
+          contentId: content.id,
+          channelId: content.discordChannelId,
+          attachmentsCount: items.length
+        });
+      }
       }
     } else if (platform === 'youtube') {
       // YouTube video upload
@@ -719,15 +869,78 @@ export async function publishContent(content) {
   let hasFailures = false;
   let hasQueued = false;
 
+  // Normalize platforms for consistent comparison
+  const normalizedPlatforms = (platforms || []).map(p => 
+    (p || '').trim().toLowerCase()
+  );
+  
+  // Normalize contentType for consistent comparison
+  const normalizedContentType = (content.contentType || '').trim().toLowerCase();
+
   // Publish to each platform
   for (const platform of platforms) {
-    // Skip Discord if no channel specified
-    if (platform === 'discord' && !channelId) {
-      logger.warn('Discord platform selected but no channel specified', {
+    // Normalize platform name for comparison
+    const normalizedPlatform = (platform || '').trim().toLowerCase();
+    
+    // For Discord: validate requirements based on content type
+    if (normalizedPlatform === 'discord') {
+      // CHECK 1: Verify contentType normalization
+      logger.info('CHECK 1: contentType', {
         contentId: content.id,
-        platform
+        raw: content.contentType,
+        normalized: normalizedContentType,
+        isEvent: normalizedContentType === 'event'
       });
-      continue;
+      
+      // CHECK 2: Verify platforms normalization
+      logger.info('CHECK 2: platforms', {
+        contentId: content.id,
+        raw: platforms,
+        normalized: normalizedPlatforms,
+        includesDiscord: normalizedPlatforms.includes('discord'),
+        currentPlatform: normalizedPlatform
+      });
+      
+      // Events only need discordGuildId, not discordChannelId
+      if (normalizedContentType === 'event') {
+        // CHECK 3: Verify discordGuildId
+        logger.info('CHECK 3: discordGuildId', {
+          contentId: content.id,
+          value: content.discordGuildId,
+          exists: !!content.discordGuildId,
+          type: typeof content.discordGuildId,
+          isValid: typeof content.discordGuildId === 'string' && content.discordGuildId.trim() !== ''
+        });
+        
+        if (!content.discordGuildId || 
+            typeof content.discordGuildId !== 'string' || 
+            content.discordGuildId.trim() === '') {
+          logger.error('Discord platform selected for event but no valid guild specified', {
+            contentId: content.id,
+            platform,
+            contentType: content.contentType,
+            normalizedContentType,
+            discordGuildId: content.discordGuildId
+          });
+          results[platform] = { success: false, reason: 'discordGuildId required and must be a non-empty string for events', failed: true };
+          hasFailures = true;
+          continue;
+        }
+        // Events don't need channel, proceed to publishToPlatform
+      } else {
+        // Non-events require discordChannelId
+        if (!channelId) {
+          logger.warn('Discord platform selected but no channel specified', {
+            contentId: content.id,
+            platform,
+            contentType: content.contentType,
+            normalizedContentType
+          });
+          results[platform] = { success: false, reason: 'discordChannelId required for non-event content', failed: true };
+          hasFailures = true;
+          continue;
+        }
+      }
     }
 
     const result = await publishToPlatform(content, platform);
