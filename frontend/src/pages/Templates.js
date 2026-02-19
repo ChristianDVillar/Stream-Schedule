@@ -356,12 +356,12 @@ export default function Templates({ user, token }) {
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('schedule.date')}</label>
-                <input type="date" value={useDate} onChange={(e) => setUseDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" min={new Date().toISOString().split('T')[0]} />
+                <label htmlFor="template-use-date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('schedule.date')}</label>
+                <input id="template-use-date" name="templateUseDate" type="date" value={useDate} onChange={(e) => setUseDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" min={new Date().toISOString().split('T')[0]} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('schedule.time')}</label>
-                <input type="time" value={useTime} onChange={(e) => setUseTime(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" />
+                <label htmlFor="template-use-time" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('schedule.time')}</label>
+                <input id="template-use-time" name="templateUseTime" type="time" value={useTime} onChange={(e) => setUseTime(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" />
               </div>
               <div className="flex gap-2">
                 <button onClick={handleUseTemplate} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
