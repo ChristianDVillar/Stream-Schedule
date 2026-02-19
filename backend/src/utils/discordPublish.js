@@ -297,10 +297,13 @@ export async function createDiscordScheduledEvent(guildId, name, scheduledStartT
   }
 
   // Build request body based on entity type
+  // Ensure entityType is a number (Discord requires it as integer)
+  const entityTypeNumber = typeof entityType === 'string' ? parseInt(entityType, 10) : Number(entityType);
+  
   const body = {
     name: name.slice(0, 100),
     scheduled_start_time: startTimeISO, // Discord expects ISO 8601 UTC
-    entity_type: entityType,
+    entity_type: entityTypeNumber, // Ensure it's a number, not a string
     privacy_level: 2 // Required: 2 = GUILD_ONLY (events are only visible to server members)
   };
 
@@ -335,6 +338,9 @@ export async function createDiscordScheduledEvent(guildId, name, scheduledStartT
     body.image = image;
   }
 
+  // VERSION CHECK: This log confirms we're running the updated code
+  logger.info('VERSION 19-02-2026 FIX APPLIED - privacy_level included');
+
   logger.info('Creating Discord scheduled event', {
     guildId,
     name,
@@ -342,6 +348,14 @@ export async function createDiscordScheduledEvent(guildId, name, scheduledStartT
     scheduledEndTime: endTimeISO,
     entityType,
     privacyLevel: body.privacy_level
+  });
+
+  // Log the complete body to verify privacy_level is included
+  logger.info('DISCORD EVENT FINAL PAYLOAD', {
+    body: body,
+    bodyStringified: JSON.stringify(body),
+    hasPrivacyLevel: 'privacy_level' in body,
+    privacyLevelValue: body.privacy_level
   });
 
   const res = await fetch(`${DISCORD_API}/guilds/${guildId}/scheduled-events`, {
