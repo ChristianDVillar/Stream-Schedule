@@ -56,117 +56,120 @@ async function refreshDiscordToken(refreshToken) {
  * Returns the Discord bot invite URL so the user can add the bot to their server.
  * Uses DISCORD_CLIENT_ID (same Application as the bot in Discord Developer Portal).
  */
-router.get('/invite-url', requireAuth, (req, res) => {
+function getInviteUrl() {
   const clientId = (process.env.DISCORD_CLIENT_ID || '').trim();
-  if (!clientId) {
-    return res.status(503).json({ error: 'Discord not configured', inviteUrl: null });
-  }
-  // Permissions: View Channels, Send Messages, Embed Links, Attach Files, Read Message History, Manage Events (8601501696)
-  // Manage Events (8589934592) is required for creating/updating/deleting scheduled events
+  if (!clientId) return null;
   const permissions = '8601501696';
   const scope = 'bot%20applications.commands';
-  const url = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=${scope}`;
+  return `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=${scope}`;
+}
+
+router.get('/invite-url', requireAuth, (req, res) => {
+  const url = getInviteUrl();
+  if (!url) {
+    return res.status(503).json({ error: 'Discord not configured', inviteUrl: null });
+  }
   res.json({ inviteUrl: url });
 });
 
 /**
+ * Returns guilds where the user is owner (server they created) AND the bot is in.
+ * @param {object} user - User model instance with discordAccessToken, discordRefreshToken (optional save() for token refresh)
+ * @returns {Promise<{ guilds: Array<{id,name,icon}>, guildIds: Set<string> } | null>}
+ */
+async function getOwnedGuildsWithBot(user) {
+  if (!user?.discordId || (!user?.discordAccessToken && !user?.discordRefreshToken)) return null;
+  let accessToken = user.discordAccessToken;
+  if (!accessToken && user.discordRefreshToken) {
+    const refreshed = await refreshDiscordToken(user.discordRefreshToken);
+    if (!refreshed) return null;
+    accessToken = refreshed.accessToken;
+    user.discordAccessToken = refreshed.accessToken;
+    user.discordRefreshToken = refreshed.refreshToken;
+    if (typeof user.save === 'function') await user.save();
+  }
+  if (!accessToken) return null;
+  const botToken = getBotToken();
+  if (!botToken) return null;
+
+  const [userGuildsRes, botGuildsRes] = await Promise.all([
+    fetch(`${DISCORD_API}/users/@me/guilds`, { headers: { Authorization: `Bearer ${accessToken}` } }),
+    fetch(`${DISCORD_API}/users/@me/guilds`, { headers: { Authorization: `Bot ${botToken}` } }),
+  ]);
+
+  if (!userGuildsRes.ok || !botGuildsRes.ok) return null;
+  const userGuilds = await userGuildsRes.json();
+  const botGuildIds = new Set((await botGuildsRes.json()).map((g) => g.id));
+  const guilds = userGuilds
+    .filter((g) => g.owner === true && botGuildIds.has(g.id))
+    .map((g) => ({ id: g.id, name: g.name, icon: g.icon }));
+  return { guilds, guildIds: new Set(guilds.map((g) => g.id)) };
+}
+
+/**
+ * GET /discord/dashboard-stats
+ * Returns Discord connection status, guild count (only servers the user owns, with bot), and invite URL.
+ */
+router.get('/dashboard-stats', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, { attributes: ['id', 'discordId', 'discordAccessToken', 'discordRefreshToken'] });
+    const hasDiscord = user?.discordId && (user?.discordAccessToken || user?.discordRefreshToken);
+    const inviteUrl = getInviteUrl();
+
+    if (!hasDiscord) {
+      return res.json({
+        discordConnected: false,
+        guildsCount: 0,
+        inviteUrl: inviteUrl || null
+      });
+    }
+
+    const result = await getOwnedGuildsWithBot(user);
+    const guildsCount = result?.guilds?.length ?? 0;
+
+    res.json({
+      discordConnected: true,
+      guildsCount,
+      inviteUrl: inviteUrl || null
+    });
+  } catch (err) {
+    logger.error('Discord dashboard-stats error', { error: err.message, userId: req.user?.id });
+    res.json({
+      discordConnected: false,
+      guildsCount: 0,
+      inviteUrl: getInviteUrl() || null
+    });
+  }
+});
+
+/**
  * GET /discord/guilds
- * Returns guilds where the authenticated user is a member AND the bot is also in.
- * Uses user's Discord OAuth token for user guilds, bot token for bot guilds; intersection returned.
+ * Returns guilds where the authenticated user is the owner (server they created) AND the bot is in.
+ * So users only see and publish to their own servers, not every server where the bot is present.
  */
 router.get('/guilds', requireAuth, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, { attributes: ['id', 'discordId', 'discordAccessToken', 'discordRefreshToken', 'oauthProvider'] });
-    
-    // Discord is considered connected only if discordId exists AND has at least one token
-    // This matches the logic in /connected-accounts endpoint
     const hasDiscord = user?.discordId && (user?.discordAccessToken || user?.discordRefreshToken);
     if (!hasDiscord) {
-      logger.warn('Discord guilds: User does not have valid Discord connection', {
-        userId: req.user.id,
-        hasDiscordId: !!user?.discordId,
-        hasAccessToken: !!user?.discordAccessToken,
-        hasRefreshToken: !!user?.discordRefreshToken,
-        oauthProvider: user?.oauthProvider
-      });
+      logger.warn('Discord guilds: User does not have valid Discord connection', { userId: req.user.id });
       return res.status(400).json({
         code: 'discord_not_connected',
         error: 'Connect Discord first',
         details: 'Log in with Discord or link Discord in Settings to list your servers.',
       });
     }
-    let accessToken = user?.discordAccessToken;
-    if (!accessToken && user?.discordRefreshToken) {
-      const refreshed = await refreshDiscordToken(user.discordRefreshToken);
-      if (refreshed) {
-        accessToken = refreshed.accessToken;
-        user.discordAccessToken = refreshed.accessToken;
-        user.discordRefreshToken = refreshed.refreshToken;
-        await user.save();
-      }
-    }
-    if (!accessToken) {
-      return res.status(400).json({
-        code: 'discord_reconnect_required',
-        error: 'Discord session expired or invalid',
-        details: 'Please reconnect Discord in Settings (link again) to list your servers.',
+
+    const result = await getOwnedGuildsWithBot(user);
+    if (!result) {
+      return res.status(502).json({
+        code: 'discord_fetch_failed',
+        error: 'Could not load your Discord servers',
+        details: 'Session may have expired. Try reconnecting Discord in Settings.',
       });
     }
 
-    const botToken = getBotToken();
-    if (!botToken) {
-      return res.status(503).json({ error: 'Discord bot not configured' });
-    }
-
-    let userGuildsRes = await fetch(`${DISCORD_API}/users/@me/guilds`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-
-    if (userGuildsRes.status === 401 && user?.discordRefreshToken) {
-      const refreshed = await refreshDiscordToken(user.discordRefreshToken);
-      if (refreshed) {
-        user.discordAccessToken = refreshed.accessToken;
-        user.discordRefreshToken = refreshed.refreshToken;
-        await user.save();
-        userGuildsRes = await fetch(`${DISCORD_API}/users/@me/guilds`, {
-          headers: { Authorization: `Bearer ${refreshed.accessToken}` },
-        });
-      }
-    }
-
-    const botGuildsRes = await fetch(`${DISCORD_API}/users/@me/guilds`, {
-      headers: { Authorization: `Bot ${botToken}` },
-    });
-
-    if (!userGuildsRes.ok) {
-      const errText = await userGuildsRes.text();
-      logger.warn('Discord user guilds failed', { status: userGuildsRes.status, body: errText });
-      if (userGuildsRes.status === 401) {
-        return res.status(400).json({
-          code: 'discord_session_expired',
-          error: 'Discord session expired',
-          details: 'Please reconnect Discord in Settings to list your servers.',
-        });
-      }
-      return res.status(502).json({ error: 'Failed to fetch your Discord servers' });
-    }
-
-    if (!botGuildsRes.ok) {
-      logger.warn('Discord bot guilds failed', { status: botGuildsRes.status });
-      return res.status(502).json({ error: 'Failed to fetch bot servers' });
-    }
-
-    const userGuilds = await userGuildsRes.json();
-    const botGuilds = await botGuildsRes.json();
-    const botGuildIds = new Set(botGuilds.map((g) => g.id));
-
-    const guilds = userGuilds.filter((g) => botGuildIds.has(g.id)).map((g) => ({
-      id: g.id,
-      name: g.name,
-      icon: g.icon,
-    }));
-
-    res.json({ guilds });
+    res.json({ guilds: result.guilds });
   } catch (err) {
     logger.error('Discord guilds error', { error: err.message, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to list Discord servers' });
@@ -175,17 +178,25 @@ router.get('/guilds', requireAuth, async (req, res) => {
 
 /**
  * GET /discord/guilds/:guildId/channels
- * Returns text channels in the guild. Uses BOT token only.
- * Frontend should only show channels from guilds returned by GET /discord/guilds.
+ * Returns text channels in the guild. Only allowed for guilds the user owns (and bot is in).
  */
 router.get('/guilds/:guildId/channels', requireAuth, async (req, res) => {
   try {
+    const { guildId } = req.params;
+    const user = await User.findByPk(req.user.id, { attributes: ['id', 'discordId', 'discordAccessToken', 'discordRefreshToken'] });
+    const allowed = await getOwnedGuildsWithBot(user);
+    if (!allowed || !allowed.guildIds.has(guildId)) {
+      return res.status(403).json({
+        error: 'Access denied to this server',
+        details: 'You can only view channels of servers you own (where the bot is added).',
+      });
+    }
+
     const botToken = getBotToken();
     if (!botToken) {
       return res.status(503).json({ error: 'Discord bot not configured' });
     }
 
-    const { guildId } = req.params;
     const resDiscord = await fetch(`${DISCORD_API}/guilds/${guildId}/channels`, {
       headers: { Authorization: `Bot ${botToken}` },
     });
@@ -220,12 +231,38 @@ router.get('/guilds/:guildId/channels', requireAuth, async (req, res) => {
 
 /**
  * POST /discord/channels/:channelId/messages
- * Sends a message to a channel. Uses BOT token only. User never sees bot token.
- * If bot lacks SEND_MESSAGES or ATTACH_FILES, Discord returns 403; we return a clear error.
+ * Sends a message to a channel. Only allowed for channels in guilds the user owns (with bot).
  */
 router.post('/channels/:channelId/messages', requireAuth, async (req, res) => {
   try {
     const { channelId } = req.params;
+    const user = await User.findByPk(req.user.id, { attributes: ['id', 'discordId', 'discordAccessToken', 'discordRefreshToken'] });
+    const allowed = await getOwnedGuildsWithBot(user);
+    if (!allowed) {
+      return res.status(403).json({
+        error: 'Discord not connected or could not verify server access',
+        details: 'Connect Discord and use a channel from a server you own.',
+      });
+    }
+    const botToken = getBotToken();
+    if (!botToken) return res.status(503).json({ error: 'Discord bot not configured' });
+    const channelRes = await fetch(`${DISCORD_API}/channels/${channelId}`, {
+      headers: { Authorization: `Bot ${botToken}` },
+    });
+    if (!channelRes.ok) {
+      return res.status(channelRes.status === 404 ? 404 : 502).json({
+        error: channelRes.status === 404 ? 'Channel not found' : 'Failed to get channel',
+      });
+    }
+    const channel = await channelRes.json();
+    const guildId = channel.guild_id;
+    if (!guildId || !allowed.guildIds.has(guildId)) {
+      return res.status(403).json({
+        error: 'Access denied to this channel',
+        details: 'You can only post to channels in servers you own (where the bot is added).',
+      });
+    }
+
     const { content, embeds } = req.body || {};
     const { postToDiscordChannel } = await import('../utils/discordPublish.js');
     const message = await postToDiscordChannel(channelId, content, embeds);

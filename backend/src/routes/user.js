@@ -1353,6 +1353,29 @@ export async function connectedAccountsHandler(req, res) {
       }
     }
 
+    // Fetch Twitch username if connected (from Integration token; works whether user logged in with Google, email, etc.)
+    if (twitchConnected) {
+      try {
+        const twitchIntegration = await Integration.findOne({
+          where: { userId, provider: 'twitch', status: 'active' },
+          attributes: ['accessToken', 'providerUserId'],
+        });
+        const broadcasterId = twitchIntegration?.providerUserId || u.twitchId;
+        if (broadcasterId && twitchIntegration?.accessToken) {
+          const { TwitchService } = await import('../services/twitchService.js');
+          const twitchService = new TwitchService();
+          const twitchUser = await twitchService.getUserInfo(broadcasterId, twitchIntegration.accessToken);
+          const twitchUsername = twitchUser?.display_name || twitchUser?.login || null;
+          if (twitchUsername) {
+            accountInfo.twitch.username = twitchUsername;
+          }
+        }
+      } catch (err) {
+        logger.debug('Could not fetch Twitch username for connected accounts', { error: err.message });
+        // Keep "Twitch User" or null; do not fail the request
+      }
+    }
+
     // Twitter can display as connected (twitterId) but lack token → publishing will fail until user reconnects
     const twitterTokenMissing = twitterConnected && !u.twitterAccessToken;
 
@@ -2201,12 +2224,16 @@ router.get('/twitch-dashboard-stats', requireAuth, async (req, res) => {
         twitchConnected: false,
         subscriptions: { total: 0, label: 'Suscripciones' },
         bits: { total: 0, label: 'Bits' },
-        donations: { total: 0, label: 'Donaciones' }
+        donations: { total: 0, label: 'Donaciones' },
+        views: { total: 0, label: 'Vistas' },
+        followers: { total: 0, label: 'Seguidores' }
       });
     }
 
     let subscriptions = { total: 0, label: 'Suscripciones' };
     let bits = { total: 0, label: 'Bits' };
+    let views = { total: 0, label: 'Vistas' };
+    let followers = { total: 0, label: 'Seguidores' };
 
     const integration = await Integration.findOne({
       where: { userId: req.user.id, provider: 'twitch', status: 'active' }
@@ -2222,6 +2249,10 @@ router.get('/twitch-dashboard-stats', requireAuth, async (req, res) => {
           subscriptions = { total: subsData.total, label: 'Suscripciones' };
           const bitsData = await twitchService.getBitsLeaderboard(broadcasterId, integration.accessToken);
           bits = { total: bitsData.total, label: 'Bits' };
+          const userInfo = await twitchService.getUserInfo(broadcasterId, integration.accessToken);
+          views = { total: userInfo?.view_count ?? 0, label: 'Vistas' };
+          const followersData = await twitchService.getChannelFollowers(broadcasterId, integration.accessToken);
+          followers = { total: followersData?.total ?? 0, label: 'Seguidores' };
         }
       } catch (apiErr) {
         logger.debug('Twitch API in dashboard-stats', { error: apiErr.message });
@@ -2232,7 +2263,9 @@ router.get('/twitch-dashboard-stats', requireAuth, async (req, res) => {
       twitchConnected: true,
       subscriptions,
       bits,
-      donations: { total: 0, label: 'Donaciones' }
+      donations: { total: 0, label: 'Donaciones' },
+      views,
+      followers
     });
   } catch (err) {
     logger.error('Twitch dashboard stats error', { error: err.message, userId: req.user?.id });
@@ -2262,7 +2295,7 @@ router.get('/twitch/connect', (req, res, next) => {
     JWT_SECRET,
     { expiresIn: '10m' }
   );
-  const scopes = ['bits:read', 'channel:manage:schedule', 'channel:read:subscriptions'].join(' ');
+  const scopes = ['bits:read', 'channel:manage:schedule', 'channel:read:subscriptions', 'moderator:read:followers'].join(' ');
   // If BACKEND_URL/TWITCH_OAUTH_REDIRECT_BASE is Supabase, use request host so redirect goes to this server
   const base = (typeof TWITCH_OAUTH_REDIRECT_BASE === 'string' && TWITCH_OAUTH_REDIRECT_BASE.includes('supabase.co'))
     ? `${req.protocol}://${req.get('host')}`

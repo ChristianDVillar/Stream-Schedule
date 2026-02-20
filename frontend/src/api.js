@@ -281,6 +281,12 @@ export async function getTwitchDonations() {
   return res.data;
 }
 
+/** GET /discord/dashboard-stats - Discord connection and guild count for dashboard */
+export async function getDiscordDashboardStats() {
+  const res = await apiClient.get('/discord/dashboard-stats');
+  return res.data;
+}
+
 /** GET /content - Get paginated content with filters */
 export async function getContent(options = {}) {
   const params = new URLSearchParams();
