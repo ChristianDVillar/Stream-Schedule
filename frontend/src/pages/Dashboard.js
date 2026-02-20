@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiClient, getTwitchDashboardStats, getTwitchSubs, getTwitchBits, getTwitchDonations, cancelContent } from '../api';
+import { apiClient, getTwitchDashboardStats, getTwitchSubs, getTwitchBits, getTwitchDonations, getDiscordDashboardStats, cancelContent } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
@@ -54,6 +54,8 @@ const Dashboard = ({ user, token, ...props }) => {
   const [showContentModal, setShowContentModal] = useState(false);
   const [twitchStats, setTwitchStats] = useState(null);
   const [twitchStatsLoading, setTwitchStatsLoading] = useState(false);
+  const [discordStats, setDiscordStats] = useState(null);
+  const [discordStatsLoading, setDiscordStatsLoading] = useState(false);
   const [bitsFormat, setBitsFormat] = useState('chronological'); // 'chronological' o 'total'
   const [calendarView, setCalendarView] = useState('week');
   const [isMobile, setIsMobile] = useState(false);
@@ -127,6 +129,23 @@ const Dashboard = ({ user, token, ...props }) => {
       });
     return () => { cancelled = true; };
   }, [showTwitchOnDashboard]);
+
+  useEffect(() => {
+    if (!user || user.isAdmin) return;
+    let cancelled = false;
+    setDiscordStatsLoading(true);
+    getDiscordDashboardStats()
+      .then((data) => {
+        if (!cancelled) setDiscordStats(data);
+      })
+      .catch(() => {
+        if (!cancelled) setDiscordStats(null);
+      })
+      .finally(() => {
+        if (!cancelled) setDiscordStatsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [user]);
 
   const getPlatformIcon = (platform, size = 'w-5 h-5') => {
     const className = `${size}`;
@@ -559,7 +578,7 @@ const Dashboard = ({ user, token, ...props }) => {
                 </button>
               </p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                 {user.dashboardShowTwitchSubs && (
                   <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
                     <div className="flex items-start justify-between">
@@ -637,6 +656,76 @@ const Dashboard = ({ user, token, ...props }) => {
                     </div>
                   </div>
                 )}
+                {/* Vistas y seguidores (siempre visibles cuando Twitch está conectado) */}
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    {t('dashboard.statsViews') || 'Vistas'}
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                    {(twitchStats?.views?.total ?? 0).toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    {t('dashboard.statsFollowers') || 'Seguidores'}
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                    {(twitchStats?.followers?.total ?? 0).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Discord: servidores con el bot e invite */}
+        {user && !user.isAdmin && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border-t-4 border-indigo-500 mb-6 sm:mb-8">
+            <h3 className="text-base sm:text-lg font-bold text-indigo-700 dark:text-indigo-400 mb-4 flex items-center">
+              <img src={DISCORD_ICON_URL} alt="Discord" className="w-5 h-5 mr-2 object-contain dark:invert" />
+              {t('dashboard.discordStats') || 'Discord'}
+            </h3>
+            {discordStatsLoading ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('common.loading') || 'Loading...'}</p>
+            ) : !discordStats?.discordConnected ? (
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                {t('dashboard.discordConnectPrompt') || 'Conecta Discord en Ajustes para publicar y gestionar eventos en tus servidores.'}
+                <button
+                  type="button"
+                  onClick={() => navigate('/settings')}
+                  className="ml-2 text-indigo-600 dark:text-indigo-400 hover:underline"
+                >
+                  {t('settings.title') || 'Ajustes'}
+                </button>
+              </p>
+            ) : (
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-4 py-3 border border-gray-200 dark:border-gray-600">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    {t('dashboard.discordServersWithBot') || 'Servidores con el bot'}
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                    {discordStats?.guildsCount ?? 0}
+                  </p>
+                </div>
+                {discordStats?.inviteUrl && (
+                  <a
+                    href={discordStats.inviteUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    {t('dashboard.discordInviteBot') || 'Invitar bot a un servidor'}
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => navigate('/settings')}
+                  className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+                >
+                  {t('dashboard.discordManageSettings') || 'Gestionar en Ajustes'}
+                </button>
               </div>
             )}
           </div>

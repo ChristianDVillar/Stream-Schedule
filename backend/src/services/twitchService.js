@@ -10,6 +10,9 @@ import logger from '../utils/logger.js';
 const TWITCH_API_BASE = 'https://api.twitch.tv/helix';
 const TWITCH_OAUTH_BASE = 'https://id.twitch.tv/oauth2';
 
+// Log "credentials not configured" only once per process to avoid log spam
+let twitchCredentialsWarnLogged = false;
+
 export class TwitchService {
   constructor() {
     this.clientId = process.env.TWITCH_CLIENT_ID;
@@ -27,7 +30,10 @@ export class TwitchService {
     }
 
     if (!this.clientId || !this.clientSecret) {
-      logger.warn('Twitch credentials not configured');
+      if (!twitchCredentialsWarnLogged) {
+        twitchCredentialsWarnLogged = true;
+        logger.warn('Twitch credentials not configured - set TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET in production for Twitch features');
+      }
       return null;
     }
 
@@ -263,7 +269,8 @@ export class TwitchService {
   }
 
   /**
-   * Get user info by ID (uses app or user token)
+   * Get user info by ID (uses app or user token).
+   * Helix users include view_count (channel total views).
    */
   async getUserInfo(userId, userAccessToken = null) {
     try {
@@ -272,6 +279,27 @@ export class TwitchService {
     } catch (error) {
       logger.error('Failed to get Twitch user info', { userId, error: error.message });
       return null;
+    }
+  }
+
+  /**
+   * Get channel followers count (broadcaster).
+   * Requires moderator:read:followers or no scope with user token for own channel.
+   * Helix: GET /channels/followers
+   */
+  async getChannelFollowers(broadcasterId, userAccessToken) {
+    try {
+      const data = await this.makeRequest(
+        `/channels/followers?broadcaster_id=${broadcasterId}&first=1`,
+        userAccessToken
+      );
+      return { total: data.total ?? 0 };
+    } catch (error) {
+      if (error.response?.status === 403) {
+        logger.warn('Twitch channel followers not available', { broadcasterId });
+        return { total: 0 };
+      }
+      throw error;
     }
   }
 }
