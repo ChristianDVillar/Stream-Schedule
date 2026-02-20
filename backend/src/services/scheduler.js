@@ -24,7 +24,7 @@ import logger from '../utils/logger.js';
 import { checkIdempotency, markPublicationAttempted } from './idempotencyService.js';
 import { canPublish, recordPublication } from './rateLimitService.js';
 import { isFeatureEnabled } from './featureFlagService.js';
-import { enqueuePublication } from './queueService.js';
+import { enqueuePublication } from './publicationQueueService.js';
 import platformConfigService from './platformConfigService.js';
 
 const INTERVAL_MS = APP_CONFIG.SCHEDULER_INTERVAL_MS;
@@ -156,7 +156,9 @@ async function publishToPlatform(content, platform) {
     });
     
     // Enqueue for later instead of failing
-    await enqueuePublication(content.id, platform, content.userId, content.scheduledFor);
+    // Note: Using publicationQueueService which requires ContentPlatform, but scheduler is legacy
+    // This will create ContentPlatform entry if needed
+    await enqueuePublication(content.id, platform, null, content.scheduledFor);
     content.status = CONTENT_STATUS.QUEUED;
     await content.save();
     return { success: false, reason: 'rate_limit', queued: true };
@@ -365,15 +367,77 @@ async function publishToPlatform(content, platform) {
       // TODO: Implement Instagram API publishing
       throw new Error('Instagram publishing not yet implemented');
     } else if (platform === 'twitch') {
-      // Twitch content formatting (when Twitch API is implemented)
-      const formattedContent = formatTwitchContent(content);
-      logger.info('Twitch content formatted', {
-        contentId: content.id,
-        contentType: content.contentType,
-        formattedLength: formattedContent.length
-      });
-      // TODO: Implement Twitch API publishing
-      throw new Error('Twitch publishing not yet implemented');
+      if (!integration) {
+        throw new Error('Twitch not linked. Connect Twitch in Settings (Twitch connect for publishing).');
+      }
+      const { TwitchService } = await import('./twitchService.js');
+      const twitchService = new TwitchService();
+
+      // Refresh token if expired or expiring within 1 minute
+      const expiresAt = integration.expiresAt ? new Date(integration.expiresAt).getTime() : 0;
+      if (integration.refreshToken && expiresAt < Date.now() + 60000) {
+        try {
+          const newTokens = await twitchService.refreshUserAccessToken(integration.refreshToken);
+          integration.accessToken = newTokens.accessToken;
+          integration.refreshToken = newTokens.refreshToken;
+          integration.expiresAt = newTokens.expiresAt;
+          await integration.save();
+          accessToken = integration.accessToken;
+        } catch (refreshErr) {
+          logger.warn('Twitch token refresh failed', { contentId: content.id, error: refreshErr.message });
+        }
+      }
+
+      const broadcasterId = integration.providerUserId || await twitchService.getBroadcasterId(accessToken);
+      const contentTypeNorm = (content.contentType || '').trim().toLowerCase();
+
+      if (contentTypeNorm === 'event') {
+        const startTime = content.scheduledFor;
+        let duration = 120;
+        if (content.eventEndTime) {
+          const start = new Date(content.scheduledFor).getTime();
+          const end = new Date(content.eventEndTime).getTime();
+          duration = Math.max(60, Math.round((end - start) / 60000));
+        } else if (content.eventDates && content.eventDates.length > 0) {
+          const first = content.eventDates[0];
+          const last = content.eventDates[content.eventDates.length - 1];
+          const start = new Date(`${first.date}T${first.time}`).getTime();
+          const end = (last.endDate && last.endTime)
+            ? new Date(`${last.endDate}T${last.endTime}`).getTime()
+            : start + 120 * 60000;
+          duration = Math.max(60, Math.round((end - start) / 60000));
+        }
+        const timezone = content.timezone || 'UTC';
+        const title = (content.title || 'Scheduled Stream').slice(0, 140);
+        const result = await twitchService.createScheduleSegment({
+          userAccessToken: accessToken,
+          broadcasterId,
+          startTime,
+          timezone,
+          duration,
+          title,
+          categoryId: content.twitchCategoryId || null,
+        });
+        if (result.segmentId) {
+          await Content.update(
+            { twitchSegmentId: result.segmentId },
+            { where: { id: content.id } }
+          );
+        }
+        logger.info('Twitch schedule segment created', {
+          contentId: content.id,
+          segmentId: result.segmentId,
+        });
+      } else {
+        const formatted = formatTwitchContent(content);
+        const title = (formatted && formatted.split('\n\n')[0]) ? formatted.split('\n\n')[0].trim().slice(0, 140) : (content.title || '').slice(0, 140);
+        await twitchService.updateChannelInfo({
+          userAccessToken: accessToken,
+          broadcasterId,
+          title: title || content.title || 'Stream',
+        });
+        logger.info('Twitch channel title updated', { contentId: content.id });
+      }
     } else {
       throw new Error(`Platform ${platform} not supported`);
     }

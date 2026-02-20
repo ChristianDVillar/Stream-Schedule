@@ -41,6 +41,8 @@ import { metricsMiddleware, metrics } from './utils/metrics.js';
 import { setupSwagger } from './app-swagger.js';
 import logger from './utils/logger.js';
 import { startScheduler } from './services/scheduler.js';
+import { startSchedulerProducer } from './services/schedulerProducer.js';
+import { startWorker } from './services/publicationWorker.js';
 import platformConfigService from './services/platformConfigService.js';
 import { startDiscordSyncWorker } from './services/discordQueueService.js';
 import { startDiscordGateway } from './services/discordGatewayService.js';
@@ -280,7 +282,22 @@ async function initServer() {
       environment: nodeEnv,
       logLevel
     });
-    startScheduler();
+    // Smart-monolith architecture: Scheduler Producer + Worker
+    // Scheduler Producer: Only detects due content and enqueues jobs (runs every 30s)
+    startSchedulerProducer();
+    
+    // Publication Worker: Processes publication jobs from queue (separate process in production)
+    // In development, runs in same process; in production, run as separate worker process
+    if (process.env.ENABLE_PUBLICATION_WORKER !== 'false') {
+      startWorker().catch((err) =>
+        logger.warn('Publication worker not started', { error: err.message })
+      );
+    }
+    
+    // Legacy scheduler (kept for backward compatibility, can be disabled)
+    if (process.env.ENABLE_LEGACY_SCHEDULER !== 'false') {
+      startScheduler();
+    }
 
     // Discord: dedicated sync queue worker + Gateway listener (bidirectional sync)
     startDiscordSyncWorker().catch((err) =>

@@ -8,7 +8,7 @@ import { Op } from 'sequelize';
 
 const require = createRequire(import.meta.url);
 const DiscordStrategy = require('passport-discord').Strategy;
-import { User, Content, Media, SystemConfig, sequelize } from '../models/index.js';
+import { User, Content, Media, SystemConfig, Integration, sequelize } from '../models/index.js';
 import checkLicense from '../middleware/checkLicense.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { auditLog } from '../middleware/audit.js';
@@ -40,6 +40,8 @@ const router = express.Router();
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+/** Base URL for Twitch OAuth redirect_uri (authorize + callback). Use this if BACKEND_URL points elsewhere (e.g. Supabase). */
+const TWITCH_OAUTH_REDIRECT_BASE = (process.env.TWITCH_OAUTH_REDIRECT_BASE_URL || BACKEND_URL).replace(/\/$/, '');
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
 
 // Helper function to generate JWT and redirect for OAuth callbacks
@@ -1354,6 +1356,13 @@ export async function connectedAccountsHandler(req, res) {
     // Twitter can display as connected (twitterId) but lack token → publishing will fail until user reconnects
     const twitterTokenMissing = twitterConnected && !u.twitterAccessToken;
 
+    // Twitch "connected for publishing" = has active Integration (schedule + bits); hide "Connect for publishing" when true
+    const twitchPublishIntegration = await Integration.findOne({
+      where: { userId, provider: 'twitch', status: 'active' },
+      attributes: ['id'],
+    });
+    const twitchPublishConnected = !!twitchPublishIntegration;
+
     // Build result object safely
     const result = {
       google: accountInfo?.google?.connected || false,
@@ -1362,6 +1371,7 @@ export async function connectedAccountsHandler(req, res) {
       twitter: accountInfo?.twitter?.connected || false,
       email: accountInfo?.email?.connected || false,
       twitterTokenMissing: !!twitterTokenMissing,
+      twitchPublishConnected,
       usernames: {
         google: accountInfo?.google?.username || null,
         twitch: accountInfo?.twitch?.username || null,
@@ -1446,37 +1456,75 @@ router.post('/disconnect-google', requireAuth, async (req, res) => {
   }
 });
 
-/** POST /disconnect-twitch - remove Twitch from current account. */
+/** POST /disconnect-twitch - remove Twitch from current account. Same pattern as disconnect-discord: User.twitchId + oauthProvider/oauthId + Integration, then verify and force User.update if needed. */
 router.post('/disconnect-twitch', requireAuth, async (req, res) => {
   const userId = req.user?.id;
   logger.info('Disconnect Twitch request', { userId, ip: req.ip });
-  
+
   try {
-    const user = await User.findByPk(userId, { attributes: ['id', 'googleId', 'twitchId', 'discordId', 'twitterId', 'passwordHash', 'oauthProvider', 'oauthId'] });
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'googleId', 'twitchId', 'discordId', 'twitterId', 'passwordHash', 'oauthProvider', 'oauthId'],
+    });
     if (!user) {
       logger.warn('Disconnect Twitch: User not found', { userId });
       return res.status(404).json({ error: 'User not found' });
     }
-    if (!user.twitchId) {
+
+    const hasTwitch = !!(user.twitchId || (user.oauthProvider === 'twitch' && user.oauthId));
+    if (!hasTwitch) {
       logger.warn('Disconnect Twitch: Twitch not connected', { userId });
       return res.status(400).json({ error: 'Twitch is not connected' });
     }
+
+    const wasTwitchPrimary = user.oauthProvider === 'twitch';
     const u = user.get ? user.get({ plain: true }) : user;
     u.twitchId = null;
+    if (wasTwitchPrimary) {
+      u.oauthProvider = user.googleId ? 'google' : user.discordId ? 'discord' : user.twitterId ? 'twitter' : null;
+      u.oauthId = user.googleId || user.discordId || user.twitterId || null;
+    }
     if (!hasAnyLoginMethod(u)) {
       logger.warn('Disconnect Twitch: Would leave user without login method', { userId });
       return res.status(400).json({ error: 'You must keep at least one sign-in method' });
     }
+
     user.twitchId = null;
-    if (user.oauthProvider === 'twitch') {
-      user.oauthProvider = user.googleId ? 'google' : user.discordId ? 'discord' : user.twitterId ? 'twitter' : null;
-      user.oauthId = user.googleId || user.discordId || user.twitterId || null;
+    if (wasTwitchPrimary) {
+      user.oauthProvider = u.oauthProvider;
+      user.oauthId = u.oauthId;
     }
     await user.save();
+
+    const deleted = await Integration.destroy({ where: { userId, provider: 'twitch' } });
+    if (deleted) logger.debug('Disconnect Twitch: removed Integration', { userId, deleted });
+
+    // Verify (same as Discord): reload and force User.update if still connected
+    const savedUser = await User.findByPk(userId, {
+      attributes: ['id', 'twitchId', 'oauthProvider', 'oauthId', 'googleId', 'discordId', 'twitterId'],
+    });
+    const stillConnected = savedUser && (savedUser.twitchId || (savedUser.oauthProvider === 'twitch' && savedUser.oauthId));
+    if (stillConnected) {
+      logger.error('Disconnect Twitch: verification failed, forcing User.update', {
+        userId,
+        twitchId: savedUser.twitchId,
+        oauthProvider: savedUser.oauthProvider,
+        oauthId: savedUser.oauthId,
+      });
+      const newOauthProvider = savedUser.googleId ? 'google' : savedUser.discordId ? 'discord' : savedUser.twitterId ? 'twitter' : null;
+      const newOauthId = savedUser.googleId || savedUser.discordId || savedUser.twitterId || null;
+      await User.update(
+        {
+          twitchId: null,
+          ...(savedUser.oauthProvider === 'twitch' ? { oauthProvider: newOauthProvider, oauthId: newOauthId } : {}),
+        },
+        { where: { id: userId } }
+      );
+    }
+
     logger.info('Twitch disconnected successfully', { userId });
     res.json({ message: 'Twitch disconnected' });
   } catch (err) {
-    logger.error('Disconnect Twitch error', { 
+    logger.error('Disconnect Twitch error', {
       error: err.message,
       stack: err.stack,
       userId,
@@ -2156,42 +2204,151 @@ router.get('/twitch-dashboard-stats', requireAuth, async (req, res) => {
         donations: { total: 0, label: 'Donaciones' }
       });
     }
-    
-    // Try to get real data from Twitch API
-    // Note: Requires user to have connected Twitch with proper scopes
-    // For now, return placeholder until user reconnects with scopes
+
     let subscriptions = { total: 0, label: 'Suscripciones' };
     let bits = { total: 0, label: 'Bits' };
-    
-    // Try to import Twitch service if available (requires axios)
-    try {
-      const twitchServiceModule = await import('../services/twitchService.js');
-      const { TwitchService } = twitchServiceModule;
-      const twitchService = new TwitchService();
-      
-      // If we had user access token with scopes, we could fetch real data:
-      // const subsData = await twitchService.getSubscriptions(user.twitchId, userAccessToken);
-      // subscriptions = { total: subsData.total, label: 'Suscripciones' };
-      
-      // const bitsData = await twitchService.getBitsLeaderboard(user.twitchId, userAccessToken);
-      // bits = { total: bitsData.total, label: 'Bits' };
-    } catch (importError) {
-      // Service not available (axios not installed or other error)
-      // Continue with placeholder data
-      logger.debug('Twitch service not available, using placeholder data', { 
-        error: importError.message 
-      });
+
+    const integration = await Integration.findOne({
+      where: { userId: req.user.id, provider: 'twitch', status: 'active' }
+    });
+
+    if (integration) {
+      try {
+        const { TwitchService } = await import('../services/twitchService.js');
+        const twitchService = new TwitchService();
+        const broadcasterId = integration.providerUserId || user.twitchId;
+        if (broadcasterId) {
+          const subsData = await twitchService.getSubscriptions(broadcasterId, integration.accessToken);
+          subscriptions = { total: subsData.total, label: 'Suscripciones' };
+          const bitsData = await twitchService.getBitsLeaderboard(broadcasterId, integration.accessToken);
+          bits = { total: bitsData.total, label: 'Bits' };
+        }
+      } catch (apiErr) {
+        logger.debug('Twitch API in dashboard-stats', { error: apiErr.message });
+      }
     }
-    
+
     res.json({
       twitchConnected: true,
       subscriptions,
       bits,
-      donations: { total: 0, label: 'Donaciones' } // External service needed
+      donations: { total: 0, label: 'Donaciones' }
     });
   } catch (err) {
     logger.error('Twitch dashboard stats error', { error: err.message, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to load Twitch stats' });
+  }
+});
+
+/** GET /twitch/connect - Start Twitch OAuth for publishing (schedule + bits). Stores tokens in Integration. Auth via requireAuth or ?token= for redirect from frontend. */
+router.get('/twitch/connect', (req, res, next) => {
+  const token = req.query.token;
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      req.user = { id: decoded.userId ?? decoded.id };
+      return next();
+    } catch (e) {
+      return res.redirect(`${FRONTEND_URL}/settings?twitch_error=invalid_token`);
+    }
+  }
+  requireAuth(req, res, next);
+}, (req, res) => {
+  if (!isTwitchConfigured()) {
+    return res.redirect(`${FRONTEND_URL}/settings?twitch_error=not_configured`);
+  }
+  const state = jwt.sign(
+    { userId: req.user.id },
+    JWT_SECRET,
+    { expiresIn: '10m' }
+  );
+  const scopes = ['bits:read', 'channel:manage:schedule', 'channel:read:subscriptions'].join(' ');
+  // If BACKEND_URL/TWITCH_OAUTH_REDIRECT_BASE is Supabase, use request host so redirect goes to this server
+  const base = (typeof TWITCH_OAUTH_REDIRECT_BASE === 'string' && TWITCH_OAUTH_REDIRECT_BASE.includes('supabase.co'))
+    ? `${req.protocol}://${req.get('host')}`
+    : TWITCH_OAUTH_REDIRECT_BASE;
+  const redirectUri = `${base.replace(/\/$/, '')}/api/user/twitch/callback`;
+  const url = `https://id.twitch.tv/oauth2/authorize?client_id=${encodeURIComponent(process.env.TWITCH_CLIENT_ID)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scopes)}&state=${encodeURIComponent(state)}`;
+  res.redirect(url);
+});
+
+/** GET /twitch/callback - Twitch OAuth callback; exchange code, save Integration, set User.twitchId. */
+router.get('/twitch/callback', async (req, res) => {
+  const { code, state, error, error_description } = req.query;
+  if (error) {
+    logger.warn('Twitch connect callback error', { error, error_description });
+    return res.redirect(`${FRONTEND_URL}/settings?twitch_error=${encodeURIComponent(error_description || error)}`);
+  }
+  if (!code || !state) {
+    return res.redirect(`${FRONTEND_URL}/settings?twitch_error=missing_code_or_state`);
+  }
+  let userId;
+  try {
+    const decoded = jwt.verify(state, JWT_SECRET);
+    userId = decoded.userId;
+  } catch (e) {
+    logger.warn('Twitch callback invalid state', { error: e.message });
+    return res.redirect(`${FRONTEND_URL}/settings?twitch_error=invalid_state`);
+  }
+  // Must match the redirect_uri used in /twitch/connect (use request host if configured base is Supabase)
+  const base = (typeof TWITCH_OAUTH_REDIRECT_BASE === 'string' && TWITCH_OAUTH_REDIRECT_BASE.includes('supabase.co'))
+    ? `${req.protocol}://${req.get('host')}`
+    : TWITCH_OAUTH_REDIRECT_BASE;
+  const redirectUri = `${base.replace(/\/$/, '')}/api/user/twitch/callback`;
+  try {
+    const axios = (await import('axios')).default;
+    const tokenRes = await axios.post('https://id.twitch.tv/oauth2/token', null, {
+      params: {
+        client_id: process.env.TWITCH_CLIENT_ID,
+        client_secret: process.env.TWITCH_CLIENT_SECRET,
+        code,
+        grant_type: 'authorization_code',
+        redirect_uri: redirectUri,
+      },
+    });
+    const { access_token, refresh_token, expires_in } = tokenRes.data;
+    const userRes = await axios.get('https://api.twitch.tv/helix/users', {
+      headers: {
+        Authorization: `Bearer ${access_token}`,
+        'Client-ID': process.env.TWITCH_CLIENT_ID,
+      },
+    });
+    const twitchUser = userRes.data?.data?.[0];
+    if (!twitchUser?.id) {
+      return res.redirect(`${FRONTEND_URL}/settings?twitch_error=no_user`);
+    }
+    const [integration] = await Integration.findOrCreate({
+      where: { userId, provider: 'twitch' },
+      defaults: {
+        userId,
+        provider: 'twitch',
+        providerUserId: twitchUser.id,
+        accessToken: access_token,
+        refreshToken: refresh_token || null,
+        expiresAt: expires_in ? new Date(Date.now() + expires_in * 1000) : null,
+        status: 'active',
+      },
+    });
+    if (!integration) {
+      return res.redirect(`${FRONTEND_URL}/settings?twitch_error=save_failed`);
+    }
+    integration.providerUserId = twitchUser.id;
+    integration.accessToken = access_token;
+    integration.refreshToken = refresh_token || integration.refreshToken;
+    integration.expiresAt = expires_in ? new Date(Date.now() + expires_in * 1000) : null;
+    integration.status = 'active';
+    await integration.save();
+
+    const user = await User.findByPk(userId, { attributes: ['id', 'twitchId'] });
+    if (user) {
+      user.twitchId = twitchUser.id;
+      await user.save();
+    }
+    logger.info('Twitch connected for publishing', { userId, twitchUserId: twitchUser.id });
+    res.redirect(`${FRONTEND_URL}/settings?twitch_connected=1`);
+  } catch (err) {
+    logger.error('Twitch callback error', { error: err.message, userId });
+    res.redirect(`${FRONTEND_URL}/settings?twitch_error=${encodeURIComponent(err.message || 'callback_failed')}`);
   }
 });
 
@@ -2219,19 +2376,37 @@ router.get('/twitch-subs', requireAuth, checkLicense, async (req, res) => {
 router.get('/twitch-bits', requireAuth, checkLicense, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, { attributes: ['id', 'twitchId'] });
-    const twitchConnected = !!(user && user.twitchId);
-    if (!twitchConnected) {
-      return res.status(400).json({ error: 'Twitch no conectado' });
-    }
-    
-    const format = req.query.format || 'chronological'; // 'chronological' o 'total'
-    
-    // TODO: Obtener datos reales de Twitch API cuando tengamos access token con scopes
-    // Por ahora devolvemos estructura vacía
-    res.json({
-      format,
-      bits: []
+    const integration = await Integration.findOne({
+      where: { userId: req.user.id, provider: 'twitch', status: 'active' }
     });
+    const twitchConnected = !!(user && (user.twitchId || integration?.providerUserId));
+    if (!twitchConnected || !integration) {
+      return res.status(400).json({ error: 'Twitch no conectado. Conecta Twitch en Ajustes (conectar para publicar).' });
+    }
+
+    const format = (req.query.format || 'total').toLowerCase();
+    const broadcasterId = integration.providerUserId || user.twitchId;
+    if (!broadcasterId) {
+      return res.json({ format, bits: [] });
+    }
+
+    const { TwitchService } = await import('../services/twitchService.js');
+    const twitchService = new TwitchService();
+    const bitsData = await twitchService.getBitsLeaderboard(broadcasterId, integration.accessToken);
+
+    if (format === 'total') {
+      const bits = (bitsData.leaderboard || []).map((item) => ({
+        user_id: item.user_id,
+        user_login: item.user_login,
+        user_name: item.user_name,
+        amount: item.score,
+        rank: item.rank,
+      }));
+      return res.json({ format: 'total', bits });
+    }
+
+    // chronological requires EventSub (channel.cheer); not implemented yet
+    res.json({ format: 'chronological', bits: [] });
   } catch (err) {
     logger.error('Twitch bits list error', { error: err.message, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to load bits' });

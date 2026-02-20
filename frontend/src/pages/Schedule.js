@@ -880,7 +880,7 @@ const Schedule = ({ user, token }) => {
             <button
               type="button"
               onClick={() => navigate('/templates')}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              className="text-sm text-color-links hover:underline"
             >
               {t('schedule.createFromTemplate') || 'Create from template'}
             </button>
@@ -888,7 +888,7 @@ const Schedule = ({ user, token }) => {
             <button
               type="button"
               onClick={handlePastePost}
-              className="inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              className="inline-flex items-center gap-1.5 text-sm text-color-links hover:underline"
             >
               <ClipboardPaste className="w-4 h-4" />
               {t('schedule.pastePost') || 'Paste post'}
@@ -912,7 +912,7 @@ const Schedule = ({ user, token }) => {
                       type="text"
                       value={formData.title}
                   onChange={(e) => handleInputChange('title', e.target.value)}
-                  className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-color-focus focus:border-transparent ${
                     errors.title ? 'border-red-500' : 'border-gray-300'
                   }`}
                   placeholder={formData.contentType === 'event' 
@@ -1692,7 +1692,7 @@ const Schedule = ({ user, token }) => {
                   }}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-color-focus/30 dark:peer-focus:ring-color-focus/50 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-accent"></div>
               </label>
             </div>
             {formData.recurrence.enabled && (
@@ -1764,7 +1764,7 @@ const Schedule = ({ user, token }) => {
               <button
                 type="button"
                 onClick={handleSaveTemplate}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent transition-colors"
               >
                 {t('schedule.saveTemplate')}
               </button>

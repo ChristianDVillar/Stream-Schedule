@@ -23,6 +23,7 @@ import Message from './Message.js';
 import MessageReply from './MessageReply.js';
 import Notification from './Notification.js';
 import NotificationRead from './NotificationRead.js';
+import ContentPlatform from './ContentPlatform.js';
 
 // 👤 User
 const User = sequelize.define('User', {
@@ -245,6 +246,11 @@ const Content = sequelize.define('Content', {
     type: DataTypes.STRING,
     allowNull: true,
     comment: 'Discord scheduled event ID after creation; link: https://discord.com/events/{guildId}/{eventId}'
+  },
+  twitchSegmentId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Twitch schedule segment ID after creating segment via Helix API'
   },
   localVersion: {
     type: DataTypes.INTEGER,
@@ -477,6 +483,9 @@ Media.belongsToMany(Content, {
 User.hasMany(Integration, { foreignKey: 'userId', as: 'integrations' });
 Integration.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
+Content.hasMany(ContentPlatform, { foreignKey: 'contentId', as: 'platforms' });
+ContentPlatform.belongsTo(Content, { foreignKey: 'contentId', as: 'content' });
+
 User.hasMany(Entitlement, { foreignKey: 'userId', as: 'entitlements' });
 Entitlement.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
@@ -521,6 +530,7 @@ export {
   sequelize, 
   User, 
   Content, 
+  ContentPlatform,
   Platform, 
   Payment, 
   Media, 
