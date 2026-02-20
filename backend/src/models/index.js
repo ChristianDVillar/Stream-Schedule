@@ -483,7 +483,7 @@ Media.belongsToMany(Content, {
 User.hasMany(Integration, { foreignKey: 'userId', as: 'integrations' });
 Integration.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
-Content.hasMany(ContentPlatform, { foreignKey: 'contentId', as: 'platforms' });
+Content.hasMany(ContentPlatform, { foreignKey: 'contentId', as: 'contentPlatforms' });
 ContentPlatform.belongsTo(Content, { foreignKey: 'contentId', as: 'content' });
 
 User.hasMany(Entitlement, { foreignKey: 'userId', as: 'entitlements' });

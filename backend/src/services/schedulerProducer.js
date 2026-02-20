@@ -38,7 +38,7 @@ async function getDueContent() {
     },
     include: [{
       model: ContentPlatform,
-      as: 'platforms',
+      as: 'contentPlatforms',
       required: false,
     }],
     order: [['scheduledFor', 'ASC']],
