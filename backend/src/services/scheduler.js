@@ -35,7 +35,7 @@ const SIGNED_URL_EXPIRES_SEC = APP_CONFIG.SIGNED_URL_EXPIRES_SEC;
  * @param {Array<{ url?: string, file_path?: string, type?: string, fileName?: string }>} items
  * @returns {Promise<Array<{ url: string, type?: string, fileName?: string }>>}
  */
-function inferBucket(item) {
+export function inferBucket(item) {
   if (item.type === 'video') return 'videos';
   if (item.type === 'image') return 'images';
   const path = item.file_path || item.url || '';
@@ -43,7 +43,7 @@ function inferBucket(item) {
   return 'images';
 }
 
-async function resolveMediaUrls(items) {
+export async function resolveMediaUrls(items) {
   if (!Array.isArray(items) || items.length === 0) return [];
   const resolved = [];
   for (const item of items) {
