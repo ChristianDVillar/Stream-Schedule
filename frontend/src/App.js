@@ -132,7 +132,28 @@ function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInst
 
 function Sidebar({ user, open, onClose, adminUnreadMessageCount = 0 }) {
   const { t } = useLanguage();
+  const location = useLocation();
   const supportCount = adminUnreadMessageCount ?? 0;
+  
+  // Helper to check if route is active
+  const isActive = (path) => {
+    if (path.includes('?')) {
+      const [basePath, query] = path.split('?');
+      const [queryKey] = query.split('=');
+      return location.pathname === basePath && location.search.includes(`${queryKey}=`);
+    }
+    return location.pathname === path;
+  };
+  
+  // Helper to get link classes
+  const getLinkClasses = (path) => {
+    const baseClasses = "block px-3 py-2 rounded font-medium transition-colors";
+    const activeClasses = isActive(path) 
+      ? "bg-color-sidebar/10 text-color-sidebar dark:bg-color-sidebar/20" 
+      : "text-gray-700 dark:text-gray-300 hover:bg-color-sidebar/10 dark:hover:bg-gray-700";
+    return `${baseClasses} ${activeClasses}`;
+  };
+  
   return (
     <>
       {/* Mobile overlay: tap to close sidebar */}
@@ -152,24 +173,24 @@ function Sidebar({ user, open, onClose, adminUnreadMessageCount = 0 }) {
           <button onClick={onClose} className="p-2 -mr-2" aria-label={t('common.closeMenu')}><X className="w-6 h-6" /></button>
         </div>
         <nav className="flex-1 px-4 py-2 space-y-2 overflow-y-auto">
-        <Link to={user?.isAdmin ? "/admin" : "/dashboard"} className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('dashboard.title')}</Link>
-        {!user?.isAdmin && <Link to="/schedule" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('schedule.newPost')}</Link>}
-        {!user?.isAdmin && <Link to="/templates" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('templates.menu') || 'Templates'}</Link>}
-        {!user?.isAdmin && <Link to="/media" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('media.menu') || t('media.title') || 'Media'}</Link>}
-        {!user?.isAdmin && <Link to="/messages" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('common.messages')}</Link>}
-        <Link to="/settings" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('settings.title')}</Link>
-        <Link to="/profile" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium">{t('profile.title')}</Link>
+        <Link to={user?.isAdmin ? "/admin" : "/dashboard"} className={getLinkClasses(user?.isAdmin ? "/admin" : "/dashboard")}>{t('dashboard.title')}</Link>
+        {!user?.isAdmin && <Link to="/schedule" className={getLinkClasses("/schedule")}>{t('schedule.newPost')}</Link>}
+        {!user?.isAdmin && <Link to="/templates" className={getLinkClasses("/templates")}>{t('templates.menu') || 'Templates'}</Link>}
+        {!user?.isAdmin && <Link to="/media" className={getLinkClasses("/media")}>{t('media.menu') || t('media.title') || 'Media'}</Link>}
+        {!user?.isAdmin && <Link to="/messages" className={getLinkClasses("/messages")}>{t('common.messages')}</Link>}
+        <Link to="/settings" className={getLinkClasses("/settings")}>{t('settings.title')}</Link>
+        <Link to="/profile" className={getLinkClasses("/profile")}>{t('profile.title')}</Link>
         {user?.isAdmin && (
           <>
-            <Link to="/admin?section=overview" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium pl-6 text-sm">{t('admin.menuOverview')}</Link>
-            <Link to="/admin?section=users" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium pl-6 text-sm">{t('admin.menuUsers')}</Link>
-            <Link to="/admin?section=support" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium pl-6 text-sm flex items-center justify-between">
+            <Link to="/admin?section=overview" className={getLinkClasses("/admin?section=overview") + " pl-6 text-sm"}>{t('admin.menuOverview')}</Link>
+            <Link to="/admin?section=users" className={getLinkClasses("/admin?section=users") + " pl-6 text-sm"}>{t('admin.menuUsers')}</Link>
+            <Link to="/admin?section=support" className={getLinkClasses("/admin?section=support") + " pl-6 text-sm flex items-center justify-between"}>
               <span>{t('admin.menuSupport')}</span>
               <span className={`min-w-[1.25rem] text-center text-xs font-semibold rounded-full px-1.5 py-0.5 ${supportCount > 0 ? 'bg-red-500 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'}`}>{supportCount}</span>
             </Link>
-            <Link to="/admin?section=notifications" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium pl-6 text-sm">{t('admin.menuNotifications')}</Link>
-            <Link to="/admin?section=platforms" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium pl-6 text-sm">{t('admin.menuPlatforms')}</Link>
-            <Link to="/admin?section=payments" className="block px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-gray-700 font-medium pl-6 text-sm">{t('admin.menuPayments')}</Link>
+            <Link to="/admin?section=notifications" className={getLinkClasses("/admin?section=notifications") + " pl-6 text-sm"}>{t('admin.menuNotifications')}</Link>
+            <Link to="/admin?section=platforms" className={getLinkClasses("/admin?section=platforms") + " pl-6 text-sm"}>{t('admin.menuPlatforms')}</Link>
+            <Link to="/admin?section=payments" className={getLinkClasses("/admin?section=payments") + " pl-6 text-sm"}>{t('admin.menuPayments')}</Link>
           </>
         )}
       </nav>

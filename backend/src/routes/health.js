@@ -1,111 +1,127 @@
 /**
- * Enhanced health check endpoint
- * Checks all critical dependencies
+ * Health Check Endpoint
+ * Provides system health metrics and queue status.
+ * Useful for monitoring and observability.
  * Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.
  */
 
 import express from 'express';
-import { sequelize } from '../models/index.js';
-import { supabase } from '../utils/supabaseClient.js';
+import { getQueueStats } from '../services/publicationQueueService.js';
+import { Content, ContentPlatform } from '../models/index.js';
+import { CONTENT_STATUS } from '../constants/contentStatus.js';
+import { CONTENT_PLATFORM_STATUS } from '../models/ContentPlatform.js';
 import logger from '../utils/logger.js';
+import { isRedisAvailable } from '../utils/redisConnection.js';
 
 const router = express.Router();
 
 /**
- * GET /api/health/ping - Health check ligero para Render (sin Supabase/Stripe).
- * Responde 200 rápido; opcionalmente comprueba DB. Usar como Health Check path en Render.
+ * GET /api/health
+ * Returns system health status
  */
-router.get('/ping', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    await sequelize.authenticate();
-    res.status(200).json({ ok: true, service: 'stream-schedule-api' });
+    const startTime = Date.now();
+    
+    // Basic health check
+    const health = {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development',
+    };
+
+    // Queue stats
+    try {
+      const queueStats = await getQueueStats();
+      health.queue = queueStats;
+    } catch (error) {
+      health.queue = {
+        error: error.message,
+      };
+    }
+
+    // Database stats
+    try {
+      const [totalContent, scheduledContent, queuedContent, publishedContent, failedContent] = await Promise.all([
+        Content.count({ where: { deletedAt: null } }),
+        Content.count({ where: { status: CONTENT_STATUS.SCHEDULED, deletedAt: null } }),
+        Content.count({ where: { status: CONTENT_STATUS.QUEUED, deletedAt: null } }),
+        Content.count({ where: { status: CONTENT_STATUS.PUBLISHED, deletedAt: null } }),
+        Content.count({ where: { status: CONTENT_STATUS.FAILED, deletedAt: null } }),
+      ]);
+
+      const [pendingPlatforms, publishingPlatforms, publishedPlatforms, failedPlatforms, retryingPlatforms] = await Promise.all([
+        ContentPlatform.count({ where: { status: CONTENT_PLATFORM_STATUS.PENDING } }),
+        ContentPlatform.count({ where: { status: CONTENT_PLATFORM_STATUS.PUBLISHING } }),
+        ContentPlatform.count({ where: { status: CONTENT_PLATFORM_STATUS.PUBLISHED } }),
+        ContentPlatform.count({ where: { status: CONTENT_PLATFORM_STATUS.FAILED } }),
+        ContentPlatform.count({ where: { status: CONTENT_PLATFORM_STATUS.RETRYING } }),
+      ]);
+
+      health.database = {
+        content: {
+          total: totalContent,
+          scheduled: scheduledContent,
+          queued: queuedContent,
+          published: publishedContent,
+          failed: failedContent,
+        },
+        platforms: {
+          pending: pendingPlatforms,
+          publishing: publishingPlatforms,
+          published: publishedPlatforms,
+          failed: failedPlatforms,
+          retrying: retryingPlatforms,
+        },
+      };
+    } catch (error) {
+      health.database = {
+        error: error.message,
+      };
+      health.status = 'degraded';
+    }
+
+    // Redis status
+    health.redis = {
+      available: isRedisAvailable(),
+    };
+
+    // Response time
+    health.responseTime_ms = Date.now() - startTime;
+
+    // Determine overall status
+    if (health.database?.error) {
+      health.status = 'degraded';
+    }
+    if (health.queue?.error && health.queue?.enabled) {
+      health.status = 'degraded';
+    }
+
+    const statusCode = health.status === 'healthy' ? 200 : 503;
+    res.status(statusCode).json(health);
   } catch (error) {
-    res.status(503).json({ ok: false, error: error.message });
+    logger.error('Health check error', { error: error.message });
+    res.status(503).json({
+      status: 'unhealthy',
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
   }
 });
 
 /**
- * Check database connection
+ * GET /api/health/queue
+ * Returns detailed queue statistics
  */
-async function checkDatabase() {
+router.get('/queue', async (req, res) => {
   try {
-    await sequelize.authenticate();
-    return { status: 'ok', message: 'Database connected' };
+    const stats = await getQueueStats();
+    res.json(stats);
   } catch (error) {
-    return { status: 'error', message: error.message };
+    logger.error('Queue stats error', { error: error.message });
+    res.status(500).json({ error: error.message });
   }
-}
-
-/**
- * Check Supabase storage connection
- */
-async function checkSupabase() {
-  if (!supabase) {
-    return { status: 'warning', message: 'Supabase not configured' };
-  }
-  
-  try {
-    // Try to list buckets (lightweight operation)
-    const { error } = await supabase.storage.listBuckets();
-    if (error) {
-      return { status: 'error', message: error.message };
-    }
-    return { status: 'ok', message: 'Supabase connected' };
-  } catch (error) {
-    return { status: 'error', message: error.message };
-  }
-}
-
-/**
- * Check Stripe configuration
- */
-async function checkStripe() {
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
-  if (!stripeKey || stripeKey === 'your-stripe-secret-key') {
-    return { status: 'warning', message: 'Stripe not configured' };
-  }
-  if (!stripeKey.startsWith('sk_')) {
-    return { status: 'warning', message: 'Stripe key format invalid' };
-  }
-  const mode = stripeKey.startsWith('sk_test_') ? 'test' : (stripeKey.startsWith('sk_live_') ? 'live' : 'unknown');
-  return { status: 'ok', message: `Stripe configured (${mode})` };
-}
-
-/**
- * GET /api/health - Enhanced health check
- */
-router.get('/', async (req, res) => {
-  const startTime = Date.now();
-  
-  const checks = {
-    database: await checkDatabase(),
-    supabase: await checkSupabase(),
-    stripe: await checkStripe(),
-  };
-  
-  const allHealthy = Object.values(checks).every(
-    check => check.status === 'ok'
-  );
-  
-  const responseTime = Date.now() - startTime;
-  
-  const healthStatus = {
-    status: allHealthy ? 'healthy' : 'degraded',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    service: 'stream-schedule-api',
-    version: '2.1.0',
-    checks,
-    responseTime: `${responseTime}ms`,
-    uptime: process.uptime(),
-  };
-  
-  // Log if degraded
-  if (!allHealthy) {
-    logger.warn('Health check degraded', healthStatus);
-  }
-  
-  res.status(allHealthy ? 200 : 503).json(healthStatus);
 });
 
 export default router;

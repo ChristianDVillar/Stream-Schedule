@@ -349,6 +349,23 @@ export function startTwitchLink() {
   loginWithTwitch();
 }
 
+/** Start Twitch connect for publishing (schedule + bits). Redirects to backend OAuth flow; tokens stored in Integration. Call with auth token (e.g. from localStorage). */
+export function startTwitchPublishConnect(token) {
+  if (!token) {
+    console.warn('startTwitchPublishConnect: token required');
+    return;
+  }
+  // When main API URL is Supabase, Twitch OAuth must hit your real backend (set REACT_APP_TWITCH_OAUTH_BASE_URL or we use localhost)
+  let base = apiClient.defaults.baseURL;
+  if (process.env.REACT_APP_TWITCH_OAUTH_BASE_URL) {
+    base = process.env.REACT_APP_TWITCH_OAUTH_BASE_URL.replace(/\/$/, '');
+    if (!base.endsWith('/api')) base = `${base}/api`;
+  } else if (base && base.includes('supabase.co')) {
+    base = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000/api';
+  }
+  window.location.href = `${base}/user/twitch/connect?token=${encodeURIComponent(token)}`;
+}
+
 /** Start X (Twitter) link: redirect to backend OAuth2 link flow so we get access/refresh tokens for publishing. */
 export function startTwitterLink(token) {
   if (!token) {

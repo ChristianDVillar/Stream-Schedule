@@ -44,6 +44,23 @@
 .border-color-calendar-event { border-color: var(--color-calendar-event); }
 .border-color-calendar-event:hover { border-color: var(--color-calendar-event-hover); }
 
+/* Sidebar hover with opacity */
+.hover\:bg-color-sidebar\/10:hover {
+  background-color: color-mix(in srgb, var(--color-sidebar) 10%, transparent);
+}
+.dark .hover\:bg-color-sidebar\/10:hover {
+  background-color: color-mix(in srgb, var(--color-sidebar) 20%, transparent);
+}
+.bg-color-sidebar\/10 {
+  background-color: color-mix(in srgb, var(--color-sidebar) 10%, transparent);
+}
+.dark .bg-color-sidebar\/10 {
+  background-color: color-mix(in srgb, var(--color-sidebar) 20%, transparent);
+}
+.bg-color-sidebar\/20 {
+  background-color: color-mix(in srgb, var(--color-sidebar) 20%, transparent);
+}
+
 /* Responsive: prevent horizontal scroll and ensure touch-friendly */
 html {
   overflow-x: hidden;

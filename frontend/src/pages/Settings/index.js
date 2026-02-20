@@ -17,6 +17,7 @@ import {
   startDiscordLink,
   startGoogleLink,
   startTwitchLink,
+  startTwitchPublishConnect,
   startTwitterLink,
   disconnectGoogle,
   disconnectTwitch,
@@ -224,11 +225,27 @@ export default function Settings({ user, token, setUser }) {
 
   useEffect(() => {
     const linked = searchParams.get('linked');
+    const twitchConnected = searchParams.get('twitch_connected');
+    const twitchError = searchParams.get('twitch_error');
     const errorParam = searchParams.get('error');
     if (linked) {
       setActiveTab('platforms');
       setConnectingKey(null);
       toast.success(t(`settings.linked${linked.charAt(0).toUpperCase() + linked.slice(1)}`) || `Linked ${linked}`);
+      setSearchParams({}, { replace: true });
+      if (token) fetchConnectedAccounts();
+    }
+    if (twitchConnected) {
+      setActiveTab('platforms');
+      setConnectingKey(null);
+      toast.success(t('settings.twitchPublishConnected') || 'Twitch connected for scheduling and bits.');
+      setSearchParams({}, { replace: true });
+      if (token) fetchConnectedAccounts();
+    }
+    if (twitchError) {
+      setActiveTab('platforms');
+      setConnectingKey(null);
+      toast.error(decodeURIComponent(twitchError));
       setSearchParams({}, { replace: true });
       if (token) fetchConnectedAccounts();
     }
@@ -636,6 +653,7 @@ export default function Settings({ user, token, setUser }) {
             onConnect={handleConnect}
             onDisconnect={handleDisconnect}
             fetchConnectedAccounts={fetchConnectedAccounts}
+            onTwitchPublishConnect={token ? () => startTwitchPublishConnect(token) : null}
           />
         );
       case 'security':

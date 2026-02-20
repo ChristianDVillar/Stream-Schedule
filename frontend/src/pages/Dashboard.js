@@ -457,11 +457,15 @@ const Dashboard = ({ user, token, ...props }) => {
   }, [filteredContents]);
 
   const eventStyleGetter = useCallback((event) => {
-    const color = getPlatformColor(event.resource?.platforms);
+    // Use accent color for calendar events (as per design spec)
+    // Fallback to platform color if accent color not available
+    const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--color-calendar-event').trim() || '#3b82f6';
+    const accentHoverColor = getComputedStyle(document.documentElement).getPropertyValue('--color-calendar-event-hover').trim() || '#2563eb';
+    const color = accentColor || getPlatformColor(event.resource?.platforms);
     return {
       style: {
         backgroundColor: color,
-        borderLeft: `4px solid ${color}`,
+        borderLeft: `4px solid ${accentHoverColor || color}`,
         color: '#fff',
         borderRadius: '4px',
       }

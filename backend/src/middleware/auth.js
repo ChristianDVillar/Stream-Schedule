@@ -39,11 +39,15 @@ async function ensureTrialForOAuthUser(user) {
 
 /**
  * Middleware to authenticate requests using JWT
- * Attaches user object to req.user if token is valid
+ * Attaches user object to req.user if token is valid.
+ * For GET /api/user/twitch/connect, also accepts token in query (redirect flow has no Authorization header).
  */
 export function authenticateToken(req, res, next) {
   const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  let token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token && req.method === 'GET' && (req.path === '/api/user/twitch/connect' || req.originalUrl?.startsWith?.('/api/user/twitch/connect')) && req.query?.token) {
+    token = req.query.token;
+  }
 
   if (!token) {
     req.user = null;
