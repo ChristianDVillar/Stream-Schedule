@@ -8,12 +8,13 @@ import { Op } from 'sequelize';
 
 const require = createRequire(import.meta.url);
 const DiscordStrategy = require('passport-discord').Strategy;
-import { User, Content, Media, SystemConfig, Integration, sequelize } from '../models/index.js';
+import { User, Content, Media, SystemConfig, Integration, TwitchEventSubSubscription, TwitchBitEvent, sequelize } from '../models/index.js';
 import checkLicense from '../middleware/checkLicense.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { auditLog } from '../middleware/audit.js';
 import { normalizeLicenseType, resolveLicenseExpiry, buildLicenseSummary } from '../utils/licenseUtils.js';
 import { syncEntitlementsFromLicense } from '../services/entitlementService.js';
+import { refreshIntegrationToken } from '../services/integrationTokenService.js';
 import { generateLicenseKey, generateTemporaryPassword, generateUsernameSuffix } from '../utils/cryptoUtils.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -1511,12 +1512,29 @@ router.post('/disconnect-twitch', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'You must keep at least one sign-in method' });
     }
 
+    const broadcasterIdForEventSub = user.twitchId || (await Integration.findOne({ where: { userId, provider: 'twitch' }, attributes: ['providerUserId'] }))?.providerUserId;
+
     user.twitchId = null;
     if (wasTwitchPrimary) {
       user.oauthProvider = u.oauthProvider;
       user.oauthId = u.oauthId;
     }
     await user.save();
+
+    // EventSub: unsubscribe channel.cheer before removing Integration
+    if (broadcasterIdForEventSub) {
+      try {
+        const { twitchService } = await import('../services/twitchService.js');
+        const subs = await TwitchEventSubSubscription.findAll({ where: { broadcasterUserId: String(broadcasterIdForEventSub) } });
+        for (const sub of subs) {
+          if (sub.subscriptionId) await twitchService.deleteEventSubSubscription(sub.subscriptionId).catch(() => {});
+          await sub.destroy();
+        }
+        logger.debug('Twitch EventSub subscriptions removed', { broadcasterUserId: broadcasterIdForEventSub });
+      } catch (e) {
+        logger.warn('Twitch EventSub unsubscribe failed', { error: e.message });
+      }
+    }
 
     const deleted = await Integration.destroy({ where: { userId, provider: 'twitch' } });
     if (deleted) logger.debug('Disconnect Twitch: removed Integration', { userId, deleted });
@@ -2240,22 +2258,37 @@ router.get('/twitch-dashboard-stats', requireAuth, async (req, res) => {
     });
 
     if (integration) {
-      try {
+      let tokenToUse = integration.accessToken;
+      const fetchStats = async (accessToken) => {
         const { TwitchService } = await import('../services/twitchService.js');
         const twitchService = new TwitchService();
         const broadcasterId = integration.providerUserId || user.twitchId;
-        if (broadcasterId) {
-          const subsData = await twitchService.getSubscriptions(broadcasterId, integration.accessToken);
-          subscriptions = { total: subsData.total, label: 'Suscripciones' };
-          const bitsData = await twitchService.getBitsLeaderboard(broadcasterId, integration.accessToken);
-          bits = { total: bitsData.total, label: 'Bits' };
-          const userInfo = await twitchService.getUserInfo(broadcasterId, integration.accessToken);
-          views = { total: userInfo?.view_count ?? 0, label: 'Vistas' };
-          const followersData = await twitchService.getChannelFollowers(broadcasterId, integration.accessToken);
-          followers = { total: followersData?.total ?? 0, label: 'Seguidores' };
-        }
+        if (!broadcasterId) return;
+        const subsData = await twitchService.getSubscriptions(broadcasterId, accessToken);
+        subscriptions.total = subsData.total;
+        const bitsData = await twitchService.getBitsLeaderboard(broadcasterId, accessToken);
+        bits.total = bitsData.total;
+        const userInfo = await twitchService.getUserInfo(broadcasterId, accessToken);
+        views.total = userInfo?.view_count ?? 0;
+        const followersData = await twitchService.getChannelFollowers(broadcasterId, accessToken);
+        followers.total = followersData?.total ?? 0;
+      };
+      try {
+        await fetchStats(tokenToUse);
       } catch (apiErr) {
-        logger.debug('Twitch API in dashboard-stats', { error: apiErr.message });
+        const status = apiErr.response?.status;
+        if (status === 401 && integration.refreshToken) {
+          try {
+            const refreshed = await refreshIntegrationToken(req.user.id, 'twitch');
+            if (refreshed?.accessToken) {
+              await fetchStats(refreshed.accessToken);
+            }
+          } catch (refreshErr) {
+            logger.debug('Twitch token refresh in dashboard-stats failed', { error: refreshErr.message });
+          }
+        } else {
+          logger.debug('Twitch API in dashboard-stats', { error: apiErr.message });
+        }
       }
     }
 
@@ -2378,6 +2411,26 @@ router.get('/twitch/callback', async (req, res) => {
       await user.save();
     }
     logger.info('Twitch connected for publishing', { userId, twitchUserId: twitchUser.id });
+
+    // EventSub: subscribe to channel.cheer for bits (chronological). Best-effort; do not fail redirect.
+    const broadcasterUserId = String(twitchUser.id);
+    const baseUrl = (process.env.BACKEND_URL || 'http://localhost:5000').replace(/\/$/, '');
+    const callbackUrl = `${baseUrl}/api/webhooks/twitch/eventsub`;
+    try {
+      const { twitchService } = await import('../services/twitchService.js');
+      const existing = await TwitchEventSubSubscription.findOne({ where: { broadcasterUserId } });
+      if (existing?.subscriptionId) {
+        await twitchService.deleteEventSubSubscription(existing.subscriptionId).catch(() => {});
+        await existing.destroy();
+      }
+      const secret = crypto.randomBytes(32).toString('hex');
+      await TwitchEventSubSubscription.create({ broadcasterUserId, secret, status: 'pending' });
+      await twitchService.createEventSubCheerSubscription(broadcasterUserId, callbackUrl, secret);
+      logger.info('Twitch EventSub channel.cheer subscription requested', { broadcasterUserId });
+    } catch (eventsubErr) {
+      logger.warn('Twitch EventSub subscribe failed (bits chronological may be limited)', { error: eventsubErr.message, broadcasterUserId });
+    }
+
     res.redirect(`${FRONTEND_URL}/settings?twitch_connected=1`);
   } catch (err) {
     logger.error('Twitch callback error', { error: err.message, userId });
@@ -2423,23 +2476,36 @@ router.get('/twitch-bits', requireAuth, checkLicense, async (req, res) => {
       return res.json({ format, bits: [] });
     }
 
+    if (format === 'chronological') {
+      const rows = await TwitchBitEvent.findAll({
+        where: { broadcasterUserId: String(broadcasterId) },
+        order: [['createdAt', 'ASC']],
+        attributes: ['user_id', 'user_login', 'user_name', 'bits', 'createdAt'],
+      });
+      const bits = rows.map((r) => ({
+        user_id: r.user_id,
+        user_login: r.user_login || '',
+        user_name: r.user_name || '',
+        amount: r.bits,
+        date: r.createdAt,
+      }));
+      return res.json({ format: 'chronological', bits });
+    }
+
     const { TwitchService } = await import('../services/twitchService.js');
     const twitchService = new TwitchService();
     const bitsData = await twitchService.getBitsLeaderboard(broadcasterId, integration.accessToken);
+    const leaderboard = bitsData.leaderboard || [];
 
-    if (format === 'total') {
-      const bits = (bitsData.leaderboard || []).map((item) => ({
-        user_id: item.user_id,
-        user_login: item.user_login,
-        user_name: item.user_name,
-        amount: item.score,
-        rank: item.rank,
-      }));
-      return res.json({ format: 'total', bits });
-    }
+    const bits = leaderboard.map((item) => ({
+      user_id: item.user_id,
+      user_login: item.user_login,
+      user_name: item.user_name,
+      amount: item.score,
+      rank: item.rank,
+    }));
 
-    // chronological requires EventSub (channel.cheer); not implemented yet
-    res.json({ format: 'chronological', bits: [] });
+    return res.json({ format: 'total', bits });
   } catch (err) {
     logger.error('Twitch bits list error', { error: err.message, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to load bits' });

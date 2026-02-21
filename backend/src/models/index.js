@@ -24,6 +24,8 @@ import MessageReply from './MessageReply.js';
 import Notification from './Notification.js';
 import NotificationRead from './NotificationRead.js';
 import ContentPlatform from './ContentPlatform.js';
+import TwitchBitEvent from './TwitchBitEvent.js';
+import TwitchEventSubSubscription from './TwitchEventSubSubscription.js';
 
 // 👤 User
 const User = sequelize.define('User', {
@@ -526,17 +528,17 @@ const SystemConfig = sequelize.define('SystemConfig', {
   }
 });
 
-export { 
-  sequelize, 
-  User, 
-  Content, 
+export {
+  sequelize,
+  User,
+  Content,
   ContentPlatform,
-  Platform, 
-  Payment, 
-  Media, 
-  ContentMedia, 
-  SystemConfig, 
-  AuditLog, 
+  Platform,
+  Payment,
+  Media,
+  ContentMedia,
+  SystemConfig,
+  AuditLog,
   ContentTemplate,
   Integration,
   FeatureFlag,
@@ -544,5 +546,7 @@ export {
   Message,
   MessageReply,
   Notification,
-  NotificationRead
+  NotificationRead,
+  TwitchBitEvent,
+  TwitchEventSubSubscription,
 };

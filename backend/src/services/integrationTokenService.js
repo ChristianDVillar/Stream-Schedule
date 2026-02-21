@@ -24,15 +24,13 @@ async function refreshTwitchToken(integration) {
   const twitchService = new TwitchService();
   const refreshed = await twitchService.refreshUserAccessToken(integration.refreshToken);
   
-  if (!refreshed || !refreshed.access_token) {
+  if (!refreshed || !refreshed.accessToken) {
     throw new Error('Failed to refresh Twitch token');
   }
 
-  integration.accessToken = refreshed.access_token;
-  integration.refreshToken = refreshed.refresh_token || integration.refreshToken;
-  integration.expiresAt = refreshed.expires_in 
-    ? new Date(Date.now() + refreshed.expires_in * 1000)
-    : null;
+  integration.accessToken = refreshed.accessToken;
+  integration.refreshToken = refreshed.refreshToken || integration.refreshToken;
+  integration.expiresAt = refreshed.expiresAt || null;
   integration.status = 'active';
   await integration.save();
 

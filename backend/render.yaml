@@ -19,5 +19,11 @@ startCommand: node src/app.js
 # Si usas Render PostgreSQL y la migración falla por conexión, asegúrate de que DATABASE_URL
 # esté definida en el servicio API (no solo en el servicio DB). El script de migración añade
 # sslmode=require automáticamente si no está en la URL.
+#
+# OAuth (Twitch/Google/YouTube/Discord): tras el callback el API redirige al frontend.
+# Sin FRONTEND_URL redirige a localhost:3000 y verás "bad_oauth_state" en localhost.
+# BACKEND_URL debe ser la URL pública del API para redirect_uri y webhooks.
 envVars:
   - NODE_ENV=production
+  - FRONTEND_URL=https://stream-schedule-v1.onrender.com
+  - BACKEND_URL=https://stream-schedule-api.onrender.com

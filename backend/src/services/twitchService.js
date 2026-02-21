@@ -302,6 +302,39 @@ export class TwitchService {
       throw error;
     }
   }
+
+  /**
+   * Create EventSub subscription for channel.cheer (bits).
+   * Uses app access token. Callback must be HTTPS on port 443.
+   * @returns {{ subscriptionId?: string, data }} Helix response; subscriptionId from data.data?.[0]?.id
+   */
+  async createEventSubCheerSubscription(broadcasterUserId, callbackUrl, secret) {
+    const token = await this.getAppAccessToken();
+    if (!token) throw new Error('Twitch app token required for EventSub');
+    const body = {
+      type: 'channel.cheer',
+      version: '1',
+      condition: { broadcaster_user_id: String(broadcasterUserId) },
+      transport: {
+        method: 'webhook',
+        callback: callbackUrl,
+        secret: String(secret),
+      },
+    };
+    const data = await this.makeRequest('/eventsub/subscriptions', token, { method: 'POST', body });
+    const sub = data.data?.[0];
+    return { subscriptionId: sub?.id, data };
+  }
+
+  /**
+   * Delete EventSub subscription by id.
+   */
+  async deleteEventSubSubscription(subscriptionId) {
+    const token = await this.getAppAccessToken();
+    if (!token) throw new Error('Twitch app token required for EventSub');
+    await this.makeRequest(`/eventsub/subscriptions?id=${encodeURIComponent(subscriptionId)}`, token, { method: 'DELETE' });
+    return true;
+  }
 }
 
 export const twitchService = new TwitchService();
