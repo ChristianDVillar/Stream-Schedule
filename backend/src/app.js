@@ -47,6 +47,7 @@ import platformConfigService from './services/platformConfigService.js';
 import { startDiscordSyncWorker } from './services/discordQueueService.js';
 import { startDiscordGateway } from './services/discordGatewayService.js';
 import { runReconciliation } from './services/discordSyncService.js';
+import { handleTwitchEventSub } from './routes/twitchWebhook.js';
 import { PLATFORM_VALUES } from './constants/platforms.js';
 
 // Load environment variables
@@ -113,10 +114,15 @@ app.use(helmet({
 app.use(apiLimiter);
 app.use(passport.initialize());
 
-// Stripe webhook must be before JSON parsing (raw body required for signature verification).
-// Support both /api/payments/webhook and /stripe/webhook (Stripe Dashboard often uses /stripe/webhook).
+// Webhooks must be before JSON parsing (raw body required for signature verification).
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }), handleStripeWebhook);
 app.use('/stripe/webhook', express.raw({ type: 'application/json' }), handleStripeWebhook);
+app.use('/api/webhooks/twitch/eventsub', express.raw({ type: 'application/json' }), (req, res, next) => {
+  handleTwitchEventSub(req, res).catch((err) => {
+    logger.error('Twitch EventSub webhook error', { error: err.message });
+    res.status(500).end();
+  });
+});
 
 app.use(express.json());
 
