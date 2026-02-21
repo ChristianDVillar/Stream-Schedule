@@ -41,6 +41,11 @@ const router = express.Router();
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+/** In production, never redirect users to localhost (avoids bad_oauth_state ending on localhost when FRONTEND_URL is unset on Render). */
+const FRONTEND_URL_SAFE =
+  (process.env.NODE_ENV === 'production' && (!FRONTEND_URL || FRONTEND_URL.includes('localhost')))
+    ? (process.env.FRONTEND_URL || 'https://stream-schedule-v1.onrender.com')
+    : FRONTEND_URL;
 /** Base URL for Twitch OAuth redirect_uri (authorize + callback). Use this if BACKEND_URL points elsewhere (e.g. Supabase). */
 const TWITCH_OAUTH_REDIRECT_BASE = (process.env.TWITCH_OAUTH_REDIRECT_BASE_URL || BACKEND_URL).replace(/\/$/, '');
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
@@ -524,7 +529,7 @@ export const twitterOAuth2Start = async (req, res) => {
     return res.redirect(`${FRONTEND_URL}/login?error=twitter_not_configured`);
   }
   const clientId = (process.env.TWITTER_OAUTH2_CLIENT_ID || process.env.X_OAUTH2_CLIENT_ID || '').trim();
-  const redirectUri = `${BACKEND_URL}/api/user/auth/twitter/callback`;
+  const redirectUri = `${BACKEND_URL.replace(/\/$/, '')}/api/user/auth/twitter/callback`;
   const { codeVerifier, codeChallenge } = generatePkce();
   const state = createTwitterOAuth2State(codeVerifier, 'twitter_oauth2_login');
   const params = new URLSearchParams({
@@ -697,7 +702,7 @@ export const twitterLinkStart = async (req, res) => {
     const payload = jwt.verify(token, JWT_SECRET);
     const userId = payload.id;
     const clientId = (process.env.TWITTER_OAUTH2_CLIENT_ID || process.env.X_OAUTH2_CLIENT_ID || '').trim();
-    const redirectUri = `${BACKEND_URL}/api/user/auth/twitter/link/callback`;
+    const redirectUri = `${BACKEND_URL.replace(/\/$/, '')}/api/user/auth/twitter/link/callback`;
     const { codeVerifier, codeChallenge } = generatePkce();
     const state = createTwitterOAuth2State(codeVerifier, 'link_twitter', userId);
     const params = new URLSearchParams({
@@ -2315,13 +2320,13 @@ router.get('/twitch/connect', (req, res, next) => {
       req.user = { id: decoded.userId ?? decoded.id };
       return next();
     } catch (e) {
-      return res.redirect(`${FRONTEND_URL}/settings?twitch_error=invalid_token`);
+      return res.redirect(`${FRONTEND_URL_SAFE}/settings?twitch_error=invalid_token`);
     }
   }
   requireAuth(req, res, next);
 }, (req, res) => {
   if (!isTwitchConfigured()) {
-    return res.redirect(`${FRONTEND_URL}/settings?twitch_error=not_configured`);
+    return res.redirect(`${FRONTEND_URL_SAFE}/settings?twitch_error=not_configured`);
   }
   const state = jwt.sign(
     { userId: req.user.id },
@@ -2329,10 +2334,12 @@ router.get('/twitch/connect', (req, res, next) => {
     { expiresIn: '10m' }
   );
   const scopes = ['bits:read', 'channel:manage:schedule', 'channel:read:subscriptions', 'moderator:read:followers'].join(' ');
-  // If BACKEND_URL/TWITCH_OAUTH_REDIRECT_BASE is Supabase, use request host so redirect goes to this server
-  const base = (typeof TWITCH_OAUTH_REDIRECT_BASE === 'string' && TWITCH_OAUTH_REDIRECT_BASE.includes('supabase.co'))
-    ? `${req.protocol}://${req.get('host')}`
-    : TWITCH_OAUTH_REDIRECT_BASE;
+  // In production prefer BACKEND_URL so redirect_uri always hits this API (never localhost)
+  const base = (process.env.NODE_ENV === 'production' && BACKEND_URL && !BACKEND_URL.includes('localhost'))
+    ? BACKEND_URL.replace(/\/$/, '')
+    : (typeof TWITCH_OAUTH_REDIRECT_BASE === 'string' && TWITCH_OAUTH_REDIRECT_BASE.includes('supabase.co')
+      ? `${req.protocol}://${req.get('host')}`
+      : TWITCH_OAUTH_REDIRECT_BASE);
   const redirectUri = `${base.replace(/\/$/, '')}/api/user/twitch/callback`;
   const url = `https://id.twitch.tv/oauth2/authorize?client_id=${encodeURIComponent(process.env.TWITCH_CLIENT_ID)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scopes)}&state=${encodeURIComponent(state)}`;
   res.redirect(url);
@@ -2343,10 +2350,10 @@ router.get('/twitch/callback', async (req, res) => {
   const { code, state, error, error_description } = req.query;
   if (error) {
     logger.warn('Twitch connect callback error', { error, error_description });
-    return res.redirect(`${FRONTEND_URL}/settings?twitch_error=${encodeURIComponent(error_description || error)}`);
+    return res.redirect(`${FRONTEND_URL_SAFE}/settings?twitch_error=${encodeURIComponent(error_description || error)}`);
   }
   if (!code || !state) {
-    return res.redirect(`${FRONTEND_URL}/settings?twitch_error=missing_code_or_state`);
+    return res.redirect(`${FRONTEND_URL_SAFE}/settings?twitch_error=missing_code_or_state`);
   }
   let userId;
   try {
@@ -2354,12 +2361,14 @@ router.get('/twitch/callback', async (req, res) => {
     userId = decoded.userId;
   } catch (e) {
     logger.warn('Twitch callback invalid state', { error: e.message });
-    return res.redirect(`${FRONTEND_URL}/settings?twitch_error=invalid_state`);
+    return res.redirect(`${FRONTEND_URL_SAFE}/settings?twitch_error=invalid_state`);
   }
-  // Must match the redirect_uri used in /twitch/connect (use request host if configured base is Supabase)
-  const base = (typeof TWITCH_OAUTH_REDIRECT_BASE === 'string' && TWITCH_OAUTH_REDIRECT_BASE.includes('supabase.co'))
-    ? `${req.protocol}://${req.get('host')}`
-    : TWITCH_OAUTH_REDIRECT_BASE;
+  // Must match the redirect_uri used in /twitch/connect
+  const base = (process.env.NODE_ENV === 'production' && BACKEND_URL && !BACKEND_URL.includes('localhost'))
+    ? BACKEND_URL.replace(/\/$/, '')
+    : (typeof TWITCH_OAUTH_REDIRECT_BASE === 'string' && TWITCH_OAUTH_REDIRECT_BASE.includes('supabase.co')
+      ? `${req.protocol}://${req.get('host')}`
+      : TWITCH_OAUTH_REDIRECT_BASE);
   const redirectUri = `${base.replace(/\/$/, '')}/api/user/twitch/callback`;
   try {
     const axios = (await import('axios')).default;
@@ -2381,7 +2390,7 @@ router.get('/twitch/callback', async (req, res) => {
     });
     const twitchUser = userRes.data?.data?.[0];
     if (!twitchUser?.id) {
-      return res.redirect(`${FRONTEND_URL}/settings?twitch_error=no_user`);
+      return res.redirect(`${FRONTEND_URL_SAFE}/settings?twitch_error=no_user`);
     }
     const [integration] = await Integration.findOrCreate({
       where: { userId, provider: 'twitch' },
@@ -2396,7 +2405,7 @@ router.get('/twitch/callback', async (req, res) => {
       },
     });
     if (!integration) {
-      return res.redirect(`${FRONTEND_URL}/settings?twitch_error=save_failed`);
+      return res.redirect(`${FRONTEND_URL_SAFE}/settings?twitch_error=save_failed`);
     }
     integration.providerUserId = twitchUser.id;
     integration.accessToken = access_token;
@@ -2431,10 +2440,10 @@ router.get('/twitch/callback', async (req, res) => {
       logger.warn('Twitch EventSub subscribe failed (bits chronological may be limited)', { error: eventsubErr.message, broadcasterUserId });
     }
 
-    res.redirect(`${FRONTEND_URL}/settings?twitch_connected=1`);
+    res.redirect(`${FRONTEND_URL_SAFE}/settings?twitch_connected=1`);
   } catch (err) {
     logger.error('Twitch callback error', { error: err.message, userId });
-    res.redirect(`${FRONTEND_URL}/settings?twitch_error=${encodeURIComponent(err.message || 'callback_failed')}`);
+    res.redirect(`${FRONTEND_URL_SAFE}/settings?twitch_error=${encodeURIComponent(err.message || 'callback_failed')}`);
   }
 });
 
