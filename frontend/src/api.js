@@ -620,6 +620,14 @@ export async function updateFixedCosts({ fixedCosts, token }) {
   });
 }
 
+/** GET /admin/exchange-rate-usd-eur - Fetch current USD to EUR rate (Brave Search or fallback API). Admin only. */
+export async function getUsdToEurRate(token) {
+  const res = await apiClient.get('/admin/exchange-rate-usd-eur', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return res.data;
+}
+
 export async function changePassword({ currentPassword, newPassword, token }) {
   return apiClient.put('/user/password', { currentPassword, newPassword }, {
     headers: { Authorization: `Bearer ${token}` }

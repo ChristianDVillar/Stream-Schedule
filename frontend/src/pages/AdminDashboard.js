@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { X } from 'lucide-react';
 // Admin: usuarios, licencias, pagos (listado/export), modal detalle, mensajes
-import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob, sendNotification, getPlatformConfig, updatePlatformConfig, getFixedCosts, updateFixedCosts } from '../api';
+import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob, sendNotification, getPlatformConfig, updatePlatformConfig, getFixedCosts, updateFixedCosts, getUsdToEurRate } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatDateUTC } from '../utils/dateUtils';
 import { maskEmail } from '../utils/emailUtils';
@@ -75,6 +75,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
   const [fixedCostsLoading, setFixedCostsLoading] = useState(false);
   const [fixedCostsSaving, setFixedCostsSaving] = useState(false);
   const [pdfUsdToEurRate, setPdfUsdToEurRate] = useState('0.92');
+  const [fetchingRate, setFetchingRate] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -1767,6 +1768,27 @@ export default function AdminDashboard({ token, user, onLogout }) {
                 title={t('admin.pdfUsdEurRateTitle') || 'Cotización del día: 1 USD = X EUR'}
               />
             </label>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!token || fetchingRate) return;
+                setFetchingRate(true);
+                try {
+                  const { rate } = await getUsdToEurRate(token);
+                  setPdfUsdToEurRate(Number(rate).toFixed(2));
+                  toast.success(t('admin.pdfRateUpdated') || 'Cotización actualizada');
+                } catch (err) {
+                  toast.error(err.response?.data?.error || err.message || (t('admin.pdfRateError') || 'No se pudo obtener la cotización'));
+                } finally {
+                  setFetchingRate(false);
+                }
+              }}
+              disabled={fetchingRate}
+              className="px-3 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 text-sm"
+              title={t('admin.pdfRateFetchTitle') || 'Obtener cotización desde Brave Search (dólar/euro)'}
+            >
+              {fetchingRate ? '...' : (t('admin.pdfFetchRate') || 'Obtener cotización')}
+            </button>
             <button
               onClick={handleDownloadPaymentsPdf}
               disabled={exporting}

@@ -33,6 +33,7 @@ import templatesRoutes from './routes/templates.js';
 import messagesRoutes from './routes/messages.js';
 import notificationsRoutes from './routes/notifications.js';
 import adminPlatformsRoutes from './routes/admin/platforms.js';
+import { exchangeRateUsdEurHandler } from './routes/admin/exchangeRate.js';
 import { sequelize, SystemConfig } from './models/index.js';
 import { authenticateToken, requireAuth, requireAdmin } from './middleware/auth.js';
 import { authLimiter, apiLimiter, uploadLimiter } from './middleware/rateLimit.js';
@@ -204,6 +205,8 @@ app.post('/api/user/admin/fixed-costs', requireAdmin, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+app.get('/api/admin/exchange-rate-usd-eur', requireAdmin, exchangeRateUsdEurHandler);
 
 app.use('/api/user', userRoutes);
 app.use('/api/discord', discordRoutes);

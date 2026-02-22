@@ -140,6 +140,28 @@ Lista completa de redirect URIs por proveedor: ver comentarios en **`backend/env
 
 **Nota:** Los mensajes que aparecen en la consola al abrir la página de Discord (p. ej. "AnalyticsTrackImpressionContext", "¡Espera! Si alguien te dijo...") son de **discord.com**, no de esta aplicación; no se pueden eliminar desde aquí.
 
+### OAuth con Google: "The OAuth client was not found" / Error 401 invalid_client
+
+Este error lo devuelve **Google** cuando el **Client ID** que usa tu app no existe o no es válido en Google Cloud. Si el login con Google va por **Supabase** (tienes `REACT_APP_SUPABASE_URL` y `REACT_APP_SUPABASE_ANON_KEY`):
+
+1. **Google Cloud Console** ([console.cloud.google.com](https://console.cloud.google.com)):
+   - Elige el proyecto correcto (o crea uno).
+   - **APIs & Services** → **Credentials** → **Create Credentials** → **OAuth client ID**.
+   - Tipo: **Web application**.
+   - **Authorized redirect URIs**: añade exactamente  
+     `https://<TU-PROJECT-REF>.supabase.co/auth/v1/callback`  
+     (el `<TU-PROJECT-REF>` está en la URL de tu proyecto Supabase, ej. `abcdefgh` en `https://abcdefgh.supabase.co`).
+   - Guarda y copia el **Client ID** y **Client Secret**.
+
+2. **Supabase Dashboard** → Tu proyecto → **Authentication** → **Providers** → **Google**:
+   - Activa el proveedor Google.
+   - Pega el **Client ID** y **Client Secret** de Google.
+   - Guarda.
+
+Si el Client ID en Supabase era de un cliente borrado o de otro proyecto en Google Cloud, créalo de nuevo como arriba y actualiza Supabase.
+
+**Si no usas Supabase** para Google (no tienes las variables de Supabase en el frontend), el login usa el backend con Passport. En el **backend** `.env` define `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` de un OAuth client tipo "Web application" en Google Cloud, con redirect URI: `http://localhost:5000/api/user/auth/google/callback` (y la URL de producción si aplica).
+
 ### Producción: OAuth (Google / Twitch) en Render
 
 Para que el login con Google o Twitch no redirija a localhost:
