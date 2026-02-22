@@ -100,7 +100,12 @@ const Dashboard = ({ user, token, ...props }) => {
       }
     } catch (error) {
       setContents([]);
-      toast.error('Error loading scheduled content');
+      const res = error.response;
+      if (res?.status === 503 && res?.data?.code === 'RUN_MIGRATIONS') {
+        toast.error(res.data.details || 'Database schema outdated. Run in backend: npm run migrate', { duration: 8000 });
+      } else {
+        toast.error(res?.data?.details || res?.data?.error || 'Error loading scheduled content');
+      }
     } finally {
       setLoading(false);
     }
@@ -343,7 +348,10 @@ const Dashboard = ({ user, token, ...props }) => {
     try {
       const data = await getTwitchBits(bitsFormat);
       if (!data.bits || data.bits.length === 0) {
-        toast.error(t('dashboard.noBitsToDownload'));
+        const message = bitsFormat === 'chronological'
+          ? (t('dashboard.noBitsChronologicalHint') || data.hint)
+          : t('dashboard.noBitsToDownload');
+        toast.error(message);
         return;
       }
       

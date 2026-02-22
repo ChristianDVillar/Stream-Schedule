@@ -69,11 +69,21 @@ router.get('/', requireAuth, async (req, res) => {
     });
     res.json(result);
   } catch (err) {
+    const msg = err.message || '';
+    const isSchemaError = /does not exist|column .* not found|undefined column/i.test(msg);
     logger.error('Error listing content', {
-      error: err.message,
+      error: msg,
       userId: req.user.id,
+      isSchemaError,
     });
-    res.status(500).json({ error: 'Failed to fetch content', details: err.message });
+    if (isSchemaError) {
+      return res.status(503).json({
+        error: 'Database schema is outdated',
+        details: 'Run migrations in the backend: npm run migrate',
+        code: 'RUN_MIGRATIONS',
+      });
+    }
+    res.status(500).json({ error: 'Failed to fetch content', details: msg });
   }
 });
 

@@ -26,6 +26,12 @@ const TwitterIcon = () => (
   </svg>
 );
 
+const YouTubeIcon = () => (
+  <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="#FF0000" aria-hidden>
+    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+  </svg>
+);
+
 const MailIcon = () => (
   <svg className="w-5 h-5 flex-shrink-0 text-gray-600 dark:text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
@@ -38,6 +44,7 @@ const PLATFORM_ICONS = {
   twitch: TwitchIcon,
   discord: DiscordIcon,
   twitter: TwitterIcon,
+  youtube: YouTubeIcon,
   email: MailIcon,
 };
 
@@ -46,6 +53,7 @@ const PLATFORMS = [
   { key: 'twitch', label: 'Twitch' },
   { key: 'discord', label: 'Discord' },
   { key: 'twitter', label: 'X (Twitter)' },
+  { key: 'youtube', label: 'YouTube' },
   { key: 'email', labelKey: 'settings.emailPassword', noConnect: true },
 ];
 
@@ -149,6 +157,11 @@ export default function SettingsPlatformsTab({
                 {key === 'twitch' && connectedAccounts.twitchPublishConnected && (
                   <p className="text-xs text-green-600 dark:text-green-400 pl-8">
                     {t('settings.twitchPublishConnected') || 'Connected for scheduling and bits.'}
+                  </p>
+                )}
+                {key === 'youtube' && connected && (
+                  <p className="text-xs text-green-600 dark:text-green-400 pl-8">
+                    {t('settings.youtubePublishConnected') || 'Connected for video uploads.'}
                   </p>
                 )}
               </div>

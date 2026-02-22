@@ -14,6 +14,13 @@ ALTER TABLE public."ContentTemplates" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."AuditLogs" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."SystemConfigs" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."Payments" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."Integrations" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."FeatureFlags" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."Entitlements" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."Messages" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."MessageReplies" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."Notifications" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."NotificationReads" ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
 -- uploads (Supabase storage metadata / custom table; name often lowercase)

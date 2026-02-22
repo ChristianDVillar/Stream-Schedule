@@ -382,6 +382,28 @@ export function startTwitterLink(token) {
   window.location.href = `${base}/user/auth/twitter/link?token=${encodeURIComponent(token)}`;
 }
 
+/** Start YouTube connect for publishing (video uploads). Redirects to backend OAuth flow; tokens stored in Integration. */
+export function startYoutubeConnect(token) {
+  if (!token) {
+    console.warn('startYoutubeConnect: token required');
+    return;
+  }
+  const base = apiClient.defaults.baseURL;
+  window.location.href = `${base}/youtube/connect?token=${encodeURIComponent(token)}`;
+}
+
+/** GET /youtube/status - YouTube connection status (connected, channelTitle, etc.). */
+export async function getYoutubeStatus() {
+  const res = await apiClient.get('/youtube/status');
+  return res.data;
+}
+
+/** POST /youtube/disconnect - remove YouTube integration. */
+export async function disconnectYoutube() {
+  const res = await apiClient.post('/youtube/disconnect');
+  return res.data;
+}
+
 /** Clear OAuth link mode (used after AuthCallback finishes link flow). */
 export function clearOAuthLinkMode() {
   if (typeof sessionStorage !== 'undefined') {
@@ -580,6 +602,20 @@ export async function adminExtendTrial({ userId, days, token }) {
 
 export async function updateLicenseConfig({ availableLicenseTypes, token }) {
   return apiClient.post('/user/admin/license-config', { availableLicenseTypes }, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+/** GET /user/admin/fixed-costs - List of fixed monthly costs (admin). */
+export async function getFixedCosts(token) {
+  return apiClient.get('/user/admin/fixed-costs', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+/** POST /user/admin/fixed-costs - Update fixed monthly costs (admin). Body: { fixedCosts: [{ label, amount, currency }] } */
+export async function updateFixedCosts({ fixedCosts, token }) {
+  return apiClient.post('/user/admin/fixed-costs', { fixedCosts }, {
     headers: { Authorization: `Bearer ${token}` }
   });
 }

@@ -45,8 +45,11 @@ async function ensureTrialForOAuthUser(user) {
 export function authenticateToken(req, res, next) {
   const authHeader = req.headers.authorization;
   let token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-  if (!token && req.method === 'GET' && (req.path === '/api/user/twitch/connect' || req.originalUrl?.startsWith?.('/api/user/twitch/connect')) && req.query?.token) {
-    token = req.query.token;
+  if (!token && req.method === 'GET' && req.query?.token) {
+    const url = req.originalUrl || req.url || '';
+    if (url.startsWith('/api/user/twitch/connect') || url.startsWith('/api/youtube/connect')) {
+      token = req.query.token;
+    }
   }
 
   if (!token) {

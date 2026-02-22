@@ -19,10 +19,12 @@ import {
   startTwitchLink,
   startTwitchPublishConnect,
   startTwitterLink,
+  startYoutubeConnect,
   disconnectGoogle,
   disconnectTwitch,
   disconnectTwitter,
   disconnectDiscord,
+  disconnectYoutube,
 } from '../../api';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { applyAccentColor, THEME_CHANGE_EVENT, getCustomColorConfig, setCustomColorConfig, applyCustomColors } from '../../utils/themeUtils';
@@ -227,6 +229,8 @@ export default function Settings({ user, token, setUser }) {
     const linked = searchParams.get('linked');
     const twitchConnected = searchParams.get('twitch_connected');
     const twitchError = searchParams.get('twitch_error');
+    const youtubeConnected = searchParams.get('youtube_connected');
+    const youtubeError = searchParams.get('youtube_error');
     const errorParam = searchParams.get('error');
     if (linked) {
       setActiveTab('platforms');
@@ -246,6 +250,20 @@ export default function Settings({ user, token, setUser }) {
       setActiveTab('platforms');
       setConnectingKey(null);
       toast.error(decodeURIComponent(twitchError));
+      setSearchParams({}, { replace: true });
+      if (token) fetchConnectedAccounts();
+    }
+    if (youtubeConnected) {
+      setActiveTab('platforms');
+      setConnectingKey(null);
+      toast.success(t('settings.youtubeConnected') || 'YouTube connected. You can schedule video uploads.');
+      setSearchParams({}, { replace: true });
+      if (token) fetchConnectedAccounts();
+    }
+    if (youtubeError) {
+      setActiveTab('platforms');
+      setConnectingKey(null);
+      toast.error(decodeURIComponent(youtubeError));
       setSearchParams({}, { replace: true });
       if (token) fetchConnectedAccounts();
     }
@@ -275,7 +293,7 @@ export default function Settings({ user, token, setUser }) {
       setConnectedAccounts(data);
     } catch (err) {
       console.error('Error fetching connected accounts:', err);
-      setConnectedAccounts({ google: false, twitch: false, discord: false, twitter: false, email: false });
+      setConnectedAccounts({ google: false, twitch: false, discord: false, twitter: false, youtube: false, email: false });
     } finally {
       setConnectedAccountsLoading(false);
     }
@@ -330,6 +348,7 @@ export default function Settings({ user, token, setUser }) {
     else if (key === 'twitch') startTwitchLink();
     else if (key === 'discord') startDiscordLink(token);
     else if (key === 'twitter') startTwitterLink(token);
+    else if (key === 'youtube') startYoutubeConnect(token);
   };
 
   const handleDisconnect = async (key) => {
@@ -339,6 +358,7 @@ export default function Settings({ user, token, setUser }) {
       else if (key === 'twitch') await disconnectTwitch();
       else if (key === 'discord') await disconnectDiscord();
       else if (key === 'twitter') await disconnectTwitter();
+      else if (key === 'youtube') await disconnectYoutube();
       toast.success(t('settings.disconnected') || 'Disconnected');
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || t('settings.linkFailed'));

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { X } from 'lucide-react';
 // Admin: usuarios, licencias, pagos (listado/export), modal detalle, mensajes
-import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob, sendNotification, getPlatformConfig, updatePlatformConfig } from '../api';
+import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob, sendNotification, getPlatformConfig, updatePlatformConfig, getFixedCosts, updateFixedCosts } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatDateUTC } from '../utils/dateUtils';
 import { maskEmail } from '../utils/emailUtils';
@@ -71,6 +71,10 @@ export default function AdminDashboard({ token, user, onLogout }) {
   const [platformConfig, setPlatformConfig] = useState({});
   const [platformConfigLoading, setPlatformConfigLoading] = useState(false);
   const [viewingImage, setViewingImage] = useState(null);
+  const [fixedCosts, setFixedCosts] = useState([]);
+  const [fixedCostsLoading, setFixedCostsLoading] = useState(false);
+  const [fixedCostsSaving, setFixedCostsSaving] = useState(false);
+  const [pdfUsdToEurRate, setPdfUsdToEurRate] = useState('0.92');
 
   useEffect(() => {
     fetchUsers();
@@ -86,6 +90,28 @@ export default function AdminDashboard({ token, user, onLogout }) {
     if (token) fetchPaymentsList(paymentsOffset, paymentListFilters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, paymentsOffset, paymentListFilters.status, paymentListFilters.from, paymentListFilters.to]);
+
+  const fetchFixedCostsList = async () => {
+    if (!token) return;
+    setFixedCostsLoading(true);
+    try {
+      const res = await getFixedCosts(token);
+      setFixedCosts(Array.isArray(res.data.fixedCosts) ? res.data.fixedCosts : []);
+    } catch (err) {
+      if (err.response?.status === 404) {
+        setFixedCosts([{ label: 'Cursor', amount: 20, currency: 'EUR' }, { label: 'Render', amount: 7, currency: 'EUR' }]);
+      } else {
+        toast.error(err.response?.data?.error || t('admin.fixedCostsLoadError'));
+      }
+    } finally {
+      setFixedCostsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (token) fetchFixedCostsList();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   useEffect(() => {
     fetchMessages();
@@ -278,6 +304,18 @@ export default function AdminDashboard({ token, user, onLogout }) {
         titleLabel: t('admin.pdfTitle'),
         accountingSectionLabel: t('admin.pdfAccountingSection'),
         noteText: t('admin.pdfNote'),
+        fixedCosts: (fixedCosts.length > 0 ? fixedCosts : [{ label: 'Cursor', amount: 20, currency: 'EUR' }, { label: 'Render', amount: 7, currency: 'EUR' }]).map(x => ({ label: x.label, amount: Number(x.amount) || 0, currency: (x.currency || 'EUR').toUpperCase() })),
+        fixedCostsSectionLabel: t('admin.pdfFixedCostsSection'),
+        revenueMinusFixedLabel: t('admin.pdfRevenueMinusFixed'),
+        resultLabel: t('admin.pdfResult'),
+        incomeTotalsSectionLabel: t('admin.pdfIncomeTotalsSection'),
+        fixedCostsTotalLabel: t('admin.pdfFixedCostsTotalLabel'),
+        netIncomeLabel: t('admin.pdfNetIncomeLabel'),
+        totalIncomeHeadingLabel: t('admin.pdfTotalIncomeHeading'),
+        totalIncomeSubscriptionsLabel: t('admin.pdfTotalIncomeSubscriptions'),
+        finalTotalSectionLabel: t('admin.pdfFinalTotalSection'),
+        conversionRateLabel: t('admin.pdfConversionRate'),
+        exchangeRatesToEur: { USD: parseFloat(pdfUsdToEurRate) || 0.92 },
       });
       const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
@@ -1588,6 +1626,91 @@ export default function AdminDashboard({ token, user, onLogout }) {
           <p className="text-gray-500 dark:text-gray-400 py-6 text-center">{t('admin.noPaymentsRegistered')}</p>
         )}
       </div>
+      {/* Costes fijos mensuales (control) - editables */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-amber-500 mb-6">
+        <h3 className="text-lg font-bold text-amber-700 dark:text-amber-300 mb-4">{t('admin.fixedCostsTitle')}</h3>
+        {fixedCostsLoading ? (
+          <p className="text-gray-500 dark:text-gray-400 py-2">{t('admin.loading') || 'Cargando...'}</p>
+        ) : (
+          <>
+            <div className="space-y-3 mb-4">
+              {fixedCosts.map((item, index) => (
+                <div key={index} className="flex flex-wrap items-center gap-2 py-1 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                  <input
+                    type="text"
+                    value={item.label}
+                    onChange={(e) => setFixedCosts(prev => prev.map((x, i) => i === index ? { ...x, label: e.target.value } : x))}
+                    placeholder={t('admin.fixedCostLabelPlaceholder') || 'Concepto'}
+                    className="flex-1 min-w-[100px] px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={item.amount}
+                    onChange={(e) => setFixedCosts(prev => prev.map((x, i) => i === index ? { ...x, amount: parseFloat(e.target.value) || 0 } : x))}
+                    className="w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                  />
+                  <input
+                    type="text"
+                    value={item.currency}
+                    onChange={(e) => setFixedCosts(prev => prev.map((x, i) => i === index ? { ...x, currency: (e.target.value || 'EUR').toUpperCase().slice(0, 3) } : x))}
+                    placeholder="EUR"
+                    className="w-16 px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm uppercase"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setFixedCosts(prev => prev.filter((_, i) => i !== index))}
+                    className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                    title={t('admin.remove') || 'Quitar'}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setFixedCosts(prev => [...prev, { label: '', amount: 0, currency: 'EUR' }])}
+                className="px-3 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 text-sm font-medium"
+              >
+                {t('admin.fixedCostAdd') || 'Añadir concepto'}
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const toSave = fixedCosts.map(x => ({ label: (x.label || '').trim() || 'Item', amount: Number(x.amount) || 0, currency: (x.currency || 'EUR').trim().toUpperCase() || 'EUR' })).filter(x => x.label && x.amount >= 0);
+                  if (toSave.length === 0) { toast.error(t('admin.fixedCostsEmpty')); return; }
+                  setFixedCostsSaving(true);
+                  try {
+                    await updateFixedCosts({ fixedCosts: toSave, token });
+                    setFixedCosts(toSave);
+                    toast.success(t('admin.fixedCostsSaved'));
+                  } catch (err) {
+                    toast.error(err.response?.data?.error || t('admin.fixedCostsSaveError'));
+                  } finally {
+                    setFixedCostsSaving(false);
+                  }
+                }}
+                disabled={fixedCostsSaving}
+                className="px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 text-sm"
+              >
+                {fixedCostsSaving ? (t('admin.saving') || 'Guardando...') : (t('admin.saveFixedCosts') || 'Guardar costes fijos')}
+              </button>
+            </div>
+            {fixedCosts.length > 0 && (() => {
+              const byCurrency = {};
+              fixedCosts.forEach(x => { const c = (x.currency || 'EUR').toUpperCase(); byCurrency[c] = (byCurrency[c] || 0) + (Number(x.amount) || 0); });
+              return (
+                <p className="pt-3 border-t border-gray-200 dark:border-gray-600 font-semibold text-amber-800 dark:text-amber-200">
+                  {t('admin.fixedCostsTotalMonthly')}: {Object.entries(byCurrency).map(([c, sum]) => `${sum.toFixed(2)} ${c}`).join(', ')}
+                </p>
+              );
+            })()}
+          </>
+        )}
+      </div>
       {/* Listado de pagos y descarga para gestores */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-indigo-500">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
@@ -1632,6 +1755,18 @@ export default function AdminDashboard({ token, user, onLogout }) {
             >
               {t('admin.downloadJson')}
             </button>
+            <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
+              <span>USD/EUR:</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={pdfUsdToEurRate}
+                onChange={(e) => setPdfUsdToEurRate(e.target.value || '0.92')}
+                className="w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                title={t('admin.pdfUsdEurRateTitle') || 'Cotización del día: 1 USD = X EUR'}
+              />
+            </label>
             <button
               onClick={handleDownloadPaymentsPdf}
               disabled={exporting}
