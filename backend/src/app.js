@@ -20,7 +20,7 @@ import userRoutes, {
   twitterOAuth2Callback,
   twitterLinkStart,
   twitterLinkCallback,
-  connectedAccountsHandler
+  connectedAccountsHandler,
 } from './routes/user.js';
 import contentRoutes from './routes/content.js';
 import platformsRoutes from './routes/platforms.js';
@@ -33,8 +33,8 @@ import templatesRoutes from './routes/templates.js';
 import messagesRoutes from './routes/messages.js';
 import notificationsRoutes from './routes/notifications.js';
 import adminPlatformsRoutes from './routes/admin/platforms.js';
-import { sequelize } from './models/index.js';
-import { authenticateToken, requireAuth } from './middleware/auth.js';
+import { sequelize, SystemConfig } from './models/index.js';
+import { authenticateToken, requireAuth, requireAdmin } from './middleware/auth.js';
 import { authLimiter, apiLimiter, uploadLimiter } from './middleware/rateLimit.js';
 import { csrfProtection, getCsrfToken } from './middleware/csrf.js';
 import { metricsMiddleware, metrics } from './utils/metrics.js';
@@ -159,8 +159,52 @@ app.get('/api/platforms/enabled', async (req, res) => {
 // JWT authentication middleware - attaches user to req.user if token is valid
 app.use(authenticateToken);
 
-// API Routes - register connected-accounts explicitly so GET /api/user/connected-accounts is always available
+// API Routes - register connected-accounts and admin fixed-costs explicitly so they are always reachable
 app.get('/api/user/connected-accounts', requireAuth, connectedAccountsHandler);
+
+const DEFAULT_FIXED_MONTHLY_COSTS = [
+  { label: 'Cursor', amount: 20, currency: 'EUR' },
+  { label: 'Render', amount: 7, currency: 'EUR' },
+];
+app.get('/api/user/admin/fixed-costs', requireAdmin, async (req, res) => {
+  try {
+    const config = await SystemConfig.findOne({ where: { key: 'fixedMonthlyCosts' } });
+    const fixedCosts = config && Array.isArray(config.value) ? config.value : DEFAULT_FIXED_MONTHLY_COSTS;
+    res.json({ fixedCosts });
+  } catch (err) {
+    logger.error('Error getting fixed costs', { error: err.message, adminId: req.user?.id });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+app.post('/api/user/admin/fixed-costs', requireAdmin, async (req, res) => {
+  const { fixedCosts } = req.body;
+  if (!Array.isArray(fixedCosts)) {
+    return res.status(400).json({ error: 'fixedCosts must be an array' });
+  }
+  const normalized = fixedCosts.map((item) => ({
+    label: String(item?.label ?? '').trim() || 'Item',
+    amount: Number(item?.amount) || 0,
+    currency: String(item?.currency ?? 'EUR').trim().toUpperCase() || 'EUR',
+  })).filter((item) => item.label && item.amount >= 0);
+  try {
+    let config = await SystemConfig.findOne({ where: { key: 'fixedMonthlyCosts' } });
+    if (config) {
+      config.value = normalized;
+      await config.save();
+    } else {
+      config = await SystemConfig.create({
+        key: 'fixedMonthlyCosts',
+        value: normalized,
+        description: 'Fixed monthly costs for admin control (e.g. Cursor, Render)',
+      });
+    }
+    res.json({ fixedCosts: config.value, message: 'Fixed costs updated' });
+  } catch (err) {
+    logger.error('Error updating fixed costs', { error: err.message, adminId: req.user?.id });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 app.use('/api/user', userRoutes);
 app.use('/api/discord', discordRoutes);
 app.use('/api/youtube', youtubeRoutes);

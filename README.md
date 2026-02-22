@@ -149,6 +149,22 @@ Para que el login con Google o Twitch no redirija a localhost:
    - **Redirect URLs**: añade `https://tu-dominio.onrender.com/auth/callback` (y mantén `http://localhost:3000/auth/callback` para desarrollo)
 2. La app usa el origen actual para la redirección OAuth; no hace falta `REACT_APP_FRONTEND_URL` en producción.
 
+**Conectar Twitch para programar eventos y bits:** el flujo usa el API (no Supabase). En el **servicio API** de Render (Dashboard → tu servicio backend → **Environment**) define:
+- **FRONTEND_URL**: URL del frontend (ej. `https://stream-schedule-v1.onrender.com`). Si no está definida, tras autorizar en Twitch la redirección va a `http://localhost:3000` y verás `bad_oauth_state` en localhost.
+- **BACKEND_URL**: URL pública del API (ej. `https://stream-schedule-api.onrender.com`) para `redirect_uri` y webhooks. Opcional si el API ya conoce su propia URL.
+
+**Conectar X (Twitter) desde producción:** si ves *"X (Twitter) is not configured"* al usar la app en Render:
+
+1. **Render** → servicio **backend** (API) → **Environment**. Añade (valores desde [X Developer Portal](https://developer.x.com/)):
+   - **TWITTER_OAUTH2_CLIENT_ID** (o X_OAUTH2_CLIENT_ID)
+   - **TWITTER_OAUTH2_CLIENT_SECRET** (o X_OAUTH2_CLIENT_SECRET)
+   Guarda y redeploy del backend.
+
+2. **X Developer Portal** → tu app → **App info** → **Callback URI / Redirect URL**. Además de las de local y Supabase, añade **exactamente** estas (con tu URL del API en producción):
+   - `https://stream-schedule-api.onrender.com/api/user/auth/twitter/callback`
+   - `https://stream-schedule-api.onrender.com/api/user/auth/twitter/link/callback`
+   Sin estas URLs de producción, el backend no puede completar el flujo OAuth en Render.
+
 ---
 
 ## Licencia

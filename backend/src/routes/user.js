@@ -1392,12 +1392,26 @@ export async function connectedAccountsHandler(req, res) {
     });
     const twitchPublishConnected = !!twitchPublishIntegration;
 
+    // YouTube: connected if active Integration exists (publishing uses Integration.refreshToken)
+    const youtubeIntegration = await Integration.findOne({
+      where: { userId, provider: 'youtube', status: 'active' },
+      attributes: ['id', 'metadata'],
+    });
+    const youtubeConnected = !!youtubeIntegration;
+    const youtubeChannelTitle = youtubeIntegration?.metadata?.channelTitle || null;
+    if (!accountInfo.youtube) {
+      accountInfo.youtube = { connected: false, username: null };
+    }
+    accountInfo.youtube.connected = youtubeConnected;
+    accountInfo.youtube.username = youtubeChannelTitle;
+
     // Build result object safely
     const result = {
       google: accountInfo?.google?.connected || false,
       twitch: accountInfo?.twitch?.connected || false,
       discord: accountInfo?.discord?.connected || false,
       twitter: accountInfo?.twitter?.connected || false,
+      youtube: accountInfo?.youtube?.connected || false,
       email: accountInfo?.email?.connected || false,
       twitterTokenMissing: !!twitterTokenMissing,
       twitchPublishConnected,
@@ -1406,6 +1420,7 @@ export async function connectedAccountsHandler(req, res) {
         twitch: accountInfo?.twitch?.username || null,
         discord: accountInfo?.discord?.username || null,
         twitter: accountInfo?.twitter?.username || null,
+        youtube: accountInfo?.youtube?.username || null,
       }
     };
     
@@ -2498,7 +2513,10 @@ router.get('/twitch-bits', requireAuth, checkLicense, async (req, res) => {
         amount: r.bits,
         date: r.createdAt,
       }));
-      return res.json({ format: 'chronological', bits });
+      const hint = bits.length === 0
+        ? 'Chronological bits are recorded when viewers cheer after you connect Twitch. No events yet, or EventSub may still be pending. Use "Total" for the Twitch leaderboard.'
+        : undefined;
+      return res.json({ format: 'chronological', bits, hint });
     }
 
     const { TwitchService } = await import('../services/twitchService.js');
@@ -2691,6 +2709,55 @@ router.post('/admin/license-config', requireAdmin, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+const DEFAULT_FIXED_MONTHLY_COSTS = [
+  { label: 'Cursor', amount: 20, currency: 'EUR' },
+  { label: 'Render', amount: 7, currency: 'EUR' },
+];
+
+// Handlers exported for explicit registration in app.js (avoids 404 if router order differs)
+export async function getFixedCostsAdmin(req, res) {
+  try {
+    const config = await SystemConfig.findOne({ where: { key: 'fixedMonthlyCosts' } });
+    const fixedCosts = config && Array.isArray(config.value) ? config.value : DEFAULT_FIXED_MONTHLY_COSTS;
+    res.json({ fixedCosts });
+  } catch (err) {
+    logger.error('Error getting fixed costs', { error: err.message, adminId: req.user?.id });
+    res.status(500).json({ error: 'Server error' });
+  }
+}
+
+export async function updateFixedCostsAdmin(req, res) {
+  const { fixedCosts } = req.body;
+  if (!Array.isArray(fixedCosts)) {
+    return res.status(400).json({ error: 'fixedCosts must be an array' });
+  }
+  const normalized = fixedCosts.map((item) => ({
+    label: String(item?.label ?? '').trim() || 'Item',
+    amount: Number(item?.amount) || 0,
+    currency: String(item?.currency ?? 'EUR').trim().toUpperCase() || 'EUR',
+  })).filter((item) => item.label && item.amount >= 0);
+  try {
+    let config = await SystemConfig.findOne({ where: { key: 'fixedMonthlyCosts' } });
+    if (config) {
+      config.value = normalized;
+      await config.save();
+    } else {
+      config = await SystemConfig.create({
+        key: 'fixedMonthlyCosts',
+        value: normalized,
+        description: 'Fixed monthly costs for admin control (e.g. Cursor, Render)',
+      });
+    }
+    res.json({ fixedCosts: config.value, message: 'Fixed costs updated' });
+  } catch (err) {
+    logger.error('Error updating fixed costs', { error: err.message, adminId: req.user?.id });
+    res.status(500).json({ error: 'Server error' });
+  }
+}
+
+router.get('/admin/fixed-costs', requireAdmin, getFixedCostsAdmin);
+router.post('/admin/fixed-costs', requireAdmin, updateFixedCostsAdmin);
 
 // Get available license types (public, for users)
 router.get('/available-licenses', async (req, res) => {
