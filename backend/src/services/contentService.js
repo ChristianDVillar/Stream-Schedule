@@ -75,6 +75,7 @@ export class ContentService {
 
   /**
    * Get paginated content for user
+   * If deletedAt column is missing (old DB), falls back to query without it so Dashboard still loads.
    */
   async getUserContent(userId, options = {}) {
     const { page, limit, offset } = parsePagination(options.query || {});
@@ -107,15 +108,32 @@ export class ContentService {
         { content: { [Op.iLike]: `%${options.search}%` } },
       ];
     }
-    
-    const { count, rows } = await Content.findAndCountAll({
+
+    const findOptions = {
       where,
       limit,
       offset,
       order: [[options.orderBy || 'scheduledFor', options.order || 'DESC']],
-    });
-    
-    return formatPaginatedResponse(rows, count, page, limit);
+    };
+
+    try {
+      const { count, rows } = await Content.findAndCountAll(findOptions);
+      return formatPaginatedResponse(rows, count, page, limit);
+    } catch (err) {
+      const msg = (err && err.message) || '';
+      // If deletedAt column does not exist (migration not run), retry without it and exclude from SELECT
+      if (/deletedAt.*does not exist|column.*deletedAt/i.test(msg)) {
+        logger.warn('Content list: deletedAt column missing, listing without soft-delete filter. Run: npm run migrate', { userId });
+        delete where.deletedAt;
+        const { count, rows } = await Content.findAndCountAll({
+          ...findOptions,
+          where,
+          attributes: { exclude: ['deletedAt'] },
+        });
+        return formatPaginatedResponse(rows, count, page, limit);
+      }
+      throw err;
+    }
   }
 
   /**
