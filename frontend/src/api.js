@@ -861,6 +861,27 @@ export async function updatePlatformConfig({ platforms, token }) {
   });
 }
 
+/** GET /user/admin/alert-config – Alert config (Discord webhooks, thresholds). Admin only. */
+export async function getAlertConfig(token) {
+  return apiClient.get('/user/admin/alert-config', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+/** PUT /user/admin/alert-config – Update alert config. Admin only. */
+export async function updateAlertConfig({ config, token }) {
+  return apiClient.put('/user/admin/alert-config', config, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+/** POST /user/admin/alert-config/test – Send test alert to dev or status webhook. Body: { type: 'dev'|'status' }. Admin only. */
+export async function testAlertConfig({ type, token }) {
+  return apiClient.post('/user/admin/alert-config/test', { type: type || 'dev' }, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
 // ——— Get Enabled Platforms (public) ———
 export async function getEnabledPlatforms() {
   return apiClient.get('/platforms/enabled');

@@ -6,6 +6,7 @@
  */
 
 import logger from '../utils/logger.js';
+import { getRedis } from '../utils/redisConnection.js';
 
 // Rate limits per platform (posts per time window)
 const RATE_LIMITS = {
@@ -46,18 +47,14 @@ setInterval(() => {
 }, CACHE_CLEANUP_INTERVAL);
 
 /**
- * Get Redis client if available
+ * Get shared Redis client (from redisConnection). Null if Redis not configured.
  */
 async function getRedisClient() {
   try {
-    const redis = await import('ioredis');
-    if (process.env.REDIS_URL) {
-      return new redis.default(process.env.REDIS_URL);
-    }
+    return await getRedis();
   } catch (error) {
-    // Redis not available
+    return null;
   }
-  return null;
 }
 
 /**

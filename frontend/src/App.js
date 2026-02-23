@@ -191,6 +191,7 @@ function Sidebar({ user, open, onClose, adminUnreadMessageCount = 0 }) {
             <Link to="/admin?section=notifications" className={getLinkClasses("/admin?section=notifications") + " pl-6 text-sm"}>{t('admin.menuNotifications')}</Link>
             <Link to="/admin?section=platforms" className={getLinkClasses("/admin?section=platforms") + " pl-6 text-sm"}>{t('admin.menuPlatforms')}</Link>
             <Link to="/admin?section=payments" className={getLinkClasses("/admin?section=payments") + " pl-6 text-sm"}>{t('admin.menuPayments')}</Link>
+            <Link to="/admin?section=alerts" className={getLinkClasses("/admin?section=alerts") + " pl-6 text-sm"}>{t('admin.menuAlerts')}</Link>
           </>
         )}
       </nav>
