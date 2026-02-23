@@ -620,6 +620,14 @@ export async function updateFixedCosts({ fixedCosts, token }) {
   });
 }
 
+/** GET /admin/exchange-rate-usd-eur - Fetch current USD to EUR rate (Brave Search or fallback API). Admin only. */
+export async function getUsdToEurRate(token) {
+  const res = await apiClient.get('/admin/exchange-rate-usd-eur', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return res.data;
+}
+
 export async function changePassword({ currentPassword, newPassword, token }) {
   return apiClient.put('/user/password', { currentPassword, newPassword }, {
     headers: { Authorization: `Bearer ${token}` }
@@ -849,6 +857,27 @@ export async function getPlatformConfig(token) {
 
 export async function updatePlatformConfig({ platforms, token }) {
   return apiClient.put('/admin/platforms/config', { platforms }, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+/** GET /user/admin/alert-config – Alert config (Discord webhooks, thresholds). Admin only. */
+export async function getAlertConfig(token) {
+  return apiClient.get('/user/admin/alert-config', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+/** PUT /user/admin/alert-config – Update alert config. Admin only. */
+export async function updateAlertConfig({ config, token }) {
+  return apiClient.put('/user/admin/alert-config', config, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+/** POST /user/admin/alert-config/test – Send test alert to dev or status webhook. Body: { type: 'dev'|'status' }. Admin only. */
+export async function testAlertConfig({ type, token }) {
+  return apiClient.post('/user/admin/alert-config/test', { type: type || 'dev' }, {
     headers: { Authorization: `Bearer ${token}` }
   });
 }

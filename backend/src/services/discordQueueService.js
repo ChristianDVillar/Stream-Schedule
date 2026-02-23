@@ -61,9 +61,10 @@ async function getQueue() {
   discordQueue = new Queue(QUEUE_NAME, {
     connection,
     defaultJobOptions: {
-      attempts: 5,
-      backoff: { type: 'exponential', delay: 3000 },
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 2000 },
       removeOnComplete: true,
+      removeOnFail: 100,
     },
   });
   return discordQueue;

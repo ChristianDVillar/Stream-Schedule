@@ -46,18 +46,10 @@ async function getQueue() {
   publicationQueue = new Queue(QUEUE_NAME, {
     connection,
     defaultJobOptions: {
-      attempts: 5,
-      backoff: {
-        type: 'exponential',
-        delay: 60000, // Start with 1 minute
-      },
-      removeOnComplete: {
-        age: 3600, // Keep completed jobs for 1 hour
-        count: 1000, // Keep last 1000 completed jobs
-      },
-      removeOnFail: {
-        age: 86400, // Keep failed jobs for 24 hours
-      },
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 2000 },
+      removeOnComplete: true,
+      removeOnFail: 100,
     },
   });
   
@@ -197,6 +189,11 @@ export async function startPublicationWorker(handler) {
       attempts: job?.attemptsMade,
       error: err?.message,
     });
+  });
+
+  publicationWorker.on('error', (err) => {
+    logger.error('Publication worker error', { error: err?.message });
+    import('./alertService.js').then((m) => m.sendAlert(`🚨 Publication worker error: ${err?.message || err}`, 'dev')).catch(() => {});
   });
 
   queueEnabled = true;

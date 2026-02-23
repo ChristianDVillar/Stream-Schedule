@@ -1,60 +1,20 @@
 /**
  * Redis Cache Implementation
- * Distributed caching for multi-instance deployments
+ * Uses the shared Redis connection from redisConnection.js (same config as queues, locks, cacheService).
+ * Distributed caching for multi-instance deployments.
  * Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.
- * 
- * Note: Requires Redis. Install: npm install ioredis
- * Configure REDIS_URL in environment variables
  */
 
 import logger from './logger.js';
-
-let redis = null;
-let cacheAvailable = false;
-
-// Try to initialize Redis
-try {
-  const RedisModule = await import('ioredis');
-  const RedisClass = RedisModule.default || RedisModule;
-  
-  if (process.env.REDIS_URL || process.env.REDIS_HOST) {
-    redis = new RedisClass({
-      host: process.env.REDIS_HOST || 'localhost',
-      port: process.env.REDIS_PORT || 6379,
-      ...(process.env.REDIS_URL && { url: process.env.REDIS_URL }),
-      retryStrategy: (times) => {
-        const delay = Math.min(times * 50, 2000);
-        return delay;
-      },
-    });
-    
-    redis.on('connect', () => {
-      cacheAvailable = true;
-      logger.info('Redis cache connected');
-    });
-    
-    redis.on('error', (err) => {
-      cacheAvailable = false;
-      logger.warn('Redis cache error', { error: err.message });
-    });
-    
-    cacheAvailable = true;
-  }
-} catch (error) {
-  logger.warn('Redis not available, using in-memory cache', {
-    error: error.message,
-  });
-}
+import { getRedis, isRedisAvailable } from './redisConnection.js';
 
 export class RedisCache {
   /**
    * Get value from cache
    */
   async get(key) {
-    if (!cacheAvailable || !redis) {
-      return null;
-    }
-    
+    const redis = await getRedis();
+    if (!redis) return null;
     try {
       const value = await redis.get(key);
       return value ? JSON.parse(value) : null;
@@ -68,10 +28,8 @@ export class RedisCache {
    * Set value in cache with TTL
    */
   async set(key, value, ttlSeconds = 30) {
-    if (!cacheAvailable || !redis) {
-      return false;
-    }
-    
+    const redis = await getRedis();
+    if (!redis) return false;
     try {
       await redis.setex(key, ttlSeconds, JSON.stringify(value));
       return true;
@@ -85,10 +43,8 @@ export class RedisCache {
    * Delete value from cache
    */
   async delete(key) {
-    if (!cacheAvailable || !redis) {
-      return false;
-    }
-    
+    const redis = await getRedis();
+    if (!redis) return false;
     try {
       await redis.del(key);
       return true;
@@ -99,15 +55,20 @@ export class RedisCache {
   }
 
   /**
-   * Clear all cache (use with caution)
+   * Clear only cache keys (prefix cache:*). Does NOT touch BullMQ, locks or rate limits.
+   * Safe for production (e.g. Upstash) where Redis is shared.
    */
   async clear() {
-    if (!cacheAvailable || !redis) {
-      return false;
-    }
-    
+    const redis = await getRedis();
+    if (!redis) return false;
     try {
-      await redis.flushdb();
+      const keys = await redis.keys('cache:*');
+      if (keys.length === 0) return true;
+      const batchSize = 500;
+      for (let i = 0; i < keys.length; i += batchSize) {
+        const batch = keys.slice(i, i + batchSize);
+        await redis.del(...batch);
+      }
       return true;
     } catch (error) {
       logger.warn('Redis clear error', { error: error.message });
@@ -116,10 +77,10 @@ export class RedisCache {
   }
 
   /**
-   * Check if cache is available
+   * Check if Redis is configured (may still be connecting or fail later).
    */
   isAvailable() {
-    return cacheAvailable;
+    return isRedisAvailable();
   }
 }
 

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { X } from 'lucide-react';
 // Admin: usuarios, licencias, pagos (listado/export), modal detalle, mensajes
-import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob, sendNotification, getPlatformConfig, updatePlatformConfig, getFixedCosts, updateFixedCosts } from '../api';
+import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob, sendNotification, getPlatformConfig, updatePlatformConfig, getFixedCosts, updateFixedCosts, getUsdToEurRate, getAlertConfig, updateAlertConfig, testAlertConfig } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatDateUTC } from '../utils/dateUtils';
 import { maskEmail } from '../utils/emailUtils';
@@ -75,6 +75,18 @@ export default function AdminDashboard({ token, user, onLogout }) {
   const [fixedCostsLoading, setFixedCostsLoading] = useState(false);
   const [fixedCostsSaving, setFixedCostsSaving] = useState(false);
   const [pdfUsdToEurRate, setPdfUsdToEurRate] = useState('0.92');
+  const [fetchingRate, setFetchingRate] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    discordDevWebhook: '',
+    discordStatusWebhook: '',
+    alertsEnabled: true,
+    alertQueueBacklogThreshold: 1000,
+    alertQueueFailedThreshold: 50,
+    alertDbSlowMs: 2000,
+  });
+  const [alertConfigLoading, setAlertConfigLoading] = useState(false);
+  const [alertConfigSaving, setAlertConfigSaving] = useState(false);
+  const [alertTestSending, setAlertTestSending] = useState(null);
 
   useEffect(() => {
     fetchUsers();
@@ -90,6 +102,26 @@ export default function AdminDashboard({ token, user, onLogout }) {
     if (token) fetchPaymentsList(paymentsOffset, paymentListFilters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, paymentsOffset, paymentListFilters.status, paymentListFilters.from, paymentListFilters.to]);
+
+  const fetchAlertConfig = async () => {
+    if (!token) return;
+    setAlertConfigLoading(true);
+    try {
+      const res = await getAlertConfig(token);
+      setAlertConfig({
+        discordDevWebhook: res.data.discordDevWebhook || '',
+        discordStatusWebhook: res.data.discordStatusWebhook || '',
+        alertsEnabled: res.data.alertsEnabled !== false,
+        alertQueueBacklogThreshold: res.data.alertQueueBacklogThreshold ?? 1000,
+        alertQueueFailedThreshold: res.data.alertQueueFailedThreshold ?? 50,
+        alertDbSlowMs: res.data.alertDbSlowMs ?? 2000,
+      });
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Error loading alert config');
+    } finally {
+      setAlertConfigLoading(false);
+    }
+  };
 
   const fetchFixedCostsList = async () => {
     if (!token) return;
@@ -643,6 +675,10 @@ export default function AdminDashboard({ token, user, onLogout }) {
   const expiringUsers = users.filter(u => u.licenseAlert === '7_days' || u.licenseAlert === '3_days' || u.licenseAlert === 'expired');
   const [searchParams] = useSearchParams();
   const section = searchParams.get('section') || 'overview';
+
+  useEffect(() => {
+    if (token && section === 'alerts') fetchAlertConfig();
+  }, [token, section]);
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 min-w-0">
@@ -1768,6 +1804,27 @@ export default function AdminDashboard({ token, user, onLogout }) {
               />
             </label>
             <button
+              type="button"
+              onClick={async () => {
+                if (!token || fetchingRate) return;
+                setFetchingRate(true);
+                try {
+                  const { rate } = await getUsdToEurRate(token);
+                  setPdfUsdToEurRate(Number(rate).toFixed(2));
+                  toast.success(t('admin.pdfRateUpdated') || 'Cotización actualizada');
+                } catch (err) {
+                  toast.error(err.response?.data?.error || err.message || (t('admin.pdfRateError') || 'No se pudo obtener la cotización'));
+                } finally {
+                  setFetchingRate(false);
+                }
+              }}
+              disabled={fetchingRate}
+              className="px-3 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 text-sm"
+              title={t('admin.pdfRateFetchTitle') || 'Obtener cotización desde Brave Search (dólar/euro)'}
+            >
+              {fetchingRate ? '...' : (t('admin.pdfFetchRate') || 'Obtener cotización')}
+            </button>
+            <button
               onClick={handleDownloadPaymentsPdf}
               disabled={exporting}
               className="px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 text-sm"
@@ -1840,6 +1897,158 @@ export default function AdminDashboard({ token, user, onLogout }) {
               </div>
             </div>
           </>
+        )}
+      </div>
+            </>
+          )}
+
+          {section === 'alerts' && (
+            <>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-amber-500 mb-8">
+        <h3 className="text-lg font-bold text-amber-700 dark:text-amber-300 mb-2">{t('admin.alertsTitle') || 'Alertas operativas'}</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          {t('admin.alertsDescription') || 'Webhooks de Discord para avisos automáticos (Worker, Redis, DB lenta, cola bloqueada). #dev-internal = técnico; #status = público.'}
+        </p>
+        {alertConfigLoading ? (
+          <p className="text-gray-500 dark:text-gray-400">{t('admin.loading') || 'Cargando...'}</p>
+        ) : (
+          <div className="space-y-4 max-w-2xl">
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('admin.alertDevWebhook') || 'Webhook #dev-internal (técnico)'}</span>
+              <input
+                type="url"
+                value={alertConfig.discordDevWebhook}
+                onChange={(e) => setAlertConfig(c => ({ ...c, discordDevWebhook: e.target.value }))}
+                placeholder="https://discord.com/api/webhooks/..."
+                className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('admin.alertStatusWebhook') || 'Webhook #status (público)'}</span>
+              <input
+                type="url"
+                value={alertConfig.discordStatusWebhook}
+                onChange={(e) => setAlertConfig(c => ({ ...c, discordStatusWebhook: e.target.value }))}
+                placeholder="https://discord.com/api/webhooks/..."
+                className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+              />
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={alertConfig.alertsEnabled}
+                onChange={(e) => setAlertConfig(c => ({ ...c, alertsEnabled: e.target.checked }))}
+                className="w-4 h-4"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">{t('admin.alertsEnabled') || 'Alertas activadas'}</span>
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('admin.alertQueueBacklog') || 'Umbral cola (esperando)'}</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={alertConfig.alertQueueBacklogThreshold}
+                  onChange={(e) => setAlertConfig(c => ({ ...c, alertQueueBacklogThreshold: Number(e.target.value) || 1000 }))}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('admin.alertQueueFailed') || 'Umbral fallos'}</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={alertConfig.alertQueueFailedThreshold}
+                  onChange={(e) => setAlertConfig(c => ({ ...c, alertQueueFailedThreshold: Number(e.target.value) || 50 }))}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('admin.alertDbSlowMs') || 'DB lenta (ms)'}</span>
+                <input
+                  type="number"
+                  min="500"
+                  value={alertConfig.alertDbSlowMs}
+                  onChange={(e) => setAlertConfig(c => ({ ...c, alertDbSlowMs: Number(e.target.value) || 2000 }))}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                />
+              </label>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={async () => {
+                  if (!token || alertConfigSaving) return;
+                  setAlertConfigSaving(true);
+                  try {
+                    await updateAlertConfig({ config: alertConfig, token });
+                    toast.success(t('admin.alertConfigSaved') || 'Configuración guardada');
+                  } catch (err) {
+                    toast.error(err.response?.data?.error || 'Error al guardar');
+                  } finally {
+                    setAlertConfigSaving(false);
+                  }
+                }}
+                disabled={alertConfigSaving}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm"
+              >
+                {alertConfigSaving ? (t('admin.saving') || 'Guardando...') : (t('admin.saveConfiguration') || 'Guardar')}
+              </button>
+              <button
+                onClick={async () => {
+                  if (!token || alertTestSending) return;
+                  setAlertTestSending('dev');
+                  try {
+                    const res = await testAlertConfig({ type: 'dev', token });
+                    const msg = res.data?.message || (t('admin.alertTestSent') || 'Prueba enviada a #dev-internal');
+                    toast.success(msg, res.data?.sent === false ? { duration: 6000 } : undefined);
+                  } catch (err) {
+                    const msg = err.response?.data?.error || err.response?.data?.message || 'Error al enviar prueba';
+                    if (err.response?.status === 400) {
+                      toast.success(msg, { duration: 6000 });
+                    } else {
+                      toast.error(msg);
+                    }
+                  } finally {
+                    setAlertTestSending(null);
+                  }
+                }}
+                disabled={!!alertTestSending}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 text-sm"
+              >
+                {alertTestSending === 'dev' ? '...' : (t('admin.alertTestDev') || 'Probar #dev-internal')}
+              </button>
+              <button
+                onClick={async () => {
+                  if (!token || alertTestSending) return;
+                  setAlertTestSending('status');
+                  try {
+                    const res = await testAlertConfig({ type: 'status', token });
+                    const msg = res.data?.message || (t('admin.alertTestSentStatus') || 'Prueba enviada a #status');
+                    toast.success(msg, res.data?.sent === false ? { duration: 6000 } : undefined);
+                  } catch (err) {
+                    const msg = err.response?.data?.error || err.response?.data?.message || 'Error al enviar prueba';
+                    if (err.response?.status === 400) {
+                      toast.success(msg, { duration: 6000 });
+                    } else {
+                      toast.error(msg);
+                    }
+                  } finally {
+                    setAlertTestSending(null);
+                  }
+                }}
+                disabled={!!alertTestSending}
+                className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 text-sm"
+              >
+                {alertTestSending === 'status' ? '...' : (t('admin.alertTestStatus') || 'Probar #status')}
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {t('admin.alertExternalMonitor') || 'Recomendado: configurar un monitor externo (UptimeRobot, Pingdom) que haga ping a /api/health. Si el servidor se cae, no podrá enviar alertas.'}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              {t('admin.alertBackupsNote') || 'Backups: verifica en Supabase la frecuencia y retención de copias; prueba una restauración al menos una vez.'}
+            </p>
+          </div>
         )}
       </div>
             </>

@@ -33,6 +33,8 @@ import templatesRoutes from './routes/templates.js';
 import messagesRoutes from './routes/messages.js';
 import notificationsRoutes from './routes/notifications.js';
 import adminPlatformsRoutes from './routes/admin/platforms.js';
+import { exchangeRateUsdEurHandler } from './routes/admin/exchangeRate.js';
+import { getAlertConfigHandler, putAlertConfigHandler, postAlertConfigTestHandler } from './routes/admin/alerts.js';
 import { sequelize, SystemConfig } from './models/index.js';
 import { authenticateToken, requireAuth, requireAdmin } from './middleware/auth.js';
 import { authLimiter, apiLimiter, uploadLimiter } from './middleware/rateLimit.js';
@@ -49,6 +51,8 @@ import { startDiscordGateway } from './services/discordGatewayService.js';
 import { runReconciliation } from './services/discordSyncService.js';
 import { handleTwitchEventSub } from './routes/twitchWebhook.js';
 import { PLATFORM_VALUES } from './constants/platforms.js';
+import { sendAlert, notifyDbSlow, notifyQueueProblems } from './services/alertService.js';
+import { getQueueStats } from './services/publicationQueueService.js';
 
 // Load environment variables
 // For local development: loads from .env file
@@ -68,6 +72,10 @@ app.use((req, res, next) => {
   next();
 });
 const jwtSecret = process.env.JWT_SECRET || 'dev-jwt-secret';
+if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'dev-jwt-secret')) {
+  console.error('Fatal: set JWT_SECRET in production (Render Environment).');
+  process.exit(1);
+}
 
 // CORS: allow FRONTEND_URL (single) or FRONTEND_URLS (comma-separated). Default localhost for dev.
 // In production, allow *.onrender.com if FRONTEND_URL/FRONTEND_URLS not set (fallback for Render).
@@ -205,6 +213,12 @@ app.post('/api/user/admin/fixed-costs', requireAdmin, async (req, res) => {
   }
 });
 
+app.get('/api/admin/exchange-rate-usd-eur', requireAdmin, exchangeRateUsdEurHandler);
+
+app.get('/api/user/admin/alert-config', requireAdmin, getAlertConfigHandler);
+app.put('/api/user/admin/alert-config', requireAdmin, putAlertConfigHandler);
+app.post('/api/user/admin/alert-config/test', requireAdmin, postAlertConfigTestHandler);
+
 app.use('/api/user', userRoutes);
 app.use('/api/discord', discordRoutes);
 app.use('/api/youtube', youtubeRoutes);
@@ -326,7 +340,7 @@ async function initServer() {
     process.exit(1);
   }
 
-  const server = app.listen(PORT, async () => {
+  const server = app.listen(PORT, '0.0.0.0', async () => {
     logger.info('Server started', {
       port: PORT,
       environment: nodeEnv,
@@ -367,6 +381,27 @@ async function initServer() {
       logger.warn('Discord reconciliation (initial) failed', { error: err.message })
     );
 
+    // Operational monitor: DB latency + queue backlog/failures → Discord alerts (every 60s)
+    const MONITOR_INTERVAL_MS = 60 * 1000;
+    setInterval(async () => {
+      try {
+        const dbStart = Date.now();
+        await sequelize.query('SELECT 1');
+        const dbDuration = Date.now() - dbStart;
+        await notifyDbSlow(dbDuration);
+      } catch (err) {
+        logger.warn('Operational monitor DB check failed', { error: err.message });
+      }
+      try {
+        const stats = await getQueueStats();
+        if (stats.enabled && !stats.error) {
+          await notifyQueueProblems(stats.waiting ?? 0, stats.failed ?? 0);
+        }
+      } catch (err) {
+        logger.warn('Operational monitor queue check failed', { error: err.message });
+      }
+    }, MONITOR_INTERVAL_MS);
+
     // Initialize WebSocket if available
     try {
       const { initWebSocket } = await import('./services/websocketService.js');
@@ -382,5 +417,16 @@ async function initServer() {
   
   return server;
 }
+
+// Operational alerts: notify Discord on process crash or unhandled rejection
+process.on('uncaughtException', async (err) => {
+  logger.error('Uncaught exception', { error: err.message, stack: err.stack });
+  await sendAlert(`🚨 Server uncaughtException: ${err.message}`, 'dev').catch(() => {});
+  process.exit(1);
+});
+process.on('unhandledRejection', async (reason) => {
+  logger.error('Unhandled rejection', { reason });
+  await sendAlert(`🚨 Server unhandledRejection: ${String(reason)}`, 'dev').catch(() => {});
+});
 
 initServer();

@@ -13,6 +13,18 @@ import { sequelize } from '../models/index.js';
 // Load environment variables
 dotenv.config();
 
+process.on('uncaughtException', async (err) => {
+  logger.error('Worker uncaughtException', { error: err.message, stack: err.stack });
+  const { sendAlert } = await import('../services/alertService.js');
+  await sendAlert(`🚨 Worker crashed (uncaughtException): ${err.message}`, 'dev').catch(() => {});
+  process.exit(1);
+});
+process.on('unhandledRejection', async (reason) => {
+  logger.error('Worker unhandledRejection', { reason });
+  const { sendAlert } = await import('../services/alertService.js');
+  await sendAlert(`🚨 Worker unhandledRejection: ${String(reason)}`, 'dev').catch(() => {});
+});
+
 async function main() {
   try {
     logger.info('Starting publication worker...');
