@@ -16,13 +16,18 @@ const REDIS_OPTIONS = {
 };
 
 function getRedisConfig() {
-  if (process.env.REDIS_URL) {
-    return { url: process.env.REDIS_URL, ...REDIS_OPTIONS };
+  const url = process.env.REDIS_URL?.trim();
+  if (url && (url.startsWith('redis://') || url.startsWith('rediss://'))) {
+    return { url, ...REDIS_OPTIONS };
   }
-  if (process.env.REDIS_HOST || process.env.REDIS_PORT) {
+  // In production (e.g. Render) only REDIS_URL is used — never connect to localhost
+  if (process.env.NODE_ENV === 'production') return null;
+  const host = process.env.REDIS_HOST?.trim();
+  const port = process.env.REDIS_PORT?.trim();
+  if (host || port) {
     return {
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT || '6379', 10),
+      host: host || 'localhost',
+      port: parseInt(port || '6379', 10),
       password: process.env.REDIS_PASSWORD || undefined,
       ...REDIS_OPTIONS,
     };

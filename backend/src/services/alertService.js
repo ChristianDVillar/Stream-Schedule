@@ -2,26 +2,33 @@
  * Operational alerts via Discord webhooks.
  * Configurable from admin panel (SystemConfig alert_config) with env fallback.
  * Used for: worker crash, Redis error, DB slow, queue backlog/failures.
+ * Anti-spam: cooldown in Redis (alert:last:<type> TTL 300s); fallback in-memory if Redis down.
+ * Recovery: send "Redis recuperado" when Redis comes back after an incident.
  * Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.
  */
 
 import axios from 'axios';
 import { SystemConfig } from '../models/index.js';
 import logger from '../utils/logger.js';
+import { getRedis } from '../utils/redisConnection.js';
 
 const CONFIG_KEY = 'alert_config';
+const ALERT_COOLDOWN_SEC = 300; // 5 min
+const ALERT_LAST_PREFIX = 'alert:last:';
+
 const DEFAULT_CONFIG = {
   discordDevWebhook: process.env.DISCORD_DEV_WEBHOOK || '',
   discordStatusWebhook: process.env.DISCORD_STATUS_WEBHOOK || '',
   alertsEnabled: true,
-  alertQueueBacklogThreshold: 1000,
-  alertQueueFailedThreshold: 50,
-  alertDbSlowMs: 2000,
+  alertQueueBacklogThreshold: 300,
+  alertQueueFailedThreshold: 20,
+  alertDbSlowMs: 1000,
 };
 
-/** Cooldown between same alert type (ms) to avoid spam */
-const ALERT_COOLDOWN_MS = 15 * 60 * 1000;
+/** Fallback when Redis unavailable */
 const lastAlerted = new Map();
+/** When we first sent redis_error (for recovery message duration) */
+let redisDownSince = null;
 
 /**
  * Get alert config from DB (SystemConfig) with env fallback.
@@ -55,9 +62,9 @@ export async function saveAlertConfig(config) {
     discordDevWebhook: config.discordDevWebhook !== undefined ? String(config.discordDevWebhook || '') : current.discordDevWebhook,
     discordStatusWebhook: config.discordStatusWebhook !== undefined ? String(config.discordStatusWebhook || '') : current.discordStatusWebhook,
     alertsEnabled: config.alertsEnabled !== undefined ? Boolean(config.alertsEnabled) : current.alertsEnabled,
-    alertQueueBacklogThreshold: config.alertQueueBacklogThreshold !== undefined ? Number(config.alertQueueBacklogThreshold) || 1000 : current.alertQueueBacklogThreshold,
-    alertQueueFailedThreshold: config.alertQueueFailedThreshold !== undefined ? Number(config.alertQueueFailedThreshold) || 50 : current.alertQueueFailedThreshold,
-    alertDbSlowMs: config.alertDbSlowMs !== undefined ? Number(config.alertDbSlowMs) || 2000 : current.alertDbSlowMs,
+    alertQueueBacklogThreshold: config.alertQueueBacklogThreshold !== undefined ? Number(config.alertQueueBacklogThreshold) || 300 : current.alertQueueBacklogThreshold,
+    alertQueueFailedThreshold: config.alertQueueFailedThreshold !== undefined ? Number(config.alertQueueFailedThreshold) || 20 : current.alertQueueFailedThreshold,
+    alertDbSlowMs: config.alertDbSlowMs !== undefined ? Number(config.alertDbSlowMs) || 1000 : current.alertDbSlowMs,
   };
   await SystemConfig.upsert({
     key: CONFIG_KEY,
@@ -68,10 +75,51 @@ export async function saveAlertConfig(config) {
 }
 
 /**
+ * Check if we should send an alert of this type (cooldown: 5 min in Redis, else in-memory).
+ * @param {string} type - e.g. 'redis_error', 'db_slow', 'queue_backlog'
+ * @returns {Promise<boolean>}
+ */
+export async function shouldSendAlert(type) {
+  try {
+    const redis = await getRedis();
+    if (redis) {
+      const key = `${ALERT_LAST_PREFIX}${type}`;
+      const exists = await redis.get(key);
+      if (exists) return false;
+      return true;
+    }
+  } catch (e) {
+    logger.debug('Alert cooldown check (Redis unavailable, using memory)', { type });
+  }
+  const last = lastAlerted.get(type);
+  if (last && Date.now() - last < ALERT_COOLDOWN_SEC * 1000) return false;
+  return true;
+}
+
+/**
+ * Record that an alert was sent (so cooldown applies). Call after successful send.
+ * @param {string} type
+ */
+export async function recordAlertSent(type) {
+  try {
+    const redis = await getRedis();
+    if (redis) {
+      const key = `${ALERT_LAST_PREFIX}${type}`;
+      await redis.setex(key, ALERT_COOLDOWN_SEC, String(Date.now()));
+      return;
+    }
+  } catch (e) {
+    // ignore
+  }
+  lastAlerted.set(type, Date.now());
+}
+
+/**
  * Send alert to Discord webhook.
+ * Uses Redis cooldown (alert:last:<cooldownKey> TTL 5 min) when available; else in-memory.
  * @param {string} message - Plain text message (Discord allows 2000 chars).
- * @param {'dev'|'status'} type - 'dev' → #dev-internal, 'status' → #status (public).
- * @param {string} [cooldownKey] - If set, only send once per ALERT_COOLDOWN_MS per key.
+ * @param {'dev'|'status'} type - 'dev' → #dev-internal (technical), 'status' → #status (public).
+ * @param {string} [cooldownKey] - If set, only send once per cooldown per key.
  * @returns {Promise<boolean>} true if sent, false if skipped or failed.
  */
 export async function sendAlert(message, type = 'dev', cooldownKey = null) {
@@ -85,10 +133,7 @@ export async function sendAlert(message, type = 'dev', cooldownKey = null) {
     return false;
   }
 
-  if (cooldownKey) {
-    const last = lastAlerted.get(cooldownKey);
-    if (last && Date.now() - last < ALERT_COOLDOWN_MS) return false;
-  }
+  if (cooldownKey && !(await shouldSendAlert(cooldownKey))) return false;
 
   try {
     await axios.post(webhook, {
@@ -97,7 +142,7 @@ export async function sendAlert(message, type = 'dev', cooldownKey = null) {
       timeout: 5000,
       validateStatus: (s) => s >= 200 && s < 300,
     });
-    if (cooldownKey) lastAlerted.set(cooldownKey, Date.now());
+    if (cooldownKey) await recordAlertSent(cooldownKey);
     logger.debug('Discord alert sent', { type, cooldownKey });
     return true;
   } catch (err) {
@@ -119,12 +164,34 @@ function formatErrorForAlert(err) {
 
 /**
  * Notify Redis error (call from redisConnection error handler).
- * Uses cooldown key 'redis_error' to avoid spamming on repeated connection errors.
+ * Cooldown via shouldSendAlert/recordAlertSent. Tracks redisDownSince for recovery message.
  */
-export function notifyRedisError(err) {
+export async function notifyRedisError(err) {
   const detail = formatErrorForAlert(err);
   const msg = `🚨 Redis error: ${detail}`;
-  sendAlert(msg, 'dev', 'redis_error').catch(() => {});
+  const sent = await sendAlert(msg, 'dev', 'redis_error');
+  if (sent) redisDownSince = redisDownSince ?? Date.now();
+}
+
+/**
+ * Call from monitor when Redis is reachable. If we had sent redis_error before, send recovery once.
+ */
+export async function checkRedisRecovery() {
+  if (redisDownSince == null) return;
+  try {
+    const redis = await getRedis();
+    if (!redis) return;
+    await redis.ping();
+  } catch (e) {
+    return;
+  }
+  const durationMs = Date.now() - redisDownSince;
+  const sec = Math.round(durationMs / 1000);
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  const durationStr = m > 0 ? `${m}m ${s}s` : `${s}s`;
+  await sendAlert(`✅ Redis recuperado (duró ${durationStr})`, 'dev', 'redis_recovered');
+  redisDownSince = null;
 }
 
 /**
@@ -157,7 +224,10 @@ export default {
   getAlertConfig,
   saveAlertConfig,
   sendAlert,
+  shouldSendAlert,
+  recordAlertSent,
   notifyRedisError,
   notifyDbSlow,
   notifyQueueProblems,
+  checkRedisRecovery,
 };

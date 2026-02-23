@@ -6,11 +6,14 @@
  */
 
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { startWorker } from '../services/publicationWorker.js';
 import logger from '../utils/logger.js';
 import { sequelize } from '../models/index.js';
 
-// Load environment variables
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env') });
 dotenv.config();
 
 process.on('uncaughtException', async (err) => {

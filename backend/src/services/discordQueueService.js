@@ -112,7 +112,7 @@ export async function enqueueDiscordSync(contentId) {
       {
         jobId: `discord-sync-${contentId}`,
         attempts: 5,
-        backoff: { type: 'exponential', delay: 3000 },
+        backoff: { type: 'exponential', delay: 10000 },
         removeOnComplete: true,
       }
     );
@@ -153,7 +153,7 @@ export async function startDiscordSyncWorker() {
     },
     {
       connection,
-      concurrency: 3,
+      concurrency: 1,
       limiter: {
         max: LIMITER_MAX,
         duration: LIMITER_DURATION_MS,
