@@ -34,6 +34,7 @@ const Profile = ({ user, token }) => {
     totalLikes: 0,
     totalShares: 0
   });
+  const [postPerformance, setPostPerformance] = useState({ byPlatform: [], totalPublished: 0, totalFailed: 0, totalAttempts: 0 });
   const [recentActivity, setRecentActivity] = useState([]);
   const [achievements, setAchievements] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +47,17 @@ const Profile = ({ user, token }) => {
         withCredentials: true
       });
       setStats(statsResponse.data);
+
+      // Fetch post performance analytics
+      try {
+        const perfResponse = await apiClient.get('/user/post-performance', {
+          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true
+        });
+        setPostPerformance(perfResponse.data);
+      } catch {
+        setPostPerformance({ byPlatform: [], totalPublished: 0, totalFailed: 0, totalAttempts: 0 });
+      }
 
       // Fetch recent activity
       const activityResponse = await apiClient.get('/user/activity', {
@@ -276,6 +288,53 @@ const Profile = ({ user, token }) => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Post Performance Analytics */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border-t border-b border-gray-200 dark:border-gray-600">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 pb-2 border-b border-gray-200 dark:border-gray-600">
+            {t('profile.postPerformanceAnalytics')}
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('profile.published')}</p>
+              <p className="text-2xl font-bold text-green-700 dark:text-green-300">{postPerformance.totalPublished}</p>
+            </div>
+            <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('profile.failed')}</p>
+              <p className="text-2xl font-bold text-red-700 dark:text-red-300">{postPerformance.totalFailed}</p>
+            </div>
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('profile.totalAttempts')}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{postPerformance.totalAttempts}</p>
+            </div>
+          </div>
+          {postPerformance.byPlatform.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left text-gray-700 dark:text-gray-300">
+                <thead className="text-xs uppercase bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                  <tr>
+                    <th className="px-4 py-2 rounded-tl">{t('profile.platform')}</th>
+                    <th className="px-4 py-2">{t('profile.total')}</th>
+                    <th className="px-4 py-2 text-green-600 dark:text-green-400">{t('profile.published')}</th>
+                    <th className="px-4 py-2 text-red-600 dark:text-red-400 rounded-tr">{t('profile.failed')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {postPerformance.byPlatform.map((row) => (
+                    <tr key={row.platform} className="border-b border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                      <td className="px-4 py-2 font-medium capitalize">{row.platform}</td>
+                      <td className="px-4 py-2">{row.total}</td>
+                      <td className="px-4 py-2 text-green-600 dark:text-green-400">{row.published}</td>
+                      <td className="px-4 py-2 text-red-600 dark:text-red-400">{row.failed}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400 text-sm">{t('profile.noPublicationData')}</p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

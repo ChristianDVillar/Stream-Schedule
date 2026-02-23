@@ -8,7 +8,7 @@ import { Op } from 'sequelize';
 
 const require = createRequire(import.meta.url);
 const DiscordStrategy = require('passport-discord').Strategy;
-import { User, Content, Media, SystemConfig, Integration, TwitchEventSubSubscription, TwitchBitEvent, sequelize } from '../models/index.js';
+import { User, Content, ContentPlatform, Media, SystemConfig, Integration, TwitchEventSubSubscription, TwitchBitEvent, sequelize } from '../models/index.js';
 import checkLicense from '../middleware/checkLicense.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { auditLog } from '../middleware/audit.js';
@@ -2236,6 +2236,42 @@ router.get('/stats', requireAuth, async (req, res) => {
     totalShares: 0
   });
 });
+
+// Post performance analytics - allowed without license so Profile page can load (exported for app.js explicit route)
+export async function postPerformanceHandler(req, res) {
+  try {
+    const contentIds = await Content.findAll({
+      where: { userId: req.user.id },
+      attributes: ['id']
+    }).then(rows => rows.map(r => r.id));
+    if (contentIds.length === 0) {
+      return res.json({ byPlatform: [], totalPublished: 0, totalFailed: 0, totalAttempts: 0 });
+    }
+    const rows = await ContentPlatform.findAll({
+      where: { contentId: contentIds },
+      attributes: ['platform', 'status'],
+      raw: true
+    });
+    const byPlatform = {};
+    for (const r of rows) {
+      const p = r.platform;
+      if (!byPlatform[p]) byPlatform[p] = { platform: p, total: 0, published: 0, failed: 0 };
+      byPlatform[p].total += 1;
+      if (r.status === 'published') byPlatform[p].published += 1;
+      if (r.status === 'failed') byPlatform[p].failed += 1;
+    }
+    const byPlatformList = Object.values(byPlatform);
+    const totalPublished = byPlatformList.reduce((s, p) => s + p.published, 0);
+    const totalFailed = byPlatformList.reduce((s, p) => s + p.failed, 0);
+    const totalAttempts = byPlatformList.reduce((s, p) => s + p.total, 0);
+    res.json({ byPlatform: byPlatformList, totalPublished, totalFailed, totalAttempts });
+  } catch (err) {
+    logger.error('Error fetching post performance', { userId: req.user?.id, error: err.message });
+    res.status(500).json({ error: 'Failed to load post performance' });
+  }
+}
+
+router.get('/post-performance', requireAuth, postPerformanceHandler);
 
 // Recent activity (basic) - allowed without license so Profile page can load
 router.get('/activity', requireAuth, async (req, res) => {

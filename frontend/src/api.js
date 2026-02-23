@@ -620,6 +620,13 @@ export async function updateFixedCosts({ fixedCosts, token }) {
   });
 }
 
+/** GET /user/admin/cost-metrics - Cost/usage metrics per user and retry rate per platform (admin). */
+export async function getCostMetrics(token) {
+  return apiClient.get('/user/admin/cost-metrics', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
 /** GET /admin/exchange-rate-usd-eur - Fetch current USD to EUR rate (Brave Search or fallback API). Admin only. */
 export async function getUsdToEurRate(token) {
   const res = await apiClient.get('/admin/exchange-rate-usd-eur', {

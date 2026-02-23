@@ -1,6 +1,20 @@
-# Documentacion del proyecto
+# Índice de documentación
 
-Indice de documentacion de **Streamer Scheduler** (proteccion, licencia y scripts).
+Este archivo es el **índice de la carpeta docs/** (no el README del proyecto; el README principal está en la raíz: [README.md](../README.md)).
+
+Documentación de **Streamer Scheduler** (protección, licencia, scripts).
+
+## Información para usuarios
+
+- **[GUIA-USUARIOS.md](GUIA-USUARIOS.md)** – Guía para usuarios finales (español): qué es la aplicación, registro, dashboard, programar contenido, perfil, conectar plataformas, licencias, idioma y tema.
+- **[USER-GUIDE.md](USER-GUIDE.md)** – User guide (English): same content for end users.
+
+## Monitor y producción
+
+- **Health:** `GET /api/health/live` → 200 OK (liveness, p. ej. Render). `GET /api/health/ready` → DB + Redis; 200 si listo. `GET /api/health` → completo: `status`, `redis`, `db`, `dbResponseTimeMs`, `memoryUsageMb`, `queue`, `uptimeSeconds`.
+- **Monitor externo (recomendado):** UptimeRobot o Better Stack; intervalo 5 min; alerta si falla 2 veces seguidas (si el servidor cae, la app no puede enviar alertas).
+- **Webhooks Discord:** En producción no guardes URLs en texto plano. Usa variables de entorno `DISCORD_DEV_WEBHOOK` y `DISCORD_STATUS_WEBHOOK` (p. ej. en Render). Si expones una URL, elimina el webhook en Discord y crea uno nuevo.
+- **Backups Supabase:** Verificar frecuencia y retención en el dashboard; programar al menos una restauración de prueba en staging para confirmar que se puede recuperar datos.
 
 ## Legal y terminos
 

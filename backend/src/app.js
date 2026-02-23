@@ -21,6 +21,7 @@ import userRoutes, {
   twitterLinkStart,
   twitterLinkCallback,
   connectedAccountsHandler,
+  postPerformanceHandler,
 } from './routes/user.js';
 import contentRoutes from './routes/content.js';
 import platformsRoutes from './routes/platforms.js';
@@ -35,6 +36,7 @@ import notificationsRoutes from './routes/notifications.js';
 import adminPlatformsRoutes from './routes/admin/platforms.js';
 import { exchangeRateUsdEurHandler } from './routes/admin/exchangeRate.js';
 import { getAlertConfigHandler, putAlertConfigHandler, postAlertConfigTestHandler } from './routes/admin/alerts.js';
+import { getCostMetricsForAdmin } from './services/publicationMetricService.js';
 import { sequelize, SystemConfig } from './models/index.js';
 import { authenticateToken, requireAuth, requireAdmin } from './middleware/auth.js';
 import { authLimiter, apiLimiter, uploadLimiter } from './middleware/rateLimit.js';
@@ -172,6 +174,7 @@ app.use(authenticateToken);
 
 // API Routes - register connected-accounts and admin fixed-costs explicitly so they are always reachable
 app.get('/api/user/connected-accounts', requireAuth, connectedAccountsHandler);
+app.get('/api/user/post-performance', requireAuth, postPerformanceHandler);
 
 const DEFAULT_FIXED_MONTHLY_COSTS = [
   { label: 'Cursor', amount: 20, currency: 'EUR' },
@@ -217,6 +220,16 @@ app.post('/api/user/admin/fixed-costs', requireAdmin, async (req, res) => {
 });
 
 app.get('/api/admin/exchange-rate-usd-eur', requireAdmin, exchangeRateUsdEurHandler);
+
+app.get('/api/user/admin/cost-metrics', requireAdmin, async (req, res) => {
+  try {
+    const data = await getCostMetricsForAdmin();
+    res.json(data);
+  } catch (err) {
+    logger.error('Error getting cost metrics', { error: err.message, adminId: req.user?.id });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 app.get('/api/user/admin/alert-config', requireAdmin, getAlertConfigHandler);
 app.put('/api/user/admin/alert-config', requireAdmin, putAlertConfigHandler);

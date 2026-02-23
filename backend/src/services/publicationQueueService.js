@@ -9,6 +9,22 @@ import logger from '../utils/logger.js';
 import { getBullMQConnection } from '../utils/redisConnection.js';
 
 const QUEUE_NAME = 'publication';
+
+/**
+ * Record publication metric (userId from Content). No-op if DB unavailable.
+ */
+async function recordJobMetric(contentId, platform, durationMs, attemptsMade, success) {
+  try {
+    const { Content } = await import('../models/index.js');
+    const { recordPublicationMetric } = await import('./publicationMetricService.js');
+    const content = await Content.findByPk(contentId, { attributes: ['userId'] });
+    if (content?.userId) {
+      await recordPublicationMetric(content.userId, platform, durationMs, attemptsMade, success);
+    }
+  } catch (err) {
+    logger.warn('Could not record publication metric', { contentId, error: err.message });
+  }
+}
 let Queue = null;
 let Worker = null;
 let publicationQueue = null;
@@ -132,18 +148,20 @@ export async function startPublicationWorker(handler) {
     async (job) => {
       const { contentId, platform, contentPlatformId } = job.data;
       const startTime = Date.now();
-      
+      const attemptsMade = job.attemptsMade + 1;
+      const maxAttempts = job.opts.attempts ?? 5;
+
       logger.info('Publication job started', {
         jobId: job.id,
         contentId,
         platform,
         contentPlatformId,
-        attempt: job.attemptsMade + 1,
+        attempt: attemptsMade,
       });
 
       try {
         await handler(job.data);
-        
+
         const duration = Date.now() - startTime;
         logger.info('Publication job completed', {
           jobId: job.id,
@@ -151,16 +169,22 @@ export async function startPublicationWorker(handler) {
           platform,
           duration_ms: duration,
         });
+
+        await recordJobMetric(contentId, platform, duration, attemptsMade, true);
       } catch (error) {
         const duration = Date.now() - startTime;
         logger.error('Publication job failed', {
           jobId: job.id,
           contentId,
           platform,
-          attempt: job.attemptsMade + 1,
+          attempt: attemptsMade,
           error: error.message,
           duration_ms: duration,
         });
+
+        if (attemptsMade >= maxAttempts) {
+          await recordJobMetric(contentId, platform, duration, attemptsMade, false);
+        }
         throw error; // Will trigger retry with exponential backoff
       }
     },

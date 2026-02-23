@@ -26,6 +26,7 @@ import NotificationRead from './NotificationRead.js';
 import ContentPlatform from './ContentPlatform.js';
 import TwitchBitEvent from './TwitchBitEvent.js';
 import TwitchEventSubSubscription from './TwitchEventSubSubscription.js';
+import PublicationMetric from './PublicationMetric.js';
 
 // 👤 User
 const User = sequelize.define('User', {
@@ -509,6 +510,8 @@ NotificationRead.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(Notification, { foreignKey: 'userId', as: 'targetedNotifications' });
 User.hasMany(Notification, { foreignKey: 'createdBy', as: 'createdNotifications' });
 User.hasMany(NotificationRead, { foreignKey: 'userId', as: 'notificationReads' });
+User.hasMany(PublicationMetric, { foreignKey: 'userId', as: 'publicationMetrics' });
+PublicationMetric.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 // ⚙️ System Configuration
 const SystemConfig = sequelize.define('SystemConfig', {
@@ -549,4 +552,5 @@ export {
   NotificationRead,
   TwitchBitEvent,
   TwitchEventSubSubscription,
+  PublicationMetric,
 };
