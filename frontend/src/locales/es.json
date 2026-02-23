@@ -524,6 +524,7 @@
     "alertQueueFailed": "Umbral fallos",
     "alertDbSlowMs": "DB lenta (ms)",
     "alertConfigSaved": "Configuración guardada",
+    "alertWebhookSecurity": "Seguridad: no compartas la URL del webhook. En producción (Render) usa variables de entorno DISCORD_DEV_WEBHOOK y DISCORD_STATUS_WEBHOOK.",
     "alertTestDev": "Probar #dev-internal",
     "alertTestStatus": "Probar #status",
     "alertTestSent": "Prueba enviada a #dev-internal",

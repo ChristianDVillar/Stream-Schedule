@@ -51,12 +51,15 @@ import { startDiscordGateway } from './services/discordGatewayService.js';
 import { runReconciliation } from './services/discordSyncService.js';
 import { handleTwitchEventSub } from './routes/twitchWebhook.js';
 import { PLATFORM_VALUES } from './constants/platforms.js';
-import { sendAlert, notifyDbSlow, notifyQueueProblems } from './services/alertService.js';
+import { sendAlert, notifyDbSlow, notifyQueueProblems, checkRedisRecovery } from './services/alertService.js';
 import { getQueueStats } from './services/publicationQueueService.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Load environment variables
-// For local development: loads from .env file
-// For Render/production: uses Environment Variables from Render dashboard
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Load environment variables: backend/.env first (so REDIS_URL etc. work when run from repo root), then cwd
+dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 dotenv.config();
 
 const app = express();
@@ -381,9 +384,14 @@ async function initServer() {
       logger.warn('Discord reconciliation (initial) failed', { error: err.message })
     );
 
-    // Operational monitor: DB latency + queue backlog/failures → Discord alerts (every 60s)
+    // Operational monitor: Redis recovery, DB latency, queue backlog/failures → Discord alerts (every 60s)
     const MONITOR_INTERVAL_MS = 60 * 1000;
     setInterval(async () => {
+      try {
+        await checkRedisRecovery();
+      } catch (err) {
+        logger.debug('Redis recovery check failed', { error: err.message });
+      }
       try {
         const dbStart = Date.now();
         await sequelize.query('SELECT 1');

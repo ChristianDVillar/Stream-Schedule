@@ -1906,8 +1906,11 @@ export default function AdminDashboard({ token, user, onLogout }) {
             <>
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-amber-500 mb-8">
         <h3 className="text-lg font-bold text-amber-700 dark:text-amber-300 mb-2">{t('admin.alertsTitle') || 'Alertas operativas'}</h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
           {t('admin.alertsDescription') || 'Webhooks de Discord para avisos automáticos (Worker, Redis, DB lenta, cola bloqueada). #dev-internal = técnico; #status = público.'}
+        </p>
+        <p className="text-sm text-amber-700 dark:text-amber-400 mb-4 px-3 py-2 rounded border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
+          {t('admin.alertWebhookSecurity') || 'Seguridad: no compartas la URL del webhook. En producción (Render) usa variables de entorno DISCORD_DEV_WEBHOOK y DISCORD_STATUS_WEBHOOK.'}
         </p>
         {alertConfigLoading ? (
           <p className="text-gray-500 dark:text-gray-400">{t('admin.loading') || 'Cargando...'}</p>
@@ -1949,7 +1952,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                   type="number"
                   min="0"
                   value={alertConfig.alertQueueBacklogThreshold}
-                  onChange={(e) => setAlertConfig(c => ({ ...c, alertQueueBacklogThreshold: Number(e.target.value) || 1000 }))}
+                  onChange={(e) => setAlertConfig(c => ({ ...c, alertQueueBacklogThreshold: Number(e.target.value) || 300 }))}
                   className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
                 />
               </label>
@@ -1959,7 +1962,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                   type="number"
                   min="0"
                   value={alertConfig.alertQueueFailedThreshold}
-                  onChange={(e) => setAlertConfig(c => ({ ...c, alertQueueFailedThreshold: Number(e.target.value) || 50 }))}
+                  onChange={(e) => setAlertConfig(c => ({ ...c, alertQueueFailedThreshold: Number(e.target.value) || 20 }))}
                   className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
                 />
               </label>
@@ -1969,7 +1972,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                   type="number"
                   min="500"
                   value={alertConfig.alertDbSlowMs}
-                  onChange={(e) => setAlertConfig(c => ({ ...c, alertDbSlowMs: Number(e.target.value) || 2000 }))}
+                  onChange={(e) => setAlertConfig(c => ({ ...c, alertDbSlowMs: Number(e.target.value) || 1000 }))}
                   className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
                 />
               </label>

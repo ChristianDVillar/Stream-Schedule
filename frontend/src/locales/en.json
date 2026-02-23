@@ -524,6 +524,7 @@
     "alertQueueFailed": "Failed jobs threshold",
     "alertDbSlowMs": "DB slow (ms)",
     "alertConfigSaved": "Configuration saved",
+    "alertWebhookSecurity": "Security: do not share the webhook URL. In production (Render) use environment variables DISCORD_DEV_WEBHOOK and DISCORD_STATUS_WEBHOOK.",
     "alertTestDev": "Test #dev-internal",
     "alertTestStatus": "Test #status",
     "alertTestSent": "Test sent to #dev-internal",
