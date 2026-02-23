@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { X } from 'lucide-react';
 // Admin: usuarios, licencias, pagos (listado/export), modal detalle, mensajes
-import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob, sendNotification, getPlatformConfig, updatePlatformConfig, getFixedCosts, updateFixedCosts, getUsdToEurRate, getAlertConfig, updateAlertConfig, testAlertConfig } from '../api';
+import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob, sendNotification, getPlatformConfig, updatePlatformConfig, getFixedCosts, updateFixedCosts, getUsdToEurRate, getAlertConfig, updateAlertConfig, testAlertConfig, getCostMetrics } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatDateUTC } from '../utils/dateUtils';
 import { maskEmail } from '../utils/emailUtils';
@@ -87,6 +87,23 @@ export default function AdminDashboard({ token, user, onLogout }) {
   const [alertConfigLoading, setAlertConfigLoading] = useState(false);
   const [alertConfigSaving, setAlertConfigSaving] = useState(false);
   const [alertTestSending, setAlertTestSending] = useState(null);
+  const [costMetrics, setCostMetrics] = useState({ byUser: [], byPlatform: [], totalJobs: 0, redisMonthlyCostEur: null });
+  const [costMetricsLoading, setCostMetricsLoading] = useState(false);
+  const networkErrorShownRef = useRef(false);
+
+  const isNetworkError = (err) => {
+    if (!err) return false;
+    const code = err.code || err.response?.code;
+    const msg = err.message || '';
+    return code === 'ERR_NETWORK' || code === 'ERR_NETWORK_CHANGED' || /network error/i.test(msg);
+  };
+
+  const maybeShowNetworkError = (err) => {
+    if (isNetworkError(err) && !networkErrorShownRef.current) {
+      networkErrorShownRef.current = true;
+      toast.error(t('admin.networkError') || 'Revisa tu conexión. Si cambió la red, recarga la página.');
+    }
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -117,7 +134,8 @@ export default function AdminDashboard({ token, user, onLogout }) {
         alertDbSlowMs: res.data.alertDbSlowMs ?? 2000,
       });
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Error loading alert config');
+      maybeShowNetworkError(err);
+      if (!isNetworkError(err)) toast.error(err.response?.data?.error || 'Error loading alert config');
     } finally {
       setAlertConfigLoading(false);
     }
@@ -133,7 +151,8 @@ export default function AdminDashboard({ token, user, onLogout }) {
       if (err.response?.status === 404) {
         setFixedCosts([{ label: 'Cursor', amount: 20, currency: 'EUR' }, { label: 'Render', amount: 7, currency: 'EUR' }]);
       } else {
-        toast.error(err.response?.data?.error || t('admin.fixedCostsLoadError'));
+        maybeShowNetworkError(err);
+        if (!isNetworkError(err)) toast.error(err.response?.data?.error || t('admin.fixedCostsLoadError'));
       }
     } finally {
       setFixedCostsLoading(false);
@@ -142,6 +161,31 @@ export default function AdminDashboard({ token, user, onLogout }) {
 
   useEffect(() => {
     if (token) fetchFixedCostsList();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  const fetchCostMetrics = async () => {
+    if (!token) return;
+    setCostMetricsLoading(true);
+    try {
+      const res = await getCostMetrics(token);
+      setCostMetrics({
+        byUser: res.data.byUser || [],
+        byPlatform: res.data.byPlatform || [],
+        totalJobs: res.data.totalJobs ?? 0,
+        redisMonthlyCostEur: res.data.redisMonthlyCostEur ?? null,
+      });
+    } catch (err) {
+      maybeShowNetworkError(err);
+      if (!isNetworkError(err)) toast.error(err.response?.data?.error || t('admin.costMetricsLoadError') || 'Error loading cost metrics');
+      setCostMetrics({ byUser: [], byPlatform: [], totalJobs: 0, redisMonthlyCostEur: null });
+    } finally {
+      setCostMetricsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (token) fetchCostMetrics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
@@ -155,6 +199,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
       const res = await getLicenseConfig(token);
       setLicenseConfig(res.data.availableLicenseTypes || { monthly: true, quarterly: false, lifetime: false, temporary: false });
     } catch (err) {
+      maybeShowNetworkError(err);
     }
   };
 
@@ -164,7 +209,8 @@ export default function AdminDashboard({ token, user, onLogout }) {
       const res = await getPlatformConfig(token);
       setPlatformConfig(res.data.platforms || {});
     } catch (err) {
-      toast.error('Failed to load platform configuration');
+      maybeShowNetworkError(err);
+      if (!isNetworkError(err)) toast.error('Failed to load platform configuration');
     } finally {
       setPlatformConfigLoading(false);
     }
@@ -193,6 +239,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
       const res = await getPasswordReminder(token);
       setPasswordReminders(res.data.reminders || []);
     } catch (err) {
+      maybeShowNetworkError(err);
     }
   };
 
@@ -209,7 +256,8 @@ export default function AdminDashboard({ token, user, onLogout }) {
       const res = await getAdminMessages({ ...params, token });
       setMessages(res.data.messages || []);
     } catch (err) {
-      console.error('Error fetching messages:', err);
+      maybeShowNetworkError(err);
+      if (!isNetworkError(err)) console.error('Error fetching messages:', err);
     } finally {
       setMessagesLoading(false);
     }
@@ -221,7 +269,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
       const res = await getUnreadMessageCount(token);
       setUnreadCount(res.data.unreadCount || 0);
     } catch (err) {
-      console.error('Error fetching unread count:', err);
+      maybeShowNetworkError(err);
     }
   };
 
@@ -241,12 +289,14 @@ export default function AdminDashboard({ token, user, onLogout }) {
       setPaymentsList(res.data.payments || []);
       setPaymentsTotal(res.data.total ?? 0);
     } catch (err) {
-      console.error('Error fetching payments list:', err);
+      maybeShowNetworkError(err);
       setPaymentsList([]);
       setPaymentsTotal(0);
-      setPaymentsListError(err.response?.status === 404
-        ? 'Listado de pagos no disponible. Despliega la última versión del backend (stream-schedule-api) en Render.'
-        : err.response?.data?.error || 'Error al cargar pagos.');
+      setPaymentsListError(isNetworkError(err)
+        ? (t('admin.networkError') || 'Revisa tu conexión y recarga si la red cambió.')
+        : err.response?.status === 404
+          ? 'Listado de pagos no disponible. Despliega la última versión del backend (stream-schedule-api) en Render.'
+          : err.response?.data?.error || 'Error al cargar pagos.');
     } finally {
       setPaymentsLoading(false);
     }
@@ -507,7 +557,8 @@ export default function AdminDashboard({ token, user, onLogout }) {
       const stats = await getPaymentStats(token);
       setRevenue(stats.data);
     } catch (err) {
-      setError('Error loading users');
+      maybeShowNetworkError(err);
+      setError(isNetworkError(err) ? (t('admin.networkError') || 'Revisa tu conexión y recarga.') : 'Error loading users');
     } finally {
       setLoading(false);
     }
@@ -735,6 +786,80 @@ export default function AdminDashboard({ token, user, onLogout }) {
           </p>
         </div>
       </div>
+
+      {/* Cost metrics: who costs money */}
+      <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-amber-400">
+        <h3 className="text-lg font-bold text-amber-700 dark:text-amber-300 mb-2">
+          {t('admin.costMetricsTitle') || 'Coste por usuario'}
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          {t('admin.costMetricsDescription') || 'Coste Redis, almacenamiento, jobs ejecutados y tiempo medio. Quién te cuesta dinero.'}
+        </p>
+        {costMetrics.redisMonthlyCostEur != null && costMetrics.redisMonthlyCostEur > 0 && (
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+            {t('admin.redisMonthlyCostNote') || 'Coste Redis/mes (EUR):'} {costMetrics.redisMonthlyCostEur} — {t('admin.setRedisCostEnv') || 'Configura REDIS_MONTHLY_COST_EUR en el backend para reparto por usuario.'}
+          </p>
+        )}
+        {costMetricsLoading ? (
+          <p className="text-gray-500 dark:text-gray-400">{t('common.loading') || 'Cargando...'}</p>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse border dark:border-gray-600 text-sm">
+                <thead>
+                  <tr className="bg-gray-100 dark:bg-gray-700">
+                    <th className="px-3 py-2 border dark:border-gray-600 text-left text-gray-900 dark:text-gray-100">{t('admin.userTableHeader') || 'Usuario'}</th>
+                    <th className="px-3 py-2 border dark:border-gray-600 text-right text-gray-900 dark:text-gray-100">{t('admin.redisCost') || 'Coste Redis (€/mes)'}</th>
+                    <th className="px-3 py-2 border dark:border-gray-600 text-right text-gray-900 dark:text-gray-100">{t('admin.storageMb') || 'MB almacenamiento'}</th>
+                    <th className="px-3 py-2 border dark:border-gray-600 text-right text-gray-900 dark:text-gray-100">{t('admin.jobsExecuted') || 'Jobs ejecutados'}</th>
+                    <th className="px-3 py-2 border dark:border-gray-600 text-right text-gray-900 dark:text-gray-100">{t('admin.avgExecutionMs') || 'Tiempo medio (ms)'}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {costMetrics.byUser.length === 0 ? (
+                    <tr><td colSpan={5} className="px-3 py-2 border dark:border-gray-600 text-gray-500 dark:text-gray-400">{t('admin.noCostMetrics') || 'Sin datos de métricas aún.'}</td></tr>
+                  ) : (
+                    costMetrics.byUser
+                      .sort((a, b) => (b.redisCostEur ?? 0) - (a.redisCostEur ?? 0) || b.jobsExecuted - a.jobsExecuted)
+                      .map((row) => (
+                        <tr key={row.userId} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                          <td className="px-3 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                            <span className="font-medium">{row.username}</span>
+                            {row.email && <span className="block text-xs text-gray-500 dark:text-gray-400 truncate max-w-[180px]">{row.email}</span>}
+                          </td>
+                          <td className="px-3 py-2 border dark:border-gray-600 text-right text-gray-900 dark:text-gray-100">
+                            {row.redisCostEur != null ? `€${row.redisCostEur.toFixed(4)}` : '—'}
+                          </td>
+                          <td className="px-3 py-2 border dark:border-gray-600 text-right text-gray-900 dark:text-gray-100">{row.storageMb.toFixed(2)}</td>
+                          <td className="px-3 py-2 border dark:border-gray-600 text-right text-gray-900 dark:text-gray-100">{row.jobsExecuted}</td>
+                          <td className="px-3 py-2 border dark:border-gray-600 text-right text-gray-900 dark:text-gray-100">{row.avgExecutionMs != null ? row.avgExecutionMs : '—'}</td>
+                        </tr>
+                      ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {costMetrics.byPlatform.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-300 mb-2">
+                  {t('admin.retryRatePerPlatform') || 'Tasa de reintento por plataforma'}
+                </h4>
+                <div className="flex flex-wrap gap-3">
+                  {costMetrics.byPlatform.map((p) => (
+                    <span
+                      key={p.platform}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200"
+                    >
+                      {p.platform}: {p.retryRatePercent}% ({p.retries}/{p.total})
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
       {/* Password Reminder Alert */}
       {passwordReminders.some(r => r.needsChange) && (
         <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 rounded">
@@ -760,7 +885,21 @@ export default function AdminDashboard({ token, user, onLogout }) {
         </div>
       )}
 
-      {/* License Configuration */}
+      {/* Aviso: licencias a renovar → ver en Usuarios */}
+      {expiringUsers.length > 0 && (
+        <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+          <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+            {t('admin.licensesToRenew')}: {expiringUsers.length} — <Link to="/admin?section=users" className="underline hover:no-underline">{t('admin.menuUsers')}</Link>
+          </p>
+        </div>
+      )}
+
+            </>
+          )}
+
+          {section === 'users' && (
+            <>
+      {/* Configuración de licencias (tipos disponibles) */}
       <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-blue-400">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold text-blue-700 dark:text-blue-300">{t('admin.licenseConfigTitle')}</h3>
@@ -824,158 +963,6 @@ export default function AdminDashboard({ token, user, onLogout }) {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-        {/* Create user */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-green-400">
-          <h3 className="text-lg font-bold text-green-700 mb-4">{t('admin.createUser')}</h3>
-          <div className="space-y-3">
-            <input
-              type="text"
-              placeholder={t('common.username')}
-              value={createData.username}
-              onChange={e => setCreateData(prev => ({ ...prev, username: e.target.value }))}
-              className="w-full border px-3 py-2 rounded bg-white dark:bg-gray-900 dark:border-gray-700"
-            />
-            <input
-              type="email"
-              placeholder={t('common.email')}
-              value={createData.email}
-              onChange={e => setCreateData(prev => ({ ...prev, email: e.target.value }))}
-              className="w-full border px-3 py-2 rounded bg-white dark:bg-gray-900 dark:border-gray-700"
-            />
-            <input
-              type="password"
-              placeholder={t('common.password')}
-              value={createData.password}
-              onChange={e => setCreateData(prev => ({ ...prev, password: e.target.value }))}
-              className="w-full border px-3 py-2 rounded bg-white dark:bg-gray-900 dark:border-gray-700"
-            />
-            <label className="flex items-center space-x-2 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={createData.isAdmin}
-                onChange={e => setCreateData(prev => ({ ...prev, isAdmin: e.target.checked }))}
-              />
-              <span>{t('common.admin')}</span>
-            </label>
-            <button
-              onClick={handleCreateUser}
-              disabled={creating}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-            >
-              {creating ? t('admin.creating') : t('common.create')}
-            </button>
-          </div>
-        </div>
-        {/* Licencias asignadas */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-blue-400">
-          <h3 className="text-lg font-bold text-blue-700 dark:text-blue-300 mb-4">{t('admin.assignedLicenses')}</h3>
-          <ul className="space-y-2">
-            {users.filter(u => u.licenseKey).length === 0 ? (
-              <li className="text-gray-500 dark:text-gray-400">{t('admin.noLicenses')}</li>
-            ) : (
-              users.filter(u => u.licenseKey).map(u => (
-                <li key={u.id} className="flex items-center justify-between bg-blue-50 dark:bg-gray-700/50 rounded px-3 py-2 group hover:bg-blue-100 dark:hover:bg-gray-700 transition-colors">
-                  <div className="flex flex-col">
-                    <span className="font-mono text-blue-900 dark:text-blue-200 group-hover:dark:text-blue-100">{u.licenseKey}</span>
-                    <span className="text-xs text-gray-600 dark:text-gray-300 group-hover:dark:text-gray-200">
-                      {u.licenseType === 'lifetime' ? t('admin.lifetime') : u.licenseType === 'trial' ? t('admin.trial') : t('admin.temporary')}
-                      {u.licenseExpiresAt ? ` · ${t('admin.expiresAt')} ${formatDateUTC(u.licenseExpiresAt)}` : ''}
-                    </span>
-                  </div>
-                  <span className="text-sm text-gray-700 dark:text-gray-200 group-hover:dark:text-gray-100">{u.username}</span>
-                </li>
-              ))
-            )}
-          </ul>
-        </div>
-        {/* Logs */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-purple-400">
-          <h3 className="text-lg font-bold text-purple-700 mb-4">{t('admin.recentLogs')}</h3>
-          <ul className="space-y-2 text-sm">
-            {mockLogs.map(log => (
-              <li key={log.id} className="flex items-center justify-between">
-                <span className="text-gray-700">{log.action}</span>
-                <span className="text-gray-400">{log.date}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-yellow-500 mb-8">
-        <h3 className="text-lg font-bold text-yellow-700 dark:text-yellow-300 mb-4">{t('admin.licensesToRenew')}</h3>
-        {expiringUsers.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400">{t('admin.noLicensesExpiringSoon')}</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full bg-white dark:bg-gray-800 border dark:border-gray-700 rounded">
-              <thead className="bg-yellow-50 dark:bg-gray-700">
-                <tr>
-                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.userTableHeader')}</th>
-                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('common.email')}</th>
-                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.licenseTypeLabel')}</th>
-                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.expiresLabel')}</th>
-                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.alert')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {expiringUsers.map(u => (
-                  <tr key={u.id} className="group hover:bg-yellow-50 dark:hover:bg-gray-700/80 transition-colors">
-                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">{u.username}</td>
-                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white" title={u.email}>{maskEmail(u.email)}</td>
-                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">
-                      {u.licenseType === 'lifetime' && t('admin.lifetime')}
-                      {u.licenseType === 'monthly' && t('admin.monthly')}
-                      {u.licenseType === 'quarterly' && t('admin.quarterly')}
-                      {u.licenseType === 'temporary' && t('admin.temporary')}
-                      {u.licenseType === 'trial' && t('admin.trial')}
-                      {!u.licenseType && '—'}
-                    </td>
-                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">{u.licenseExpiresAt ? formatDateUTC(u.licenseExpiresAt) : '—'}</td>
-                    <td className="px-4 py-2 border dark:border-gray-700">
-                      {u.licenseAlert === 'expired' && <span className="text-red-600 dark:text-red-400 font-semibold">{t('admin.expired')}</span>}
-                      {u.licenseAlert === '3_days' && <span className="text-red-600 dark:text-red-400 font-semibold">{t('admin.days3')}</span>}
-                      {u.licenseAlert === '7_days' && <span className="text-yellow-600 dark:text-yellow-400 font-semibold">{t('admin.days7')}</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-emerald-500 mb-8">
-        <h3 className="text-lg font-bold text-emerald-700 dark:text-emerald-300 mb-4">{t('admin.monthlyEarnings')}</h3>
-        {revenue.monthlyTotals.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400">{t('admin.noPaymentsRegistered')}</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full bg-white dark:bg-gray-800 border dark:border-gray-700 rounded">
-              <thead className="bg-emerald-50 dark:bg-gray-700">
-                <tr>
-                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.monthLabel')}</th>
-                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.amountLabel')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {revenue.monthlyTotals.map(row => (
-                  <tr key={row.month} className="group hover:bg-emerald-50 dark:hover:bg-gray-700/80 transition-colors">
-                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">{row.month}</td>
-                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">
-                      {revenue.currency} {Number(row.amount).toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-            </>
-          )}
-
-          {section === 'users' && (
-            <>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
         {/* Create user */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-green-400">
@@ -1660,6 +1647,34 @@ export default function AdminDashboard({ token, user, onLogout }) {
           </div>
         ) : (
           <p className="text-gray-500 dark:text-gray-400 py-6 text-center">{t('admin.noPaymentsRegistered')}</p>
+        )}
+      </div>
+      {/* Ingresos por mes (tabla) */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-emerald-500 mb-6">
+        <h3 className="text-lg font-bold text-emerald-700 dark:text-emerald-300 mb-4">{t('admin.monthlyEarnings')}</h3>
+        {revenue.monthlyTotals.length === 0 ? (
+          <p className="text-gray-500 dark:text-gray-400">{t('admin.noPaymentsRegistered')}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full bg-white dark:bg-gray-800 border dark:border-gray-700 rounded">
+              <thead className="bg-emerald-50 dark:bg-gray-700">
+                <tr>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.monthLabel')}</th>
+                  <th className="px-4 py-2 border dark:border-gray-600 text-gray-900 dark:text-gray-100">{t('admin.amountLabel')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {revenue.monthlyTotals.map(row => (
+                  <tr key={row.month} className="group hover:bg-emerald-50 dark:hover:bg-gray-700/80 transition-colors">
+                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">{row.month}</td>
+                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">
+                      {revenue.currency} {Number(row.amount).toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
       {/* Costes fijos mensuales (control) - editables */}

@@ -201,6 +201,8 @@ Ver archivo `LICENSE` para más detalles.
 
 ## Documentación
 
+Este es el **README principal del proyecto** (en español; [versión en inglés](README.en.md)). El archivo **[docs/README.md](docs/README.md)** es solo el **índice de la carpeta de documentación** (guías de usuarios, monitor, legal, scripts SQL), no un segundo readme del proyecto.
+
 Índice completo: **[docs/README.md](docs/README.md)**.
 
 Documentación en la raíz del repo:
@@ -210,12 +212,14 @@ Documentación en la raíz del repo:
 | [COPYRIGHT_NOTICE.md](COPYRIGHT_NOTICE.md) | Aviso de copyright y contacto. |
 | [TERMS_OF_SERVICE.md](TERMS_OF_SERVICE.md) | Términos de servicio (EN/ES). |
 | [LEGAL_PROTECTION.md](LEGAL_PROTECTION.md) | Guía de protección legal. |
-| [DEPLOY_RENDER.md](DEPLOY_RENDER.md) | Despliegue en Render (CORS, migraciones). |
-| [SUPABASE_PRODUCTION.md](SUPABASE_PRODUCTION.md) | Supabase en producción y Resend. |
-| [TWITTER_SETUP.md](TWITTER_SETUP.md) | Configuración de Twitter/X OAuth para publicación. |
-| [STRIPE_INTEGRATION.md](STRIPE_INTEGRATION.md) | Integración de pagos con Stripe (checkout, suscripciones, webhooks). |
-| [SISTEMA_Y_TECNOLOGIAS.md](SISTEMA_Y_TECNOLOGIAS.md) | Arquitectura, flujos y tecnologías. |
-| [SCHEDULER_MEJORAS_IMPLEMENTADAS.md](SCHEDULER_MEJORAS_IMPLEMENTADAS.md) | Mejoras del scheduler (estados, idempotencia, etc.). |
+| [PROTECTION_SUMMARY.md](PROTECTION_SUMMARY.md) | Resumen de protecciones implementadas. |
+| [PROTECTION_CHECKLIST.md](PROTECTION_CHECKLIST.md) | Checklist pre-despliegue. |
+| [STRIPE_PASO_A_PASO_LIVE.md](STRIPE_PASO_A_PASO_LIVE.md) | Stripe paso a paso (live/checkout). |
+
+En **docs/**:
+
+- [GUIA-USUARIOS.md](docs/GUIA-USUARIOS.md) / [USER-GUIDE.md](docs/USER-GUIDE.md) – Guía para usuarios finales (ES/EN).
+- [DISCORD-BOT-PERMISSIONS.md](docs/DISCORD-BOT-PERMISSIONS.md) – Permisos del bot de Discord.
 
 Scripts SQL para Supabase (ejecutar en el SQL Editor del proyecto):
 

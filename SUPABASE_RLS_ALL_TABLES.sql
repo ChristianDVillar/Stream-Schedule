@@ -21,6 +21,11 @@ ALTER TABLE public."Messages" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."MessageReplies" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."Notifications" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."NotificationReads" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."ContentPlatforms" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."PublicationMetrics" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."TwitchBitEvents" ENABLE ROW LEVEL SECURITY;
+-- TwitchEventSubSubscriptions contains sensitive column "secret"; RLS required to avoid API exposure.
+ALTER TABLE public."TwitchEventSubSubscriptions" ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
 -- uploads (Supabase storage metadata / custom table; name often lowercase)
