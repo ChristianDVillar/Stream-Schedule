@@ -163,9 +163,7 @@ See `LICENSE` file for details.
 
 ## Documentation
 
-This is the **main project README** (in English; [Spanish version](README.md)). The file **[docs/README.md](docs/README.md)** is only the **documentation index** (user guides, monitoring, legal, SQL scripts), not a second project readme.
-
-Full docs index: **[docs/README.md](docs/README.md)**.
+Full index: **[docs/README.md](docs/README.md)** (legal protection, terms, and SQL scripts).
 
 Documentation in the repo root:
 
@@ -174,14 +172,8 @@ Documentation in the repo root:
 | [COPYRIGHT_NOTICE.md](COPYRIGHT_NOTICE.md) | Copyright notice and contact. |
 | [TERMS_OF_SERVICE.md](TERMS_OF_SERVICE.md) | Terms of service (EN/ES). |
 | [LEGAL_PROTECTION.md](LEGAL_PROTECTION.md) | Legal protection guide. |
-| [PROTECTION_SUMMARY.md](PROTECTION_SUMMARY.md) | Summary of implemented protections. |
+| [PROTECTION_SUMMARY.md](PROTECTION_SUMMARY.md) | Summary of protections implemented. |
 | [PROTECTION_CHECKLIST.md](PROTECTION_CHECKLIST.md) | Pre-deployment checklist. |
-| [STRIPE_PASO_A_PASO_LIVE.md](STRIPE_PASO_A_PASO_LIVE.md) | Stripe step-by-step (live/checkout). |
-
-In **docs/**:
-
-- [GUIA-USUARIOS.md](docs/GUIA-USUARIOS.md) / [USER-GUIDE.md](docs/USER-GUIDE.md) – End-user guide (ES/EN).
-- [DISCORD-BOT-PERMISSIONS.md](docs/DISCORD-BOT-PERMISSIONS.md) – Discord bot permissions.
 
 SQL scripts for Supabase (run in the project SQL Editor):
 
