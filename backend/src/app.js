@@ -179,6 +179,7 @@ app.get('/api/user/post-performance', requireAuth, postPerformanceHandler);
 const DEFAULT_FIXED_MONTHLY_COSTS = [
   { label: 'Cursor', amount: 20, currency: 'EUR' },
   { label: 'Render', amount: 7, currency: 'EUR' },
+  { label: 'Upstash Redis', amount: 0.38, currency: 'USD' },
 ];
 app.get('/api/user/admin/fixed-costs', requireAdmin, async (req, res) => {
   try {

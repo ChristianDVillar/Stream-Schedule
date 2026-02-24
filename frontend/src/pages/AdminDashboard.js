@@ -149,7 +149,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
       setFixedCosts(Array.isArray(res.data.fixedCosts) ? res.data.fixedCosts : []);
     } catch (err) {
       if (err.response?.status === 404) {
-        setFixedCosts([{ label: 'Cursor', amount: 20, currency: 'EUR' }, { label: 'Render', amount: 7, currency: 'EUR' }]);
+        setFixedCosts([{ label: 'Cursor', amount: 20, currency: 'EUR' }, { label: 'Render', amount: 7, currency: 'EUR' }, { label: 'Upstash Redis', amount: 0.38, currency: 'USD' }]);
       } else {
         maybeShowNetworkError(err);
         if (!isNetworkError(err)) toast.error(err.response?.data?.error || t('admin.fixedCostsLoadError'));
@@ -386,7 +386,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
         titleLabel: t('admin.pdfTitle'),
         accountingSectionLabel: t('admin.pdfAccountingSection'),
         noteText: t('admin.pdfNote'),
-        fixedCosts: (fixedCosts.length > 0 ? fixedCosts : [{ label: 'Cursor', amount: 20, currency: 'EUR' }, { label: 'Render', amount: 7, currency: 'EUR' }]).map(x => ({ label: x.label, amount: Number(x.amount) || 0, currency: (x.currency || 'EUR').toUpperCase() })),
+        fixedCosts: (fixedCosts.length > 0 ? fixedCosts : [{ label: 'Cursor', amount: 20, currency: 'EUR' }, { label: 'Render', amount: 7, currency: 'EUR' }, { label: 'Upstash Redis', amount: 0.38, currency: 'USD' }]).map(x => ({ label: x.label, amount: Number(x.amount) || 0, currency: (x.currency || 'EUR').toUpperCase() })),
         fixedCostsSectionLabel: t('admin.pdfFixedCostsSection'),
         revenueMinusFixedLabel: t('admin.pdfRevenueMinusFixed'),
         resultLabel: t('admin.pdfResult'),

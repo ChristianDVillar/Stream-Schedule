@@ -96,7 +96,8 @@ const Integration = sequelize.define('Integration', {
   indexes: [
     {
       unique: true,
-      fields: ['userId', 'provider']
+      fields: ['userId', 'provider'],
+      name: 'integrations_user_provider_unique'
     },
     {
       fields: ['provider', 'status']
