@@ -54,7 +54,7 @@ const AuditLog = sequelize.define('AuditLog', {
     { fields: ['userId'] },
     { fields: ['action'] },
     { fields: ['resourceType', 'resourceId'] },
-    { fields: ['createdAt'] },
+    { fields: ['createdAt'], name: 'audit_logs_created_at_idx' },
   ],
 });
 

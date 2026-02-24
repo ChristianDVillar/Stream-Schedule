@@ -1,9 +1,6 @@
 /**
- * Migration: Enable RLS on ContentPlatforms, TwitchBitEvents, TwitchEventSubSubscriptions.
- * Resolves Supabase alerts:
- * - "Table public.TwitchEventSubSubscriptions is exposed via API without RLS and contains potentially sensitive column(s): secret"
- * - "Table public.TwitchBitEvents is public, but RLS has not been enabled"
- * - "Table public.ContentPlatforms is public, but RLS has not been enabled"
+ * Migration: Enable RLS on ContentPlatforms, PublicationMetrics, TwitchBitEvents, TwitchEventSubSubscriptions.
+ * Resolves Supabase alerts for these tables being public without RLS.
  * Run in PostgreSQL (Supabase). No-op if not postgres or if RLS is already enabled.
  */
 
@@ -14,6 +11,7 @@ export default {
 
     const tables = [
       'ContentPlatforms',
+      'PublicationMetrics',
       'TwitchBitEvents',
       'TwitchEventSubSubscriptions',
     ];
@@ -30,6 +28,7 @@ export default {
 
     const tables = [
       'ContentPlatforms',
+      'PublicationMetrics',
       'TwitchBitEvents',
       'TwitchEventSubSubscriptions',
     ];

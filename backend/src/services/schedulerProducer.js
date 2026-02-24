@@ -13,7 +13,8 @@ import { enqueuePublication } from './publicationQueueService.js';
 import logger from '../utils/logger.js';
 import { APP_CONFIG } from '../constants/app.js';
 
-const INTERVAL_MS = 30000; // Check every 30 seconds (more frequent for better responsiveness)
+// Use configurable interval (default 60s) to reduce Redis usage on Upstash free tier (500k req/month)
+const INTERVAL_MS = APP_CONFIG.SCHEDULER_INTERVAL_MS;
 
 /**
  * Find content that is scheduled and due (scheduledFor <= now).

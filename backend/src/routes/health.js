@@ -17,6 +17,19 @@ import { getRedis, isRedisAvailable } from '../utils/redisConnection.js';
 
 const router = express.Router();
 
+/** Cache queue stats to reduce Redis calls (Upstash free tier limit). TTL 30s. */
+const QUEUE_STATS_CACHE_MS = 30000;
+let queueStatsCache = { value: null, at: 0 };
+async function getQueueStatsCached() {
+  const now = Date.now();
+  if (queueStatsCache.value !== null && now - queueStatsCache.at < QUEUE_STATS_CACHE_MS) {
+    return queueStatsCache.value;
+  }
+  const value = await getQueueStats();
+  queueStatsCache = { value, at: now };
+  return value;
+}
+
 /**
  * GET /api/health/live
  * Liveness: process is up. Returns 200 only (for Render, K8s liveness).
@@ -128,10 +141,10 @@ router.get('/', async (req, res) => {
     }
     health.db = dbStatus;
 
-    // Queue
+    // Queue (cached to reduce Redis requests)
     let queueStatus = 'unavailable';
     try {
-      const queueStats = await getQueueStats();
+      const queueStats = await getQueueStatsCached();
       health.queue = queueStats;
       if (queueStats.enabled) queueStatus = queueStats.error ? 'degraded' : 'healthy';
     } catch (error) {
@@ -164,7 +177,7 @@ router.get('/', async (req, res) => {
  */
 router.get('/queue', async (req, res) => {
   try {
-    const stats = await getQueueStats();
+    const stats = await getQueueStatsCached();
     res.json(stats);
   } catch (error) {
     logger.error('Queue stats error', { error: error.message });
