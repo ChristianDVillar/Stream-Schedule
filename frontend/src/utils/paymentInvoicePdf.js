@@ -45,6 +45,7 @@ import { jsPDF } from 'jspdf';
 const DEFAULT_FIXED_COSTS = [
   { label: 'Cursor', amount: 20, currency: 'EUR' },
   { label: 'Render', amount: 7, currency: 'EUR' },
+  { label: 'Upstash Redis', amount: 0.38, currency: 'USD' },
 ];
 
 export function buildPaymentsInvoicePdf(payments, options = {}) {

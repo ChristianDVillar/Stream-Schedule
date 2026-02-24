@@ -2749,6 +2749,7 @@ router.post('/admin/license-config', requireAdmin, async (req, res) => {
 const DEFAULT_FIXED_MONTHLY_COSTS = [
   { label: 'Cursor', amount: 20, currency: 'EUR' },
   { label: 'Render', amount: 7, currency: 'EUR' },
+  { label: 'Upstash Redis', amount: 0.38, currency: 'USD' },
 ];
 
 // Handlers exported for explicit registration in app.js (avoids 404 if router order differs)
