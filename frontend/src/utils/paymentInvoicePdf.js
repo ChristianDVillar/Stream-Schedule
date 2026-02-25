@@ -233,10 +233,14 @@ export function buildPaymentsInvoicePdf(payments, options = {}) {
 
   // ----- 2) Tabla: Fixed monthly costs (control) -----
   const fixedTotalByCurrency = {};
+  let fixedCostsTotalEur = 0; // Suma de gastos fijos convertidos a EUR con cotización
   if (Array.isArray(fixedCosts) && fixedCosts.length > 0) {
     for (const item of fixedCosts) {
       const c = (item.currency || 'EUR').toUpperCase();
-      fixedTotalByCurrency[c] = (fixedTotalByCurrency[c] || 0) + Number(item.amount || 0);
+      const amt = Number(item.amount || 0);
+      fixedTotalByCurrency[c] = (fixedTotalByCurrency[c] || 0) + amt;
+      const rateToEur = c === 'EUR' ? 1 : (exchangeRatesToEur[c] != null ? exchangeRatesToEur[c] : 0);
+      fixedCostsTotalEur += amt * rateToEur;
     }
   }
   const fixedTableW = tableWidth;
@@ -294,17 +298,29 @@ export function buildPaymentsInvoicePdf(payments, options = {}) {
     doc.text(amtStr, fixedAmountXEnd - doc.getTextWidth(amtStr), y + 5);
     y += fixedRowH;
   }
+  // Fila: Total gastos fijos en EUR (con cotización aplicada)
+  const hasMultipleCurrencies = currenciesFixed.length > 1 || (currenciesFixed.length === 1 && currenciesFixed[0] !== 'EUR');
+  if (hasMultipleCurrencies && fixedCostsTotalEur > 0) {
+    doc.rect(tableLeft, y, fixedTableW, fixedRowH, 'S');
+    doc.text(fixedCostsTotalLabel + ' (EUR)', tableLeft + 3, y + 5);
+    doc.text('EUR', tableLeft + fixedColW[0] + 3, y + 5);
+    const eurTotalStr = fixedCostsTotalEur.toFixed(2);
+    doc.text(eurTotalStr, fixedAmountXEnd - doc.getTextWidth(eurTotalStr), y + 5);
+    y += fixedRowH;
+  }
   doc.setFont(undefined, 'normal');
   y += 8;
 
   // ----- 3) Tabla: Final Total (subscriptions, fixed costs, total income) -----
   const allCurrencies = [...new Set([...Object.keys(totalsByCurrency), ...Object.keys(fixedTotalByCurrency)])].sort();
   let totalIncomeEur = 0;
+  let subsTotalEur = 0; // Total ingresos suscripciones convertido a EUR (cotización aplicada)
   for (const c of allCurrencies) {
     const subs = totalsByCurrency[c] != null ? totalsByCurrency[c] : 0;
     const fixed = fixedTotalByCurrency[c] != null ? fixedTotalByCurrency[c] : 0;
-    const incomeInCurrency = subs - fixed;
     const rate = c === 'EUR' ? 1 : (exchangeRatesToEur[c] != null ? exchangeRatesToEur[c] : 0);
+    subsTotalEur += subs * rate;
+    const incomeInCurrency = subs - fixed;
     totalIncomeEur += incomeInCurrency * rate;
   }
   const ftTableW = tableWidth;
@@ -329,37 +345,26 @@ export function buildPaymentsInvoicePdf(payments, options = {}) {
   doc.text('Amount', ftAmountXEnd - doc.getTextWidth('Amount'), y + 5.5);
   y += ftHeaderH;
   doc.setFont(undefined, 'normal');
-  // Fila 1: Total income (subscriptions)
+  // Fila 1: Total income (subscriptions) en EUR con cotización aplicada
   doc.rect(tableLeft, y, ftTableW, ftRowH, 'S');
   doc.text(totalIncomeSubscriptionsLabel, tableLeft + 3, y + 5);
   const subsCurrencies = Object.keys(totalsByCurrency).sort();
-  if (subsCurrencies.length > 0) {
-    const sc = subsCurrencies[0];
-    const rateStr = sc === 'EUR' ? '—' : (exchangeRatesToEur[sc] != null ? String(exchangeRatesToEur[sc]) : '—');
-    const amtStr = totalsByCurrency[sc].toFixed(2);
-    doc.text(rateStr, tableLeft + ftColW[0] + 3, y + 5);
-    doc.text(sc, tableLeft + ftColW[0] + ftColW[1] + 3, y + 5);
-    doc.text(amtStr, ftAmountXEnd - doc.getTextWidth(amtStr), y + 5);
-  } else {
-    doc.text('—', tableLeft + ftColW[0] + 3, y + 5);
-    doc.text('EUR', tableLeft + ftColW[0] + ftColW[1] + 3, y + 5);
-    doc.text('0.00', ftAmountXEnd - doc.getTextWidth('0.00'), y + 5);
-  }
+  const subsRateDisplay = subsCurrencies.some(c => c !== 'EUR') && Object.keys(exchangeRatesToEur).length > 0
+    ? String(exchangeRatesToEur.USD ?? exchangeRatesToEur[subsCurrencies.find(c => c !== 'EUR')] ?? '—')
+    : '—';
+  doc.text(subsRateDisplay, tableLeft + ftColW[0] + 3, y + 5);
+  doc.text('EUR', tableLeft + ftColW[0] + ftColW[1] + 3, y + 5);
+  const subsEurStr = subsTotalEur.toFixed(2);
+  doc.text(subsEurStr, ftAmountXEnd - doc.getTextWidth(subsEurStr), y + 5);
   y += ftRowH;
-  // Fila 2: Total fixed costs
+  // Fila 2: Total fixed costs (en EUR con cotización aplicada a USD y otras monedas)
   doc.rect(tableLeft, y, ftTableW, ftRowH, 'S');
   doc.text(fixedCostsTotalLabel, tableLeft + 3, y + 5);
-  doc.text('—', tableLeft + ftColW[0] + 3, y + 5);
-  const fixedCurrencies = Object.keys(fixedTotalByCurrency).sort();
-  if (fixedCurrencies.length > 0) {
-    const fc = fixedCurrencies[0];
-    const amtStr = fixedTotalByCurrency[fc].toFixed(2);
-    doc.text(fc, tableLeft + ftColW[0] + ftColW[1] + 3, y + 5);
-    doc.text(amtStr, ftAmountXEnd - doc.getTextWidth(amtStr), y + 5);
-  } else {
-    doc.text('EUR', tableLeft + ftColW[0] + ftColW[1] + 3, y + 5);
-    doc.text('0.00', ftAmountXEnd - doc.getTextWidth('0.00'), y + 5);
-  }
+  const hasNonEurFixed = Object.keys(fixedTotalByCurrency).some(c => c !== 'EUR');
+  doc.text(hasNonEurFixed ? (exchangeRatesToEur.USD != null ? String(exchangeRatesToEur.USD) : '—') : '—', tableLeft + ftColW[0] + 3, y + 5);
+  doc.text('EUR', tableLeft + ftColW[0] + ftColW[1] + 3, y + 5);
+  const fixedEurStr = fixedCostsTotalEur.toFixed(2);
+  doc.text(fixedEurStr, ftAmountXEnd - doc.getTextWidth(fixedEurStr), y + 5);
   y += ftRowH;
   // Fila 3: Total income (net)
   doc.setFont(undefined, 'bold');

@@ -16,7 +16,7 @@ import MessagesAndNotificationsDropdown from './components/MessagesAndNotificati
 import { Toaster } from 'react-hot-toast';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { AuthProvider, useAuth } from './store/authStore';
-import { getStoredAccentColor, applyAccentColor, THEME_CHANGE_EVENT } from './utils/themeUtils';
+import { getStoredAccentColor, applyAccentColor, THEME_CHANGE_EVENT, getStoredAvatarLogoBackground, AVATAR_LOGO_BG_CHANGE_EVENT } from './utils/themeUtils';
 import { APP_VERSION } from './version';
 import { getUnreadMessageCount } from './api';
 
@@ -59,9 +59,10 @@ function UserRoute({ user, children }) {
   return children;
 }
 
-function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInstallApp }) {
+function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInstallApp, avatarLogoBackground }) {
   const navigate = useNavigate();
   const { t, toggleLanguage, language } = useLanguage();
+  const avatarLogoBgStyle = avatarLogoBackground ? { backgroundColor: avatarLogoBackground } : undefined;
   if (!user) return null;
   return (
     <header className="bg-white dark:bg-gray-800 shadow-sm border-b mb-4">
@@ -75,22 +76,32 @@ function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInst
           >
             <Menu className="w-6 h-6 text-accent" />
           </button>
-          <img
-            src="/Bot.png"
-            alt=""
-            className="h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0 object-contain rounded-lg ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white dark:ring-offset-gray-800"
-            aria-hidden
-          />
-          <span className="font-bold text-accent truncate text-sm sm:text-base">Streamer Scheduler</span>
-          {user.profileImageUrl ? (
+          <span
+            className="h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0 rounded-lg ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white dark:ring-offset-gray-800 flex items-center justify-center overflow-hidden"
+            style={avatarLogoBgStyle}
+          >
             <img
-              src={user.profileImageUrl}
+              src="/ScheduleLogo.png"
               alt=""
-              className="h-8 w-8 sm:h-9 sm:w-9 rounded-full flex-shrink-0 object-cover ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white dark:ring-offset-gray-800"
+              className="h-8 w-8 sm:h-9 sm:w-9 object-contain"
               aria-hidden
             />
+          </span>
+          <span className="font-bold text-accent truncate text-sm sm:text-base">Streamer Scheduler</span>
+          {user.profileImageUrl ? (
+            <span
+              className="h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0 rounded-full ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white dark:ring-offset-gray-800 flex items-center justify-center overflow-hidden"
+              style={avatarLogoBgStyle}
+            >
+              <img
+                src={user.profileImageUrl}
+                alt=""
+                className="h-8 w-8 sm:h-9 sm:w-9 rounded-full object-cover"
+                aria-hidden
+              />
+            </span>
           ) : (
-            <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full flex-shrink-0 flex items-center justify-center text-white text-sm font-bold ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white dark:ring-offset-gray-800" style={{ backgroundColor: 'var(--accent)' }}>
+            <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full flex-shrink-0 flex items-center justify-center text-white text-sm font-bold ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white dark:ring-offset-gray-800 overflow-hidden" style={avatarLogoBgStyle || { backgroundColor: 'var(--accent)' }}>
               {user.username?.charAt(0).toUpperCase() || '?'}
             </div>
           )}
@@ -207,6 +218,13 @@ function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
   const [adminUnreadMessageCount, setAdminUnreadMessageCount] = useState(0);
+  const [avatarLogoBackground, setAvatarLogoBackground] = useState(getStoredAvatarLogoBackground);
+
+  useEffect(() => {
+    const handler = () => setAvatarLogoBackground(getStoredAvatarLogoBackground());
+    window.addEventListener(AVATAR_LOGO_BG_CHANGE_EVENT, handler);
+    return () => window.removeEventListener(AVATAR_LOGO_BG_CHANGE_EVENT, handler);
+  }, []);
 
   // Admin: fetch unread support message count for sidebar badge
   useEffect(() => {
@@ -283,7 +301,7 @@ function AppContent() {
       <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900 min-w-0">
         {user && <Sidebar user={user} open={sidebarOpen} onClose={() => setSidebarOpen(false)} adminUnreadMessageCount={adminUnreadMessageCount} />}
         <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
-          <Header user={user} token={token} onLogout={clearAuth} onMenuClick={() => setSidebarOpen(true)} installPromptEvent={deferredInstallPrompt} onInstallApp={handleInstallClick} />
+          <Header user={user} token={token} onLogout={clearAuth} onMenuClick={() => setSidebarOpen(true)} installPromptEvent={deferredInstallPrompt} onInstallApp={handleInstallClick} avatarLogoBackground={avatarLogoBackground} />
           <div className="flex-1">
             <Routes>
               <Route path="/login" element={<Login setAuth={setAuth} />} />

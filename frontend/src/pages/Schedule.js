@@ -56,7 +56,8 @@ const Schedule = ({ user, token }) => {
       count: 1
     },
     discordGuildId: '',
-    discordChannelId: ''
+    discordChannelId: '',
+    discordAnnouncementChannelId: '' // optional: channel to post announcement when event is selected
   });
   const [discordGuilds, setDiscordGuilds] = useState([]);
   const [discordChannels, setDiscordChannels] = useState([]);
@@ -158,6 +159,7 @@ const Schedule = ({ user, token }) => {
       timezone: template.timezone || prev.timezone,
       discordGuildId: template.discordGuildId || prev.discordGuildId,
       discordChannelId: template.discordChannelId || prev.discordChannelId,
+      discordAnnouncementChannelId: template.discordAnnouncementChannelId ?? prev.discordAnnouncementChannelId,
     }));
     toast.success(t('schedule.templateApplied', { name: template.name }));
     navigate(location.pathname, { replace: true, state: {} });
@@ -447,7 +449,10 @@ const Schedule = ({ user, token }) => {
           // For non-events, channel is required
           payload.discordChannelId = formData.discordChannelId || null;
         }
-        // For events, channel is optional (not included in payload)
+        // For events: optional channel to post announcement
+        if (formData.contentType === 'event' && formData.discordAnnouncementChannelId) {
+          payload.discordAnnouncementChannelId = formData.discordAnnouncementChannelId;
+        }
       }
       
       // Add event location URL if provided (for Discord external events)
@@ -601,9 +606,10 @@ const Schedule = ({ user, token }) => {
         }];
       }
       
-      // When contentType changes away from 'event', clear eventDates
+      // When contentType changes away from 'event', clear eventDates and announcement channel
       if (field === 'contentType' && value !== 'event') {
         newData.eventDates = [];
+        newData.discordAnnouncementChannelId = '';
       }
       
       return newData;
@@ -624,6 +630,7 @@ const Schedule = ({ user, token }) => {
       if (platform === 'discord' && !nextPlatforms.includes('discord')) {
         next.discordGuildId = '';
         next.discordChannelId = '';
+        next.discordAnnouncementChannelId = '';
       }
       return next;
     });
@@ -683,7 +690,8 @@ const Schedule = ({ user, token }) => {
       recurrence: formData.recurrence,
       timezone: formData.timezone,
       discordGuildId: formData.discordGuildId || null,
-      discordChannelId: formData.discordChannelId || null
+      discordChannelId: formData.discordChannelId || null,
+      discordAnnouncementChannelId: formData.discordAnnouncementChannelId || null
     };
     setTemplates(prev => [...prev, template]);
     setTemplateName('');
@@ -709,7 +717,8 @@ const Schedule = ({ user, token }) => {
       recurrence: template.recurrence || prev.recurrence,
       timezone: template.timezone || prev.timezone,
       discordGuildId: template.discordGuildId || prev.discordGuildId,
-      discordChannelId: template.discordChannelId || prev.discordChannelId
+      discordChannelId: template.discordChannelId || prev.discordChannelId,
+      discordAnnouncementChannelId: template.discordAnnouncementChannelId ?? prev.discordAnnouncementChannelId
     }));
     toast.success(t('schedule.templateApplied', { name: template.name }));
   };
@@ -1285,7 +1294,7 @@ const Schedule = ({ user, token }) => {
                     id="discordGuildId"
                     name="discordGuildId"
                     value={formData.discordGuildId}
-                    onChange={(e) => setFormData(prev => ({ ...prev, discordGuildId: e.target.value, discordChannelId: '' }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, discordGuildId: e.target.value, discordChannelId: '', discordAnnouncementChannelId: '' }))}
                     className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 focus:ring-2 focus:ring-indigo-500 mb-4"
                   >
                     <option value="">{loadingDiscordGuilds ? (t('common.loading') || 'Loading...') : (t('schedule.discordChooseServer') || 'Choose server')}</option>
@@ -1319,9 +1328,31 @@ const Schedule = ({ user, token }) => {
                     </>
                   )}
                   {formData.contentType === 'event' && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                      {t('schedule.eventNoChannelNeeded') || 'Events are created directly on the server and do not require a channel.'}
-                    </p>
+                    <>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                        {t('schedule.eventNoChannelNeeded') || 'Events are created directly on the server and do not require a channel.'}
+                      </p>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 mt-3">
+                        <Hash className="w-4 h-4 inline mr-1" />
+                        {t('schedule.discordAnnouncementChannel') || 'Announcement channel (optional)'}
+                      </label>
+                      <select
+                        id="discordAnnouncementChannelId"
+                        name="discordAnnouncementChannelId"
+                        value={formData.discordAnnouncementChannelId}
+                        onChange={(e) => setFormData(prev => ({ ...prev, discordAnnouncementChannelId: e.target.value }))}
+                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 focus:ring-2 focus:ring-indigo-500"
+                        disabled={!formData.discordGuildId || loadingDiscordChannels}
+                      >
+                        <option value="">{loadingDiscordChannels ? (t('common.loading') || 'Loading...') : (t('schedule.discordNoAnnouncement') || 'No announcement')}</option>
+                        {discordChannels.filter((c) => c.type === 0).map((c) => (
+                          <option key={c.id} value={c.id}>#{c.name}</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {t('schedule.discordAnnouncementChannelHelp') || 'Post an announcement in this channel when the event is created.'}
+                      </p>
+                    </>
                   )}
                 </div>
               )}

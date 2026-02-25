@@ -27,7 +27,7 @@ import {
   disconnectYoutube,
 } from '../../api';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { applyAccentColor, THEME_CHANGE_EVENT, getCustomColorConfig, setCustomColorConfig, applyCustomColors } from '../../utils/themeUtils';
+import { applyAccentColor, THEME_CHANGE_EVENT, getCustomColorConfig, setCustomColorConfig, applyCustomColors, AVATAR_LOGO_BG_STORAGE_KEY, AVATAR_LOGO_BG_CHANGE_EVENT } from '../../utils/themeUtils';
 import { getPlatformColors } from '../../utils/platformColors';
 import { BANNER_CONFIG_KEY, getBannersFromEnv } from '../../components/HeaderBanners';
 import { handleUpload, getUploadStats } from '../../utils/uploadHelper';
@@ -129,6 +129,14 @@ export default function Settings({ user, token, setUser }) {
       }
     })(),
     compactMode: false,
+    avatarLogoBackground: (() => {
+      try {
+        const v = localStorage.getItem('avatarLogoBackground');
+        return typeof v === 'string' && v.trim() !== '' ? v.trim() : '';
+      } catch {
+        return '';
+      }
+    })(),
   });
 
   const [customColorConfig, setCustomColorConfigState] = useState(() => getCustomColorConfig());
@@ -213,6 +221,14 @@ export default function Settings({ user, token, setUser }) {
   useEffect(() => {
     applyCustomColors(customColorConfig);
   }, [customColorConfig]);
+
+  useEffect(() => {
+    try {
+      const v = themeSettings.avatarLogoBackground || '';
+      localStorage.setItem(AVATAR_LOGO_BG_STORAGE_KEY, v);
+      window.dispatchEvent(new CustomEvent(AVATAR_LOGO_BG_CHANGE_EVENT, { detail: v }));
+    } catch (e) {}
+  }, [themeSettings.avatarLogoBackground]);
 
   useEffect(() => {
     if (token) {
