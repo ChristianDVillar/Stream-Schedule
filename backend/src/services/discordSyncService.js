@@ -7,7 +7,7 @@
 import crypto from 'crypto';
 import { Content } from '../models/index.js';
 import { Op } from 'sequelize';
-import { createDiscordScheduledEvent, updateDiscordScheduledEvent, deleteDiscordScheduledEvent } from '../utils/discordPublish.js';
+import { createDiscordScheduledEvent, updateDiscordScheduledEvent, deleteDiscordScheduledEvent, postToDiscordChannel } from '../utils/discordPublish.js';
 import { getDiscordEventLocation } from '../utils/contentFormatter.js';
 import { getRedis } from '../utils/redisConnection.js';
 import logger from '../utils/logger.js';
@@ -186,6 +186,27 @@ export async function processSync(contentId) {
         lastSyncedAt: new Date(),
       });
       logger.info('Discord sync: event created', { contentId, discordEventId: eventData?.id });
+
+      // Optional: post announcement to a channel
+      const announcementChannelId = content.discordAnnouncementChannelId || null;
+      if (announcementChannelId && eventData?.id) {
+        const eventLink = `https://discord.com/events/${guildId}/${eventData.id}`;
+        const msg = [
+          `📅 **${name}**`,
+          content.content ? `${content.content.slice(0, 300)}${content.content.length > 300 ? '…' : ''}` : '',
+          `🔗 [Ver evento / View event](${eventLink})`,
+        ].filter(Boolean).join('\n\n').slice(0, 2000);
+        try {
+          await postToDiscordChannel(announcementChannelId, msg);
+          logger.info('Discord sync: announcement posted', { contentId, channelId: announcementChannelId });
+        } catch (annErr) {
+          logger.warn('Discord sync: announcement failed (event was created)', {
+            contentId,
+            channelId: announcementChannelId,
+            error: annErr.message,
+          });
+        }
+      }
     }
   } finally {
     await releaseLock(contentId);

@@ -78,6 +78,7 @@ export const contentSchema = Joi.object({
   recurrence: recurrenceSchema,
   discordGuildId: Joi.string().max(100).allow('', null).optional(),
   discordChannelId: Joi.string().max(100).allow('', null).optional(),
+  discordAnnouncementChannelId: Joi.string().max(100).allow('', null).optional(),
   eventDates: Joi.array()
     .items(Joi.object({
       date: Joi.string().min(1).required().messages({
@@ -141,6 +142,7 @@ export const updateContentSchema = Joi.object({
   recurrence: recurrenceSchema,
   discordGuildId: Joi.string().max(100).allow('', null).optional(),
   discordChannelId: Joi.string().max(100).allow('', null).optional(),
+  discordAnnouncementChannelId: Joi.string().max(100).allow('', null).optional(),
   eventDates: Joi.array()
     .items(Joi.object({
       date: Joi.string().required(),

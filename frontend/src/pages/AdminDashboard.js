@@ -348,7 +348,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
       let logoDataUrl = null;
       try {
         const base = window.location.origin + (process.env.PUBLIC_URL || '');
-        const logoUrl = `${base}/Bot.png`;
+        const logoUrl = `${base}/ScheduleLogo.png`;
         logoDataUrl = await new Promise((resolve) => {
           const img = new Image();
           img.onload = () => {

@@ -245,6 +245,11 @@ const Content = sequelize.define('Content', {
     allowNull: true,
     comment: 'Discord channel ID where to publish when platforms includes discord'
   },
+  discordAnnouncementChannelId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Optional Discord channel ID to post an announcement when event is created'
+  },
   discordEventId: {
     type: DataTypes.STRING,
     allowNull: true,

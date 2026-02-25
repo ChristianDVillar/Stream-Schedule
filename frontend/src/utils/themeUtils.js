@@ -132,6 +132,21 @@ export function applyCustomColors(config) {
 /** Event name dispatched when theme (light/dark) is applied. Listen to re-render theme-dependent UI. */
 export const THEME_CHANGE_EVENT = 'themechange';
 
+/** localStorage key for background color of logo and profile image in header. */
+export const AVATAR_LOGO_BG_STORAGE_KEY = 'avatarLogoBackground';
+
+/** Event dispatched when avatar/logo background is changed in Settings. */
+export const AVATAR_LOGO_BG_CHANGE_EVENT = 'avatarLogoBackgroundChange';
+
+export function getStoredAvatarLogoBackground() {
+  try {
+    const v = localStorage.getItem(AVATAR_LOGO_BG_STORAGE_KEY);
+    return typeof v === 'string' && v.trim() !== '' ? v.trim() : '';
+  } catch {
+    return '';
+  }
+}
+
 /**
  * Current effective theme: 'dark' if document has .dark class, else 'light'.
  * Matches what the user sees (Settings applies the class for light/dark/auto).
