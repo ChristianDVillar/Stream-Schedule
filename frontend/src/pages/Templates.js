@@ -193,8 +193,8 @@ export default function Templates({ user, token }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-6 px-4">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-6 px-3 sm:px-6 min-w-0 overflow-x-hidden">
+      <div className="max-w-4xl mx-auto min-w-0">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
             <FileText className="w-7 h-7" />

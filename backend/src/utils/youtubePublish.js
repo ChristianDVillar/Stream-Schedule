@@ -13,11 +13,17 @@ import logger from './logger.js';
  * @param {string} refreshToken - OAuth refresh token
  * @returns {Promise<{ accessToken: string, expiresAt: Date }>}
  */
+const youtubeCallbackUrl = () => {
+  if (process.env.YOUTUBE_REDIRECT_URI) return process.env.YOUTUBE_REDIRECT_URI;
+  const base = (process.env.BACKEND_URL || 'http://localhost:5000').replace(/\/$/, '');
+  return `${base}/api/youtube/callback`;
+};
+
 async function refreshAccessToken(refreshToken) {
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    process.env.YOUTUBE_REDIRECT_URI || `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/youtube/callback`
+    youtubeCallbackUrl()
   );
 
   oauth2Client.setCredentials({ refresh_token: refreshToken });
@@ -43,7 +49,7 @@ async function getYouTubeClient(refreshToken) {
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    process.env.YOUTUBE_REDIRECT_URI || `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/youtube/callback`
+    youtubeCallbackUrl()
   );
 
   oauth2Client.setCredentials({ refresh_token: refreshToken });

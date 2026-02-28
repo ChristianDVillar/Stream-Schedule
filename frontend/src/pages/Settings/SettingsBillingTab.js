@@ -78,8 +78,8 @@ export default function SettingsBillingTab({
 
       {subscriptionStatus?.hasSubscription && (
         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-          <div className="flex items-start justify-between">
-            <div>
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+            <div className="min-w-0 flex-1">
               <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">{t('settings.activeSubscription')}</h4>
               <div className="space-y-1 text-sm text-blue-800 dark:text-blue-200">
                 <p>{t('settings.status')}: <span className="font-medium capitalize">{subscriptionStatus.subscription.status}</span></p>
@@ -93,7 +93,7 @@ export default function SettingsBillingTab({
               <button
                 onClick={onCancelSubscription}
                 disabled={loadingSubscription}
-                className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                className="w-full sm:w-auto flex-shrink-0 px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 min-h-[44px]"
               >
                 {loadingSubscription ? t('settings.processing') : t('settings.cancelSubscription')}
               </button>
@@ -107,9 +107,9 @@ export default function SettingsBillingTab({
         {paymentHistory.length > 0 ? (
           <div className="space-y-3">
             {paymentHistory.map((payment) => (
-              <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
+              <div key={payment.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg min-w-0">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100 capitalize">{payment.licenseType}</span>
                     {payment.isRecurring && <span className="px-2 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 rounded">{t('settings.recurring')}</span>}
                     <span className={`px-2 py-0.5 text-xs rounded capitalize ${
@@ -125,7 +125,7 @@ export default function SettingsBillingTab({
                     {payment.paidAt ? new Date(payment.paidAt).toLocaleDateString() : new Date(payment.createdAt).toLocaleDateString()}
                   </p>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right flex-shrink-0">
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{payment.currency} ${payment.amount}</p>
                 </div>
               </div>

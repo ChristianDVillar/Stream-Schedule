@@ -606,6 +606,19 @@ export async function updateLicenseConfig({ availableLicenseTypes, token }) {
   });
 }
 
+/** Trial extension limits (admin) */
+export async function getTrialExtensionConfig(token) {
+  return apiClient.get('/user/admin/trial-extension-config', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function updateTrialExtensionConfig({ trialExtensionConfig, token }) {
+  return apiClient.post('/user/admin/trial-extension-config', { trialExtensionConfig }, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
 /** GET /user/admin/fixed-costs - List of fixed monthly costs (admin). */
 export async function getFixedCosts(token) {
   return apiClient.get('/user/admin/fixed-costs', {

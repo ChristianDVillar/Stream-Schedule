@@ -105,7 +105,7 @@ export default function PublishDiscord({ user }) {
 
   if (connectDiscordFirst) {
     return (
-      <div className="max-w-xl mx-auto px-4 py-8">
+      <div className="max-w-xl mx-auto px-3 sm:px-6 py-8 min-w-0">
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-6 flex flex-col items-center text-center">
           <AlertCircle className="w-12 h-12 text-amber-600 dark:text-amber-400 mb-4" />
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
@@ -143,7 +143,7 @@ export default function PublishDiscord({ user }) {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
+    <div className="max-w-2xl mx-auto px-3 sm:px-6 py-6 min-w-0">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 flex items-center gap-2">
         <MessageCircle className="w-7 h-7 text-[#5865F2]" />
         {t('discord.title')}

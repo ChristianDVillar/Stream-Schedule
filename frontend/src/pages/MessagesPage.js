@@ -27,8 +27,8 @@ export default function MessagesPage({ token }) {
   const formatDate = (d) => (d ? new Date(d).toLocaleString() : '');
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 space-y-8">
-      <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Mensajes y notificaciones</h1>
+    <div className="max-w-4xl mx-auto px-3 sm:px-6 py-6 space-y-8 min-w-0">
+      <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">Mensajes y notificaciones</h1>
 
       {/* Notificaciones del admin */}
       <section className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">

@@ -27,7 +27,7 @@ import {
   disconnectYoutube,
 } from '../../api';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { applyAccentColor, THEME_CHANGE_EVENT, getCustomColorConfig, setCustomColorConfig, applyCustomColors, AVATAR_LOGO_BG_STORAGE_KEY, AVATAR_LOGO_BG_CHANGE_EVENT } from '../../utils/themeUtils';
+import { applyAccentColor, THEME_CHANGE_EVENT, getCustomColorConfig, setCustomColorConfig, applyCustomColors } from '../../utils/themeUtils';
 import { getPlatformColors } from '../../utils/platformColors';
 import { BANNER_CONFIG_KEY, getBannersFromEnv } from '../../components/HeaderBanners';
 import { handleUpload, getUploadStats } from '../../utils/uploadHelper';
@@ -129,14 +129,6 @@ export default function Settings({ user, token, setUser }) {
       }
     })(),
     compactMode: false,
-    avatarLogoBackground: (() => {
-      try {
-        const v = localStorage.getItem('avatarLogoBackground');
-        return typeof v === 'string' && v.trim() !== '' ? v.trim() : '';
-      } catch {
-        return '';
-      }
-    })(),
   });
 
   const [customColorConfig, setCustomColorConfigState] = useState(() => getCustomColorConfig());
@@ -221,14 +213,6 @@ export default function Settings({ user, token, setUser }) {
   useEffect(() => {
     applyCustomColors(customColorConfig);
   }, [customColorConfig]);
-
-  useEffect(() => {
-    try {
-      const v = themeSettings.avatarLogoBackground || '';
-      localStorage.setItem(AVATAR_LOGO_BG_STORAGE_KEY, v);
-      window.dispatchEvent(new CustomEvent(AVATAR_LOGO_BG_CHANGE_EVENT, { detail: v }));
-    } catch (e) {}
-  }, [themeSettings.avatarLogoBackground]);
 
   useEffect(() => {
     if (token) {
@@ -760,7 +744,7 @@ export default function Settings({ user, token, setUser }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-4 sm:py-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-4 sm:py-8 min-w-0 overflow-x-hidden">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-w-0">
         <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
@@ -768,18 +752,18 @@ export default function Settings({ user, token, setUser }) {
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-          <div className="flex flex-col md:grid md:grid-cols-4">
-            <div className="md:col-span-1 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
-              <nav className="flex md:flex-col overflow-x-auto md:overflow-x-visible gap-1 p-2 md:p-4 md:space-y-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600" style={{ scrollbarWidth: 'thin' }}>
+          <div className="flex flex-col lg:grid lg:grid-cols-4 min-w-0">
+            <div className="lg:col-span-1 border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 min-w-0">
+              <nav className="flex lg:flex-col overflow-x-auto lg:overflow-x-visible gap-1 p-2 lg:p-4 lg:space-y-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600" style={{ scrollbarWidth: 'thin' }}>
                 {tabs.map((tab) => {
                   const Icon = tab.Icon;
                   return (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`flex-shrink-0 md:w-full flex items-center gap-2 md:space-x-3 px-3 py-2.5 md:px-4 md:py-3 text-left rounded-lg transition-colors whitespace-nowrap ${
+                      className={`flex-shrink-0 lg:w-full flex items-center gap-2 lg:space-x-3 px-3 py-2.5 lg:px-4 lg:py-3 text-left rounded-lg transition-colors whitespace-nowrap ${
                         activeTab === tab.id
-                          ? 'bg-color-sidebar dark:bg-gray-800 text-color-sidebar md:border-r-2 md:border-color-sidebar'
+                          ? 'bg-color-sidebar/10 text-gray-900 dark:bg-color-sidebar/20 dark:text-color-sidebar lg:border-r-2 lg:border-color-sidebar'
                           : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100'
                       }`}
                     >
@@ -791,16 +775,16 @@ export default function Settings({ user, token, setUser }) {
               </nav>
             </div>
 
-            <div className="md:col-span-3 p-4 sm:p-6 min-w-0 overflow-x-hidden">
+            <div className="lg:col-span-3 p-4 sm:p-6 min-w-0 overflow-x-hidden">
               {renderTabContent()}
               {['profile', 'notifications'].includes(activeTab) && (
                 <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
                   <button
                     onClick={activeTab === 'profile' ? handleProfileSave : handleNotificationSave}
                     disabled={loading}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
+                    className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center sm:justify-start gap-2 min-h-[44px]"
                   >
-                    <Save className="w-4 h-4" />
+                    <Save className="w-4 h-4 flex-shrink-0" />
                     <span>{loading ? t('settings.saving') : t('settings.saveChanges')}</span>
                   </button>
                 </div>
