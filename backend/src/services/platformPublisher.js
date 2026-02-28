@@ -6,7 +6,7 @@
  */
 
 import logger from '../utils/logger.js';
-import { Integration } from '../models/index.js';
+import { Integration, Content } from '../models/index.js';
 import { postToDiscordChannel, postToDiscordChannelWithAttachments, createDiscordScheduledEvent, updateDiscordScheduledEvent, deleteDiscordScheduledEvent } from '../utils/discordPublish.js';
 import { postTweet } from '../utils/twitterPublish.js';
 import { uploadVideoToYouTube } from '../utils/youtubePublish.js';
@@ -133,26 +133,54 @@ export async function publishToPlatform(content, platform, user) {
       const contentType = (content.contentType || '').trim().toLowerCase();
       
       if (contentType === 'event') {
-        // Create schedule segment
+        // Create schedule segment (adds event to Twitch calendar)
         if (!content.twitchSegmentId) {
-          const segment = await twitchService.createScheduleSegment(
-            providerUserId,
-            accessToken,
-            {
-              title: content.title,
-              startTime: content.scheduledFor,
-              endTime: content.eventEndTime || new Date(content.scheduledFor.getTime() + 3600000),
-              categoryId: await twitchService.getGameId(accessToken, 'Just Chatting'),
-            }
-          );
-          result.externalId = segment.id;
-          result.metadata = { segmentId: segment.id };
+          let duration = 120;
+          const startTime = content.scheduledFor;
+          if (content.eventEndTime) {
+            const start = new Date(startTime).getTime();
+            const end = new Date(content.eventEndTime).getTime();
+            duration = Math.max(60, Math.round((end - start) / 60000));
+          } else if (content.eventDates?.length > 0) {
+            const first = content.eventDates[0];
+            const last = content.eventDates[content.eventDates.length - 1];
+            const start = new Date(`${first.date}T${first.time}`).getTime();
+            const end = (last.endDate && last.endTime)
+              ? new Date(`${last.endDate}T${last.endTime}`).getTime()
+              : start + 120 * 60000;
+            duration = Math.max(60, Math.round((end - start) / 60000));
+          }
+          const categoryId = content.twitchCategoryId
+            || await twitchService.getGameId(accessToken, 'Just Chatting');
+          const twitchResult = await twitchService.createScheduleSegment({
+            userAccessToken: accessToken,
+            broadcasterId: providerUserId,
+            startTime,
+            timezone: content.timezone || 'UTC',
+            duration,
+            title: (content.title || 'Scheduled Stream').slice(0, 140),
+            categoryId,
+          });
+          result.externalId = twitchResult.segmentId;
+          result.metadata = { segmentId: twitchResult.segmentId };
+          if (twitchResult.segmentId) {
+            await Content.update(
+              { twitchSegmentId: twitchResult.segmentId },
+              { where: { id: content.id } }
+            );
+          }
+        } else {
+          result.externalId = content.twitchSegmentId;
+          result.metadata = { segmentId: content.twitchSegmentId };
         }
       } else {
-        // Update channel title/status
+        // Update channel title
         const formatted = formatTwitchContent(content);
-        await twitchService.updateChannelInfo(providerUserId, accessToken, {
-          title: formatted.title || content.title,
+        const title = (formatted?.title || formatted?.split?.('\n\n')?.[0]?.trim?.() || content.title || 'Stream').slice(0, 140);
+        await twitchService.updateChannelInfo({
+          userAccessToken: accessToken,
+          broadcasterId: providerUserId,
+          title,
         });
         result.externalId = providerUserId;
         result.metadata = { channelId: providerUserId };

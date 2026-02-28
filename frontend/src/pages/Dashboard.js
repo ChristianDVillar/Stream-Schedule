@@ -263,10 +263,10 @@ const Dashboard = ({ user, token, ...props }) => {
         headers: { Authorization: `Bearer ${token}` },
         withCredentials: true
       });
-      toast.success('Content duplicated successfully');
+      toast.success(t('dashboard.contentDuplicated'));
       fetchContents();
     } catch (error) {
-      toast.error('Failed to duplicate content');
+      toast.error(t('dashboard.duplicateFailed'));
     }
   }, [token, fetchContents]);
 
@@ -286,9 +286,9 @@ const Dashboard = ({ user, token, ...props }) => {
       link.click();
       link.remove();
       
-      toast.success('Data exported successfully!');
+      toast.success(t('dashboard.exportSuccess'));
     } catch (error) {
-      toast.error('Failed to export data');
+      toast.error(t('dashboard.exportFailed'));
     }
   }, [token]);
 
@@ -507,10 +507,10 @@ const Dashboard = ({ user, token, ...props }) => {
         headers: { Authorization: `Bearer ${token}` },
         withCredentials: true
       });
-      toast.success('Content rescheduled');
+      toast.success(t('dashboard.rescheduleSuccess'));
       fetchContents();
     } catch (error) {
-      toast.error('Failed to reschedule');
+      toast.error(t('dashboard.rescheduleFailed'));
     }
   }, [token, fetchContents]);
 
@@ -801,29 +801,29 @@ const Dashboard = ({ user, token, ...props }) => {
         </div>
 
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Scheduled Content</h2>
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">{t('dashboard.scheduledContent')}</h2>
           <button
             onClick={() => navigate('/schedule')}
             className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-lg flex items-center justify-center space-x-2 w-full sm:w-auto"
           >
             <Plus className="w-4 h-4 flex-shrink-0" />
-            <span>New Content</span>
+            <span>{t('dashboard.newContent')}</span>
           </button>
         </div>
 
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
               {loading ? (
-                <div className="p-8 text-center">Loading...</div>
+                <div className="p-8 text-center">{t('common.loading')}</div>
               ) : postsForSelectedDay.length === 0 ? (
             <div className="p-8 text-center">
                   <CalendarIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No scheduled content for this day</h3>
-              <p className="text-gray-600 mb-4">Start by scheduling your first content</p>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.noContentForDay')}</h3>
+              <p className="text-gray-600 mb-4">{t('dashboard.startByScheduling')}</p>
               <button
                 onClick={() => navigate('/schedule')}
                 className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg"
               >
-                Create Content
+                {t('dashboard.createContentButton')}
               </button>
             </div>
           ) : (

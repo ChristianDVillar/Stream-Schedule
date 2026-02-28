@@ -1210,7 +1210,7 @@ const Schedule = ({ user, token }) => {
               {formData.contentType === 'reel' && (
                 <div className="mt-2 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
                   <p className="text-sm text-purple-800 dark:text-purple-200">
-                    <strong>🎬 Reel:</strong> Formato optimizado para contenido de video corto. Asegúrate de incluir un archivo de video.
+                    <strong>🎬 {t('schedule.reel')}:</strong> {t('schedule.reelHint')}
                   </p>
                 </div>
               )}
