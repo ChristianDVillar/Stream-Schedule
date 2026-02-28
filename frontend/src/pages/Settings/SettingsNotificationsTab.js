@@ -8,8 +8,8 @@ export default function SettingsNotificationsTab({ notificationSettings, setNoti
 
       <div className="space-y-4">
         {Object.entries(notificationSettings).map(([key, value]) => (
-          <div key={key} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <div className="flex items-center space-x-3">
+          <div key={key} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg min-w-0">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
               <Bell className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               <div>
                 <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">

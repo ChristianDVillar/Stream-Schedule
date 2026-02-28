@@ -25,8 +25,8 @@ export default function SettingsProfileTab({
   t,
 }) {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
+    <div className="space-y-6 min-w-0">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div className="relative flex-shrink-0">
           {profileData.profileImageUrl ? (
             <img

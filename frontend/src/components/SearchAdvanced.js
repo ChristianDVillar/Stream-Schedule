@@ -50,9 +50,9 @@ export function SearchAdvanced({ onSearch, onFilterChange, filters = {} }) {
   };
 
   return (
-    <div className="mb-6">
-      <form onSubmit={handleSearch} className="flex gap-2 mb-4">
-        <div className="flex-1 relative">
+    <div className="mb-6 min-w-0">
+      <form onSubmit={handleSearch} className="flex flex-wrap gap-2 mb-4">
+        <div className="flex-1 min-w-[120px] relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
           <input
             type="text"

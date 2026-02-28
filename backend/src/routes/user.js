@@ -62,10 +62,11 @@ const generateAuthResponse = (user, res) => {
 
 // Configure Google OAuth Strategy
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  const backendBaseUrl = (process.env.BACKEND_URL || 'http://localhost:5000').replace(/\/$/, '');
   passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/user/auth/google/callback`
+    callbackURL: `${backendBaseUrl}/api/user/auth/google/callback`
   },
   async (accessToken, refreshToken, profile, done) => {
     try {
@@ -2025,7 +2026,7 @@ router.post('/admin/assign-trial', requireAdmin, validateBody(adminAssignTrialSc
   }
 });
 
-// Extend trial license (admin only - can extend up to 2 times per user, max 7 days per extension)
+// Extend trial license (admin only - configurable limit per user; default ilimitado, máx. 7 días por extensión)
 router.post('/admin/extend-trial', requireAdmin, validateBody(extendTrialSchema), async (req, res) => {
   const { userId, days } = req.body;
   
@@ -2040,14 +2041,28 @@ router.post('/admin/extend-trial', requireAdmin, validateBody(extendTrialSchema)
       });
     }
     
-    // Verificar límite de extensiones (máximo 2 veces)
-    if (user.trialExtensions >= 2) {
+    // Obtener configuración de límite de extensiones (null o <=0 = ilimitado)
+    let maxTrialExtensionsPerUser = null;
+    try {
+      const cfg = await SystemConfig.findOne({ where: { key: 'trialExtensionConfig' } });
+      if (cfg && cfg.value && typeof cfg.value.maxTrialExtensionsPerUser === 'number') {
+        maxTrialExtensionsPerUser = cfg.value.maxTrialExtensionsPerUser;
+      }
+    } catch (cfgErr) {
+      logger.warn('Error reading trialExtensionConfig, using unlimited by default', {
+        error: cfgErr.message,
+        targetUserId: userId,
+        adminId: req.user?.id,
+      });
+    }
+    const currentExtensions = user.trialExtensions || 0;
+    if (maxTrialExtensionsPerUser && maxTrialExtensionsPerUser > 0 && currentExtensions >= maxTrialExtensionsPerUser) {
       return res.status(400).json({ 
-        error: 'Este usuario ya ha usado el máximo de extensiones permitidas (2 veces)' 
+        error: `Este usuario ya ha usado el máximo de extensiones permitidas (${maxTrialExtensionsPerUser} veces)` 
       });
     }
     
-    // Validar que los días no excedan 7
+    // Validar que los días no excedan 7 (configurable en esquema si se necesita en el futuro)
     if (days > 7) {
       return res.status(400).json({ 
         error: 'No se puede extender más de 7 días por vez' 
@@ -2080,6 +2095,10 @@ router.post('/admin/extend-trial', requireAdmin, validateBody(extendTrialSchema)
       ip: req.ip
     });
     
+    const remainingExtensions = (maxTrialExtensionsPerUser && maxTrialExtensionsPerUser > 0)
+      ? Math.max(0, maxTrialExtensionsPerUser - (user.trialExtensions || 0))
+      : null;
+
     res.json({
       message: `Trial extendido exitosamente por ${days} ${days === 1 ? 'día' : 'días'} para el usuario ${user.username}`,
       user: {
@@ -2093,7 +2112,7 @@ router.post('/admin/extend-trial', requireAdmin, validateBody(extendTrialSchema)
       licenseType: user.licenseType,
       licenseExpiresAt: user.licenseExpiresAt,
       trialExtensions: user.trialExtensions,
-      remainingExtensions: 2 - user.trialExtensions,
+      remainingExtensions,
       licenseAlert: updatedSummary.alert,
       licenseDaysLeft: updatedSummary.daysLeft
     });
@@ -2712,6 +2731,68 @@ router.get('/admin/license-config', requireAdmin, async (req, res) => {
       error: err.message,
       adminId: req.user?.id,
       stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Trial extension configuration (admin) - controls max number of extensions per user (null = unlimited)
+router.get('/admin/trial-extension-config', requireAdmin, async (req, res) => {
+  try {
+    let config = await SystemConfig.findOne({ where: { key: 'trialExtensionConfig' } });
+    if (!config) {
+      config = await SystemConfig.create({
+        key: 'trialExtensionConfig',
+        value: { maxTrialExtensionsPerUser: null },
+        description: 'Maximum number of trial extensions per user (null = unlimited)',
+      });
+    }
+    res.json({ trialExtensionConfig: config.value || { maxTrialExtensionsPerUser: null } });
+  } catch (err) {
+    logger.error('Error getting trial extension config', {
+      error: err.message,
+      adminId: req.user?.id,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/admin/trial-extension-config', requireAdmin, async (req, res) => {
+  const { trialExtensionConfig } = req.body || {};
+  let { maxTrialExtensionsPerUser } = trialExtensionConfig || {};
+
+  // Normalizar: null/undefined/'' -> null (ilimitado)
+  if (maxTrialExtensionsPerUser === '' || maxTrialExtensionsPerUser === undefined) {
+    maxTrialExtensionsPerUser = null;
+  }
+  if (maxTrialExtensionsPerUser !== null) {
+    const n = Number(maxTrialExtensionsPerUser);
+    if (!Number.isFinite(n) || n < 0) {
+      return res.status(400).json({ error: 'maxTrialExtensionsPerUser must be a non-negative number or null' });
+    }
+    maxTrialExtensionsPerUser = Math.floor(n);
+  }
+
+  try {
+    let config = await SystemConfig.findOne({ where: { key: 'trialExtensionConfig' } });
+    const value = { maxTrialExtensionsPerUser };
+    if (config) {
+      config.value = value;
+      await config.save();
+    } else {
+      config = await SystemConfig.create({
+        key: 'trialExtensionConfig',
+        value,
+        description: 'Maximum number of trial extensions per user (null = unlimited)',
+      });
+    }
+    res.json({ trialExtensionConfig: config.value });
+  } catch (err) {
+    logger.error('Error updating trial extension config', {
+      error: err.message,
+      adminId: req.user?.id,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
     });
     res.status(500).json({ error: 'Server error' });
   }

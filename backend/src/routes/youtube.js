@@ -12,11 +12,14 @@ import logger from '../utils/logger.js';
 
 const router = express.Router();
 
+// Base URL without trailing slash so callback URI never has double slash
+const backendBaseUrl = (process.env.BACKEND_URL || 'http://localhost:5000').replace(/\/$/, '');
+
 // Initialize OAuth2 client
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
-  process.env.YOUTUBE_REDIRECT_URI || `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/youtube/callback`
+  process.env.YOUTUBE_REDIRECT_URI || `${backendBaseUrl}/api/youtube/callback`
 );
 
 /**

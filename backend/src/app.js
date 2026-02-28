@@ -44,17 +44,9 @@ import { csrfProtection, getCsrfToken } from './middleware/csrf.js';
 import { metricsMiddleware, metrics } from './utils/metrics.js';
 import { setupSwagger } from './app-swagger.js';
 import logger from './utils/logger.js';
-import { startScheduler } from './services/scheduler.js';
-import { startSchedulerProducer } from './services/schedulerProducer.js';
-import { startWorker } from './services/publicationWorker.js';
 import platformConfigService from './services/platformConfigService.js';
-import { startDiscordSyncWorker } from './services/discordQueueService.js';
-import { startDiscordGateway } from './services/discordGatewayService.js';
-import { runReconciliation } from './services/discordSyncService.js';
 import { handleTwitchEventSub } from './routes/twitchWebhook.js';
 import { PLATFORM_VALUES } from './constants/platforms.js';
-import { sendAlert, notifyDbSlow, notifyQueueProblems, checkRedisRecovery } from './services/alertService.js';
-import { getQueueStats } from './services/publicationQueueService.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -363,67 +355,6 @@ async function initServer() {
       environment: nodeEnv,
       logLevel
     });
-    // Smart-monolith architecture: Scheduler Producer + Worker
-    // Scheduler Producer: Only detects due content and enqueues jobs (runs every 30s)
-    startSchedulerProducer();
-    
-    // Publication Worker: Processes publication jobs from queue (separate process in production)
-    // In development, runs in same process; in production, run as separate worker process
-    if (process.env.ENABLE_PUBLICATION_WORKER !== 'false') {
-      startWorker().catch((err) =>
-        logger.warn('Publication worker not started', { error: err.message })
-      );
-    }
-    
-    // Legacy scheduler (kept for backward compatibility, can be disabled)
-    if (process.env.ENABLE_LEGACY_SCHEDULER !== 'false') {
-      startScheduler();
-    }
-
-    // Discord: dedicated sync queue worker + Gateway listener (bidirectional sync)
-    startDiscordSyncWorker().catch((err) =>
-      logger.debug('Discord sync worker not started', { error: err.message })
-    );
-    startDiscordGateway().catch((err) =>
-      logger.debug('Discord Gateway not started', { error: err.message })
-    );
-    // Daily reconciliation: re-enqueue out-of-sync Discord events
-    const RECONCILIATION_MS = 24 * 60 * 60 * 1000;
-    setInterval(() => {
-      runReconciliation().catch((err) =>
-        logger.warn('Discord reconciliation failed', { error: err.message })
-      );
-    }, RECONCILIATION_MS);
-    runReconciliation().catch((err) =>
-      logger.warn('Discord reconciliation (initial) failed', { error: err.message })
-    );
-
-    // Operational monitor: Redis recovery, DB latency, queue backlog/failures → Discord alerts (every 60s)
-    const MONITOR_INTERVAL_MS = 60 * 1000;
-    setInterval(async () => {
-      try {
-        await checkRedisRecovery();
-      } catch (err) {
-        logger.debug('Redis recovery check failed', { error: err.message });
-      }
-      try {
-        const dbStart = Date.now();
-        await sequelize.query('SELECT 1');
-        const dbDuration = Date.now() - dbStart;
-        await notifyDbSlow(dbDuration);
-      } catch (err) {
-        logger.warn('Operational monitor DB check failed', { error: err.message });
-      }
-      try {
-        const stats = await getQueueStats();
-        if (stats.enabled && !stats.error) {
-          await notifyQueueProblems(stats.waiting ?? 0, stats.failed ?? 0);
-        }
-      } catch (err) {
-        logger.warn('Operational monitor queue check failed', { error: err.message });
-      }
-    }, MONITOR_INTERVAL_MS);
-
     // Initialize WebSocket if available
     try {
       const { initWebSocket } = await import('./services/websocketService.js');
@@ -440,15 +371,5 @@ async function initServer() {
   return server;
 }
 
-// Operational alerts: notify Discord on process crash or unhandled rejection
-process.on('uncaughtException', async (err) => {
-  logger.error('Uncaught exception', { error: err.message, stack: err.stack });
-  await sendAlert(`🚨 Server uncaughtException: ${err.message}`, 'dev').catch(() => {});
-  process.exit(1);
-});
-process.on('unhandledRejection', async (reason) => {
-  logger.error('Unhandled rejection', { reason });
-  await sendAlert(`🚨 Server unhandledRejection: ${String(reason)}`, 'dev').catch(() => {});
-});
-
-initServer();
+export { app, initServer };
+export default app;

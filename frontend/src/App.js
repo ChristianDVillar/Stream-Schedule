@@ -13,10 +13,11 @@ import MessagesPage from './pages/MessagesPage';
 import { ShieldOff, UserX, Menu, X, ShoppingBag, Globe } from 'lucide-react';
 import HeaderBanners from './components/HeaderBanners';
 import MessagesAndNotificationsDropdown from './components/MessagesAndNotificationsDropdown';
+import ThemeImage from './components/ThemeImage';
 import { Toaster } from 'react-hot-toast';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { AuthProvider, useAuth } from './store/authStore';
-import { getStoredAccentColor, applyAccentColor, THEME_CHANGE_EVENT, getStoredAvatarLogoBackground, AVATAR_LOGO_BG_CHANGE_EVENT } from './utils/themeUtils';
+import { getStoredAccentColor, applyAccentColor, THEME_CHANGE_EVENT } from './utils/themeUtils';
 import { APP_VERSION } from './version';
 import { getUnreadMessageCount } from './api';
 
@@ -59,11 +60,20 @@ function UserRoute({ user, children }) {
   return children;
 }
 
-function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInstallApp, avatarLogoBackground }) {
+function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInstallApp }) {
   const navigate = useNavigate();
   const { t, toggleLanguage, language } = useLanguage();
-  const avatarLogoBgStyle = avatarLogoBackground ? { backgroundColor: avatarLogoBackground } : undefined;
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const tid = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(tid);
+  }, []);
+
   if (!user) return null;
+  const locale = language === 'es' ? 'es' : 'en';
+  const dateTimeStr = now.toLocaleString(locale, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const settingsLabel = t('settings.profile') || t('settings.title') || 'Settings';
   return (
     <header className="bg-white dark:bg-gray-800 shadow-sm border-b mb-4">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 flex items-center justify-between h-14 sm:h-16 min-h-[44px] gap-2">
@@ -76,35 +86,34 @@ function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInst
           >
             <Menu className="w-6 h-6 text-accent" />
           </button>
-          <span
-            className="h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0 rounded-lg ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white dark:ring-offset-gray-800 flex items-center justify-center overflow-hidden"
-            style={avatarLogoBgStyle}
-          >
-            <img
-              src="/ScheduleLogo.png"
-              alt=""
-              className="h-8 w-8 sm:h-9 sm:w-9 object-contain"
-              aria-hidden
-            />
-          </span>
+          <ThemeImage
+            srcLight="/blacklogo.png"
+            srcDark="/whitelogo.png"
+            alt=""
+            className="h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0 object-contain rounded-lg ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white dark:ring-offset-gray-800"
+            aria-hidden
+          />
           <span className="font-bold text-accent truncate text-sm sm:text-base">Streamer Scheduler</span>
-          {user.profileImageUrl ? (
-            <span
-              className="h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0 rounded-full ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white dark:ring-offset-gray-800 flex items-center justify-center overflow-hidden"
-              style={avatarLogoBgStyle}
-            >
+          <button
+            type="button"
+            onClick={() => navigate('/settings')}
+            className="h-8 w-8 sm:h-9 sm:w-9 rounded-full flex-shrink-0 flex items-center justify-center ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white dark:ring-offset-gray-800 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800"
+            title={settingsLabel}
+            aria-label={settingsLabel}
+          >
+            {user.profileImageUrl ? (
               <img
                 src={user.profileImageUrl}
                 alt=""
                 className="h-8 w-8 sm:h-9 sm:w-9 rounded-full object-cover"
                 aria-hidden
               />
-            </span>
-          ) : (
-            <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full flex-shrink-0 flex items-center justify-center text-white text-sm font-bold ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white dark:ring-offset-gray-800 overflow-hidden" style={avatarLogoBgStyle || { backgroundColor: 'var(--accent)' }}>
-              {user.username?.charAt(0).toUpperCase() || '?'}
-            </div>
-          )}
+            ) : (
+              <span className="h-8 w-8 sm:h-9 sm:w-9 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ backgroundColor: 'var(--accent)' }}>
+                {user.username?.charAt(0).toUpperCase() || '?'}
+              </span>
+            )}
+          </button>
           <span className="hidden sm:inline text-gray-600 dark:text-gray-300 truncate text-sm">{user.isAdmin ? t('common.admin') : t('common.user')}: <span className="font-semibold">{user.username}</span></span>
         </div>
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
@@ -127,6 +136,9 @@ function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInst
             <Globe className="w-5 h-5 flex-shrink-0" />
             <span className="hidden sm:inline text-sm font-medium">{language.toUpperCase()}</span>
           </button>
+          <span className="hidden sm:inline text-sm text-gray-500 dark:text-gray-400 tabular-nums" title={dateTimeStr}>
+            {dateTimeStr}
+          </span>
           <button
             type="button"
             onClick={() => { onLogout(); navigate('/login'); }}
@@ -218,14 +230,6 @@ function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
   const [adminUnreadMessageCount, setAdminUnreadMessageCount] = useState(0);
-  const [avatarLogoBackground, setAvatarLogoBackground] = useState(getStoredAvatarLogoBackground);
-
-  useEffect(() => {
-    const handler = () => setAvatarLogoBackground(getStoredAvatarLogoBackground());
-    window.addEventListener(AVATAR_LOGO_BG_CHANGE_EVENT, handler);
-    return () => window.removeEventListener(AVATAR_LOGO_BG_CHANGE_EVENT, handler);
-  }, []);
-
   // Admin: fetch unread support message count for sidebar badge
   useEffect(() => {
     if (!user?.isAdmin || !token) {
@@ -301,7 +305,7 @@ function AppContent() {
       <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900 min-w-0">
         {user && <Sidebar user={user} open={sidebarOpen} onClose={() => setSidebarOpen(false)} adminUnreadMessageCount={adminUnreadMessageCount} />}
         <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
-          <Header user={user} token={token} onLogout={clearAuth} onMenuClick={() => setSidebarOpen(true)} installPromptEvent={deferredInstallPrompt} onInstallApp={handleInstallClick} avatarLogoBackground={avatarLogoBackground} />
+          <Header user={user} token={token} onLogout={clearAuth} onMenuClick={() => setSidebarOpen(true)} installPromptEvent={deferredInstallPrompt} onInstallApp={handleInstallClick} />
           <div className="flex-1">
             <Routes>
               <Route path="/login" element={<Login setAuth={setAuth} />} />

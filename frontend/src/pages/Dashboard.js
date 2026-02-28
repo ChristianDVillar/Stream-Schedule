@@ -512,7 +512,7 @@ const Dashboard = ({ user, token, ...props }) => {
     } catch (error) {
       toast.error('Failed to reschedule');
     }
-  }, [token]);
+  }, [token, fetchContents]);
 
   // Filtrar posts por día seleccionado - memoized
   const postsForSelectedDay = useMemo(() => {
@@ -532,15 +532,15 @@ const Dashboard = ({ user, token, ...props }) => {
 
   // Dashboard de usuario normal
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 min-w-0 overflow-x-hidden">
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('dashboard.appTitle') || 'Streamer Scheduler'}</h1>
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-w-0">
+          <div className="flex justify-between items-center h-14 sm:h-16 gap-2 min-w-0">
+            <div className="flex items-center min-w-0 flex-1">
+              <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white truncate">{t('dashboard.appTitle') || 'Streamer Scheduler'}</h1>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
               <div className="flex space-x-2">
                 <button
                   onClick={() => navigate('/settings')}
@@ -588,9 +588,9 @@ const Dashboard = ({ user, token, ...props }) => {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                 {user.dashboardShowTwitchSubs && (
-                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600 overflow-hidden min-w-0">
+                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 min-w-0">
+                      <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           {t('dashboard.statsSubscriptions')}
                         </p>
@@ -600,7 +600,7 @@ const Dashboard = ({ user, token, ...props }) => {
                       </div>
                       <button
                         onClick={handleDownloadSubs}
-                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                        className="self-start shrink-0 p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
                         title={t('dashboard.downloadSubs')}
                       >
                         <Download className="w-4 h-4" />
@@ -609,25 +609,25 @@ const Dashboard = ({ user, token, ...props }) => {
                   </div>
                 )}
                 {user.dashboardShowTwitchBits && (
-                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600 overflow-hidden min-w-0">
+                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 min-w-0">
+                      <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           {t('dashboard.statsBits')}
                         </p>
                         <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
                           {twitchStats?.bits?.total ?? 0}
                         </p>
-                        <div className="mt-2 flex gap-2">
+                        <div className="mt-2 flex flex-wrap gap-2">
                           <button
                             onClick={() => setBitsFormat('chronological')}
-                            className={`text-xs px-2 py-1 rounded ${bitsFormat === 'chronological' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'}`}
+                            className={`shrink-0 text-xs px-2 py-1 rounded whitespace-nowrap ${bitsFormat === 'chronological' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'}`}
                           >
                             {t('dashboard.chronological')}
                           </button>
                           <button
                             onClick={() => setBitsFormat('total')}
-                            className={`text-xs px-2 py-1 rounded ${bitsFormat === 'total' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'}`}
+                            className={`shrink-0 text-xs px-2 py-1 rounded whitespace-nowrap ${bitsFormat === 'total' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'}`}
                           >
                             {t('dashboard.total')}
                           </button>
@@ -635,7 +635,7 @@ const Dashboard = ({ user, token, ...props }) => {
                       </div>
                       <button
                         onClick={handleDownloadBits}
-                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                        className="self-start shrink-0 p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
                         title={bitsFormat === 'chronological' ? t('dashboard.downloadBitsChronological') : t('dashboard.downloadBitsTotal')}
                       >
                         <Download className="w-4 h-4" />
@@ -644,9 +644,9 @@ const Dashboard = ({ user, token, ...props }) => {
                   </div>
                 )}
                 {user.dashboardShowTwitchDonations && (
-                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600 overflow-hidden min-w-0">
+                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 min-w-0">
+                      <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           {t('dashboard.statsDonations')}
                         </p>
@@ -656,7 +656,7 @@ const Dashboard = ({ user, token, ...props }) => {
                       </div>
                       <button
                         onClick={handleDownloadDonations}
-                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                        className="self-start shrink-0 p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
                         title={t('dashboard.downloadDonations')}
                       >
                         <Download className="w-4 h-4" />

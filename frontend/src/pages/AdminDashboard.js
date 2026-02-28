@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { X } from 'lucide-react';
 // Admin: usuarios, licencias, pagos (listado/export), modal detalle, mensajes
-import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob, sendNotification, getPlatformConfig, updatePlatformConfig, getFixedCosts, updateFixedCosts, getUsdToEurRate, getAlertConfig, updateAlertConfig, testAlertConfig, getCostMetrics } from '../api';
+import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob, sendNotification, getPlatformConfig, updatePlatformConfig, getFixedCosts, updateFixedCosts, getUsdToEurRate, getAlertConfig, updateAlertConfig, testAlertConfig, getCostMetrics, getTrialExtensionConfig, updateTrialExtensionConfig } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatDateUTC } from '../utils/dateUtils';
 import { maskEmail } from '../utils/emailUtils';
@@ -39,6 +39,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
     monthlyTotals: []
   });
   const [licenseConfig, setLicenseConfig] = useState({ monthly: true, quarterly: false, lifetime: false, temporary: false });
+  const [trialExtensionConfig, setTrialExtensionConfig] = useState({ maxTrialExtensionsPerUser: null });
   const [passwordReminders, setPasswordReminders] = useState([]);
   const [showLicenseConfig, setShowLicenseConfig] = useState(false);
   const [extendingTrial, setExtendingTrial] = useState(null);
@@ -108,6 +109,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
   useEffect(() => {
     fetchUsers();
     fetchLicenseConfig();
+    fetchTrialExtensionConfig();
     fetchPasswordReminders();
     fetchMessages();
     fetchUnreadCount();
@@ -203,6 +205,18 @@ export default function AdminDashboard({ token, user, onLogout }) {
     }
   };
 
+  const fetchTrialExtensionConfig = async () => {
+    try {
+      const res = await getTrialExtensionConfig(token);
+      const cfg = res.data.trialExtensionConfig || {};
+      setTrialExtensionConfig({
+        maxTrialExtensionsPerUser: cfg.maxTrialExtensionsPerUser ?? null,
+      });
+    } catch (err) {
+      maybeShowNetworkError(err);
+    }
+  };
+
   const fetchPlatformConfig = async () => {
     try {
       setPlatformConfigLoading(true);
@@ -231,6 +245,24 @@ export default function AdminDashboard({ token, user, onLogout }) {
       toast.error(err.response?.data?.error || 'Failed to update platform configuration');
     } finally {
       setPlatformConfigLoading(false);
+    }
+  };
+
+  const handleUpdateTrialExtensionConfig = async () => {
+    try {
+      const payload = {
+        maxTrialExtensionsPerUser:
+          trialExtensionConfig.maxTrialExtensionsPerUser === null ||
+          trialExtensionConfig.maxTrialExtensionsPerUser === '' ?
+            null :
+            Number(trialExtensionConfig.maxTrialExtensionsPerUser),
+      };
+      await updateTrialExtensionConfig({ trialExtensionConfig: payload, token });
+      toast.success(t('admin.trialExtensionConfigUpdated') || 'Trial extension config updated');
+      await fetchTrialExtensionConfig();
+    } catch (err) {
+      maybeShowNetworkError(err);
+      toast.error(err.response?.data?.error || (t('admin.trialExtensionConfigError') || 'Failed to update trial extension config'));
     }
   };
 
@@ -953,12 +985,43 @@ export default function AdminDashboard({ token, user, onLogout }) {
                 <span className="text-sm">{t('admin.temporary')}</span>
               </label>
             </div>
-            <button
-              onClick={handleUpdateLicenseConfig}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-            >
-              {t('admin.saveConfiguration')}
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 items-end">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                  {t('admin.maxTrialExtensionsPerUserLabel') || 'Máx. extensiones de trial por usuario'}
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  {t('admin.maxTrialExtensionsPerUserHelp') || 'Deja vacío o 0 para ilimitadas. Solo afecta a partir de ahora.'}
+                </p>
+                <input
+                  type="number"
+                  min="0"
+                  value={trialExtensionConfig.maxTrialExtensionsPerUser ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value === '' ? null : Number(e.target.value);
+                    setTrialExtensionConfig(prev => ({
+                      ...prev,
+                      maxTrialExtensionsPerUser: Number.isNaN(v) ? prev.maxTrialExtensionsPerUser : v,
+                    }));
+                  }}
+                  className="w-32 px-3 py-2 border rounded bg-white dark:bg-gray-900 dark:border-gray-700 text-sm"
+                />
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+                <button
+                  onClick={handleUpdateLicenseConfig}
+                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                >
+                  {t('admin.saveConfiguration')}
+                </button>
+                <button
+                  onClick={handleUpdateTrialExtensionConfig}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                >
+                  {t('admin.saveTrialExtensionConfig') || 'Guardar límite de extensiones'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -1176,7 +1239,10 @@ export default function AdminDashboard({ token, user, onLogout }) {
                     <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">
                       {u.licenseType === 'trial' ? (
                         <span className="text-xs">
-                          {u.trialExtensions || 0} / 2
+                          {u.trialExtensions || 0}
+                          {trialExtensionConfig.maxTrialExtensionsPerUser && trialExtensionConfig.maxTrialExtensionsPerUser > 0
+                            ? ` / ${trialExtensionConfig.maxTrialExtensionsPerUser}`
+                            : ' / ∞'}
                         </span>
                       ) : (
                         <span className="text-gray-400 dark:text-gray-500">—</span>
@@ -1184,7 +1250,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                     </td>
                     <td className="px-4 py-2 border dark:border-gray-700">
                       <div className="flex flex-wrap gap-2 items-center" onClick={(e) => e.stopPropagation()}>
-                        {u.licenseType === 'trial' && u.licenseExpiresAt && (u.trialExtensions || 0) < 2 && (
+                        {u.licenseType === 'trial' && u.licenseExpiresAt && (
                           <div className="flex items-center gap-1">
                             <input
                               type="number"
@@ -1202,7 +1268,11 @@ export default function AdminDashboard({ token, user, onLogout }) {
                               className="px-2 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
                               disabled={extendingTrial === u.id}
                               onClick={() => handleExtendTrial(u.id)}
-                              title={`${t('admin.extendTrial')} (${u.trialExtensions || 0}/2)`}
+                              title={
+                                trialExtensionConfig.maxTrialExtensionsPerUser && trialExtensionConfig.maxTrialExtensionsPerUser > 0
+                                  ? `${t('admin.extendTrial')} (${u.trialExtensions || 0}/${trialExtensionConfig.maxTrialExtensionsPerUser})`
+                                  : t('admin.extendTrial')
+                              }
                             >
                               {extendingTrial === u.id ? '...' : t('admin.extendTrial')}
                             </button>

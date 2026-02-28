@@ -61,7 +61,7 @@ export default function SettingsSecurityTab({
             <button
               onClick={onPasswordChange}
               disabled={loading || !securityData.currentPassword || !securityData.newPassword || !securityData.confirmPassword}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
             >
               {loading ? t('settings.changing') : t('settings.changePassword')}
             </button>
@@ -70,8 +70,8 @@ export default function SettingsSecurityTab({
 
         <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4">Two-Factor Authentication</h4>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <Lock className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               <div>
                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Enable 2FA</p>
