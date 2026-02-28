@@ -76,7 +76,7 @@ const Profile = ({ user, token }) => {
         { id: 6, name: 'Scheduling Pro', description: 'Scheduled 50 posts', icon: Clock, earned: false }
       ]);
     } catch (error) {
-      toast.error('Failed to load profile data');
+      toast.error(t('profile.failedToLoadProfile'));
     } finally {
       setLoading(false);
     }
@@ -126,7 +126,7 @@ const Profile = ({ user, token }) => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading profile...</p>
+          <p className="text-gray-600">{t('profile.loadingProfile')}</p>
         </div>
       </div>
     );
@@ -154,7 +154,7 @@ const Profile = ({ user, token }) => {
               <button
                 onClick={() => navigate('/settings')}
                 className="absolute bottom-0 right-0 bg-white dark:bg-gray-700 p-2 rounded-full shadow-lg hover:shadow-xl transition-shadow border border-gray-200 dark:border-gray-600"
-                title="Change profile photo"
+                title={t('profile.changeProfilePhoto')}
               >
                 <Camera className="w-4 h-4 text-gray-600 dark:text-gray-300" />
               </button>
@@ -169,7 +169,7 @@ const Profile = ({ user, token }) => {
                   <div className="flex items-center justify-center md:justify-start space-x-4 text-sm text-gray-500">
                     <span className="flex items-center">
                       <Calendar className="w-4 h-4 mr-1" />
-                      Member since {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                      {t('profile.memberSince')} {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                     </span>
                     <span className="flex items-center">
                       <User className="w-4 h-4 mr-1" />
@@ -182,7 +182,7 @@ const Profile = ({ user, token }) => {
                   className="mt-4 md:mt-0 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 mx-auto md:mx-0"
                 >
                   <Settings className="w-4 h-4" />
-                  <span>Edit Profile</span>
+                  <span>{t('profile.editProfile')}</span>
                 </button>
               </div>
             </div>
@@ -194,7 +194,7 @@ const Profile = ({ user, token }) => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-blue-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Posts</p>
+                <p className="text-sm font-medium text-gray-600">{t('profile.totalPosts')}</p>
                 <p className="text-3xl font-bold text-gray-900">{stats.totalPosts}</p>
               </div>
               <Edit className="w-8 h-8 text-blue-500" />
@@ -226,7 +226,7 @@ const Profile = ({ user, token }) => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-purple-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Views</p>
+                <p className="text-sm font-medium text-gray-600">{t('profile.totalViews')}</p>
                 <p className="text-3xl font-bold text-gray-900">{stats.totalViews.toLocaleString()}</p>
               </div>
               <Eye className="w-8 h-8 text-purple-500" />
@@ -242,7 +242,7 @@ const Profile = ({ user, token }) => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-red-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Likes</p>
+                <p className="text-sm font-medium text-gray-600">{t('profile.totalLikes')}</p>
                 <p className="text-3xl font-bold text-gray-900">{stats.totalLikes.toLocaleString()}</p>
               </div>
               <Heart className="w-8 h-8 text-red-500" />
@@ -258,7 +258,7 @@ const Profile = ({ user, token }) => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-yellow-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Shares</p>
+                <p className="text-sm font-medium text-gray-600">{t('profile.totalShares')}</p>
                 <p className="text-3xl font-bold text-gray-900">{stats.totalShares.toLocaleString()}</p>
               </div>
               <Share2 className="w-8 h-8 text-yellow-500" />
@@ -274,7 +274,7 @@ const Profile = ({ user, token }) => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-indigo-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Engagement Rate</p>
+                <p className="text-sm font-medium text-gray-600">{t('profile.engagementRate')}</p>
                 <p className="text-3xl font-bold text-gray-900">
                   {engagementRate}%
                 </p>
@@ -341,7 +341,7 @@ const Profile = ({ user, token }) => {
           {/* Recent Activity */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">Recent Activity</h2>
+              <h2 className="text-xl font-bold text-gray-900">{t('profile.recentActivity')}</h2>
               <Activity className="w-5 h-5 text-gray-500" />
             </div>
             
@@ -359,7 +359,7 @@ const Profile = ({ user, token }) => {
               ) : (
                 <div className="text-center py-8">
                   <Activity className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">No recent activity</p>
+                  <p className="text-gray-600">{t('profile.noRecentActivity')}</p>
                 </div>
               )}
             </div>
@@ -419,12 +419,12 @@ const Profile = ({ user, token }) => {
 
         {/* Progress Section */}
         <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Progress Goals</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-6">{t('profile.progressGoals')}</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">Posts Goal</span>
+                <span className="text-sm font-medium text-gray-700">{t('profile.postsGoal')}</span>
                 <span className="text-sm text-gray-500">{stats.totalPosts}/100</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
@@ -437,7 +437,7 @@ const Profile = ({ user, token }) => {
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">Views Goal</span>
+                <span className="text-sm font-medium text-gray-700">{t('profile.viewsGoal')}</span>
                 <span className="text-sm text-gray-500">{stats.totalViews.toLocaleString()}/10K</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
@@ -450,7 +450,7 @@ const Profile = ({ user, token }) => {
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">Engagement Goal</span>
+                <span className="text-sm font-medium text-gray-700">{t('profile.engagementGoal')}</span>
                 <span className="text-sm text-gray-500">
                   {engagementRate}%/5%
                 </span>

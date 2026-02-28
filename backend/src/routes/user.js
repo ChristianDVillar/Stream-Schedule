@@ -2333,7 +2333,14 @@ router.get('/twitch-dashboard-stats', requireAuth, async (req, res) => {
     });
 
     if (integration) {
-      let tokenToUse = integration.accessToken;
+      // Proactively refresh token if expired or expiring soon (avoid 401 on first call)
+      try {
+        await refreshIntegrationToken(req.user.id, 'twitch');
+        await integration.reload();
+      } catch (refreshErr) {
+        logger.debug('Twitch token refresh in dashboard-stats (proactive) failed', { error: refreshErr.message });
+      }
+      const tokenToUse = integration.accessToken;
       const fetchStats = async (accessToken) => {
         const { TwitchService } = await import('../services/twitchService.js');
         const twitchService = new TwitchService();

@@ -748,7 +748,7 @@ export default function Settings({ user, token, setUser }) {
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-w-0">
         <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
-          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Manage your account settings and preferences</p>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">{t('settings.manageAccountDescription')}</p>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">

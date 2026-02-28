@@ -224,7 +224,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
       setPlatformConfig(res.data.platforms || {});
     } catch (err) {
       maybeShowNetworkError(err);
-      if (!isNetworkError(err)) toast.error('Failed to load platform configuration');
+      if (!isNetworkError(err)) toast.error(t('admin.failedToLoadPlatformConfig'));
     } finally {
       setPlatformConfigLoading(false);
     }
@@ -238,7 +238,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
         .map(([platform, _]) => platform);
       
       await updatePlatformConfig({ platforms: enabledPlatforms, token });
-      toast.success('Platform configuration updated successfully');
+      toast.success(t('admin.platformConfigUpdated'));
       // Reload config to ensure UI is in sync
       await fetchPlatformConfig();
     } catch (err) {
@@ -2363,7 +2363,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowUserModal(false)}>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-start mb-4">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Detalles del Usuario</h2>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('admin.userDetailsTitle')}</h2>
               <button
                 onClick={() => setShowUserModal(false)}
                 className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
@@ -2375,52 +2375,52 @@ export default function AdminDashboard({ token, user, onLogout }) {
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">ID</h3>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('admin.id')}</h3>
                   <p className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">{selectedUser.id}</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Username</h3>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('common.username')}</h3>
                   <p className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">{selectedUser.username}</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</h3>
-                  <p className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">{selectedUser.email || 'N/A'}</p>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('common.email')}</h3>
+                  <p className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">{selectedUser.email || t('admin.na')}</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Es Admin</h3>
-                  <p className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">{selectedUser.isAdmin ? 'Sí' : 'No'}</p>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('admin.isAdminLabel')}</h3>
+                  <p className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">{selectedUser.isAdmin ? t('common.yes') : t('common.no')}</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tipo de Licencia</h3>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('admin.licenseTypeLabel')}</h3>
                   <p className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-                    {selectedUser.licenseType === 'lifetime' && 'De por vida'}
-                    {selectedUser.licenseType === 'monthly' && 'Mensual'}
-                    {selectedUser.licenseType === 'quarterly' && 'Trimestral'}
-                    {selectedUser.licenseType === 'temporary' && 'Temporal'}
-                    {selectedUser.licenseType === 'trial' && 'Prueba'}
-                    {!selectedUser.licenseType && 'Sin licencia'}
+                    {selectedUser.licenseType === 'lifetime' && t('admin.lifetime')}
+                    {selectedUser.licenseType === 'monthly' && t('admin.monthly')}
+                    {selectedUser.licenseType === 'quarterly' && t('admin.quarterly')}
+                    {selectedUser.licenseType === 'temporary' && t('admin.temporary')}
+                    {selectedUser.licenseType === 'trial' && t('admin.trial')}
+                    {!selectedUser.licenseType && t('admin.none')}
                   </p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Clave de Licencia</h3>
-                  <p className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg font-mono text-sm">{selectedUser.licenseKey || 'N/A'}</p>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('admin.licenseKeyLabel')}</h3>
+                  <p className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg font-mono text-sm">{selectedUser.licenseKey || t('admin.na')}</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Expira</h3>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('admin.expiresLabel')}</h3>
                   <p className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-                    {selectedUser.licenseExpiresAt ? formatDateUTC(selectedUser.licenseExpiresAt) : 'N/A'}
+                    {selectedUser.licenseExpiresAt ? formatDateUTC(selectedUser.licenseExpiresAt) : t('admin.na')}
                   </p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Última Subida</h3>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('admin.lastUploadLabel')}</h3>
                   <p className="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-                    {selectedUser.lastUploadAt ? formatDateUTC(selectedUser.lastUploadAt) : 'Nunca'}
+                    {selectedUser.lastUploadAt ? formatDateUTC(selectedUser.lastUploadAt) : t('admin.never')}
                   </p>
                 </div>
               </div>
               
               <div>
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Plataformas Conectadas</h3>
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('admin.connectedPlatformsLabel')}</h3>
                 <div className="flex flex-wrap gap-2">
                   {selectedUser.connectedPlatforms?.google && (
                     <span className="px-3 py-2 text-sm font-semibold bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded border border-red-300 dark:border-red-700">
@@ -2448,7 +2448,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
                     </span>
                   )}
                   {(!selectedUser.connectedPlatforms?.google && !selectedUser.connectedPlatforms?.twitch && !selectedUser.connectedPlatforms?.discord && !selectedUser.connectedPlatforms?.twitter && !selectedUser.connectedPlatforms?.email) && (
-                    <span className="text-gray-400 dark:text-gray-500 text-sm">Ninguna plataforma conectada</span>
+                    <span className="text-gray-400 dark:text-gray-500 text-sm">{t('admin.noPlatformsConnected')}</span>
                   )}
                 </div>
               </div>
