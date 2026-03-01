@@ -116,7 +116,7 @@ export default function SettingsProfileTab({
 
         <div className="mt-6">
           <label htmlFor="merchandisingLink" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Link de Página de Merchandising
+            {t('profile.merchandisingLink') || 'Link de Página de Merchandising'}
           </label>
           <input
             id="merchandisingLink"
@@ -126,7 +126,25 @@ export default function SettingsProfileTab({
             className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             placeholder="https://ejemplo.com/tienda"
           />
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Agrega el link de tu página de merchandising</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('profile.merchandisingLinkHint') || 'Agrega el link de tu página de merchandising'}</p>
+          {profileData.merchandisingLink && (
+            <div className="mt-3">
+              <label htmlFor="merchandisingButtonPosition" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {t('profile.merchandisingButtonPosition') || 'Posición del botón'}
+              </label>
+              <select
+                id="merchandisingButtonPosition"
+                value={profileData.merchandisingButtonPosition || 'bottom-right'}
+                onChange={(e) => setProfileData(prev => ({ ...prev, merchandisingButtonPosition: e.target.value }))}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="bottom-right">{t('profile.merchandisingPosBottomRight') || 'Abajo derecha'}</option>
+                <option value="bottom-left">{t('profile.merchandisingPosBottomLeft') || 'Abajo izquierda'}</option>
+                <option value="top-right">{t('profile.merchandisingPosTopRight') || 'Arriba derecha'}</option>
+                <option value="top-left">{t('profile.merchandisingPosTopLeft') || 'Arriba izquierda'}</option>
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">

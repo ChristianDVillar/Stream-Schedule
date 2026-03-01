@@ -373,18 +373,27 @@ function AppContent() {
               } />
             </Routes>
           </div>
-          {/* Icono de bolsa flotante para merchandising */}
-          {user && user.merchandisingLink && (
-            <a
-              href={user.merchandisingLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 bg-accent text-white rounded-full p-3 sm:p-4 shadow-lg transition-all duration-300 hover:scale-110 flex items-center justify-center min-w-[44px] min-h-[44px]"
-              aria-label={t('common.merchandisingLink')}
-            >
-              <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
-            </a>
-          )}
+          {/* Icono de bolsa flotante para merchandising - posición configurable */}
+          {user && user.merchandisingLink && (() => {
+            const pos = user.merchandisingButtonPosition || 'bottom-right';
+            const positionClasses = {
+              'bottom-right': 'bottom-4 right-4 sm:bottom-6 sm:right-6',
+              'bottom-left': 'bottom-4 left-4 sm:bottom-6 sm:left-6',
+              'top-right': 'top-4 right-4 sm:top-6 sm:right-6',
+              'top-left': 'top-4 left-4 sm:top-6 sm:left-6',
+            };
+            return (
+              <a
+                href={user.merchandisingLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`fixed ${positionClasses[pos] || positionClasses['bottom-right']} z-50 bg-accent text-white rounded-full p-3 sm:p-4 shadow-lg transition-all duration-300 hover:scale-110 flex items-center justify-center min-w-[44px] min-h-[44px]`}
+                aria-label={t('common.merchandisingLink')}
+              >
+                <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
+              </a>
+            );
+          })()}
           <footer className="text-center text-gray-500 dark:text-gray-400 py-3 sm:py-4 px-4 text-sm border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
             <span className="inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
               <span>© 2025 Christian · Develop · v{APP_VERSION}</span>

@@ -345,18 +345,37 @@ code {
     monospace;
 }
 
-/* react-big-calendar: responsive toolbar on small screens */
+/* Dashboard calendar: responsive container */
+.dashboard-calendar-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.dashboard-calendar-wrapper .rbc-calendar {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.dashboard-calendar-wrapper .rbc-calendar .rbc-time-view,
+.dashboard-calendar-wrapper .rbc-calendar .rbc-month-view {
+  flex: 1;
+  min-height: 0;
+}
+
+/* react-big-calendar: responsive toolbar and layout */
 @media (max-width: 640px) {
   .rbc-toolbar {
     flex-direction: column;
     align-items: stretch;
-    gap: 8px;
-    padding: 8px 4px;
+    gap: 6px;
+    padding: 6px 4px;
+    flex-shrink: 0;
   }
   .rbc-toolbar-label {
     text-align: center;
-    font-size: 0.875rem;
-    padding: 4px 0;
+    font-size: 0.8125rem;
+    padding: 2px 0;
   }
   .rbc-btn-group {
     display: flex;
@@ -365,39 +384,51 @@ code {
     gap: 4px;
   }
   .rbc-btn-group button {
-    padding: 6px 10px;
-    font-size: 0.75rem;
-    min-width: 60px;
+    padding: 5px 8px;
+    font-size: 0.6875rem;
+    min-width: 52px;
   }
-  /* Make calendar events more readable on mobile */
   .rbc-event {
-    font-size: 11px;
-    padding: 2px 4px;
+    font-size: 10px;
+    padding: 2px 3px;
     line-height: 1.2;
   }
   .rbc-event-label {
+    font-size: 9px;
+  }
+  .rbc-header {
+    padding: 4px 2px;
+    font-size: 0.6875rem;
+  }
+  .rbc-time-slot {
     font-size: 10px;
   }
-  /* Improve header readability */
-  .rbc-header {
-    padding: 6px 4px;
-    font-size: 0.75rem;
-  }
-  /* Better time slot visibility */
-  .rbc-time-slot {
-    font-size: 11px;
-  }
   .rbc-time-gutter {
-    font-size: 11px;
+    font-size: 10px;
+    min-width: 36px;
   }
-  /* Month view improvements */
   .rbc-month-view {
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
   }
   .rbc-date-cell {
-    padding: 4px;
+    padding: 2px;
+    font-size: 0.75rem;
   }
   .rbc-day-bg {
-    min-height: 60px;
+    min-height: 50px;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .rbc-toolbar {
+    padding: 8px 6px;
+  }
+  .rbc-btn-group button {
+    padding: 6px 10px;
+    font-size: 0.8125rem;
+  }
+  .rbc-header {
+    padding: 6px 4px;
+    font-size: 0.8125rem;
   }
 } 
