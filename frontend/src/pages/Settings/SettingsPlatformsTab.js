@@ -1,6 +1,7 @@
-import React from 'react';
-import { Twitch } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Twitch, Save } from 'lucide-react';
 import { DISCORD_ICON_URL } from '../../constants/platforms';
+import { getDiscordGuilds, getDiscordChannels } from '../../api';
 
 // Platform-specific icons (same style as Login page)
 const GoogleIcon = () => (
@@ -58,6 +59,7 @@ const PLATFORMS = [
 ];
 
 export default function SettingsPlatformsTab({
+  user,
   connectedAccounts,
   setConnectedAccounts,
   connectedAccountsLoading,
@@ -69,7 +71,66 @@ export default function SettingsPlatformsTab({
   onDisconnect,
   fetchConnectedAccounts,
   onTwitchPublishConnect,
+  onSaveClipsChannel,
 }) {
+  const discordConnected = connectedAccounts?.discord === true;
+  const [clipsGuildId, setClipsGuildId] = useState(user?.discordClipsGuildId || '');
+  const [clipsChannelId, setClipsChannelId] = useState(user?.discordClipsChannelId || '');
+  const [clipsGuilds, setClipsGuilds] = useState([]);
+  const [clipsChannels, setClipsChannels] = useState([]);
+  const [loadingClipsGuilds, setLoadingClipsGuilds] = useState(false);
+  const [loadingClipsChannels, setLoadingClipsChannels] = useState(false);
+  const [savingClipsChannel, setSavingClipsChannel] = useState(false);
+
+  useEffect(() => {
+    setClipsGuildId(user?.discordClipsGuildId || '');
+    setClipsChannelId(user?.discordClipsChannelId || '');
+  }, [user?.discordClipsGuildId, user?.discordClipsChannelId]);
+
+  useEffect(() => {
+    if (!discordConnected || !token) {
+      setClipsGuilds([]);
+      setClipsChannels([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingClipsGuilds(true);
+    getDiscordGuilds()
+      .then((data) => {
+        if (!cancelled) setClipsGuilds(data.guilds || []);
+      })
+      .catch(() => { if (!cancelled) setClipsGuilds([]); })
+      .finally(() => { if (!cancelled) setLoadingClipsGuilds(false); });
+    return () => { cancelled = true; };
+  }, [discordConnected, token]);
+
+  useEffect(() => {
+    if (!clipsGuildId) {
+      setClipsChannels([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingClipsChannels(true);
+    setClipsChannels([]);
+    getDiscordChannels(clipsGuildId)
+      .then((data) => {
+        if (!cancelled) setClipsChannels(data.channels || []);
+      })
+      .catch(() => { if (!cancelled) setClipsChannels([]); })
+      .finally(() => { if (!cancelled) setLoadingClipsChannels(false); });
+    return () => { cancelled = true; };
+  }, [clipsGuildId]);
+
+  const handleSaveClipsChannel = async () => {
+    if (typeof onSaveClipsChannel !== 'function') return;
+    setSavingClipsChannel(true);
+    try {
+      await onSaveClipsChannel(clipsGuildId || null, clipsChannelId || null);
+    } finally {
+      setSavingClipsChannel(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
@@ -170,6 +231,60 @@ export default function SettingsPlatformsTab({
         </div>
       ) : (
         <p className="text-sm text-gray-500">{t('settings.couldNotLoadAccounts') || 'Could not load connected accounts.'}</p>
+      )}
+
+      {discordConnected && onSaveClipsChannel && (
+        <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-4">
+          <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            {t('settings.discordClipsChannelTitle') || 'Canal para clips de Twitch'}
+          </h4>
+          <p className="text-xs text-gray-600 dark:text-gray-400">
+            {t('settings.discordClipsChannelDescription') || 'Los clips de Twitch se publicarán automáticamente en el canal que elijas.'}
+          </p>
+          <div className="flex flex-wrap gap-3 items-end">
+            <div className="min-w-[180px]">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                {t('settings.discordServer') || 'Servidor'}
+              </label>
+              <select
+                value={clipsGuildId}
+                onChange={(e) => { setClipsGuildId(e.target.value); setClipsChannelId(''); }}
+                disabled={loadingClipsGuilds}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm"
+              >
+                <option value="">{loadingClipsGuilds ? (t('common.loading') || '...') : (t('settings.selectServer') || 'Seleccionar servidor')}</option>
+                {clipsGuilds.map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="min-w-[180px]">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                {t('settings.discordChannel') || 'Canal'}
+              </label>
+              <select
+                value={clipsChannelId}
+                onChange={(e) => setClipsChannelId(e.target.value)}
+                disabled={!clipsGuildId || loadingClipsChannels}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm"
+              >
+                <option value="">{loadingClipsChannels ? (t('common.loading') || '...') : (t('settings.selectChannel') || 'Seleccionar canal')}</option>
+                {clipsChannels.map((c) => (
+                  <option key={c.id} value={c.id}>#{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={handleSaveClipsChannel}
+              disabled={savingClipsChannel}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 text-sm"
+            >
+              <Save className="w-4 h-4" />
+              {savingClipsChannel ? (t('common.loading') || '...') : (t('common.save') || 'Guardar')}
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

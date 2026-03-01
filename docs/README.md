@@ -6,8 +6,10 @@ Documentación de **Streamer Scheduler** (protección, licencia, scripts).
 
 ## Información para usuarios
 
-- **[GUIA-USUARIOS.md](GUIA-USUARIOS.md)** – Guía para usuarios finales (español): qué es la aplicación, registro, dashboard, programar contenido, perfil, conectar plataformas, licencias, idioma y tema.
+- **[GUIA-USUARIOS.md](GUIA-USUARIOS.md)** – Guía para usuarios finales (español): qué es la aplicación, registro, dashboard, programar contenido, to-do, media, plantillas, perfil, configuración, conectar plataformas, licencias, idioma y tema.
 - **[USER-GUIDE.md](USER-GUIDE.md)** – User guide (English): same content for end users.
+- **[FAQ_ES.md](FAQ_ES.md)** – Preguntas frecuentes en español.
+- **[FAQ_EN.md](FAQ_EN.md)** – Frequently asked questions in English.
 
 ## Monitor y producción
 

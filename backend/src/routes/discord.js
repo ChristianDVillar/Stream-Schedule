@@ -285,4 +285,36 @@ router.post('/channels/:channelId/messages', requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * POST /discord/clips/publish
+ * Publish a Twitch clip to the user's configured Discord clips channel (Settings).
+ * Body: { title?, url?, thumbnailUrl?, creatorName? }
+ */
+router.post('/clips/publish', requireAuth, async (req, res) => {
+  try {
+    const { title, url, thumbnailUrl, creatorName } = req.body || {};
+    if (!url && !title) {
+      return res.status(400).json({
+        error: 'At least title or url is required',
+        details: 'Provide clip URL (e.g. https://clips.twitch.tv/...) and optionally title, thumbnailUrl, creatorName.',
+      });
+    }
+    const { publishTwitchClipToDiscord } = await import('../services/discordClipsService.js');
+    const result = await publishTwitchClipToDiscord(req.user.id, {
+      title: title || 'Twitch clip',
+      url: url || '',
+      thumbnailUrl: thumbnailUrl || null,
+      creatorName: creatorName || null,
+    });
+    if (!result.success) {
+      const status = result.error?.includes('No Discord channel') ? 400 : 502;
+      return res.status(status).json({ error: result.error });
+    }
+    res.json({ success: true, messageId: result.messageId });
+  } catch (err) {
+    logger.error('Discord clips publish error', { error: err.message, userId: req.user?.id });
+    res.status(500).json({ error: err.message || 'Failed to publish clip to Discord' });
+  }
+});
+
 export default router;

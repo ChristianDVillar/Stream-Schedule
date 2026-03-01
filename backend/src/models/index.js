@@ -27,6 +27,7 @@ import ContentPlatform from './ContentPlatform.js';
 import TwitchBitEvent from './TwitchBitEvent.js';
 import TwitchEventSubSubscription from './TwitchEventSubSubscription.js';
 import PublicationMetric from './PublicationMetric.js';
+import Todo from './Todo.js';
 
 // 👤 User
 const User = sequelize.define('User', {
@@ -173,6 +174,16 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: true,
     comment: 'URL of user profile/avatar image (e.g. from uploads)'
+  },
+  discordClipsGuildId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Discord server (guild) ID where Twitch clips are published automatically'
+  },
+  discordClipsChannelId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Discord channel ID where Twitch clips are published automatically'
   }
 });
 
@@ -473,6 +484,9 @@ Media.belongsTo(User, { foreignKey: 'userId' });
 User.hasMany(ContentTemplate, { foreignKey: 'userId', onDelete: 'CASCADE' });
 ContentTemplate.belongsTo(User, { foreignKey: 'userId' });
 
+User.hasMany(Todo, { foreignKey: 'userId', onDelete: 'CASCADE' });
+Todo.belongsTo(User, { foreignKey: 'userId' });
+
 // Many-to-Many: Content <-> Media
 Content.belongsToMany(Media, { 
   through: ContentMedia, 
@@ -558,4 +572,5 @@ export {
   TwitchBitEvent,
   TwitchEventSubSubscription,
   PublicationMetric,
+  Todo,
 };
