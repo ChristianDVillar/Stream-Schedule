@@ -758,6 +758,7 @@
     "placeholder": "What do you need to do?",
     "add": "Add",
     "added": "Added",
+    "deleted": "Deleted",
     "completed": "Completed",
     "empty": "No tasks yet. Add one above.",
     "markDone": "Mark done",

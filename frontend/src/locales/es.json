@@ -758,6 +758,7 @@
     "placeholder": "¿Qué necesitas hacer?",
     "add": "Añadir",
     "added": "Añadido",
+    "deleted": "Eliminado",
     "completed": "Completadas",
     "empty": "Aún no hay tareas. Añade una arriba.",
     "markDone": "Marcar hecha",
