@@ -370,6 +370,28 @@ export default function Settings({ user, token, setUser }) {
     if (token) await fetchConnectedAccounts();
   };
 
+  const handleSaveClipsChannel = async (guildId, channelId) => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const response = await apiClient.put(
+        '/user/profile',
+        { discordClipsGuildId: guildId || null, discordClipsChannelId: channelId || null },
+        { headers: { Authorization: `Bearer ${token}` }, withCredentials: true }
+      );
+      if (setUser && response.data.user) {
+        const updatedUser = { ...user, ...response.data.user };
+        setUser(updatedUser);
+        localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+      }
+      toast.success(t('settings.clipsChannelSaved') || 'Clips channel saved.');
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || t('settings.profileUpdateFailed'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCancelSubscription = async () => {
     if (!window.confirm(t('settings.cancelSubscriptionConfirm'))) return;
     setLoadingSubscription(true);
@@ -663,6 +685,7 @@ export default function Settings({ user, token, setUser }) {
       case 'platforms':
         return (
           <SettingsPlatformsTab
+            user={user}
             connectedAccounts={connectedAccounts}
             setConnectedAccounts={setConnectedAccounts}
             connectedAccountsLoading={connectedAccountsLoading}
@@ -674,6 +697,7 @@ export default function Settings({ user, token, setUser }) {
             onDisconnect={handleDisconnect}
             fetchConnectedAccounts={fetchConnectedAccounts}
             onTwitchPublishConnect={token ? () => startTwitchPublishConnect(token) : null}
+            onSaveClipsChannel={handleSaveClipsChannel}
           />
         );
       case 'security':

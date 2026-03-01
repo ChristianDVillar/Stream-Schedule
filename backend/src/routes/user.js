@@ -2634,7 +2634,7 @@ router.get('/license', requireAuth, async (req, res) => {
 
 // Update user profile
 router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog('profile_updated', 'User'), async (req, res) => {
-  const { username, email, merchandisingLink, profileImageUrl, dashboardShowTwitchSubs, dashboardShowTwitchBits, dashboardShowTwitchDonations } = req.body;
+  const { username, email, merchandisingLink, profileImageUrl, dashboardShowTwitchSubs, dashboardShowTwitchBits, dashboardShowTwitchDonations, discordClipsGuildId, discordClipsChannelId } = req.body;
   try {
     const user = await User.findByPk(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -2651,6 +2651,8 @@ router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog(
     if (dashboardShowTwitchSubs !== undefined) user.dashboardShowTwitchSubs = dashboardShowTwitchSubs;
     if (dashboardShowTwitchBits !== undefined) user.dashboardShowTwitchBits = dashboardShowTwitchBits;
     if (dashboardShowTwitchDonations !== undefined) user.dashboardShowTwitchDonations = dashboardShowTwitchDonations;
+    if (discordClipsGuildId !== undefined) user.discordClipsGuildId = discordClipsGuildId && String(discordClipsGuildId).trim() ? String(discordClipsGuildId).trim() : null;
+    if (discordClipsChannelId !== undefined) user.discordClipsChannelId = discordClipsChannelId && String(discordClipsChannelId).trim() ? String(discordClipsChannelId).trim() : null;
     
     await user.save();
     const licenseSummary = buildLicenseSummary(user);
@@ -2671,7 +2673,9 @@ router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog(
         profileImageUrl: plain.profileImageUrl || null,
         dashboardShowTwitchSubs: plain.dashboardShowTwitchSubs,
         dashboardShowTwitchBits: plain.dashboardShowTwitchBits,
-        dashboardShowTwitchDonations: plain.dashboardShowTwitchDonations
+        dashboardShowTwitchDonations: plain.dashboardShowTwitchDonations,
+        discordClipsGuildId: plain.discordClipsGuildId || null,
+        discordClipsChannelId: plain.discordClipsChannelId || null
       }
     });
   } catch (err) {

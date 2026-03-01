@@ -313,6 +313,26 @@ export async function cancelContent(contentId, token) {
   return res.data;
 }
 
+/** Todos - to-do list for all users */
+export async function getTodos() {
+  const res = await apiClient.get('/todos');
+  return res.data;
+}
+
+export async function createTodo({ title, order }) {
+  const res = await apiClient.post('/todos', { title, order });
+  return res.data;
+}
+
+export async function updateTodo(id, { title, completed, order }) {
+  const res = await apiClient.patch(`/todos/${id}`, { title, completed, order });
+  return res.data;
+}
+
+export async function deleteTodo(id) {
+  await apiClient.delete(`/todos/${id}`);
+}
+
 /** Start Discord link flow (add Discord to current account). Pass token; redirects to backend. */
 export function startDiscordLink(token) {
   const base = apiClient.defaults.baseURL;

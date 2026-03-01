@@ -116,7 +116,9 @@ export const updateProfileSchema = Joi.object({
   }),
   dashboardShowTwitchSubs: Joi.boolean().optional(),
   dashboardShowTwitchBits: Joi.boolean().optional(),
-  dashboardShowTwitchDonations: Joi.boolean().optional()
+  dashboardShowTwitchDonations: Joi.boolean().optional(),
+  discordClipsGuildId: Joi.string().max(100).allow('', null).optional(),
+  discordClipsChannelId: Joi.string().max(100).allow('', null).optional()
 }).min(1).messages({
   'object.min': 'At least one field must be provided to update'
 });

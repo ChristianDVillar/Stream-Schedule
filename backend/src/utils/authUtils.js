@@ -113,7 +113,9 @@ export function buildUserResponse(user) {
     profileImageUrl: userPlain.profileImageUrl || null,
     dashboardShowTwitchSubs: userPlain.dashboardShowTwitchSubs !== false,
     dashboardShowTwitchBits: userPlain.dashboardShowTwitchBits !== false,
-    dashboardShowTwitchDonations: userPlain.dashboardShowTwitchDonations === true
+    dashboardShowTwitchDonations: userPlain.dashboardShowTwitchDonations === true,
+    discordClipsGuildId: userPlain.discordClipsGuildId || null,
+    discordClipsChannelId: userPlain.discordClipsChannelId || null
   };
 }
 

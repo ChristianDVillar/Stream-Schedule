@@ -10,6 +10,10 @@ import Login from './pages/Login';
 import AuthCallback from './pages/AuthCallback';
 import AdminDashboard from './pages/AdminDashboard';
 import MessagesPage from './pages/MessagesPage';
+import TodoList from './pages/TodoList';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
+import FAQ from './pages/FAQ';
 import { ShieldOff, UserX, Menu, X, ShoppingBag, Globe } from 'lucide-react';
 import HeaderBanners from './components/HeaderBanners';
 import MessagesAndNotificationsDropdown from './components/MessagesAndNotificationsDropdown';
@@ -200,6 +204,7 @@ function Sidebar({ user, open, onClose, adminUnreadMessageCount = 0 }) {
         {!user?.isAdmin && <Link to="/schedule" className={getLinkClasses("/schedule")}>{t('schedule.newPost')}</Link>}
         {!user?.isAdmin && <Link to="/templates" className={getLinkClasses("/templates")}>{t('templates.menu') || 'Templates'}</Link>}
         {!user?.isAdmin && <Link to="/media" className={getLinkClasses("/media")}>{t('media.menu') || t('media.title') || 'Media'}</Link>}
+        <Link to="/todos" className={getLinkClasses("/todos")}>{t('todo.menu') || 'To-do'}</Link>
         {!user?.isAdmin && <Link to="/messages" className={getLinkClasses("/messages")}>{t('common.messages')}</Link>}
         <Link to="/settings" className={getLinkClasses("/settings")}>{t('settings.title')}</Link>
         <Link to="/profile" className={getLinkClasses("/profile")}>{t('profile.title')}</Link>
@@ -310,6 +315,9 @@ function AppContent() {
             <Routes>
               <Route path="/login" element={<Login setAuth={setAuth} />} />
               <Route path="/auth/callback" element={<AuthCallback setAuth={setAuth} />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/faq" element={<FAQ />} />
               <Route path="/dashboard" element={
                 <UserRoute user={user}>
                   <Dashboard user={user} token={token} />
@@ -351,6 +359,11 @@ function AppContent() {
                   <MessagesPage token={token} />
                 </PrivateRoute>
               } />
+              <Route path="/todos" element={
+                <PrivateRoute user={user}>
+                  <TodoList token={token} />
+                </PrivateRoute>
+              } />
               <Route path="/" element={
                 user
                   ? user.isAdmin
@@ -373,7 +386,12 @@ function AppContent() {
             </a>
           )}
           <footer className="text-center text-gray-500 dark:text-gray-400 py-3 sm:py-4 px-4 text-sm border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-            © 2025 Christian · Develop · v{APP_VERSION}
+            <span className="inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+              <span>© 2025 Christian · Develop · v{APP_VERSION}</span>
+              <Link to="/faq" className="hover:text-accent underline">{t('faq.menuTitle') || 'FAQ'}</Link>
+              <Link to="/privacy" className="hover:text-accent underline">{t('footer.privacy') || 'Privacy'}</Link>
+              <Link to="/terms" className="hover:text-accent underline">{t('footer.terms') || 'Terms'}</Link>
+            </span>
           </footer>
         </div>
       </div>
