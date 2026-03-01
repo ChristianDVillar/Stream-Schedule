@@ -459,7 +459,14 @@
     "engagementGoal": "Engagement Goal",
     "failedToLoadProfile": "Failed to load profile data",
     "memberSince": "Member since",
-    "changeProfilePhoto": "Change profile photo"
+    "changeProfilePhoto": "Change profile photo",
+    "merchandisingLink": "Merchandising page link",
+    "merchandisingLinkHint": "Add the link to your merchandising or store page",
+    "merchandisingButtonPosition": "Button position",
+    "merchandisingPosBottomRight": "Bottom right",
+    "merchandisingPosBottomLeft": "Bottom left",
+    "merchandisingPosTopRight": "Top right",
+    "merchandisingPosTopLeft": "Top left"
   },
   "admin": {
     "title": "Admin dashboard",

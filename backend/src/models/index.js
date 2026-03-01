@@ -121,6 +121,12 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: true
   },
+  merchandisingButtonPosition: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: 'bottom-right',
+    comment: 'Position of floating merchandising button: bottom-right, bottom-left, top-right, top-left'
+  },
   hasUsedTrial: {
     type: DataTypes.BOOLEAN,
     allowNull: false,

@@ -459,7 +459,14 @@
     "engagementGoal": "Objetivo engagement",
     "failedToLoadProfile": "Error al cargar los datos del perfil",
     "memberSince": "Miembro desde",
-    "changeProfilePhoto": "Cambiar foto de perfil"
+    "changeProfilePhoto": "Cambiar foto de perfil",
+    "merchandisingLink": "Enlace de página de merchandising",
+    "merchandisingLinkHint": "Añade el enlace de tu página de merchandising o tienda",
+    "merchandisingButtonPosition": "Posición del botón",
+    "merchandisingPosBottomRight": "Abajo derecha",
+    "merchandisingPosBottomLeft": "Abajo izquierda",
+    "merchandisingPosTopRight": "Arriba derecha",
+    "merchandisingPosTopLeft": "Arriba izquierda"
   },
   "admin": {
     "title": "Panel de administración",

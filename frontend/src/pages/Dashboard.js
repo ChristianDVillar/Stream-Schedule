@@ -57,22 +57,24 @@ const Dashboard = ({ user, token, ...props }) => {
   const [discordStats, setDiscordStats] = useState(null);
   const [discordStatsLoading, setDiscordStatsLoading] = useState(false);
   const [bitsFormat, setBitsFormat] = useState('chronological'); // 'chronological' o 'total'
-  const [calendarView, setCalendarView] = useState('week');
-  const [isMobile, setIsMobile] = useState(false);
+  const [calendarView, setCalendarView] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth < 640 ? 'day' : 'week'
+  );
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth < 640
+  );
 
-  // Detect mobile screen size
+  // Detect mobile and switch to day view when resizing to small screen
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 640);
-      if (window.innerWidth < 640 && calendarView === 'week') {
-        setCalendarView('day');
-      }
+      const mobile = window.innerWidth < 640;
+      setIsMobile(mobile);
+      setCalendarView((prev) => (mobile && prev === 'week' ? 'day' : prev));
     };
-    
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
-  }, [calendarView]);
+  }, []);
 
   const showTwitchOnDashboard = user && !user.isAdmin && (
     user.dashboardShowTwitchSubs || user.dashboardShowTwitchBits || user.dashboardShowTwitchDonations
@@ -740,30 +742,28 @@ const Dashboard = ({ user, token, ...props }) => {
         )}
 
         {/* Calendario */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 sm:p-4 lg:p-6 border-t-4 border-blue-400 mb-6 sm:mb-8 overflow-hidden">
-          <h3 className="text-base sm:text-lg font-bold text-blue-700 dark:text-blue-400 mb-3 sm:mb-4 flex items-center"><CalendarIcon className="w-5 h-5 mr-2 flex-shrink-0" />Calendar</h3>
-          <div className={`h-[350px] sm:h-[450px] lg:h-[600px] min-h-[280px] ${isMobile ? 'overflow-x-auto overflow-y-hidden -mx-3 px-3' : 'overflow-hidden'} sm:mx-0 sm:px-0`}>
-            <div className={`${isMobile ? 'min-w-[600px]' : 'w-full'} h-full`}>
-              <DragAndDropCalendar
-                localizer={localizer}
-                events={calendarEvents}
-                startAccessor="start"
-                endAccessor="end"
-                view={calendarView}
-                onView={(view) => setCalendarView(view)}
-                defaultView={calendarView}
-                views={['week', 'month', 'day']}
-                onEventDrop={handleEventDrop}
-                eventPropGetter={eventStyleGetter}
-                selectable
-                onSelectSlot={(slotInfo) => setSelectedDate(slotInfo.start)}
-                onSelectEvent={(event) => {
-                  setSelectedContent(event.resource);
-                  setShowContentModal(true);
-                }}
-                style={{ height: '100%' }}
-              />
-            </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-2 sm:p-4 lg:p-6 border-t-4 border-blue-400 mb-6 sm:mb-8 overflow-hidden">
+          <h3 className="text-base sm:text-lg font-bold text-blue-700 dark:text-blue-400 mb-2 sm:mb-4 flex items-center"><CalendarIcon className="w-5 h-5 mr-2 flex-shrink-0" />Calendar</h3>
+          <div className="dashboard-calendar-wrapper h-[300px] min-h-[260px] sm:h-[400px] md:h-[450px] lg:h-[520px] w-full overflow-hidden rounded border border-gray-200 dark:border-gray-600">
+            <DragAndDropCalendar
+              localizer={localizer}
+              events={calendarEvents}
+              startAccessor="start"
+              endAccessor="end"
+              view={calendarView}
+              onView={(view) => setCalendarView(view)}
+              defaultView={calendarView}
+              views={isMobile ? ['day', 'month'] : ['week', 'month', 'day']}
+              onEventDrop={handleEventDrop}
+              eventPropGetter={eventStyleGetter}
+              selectable
+              onSelectSlot={(slotInfo) => setSelectedDate(slotInfo.start)}
+              onSelectEvent={(event) => {
+                setSelectedContent(event.resource);
+                setShowContentModal(true);
+              }}
+              style={{ height: '100%', minHeight: 0 }}
+            />
           </div>
           <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mt-2 px-1">Selected: {selectedDate.toLocaleDateString()}</p>
         </div>

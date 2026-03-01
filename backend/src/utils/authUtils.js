@@ -110,6 +110,7 @@ export function buildUserResponse(user) {
     licenseDaysLeft: licenseSummary.daysLeft,
     isAdmin: userPlain.isAdmin,
     merchandisingLink: userPlain.merchandisingLink,
+    merchandisingButtonPosition: userPlain.merchandisingButtonPosition || 'bottom-right',
     profileImageUrl: userPlain.profileImageUrl || null,
     dashboardShowTwitchSubs: userPlain.dashboardShowTwitchSubs !== false,
     dashboardShowTwitchBits: userPlain.dashboardShowTwitchBits !== false,

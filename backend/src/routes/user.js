@@ -2634,7 +2634,7 @@ router.get('/license', requireAuth, async (req, res) => {
 
 // Update user profile
 router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog('profile_updated', 'User'), async (req, res) => {
-  const { username, email, merchandisingLink, profileImageUrl, dashboardShowTwitchSubs, dashboardShowTwitchBits, dashboardShowTwitchDonations, discordClipsGuildId, discordClipsChannelId } = req.body;
+  const { username, email, merchandisingLink, merchandisingButtonPosition, profileImageUrl, dashboardShowTwitchSubs, dashboardShowTwitchBits, dashboardShowTwitchDonations, discordClipsGuildId, discordClipsChannelId } = req.body;
   try {
     const user = await User.findByPk(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -2647,6 +2647,7 @@ router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog(
         ? (link.startsWith('http://') || link.startsWith('https://') ? link : `https://${link}`)
         : null;
     }
+    if (merchandisingButtonPosition !== undefined) user.merchandisingButtonPosition = ['bottom-right', 'bottom-left', 'top-right', 'top-left'].includes(merchandisingButtonPosition) ? merchandisingButtonPosition : 'bottom-right';
     if (profileImageUrl !== undefined) user.profileImageUrl = profileImageUrl && profileImageUrl.trim() ? profileImageUrl.trim() : null;
     if (dashboardShowTwitchSubs !== undefined) user.dashboardShowTwitchSubs = dashboardShowTwitchSubs;
     if (dashboardShowTwitchBits !== undefined) user.dashboardShowTwitchBits = dashboardShowTwitchBits;
@@ -2670,6 +2671,7 @@ router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog(
         licenseDaysLeft: licenseSummary.daysLeft,
         isAdmin: plain.isAdmin,
         merchandisingLink: plain.merchandisingLink,
+        merchandisingButtonPosition: plain.merchandisingButtonPosition || 'bottom-right',
         profileImageUrl: plain.profileImageUrl || null,
         dashboardShowTwitchSubs: plain.dashboardShowTwitchSubs,
         dashboardShowTwitchBits: plain.dashboardShowTwitchBits,
