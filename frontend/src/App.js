@@ -1,20 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, Link, useLocation } from 'react-router-dom';
-import Dashboard from './pages/Dashboard';
-import Settings from './pages/Settings';
-import Profile from './pages/Profile';
-import Schedule from './pages/Schedule';
-import Templates from './pages/Templates';
-import MediaUpload from './pages/MediaUpload';
-import Login from './pages/Login';
-import AuthCallback from './pages/AuthCallback';
-import AdminDashboard from './pages/AdminDashboard';
-import MessagesPage from './pages/MessagesPage';
-import TodoList from './pages/TodoList';
-import Privacy from './pages/Privacy';
-import Terms from './pages/Terms';
-import FAQ from './pages/FAQ';
-import { ShieldOff, UserX, Menu, X, ShoppingBag, Globe } from 'lucide-react';
+import { BrowserRouter as Router, useNavigate, Link, useLocation } from 'react-router-dom';
+import { Menu, X, ShoppingBag, Globe } from 'lucide-react';
+import { AppRoutes } from './routes/AppRoutes';
 import HeaderBanners from './components/HeaderBanners';
 import MessagesAndNotificationsDropdown from './components/MessagesAndNotificationsDropdown';
 import ThemeImage from './components/ThemeImage';
@@ -23,46 +10,7 @@ import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { AuthProvider, useAuth } from './store/authStore';
 import { getStoredAccentColor, applyAccentColor, THEME_CHANGE_EVENT } from './utils/themeUtils';
 import { APP_VERSION } from './version';
-import { getUnreadMessageCount, apiClient } from './api';
-
-function PrivateRoute({ user, children }) {
-  if (!user) return <Navigate to="/login" replace />;
-  return children;
-}
-
-function AdminRoute({ user, children }) {
-  const navigate = useNavigate();
-  const { t } = useLanguage();
-  if (!user) return <Navigate to="/login" replace />;
-  if (!user.isAdmin) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-100">
-        <ShieldOff className="w-16 h-16 text-red-500 mb-4" />
-        <h2 className="text-3xl font-bold text-red-700 mb-2">{t('common.accessDenied') || 'Access Denied'}</h2>
-        <p className="mb-4 text-lg text-gray-700">{t('common.noAdminPermission') || 'You do not have permission to access the Admin Dashboard.'}</p>
-        <button onClick={() => navigate('/dashboard')} className="px-6 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition">{t('common.goToUserDashboard') || 'Go to User Dashboard'}</button>
-      </div>
-    );
-  }
-  return children;
-}
-
-function UserRoute({ user, children }) {
-  const navigate = useNavigate();
-  const { t } = useLanguage();
-  if (!user) return <Navigate to="/login" replace />;
-  if (user.isAdmin) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 to-blue-100">
-        <UserX className="w-16 h-16 text-purple-600 mb-4" />
-        <h2 className="text-3xl font-bold text-purple-800 mb-2">{t('common.accessDenied') || 'Access Denied'}</h2>
-        <p className="mb-4 text-lg text-gray-700">{t('common.adminsCannotAccessUserDashboard') || 'Admins cannot access the User Dashboard.'}</p>
-        <button onClick={() => navigate('/admin')} className="px-6 py-2 bg-purple-600 text-white rounded shadow hover:bg-purple-700 transition">{t('common.goToAdminDashboard') || 'Go to Admin Dashboard'}</button>
-      </div>
-    );
-  }
-  return children;
-}
+import { getUnreadMessageCount, getAdminFeatures, apiClient } from './api';
 
 function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInstallApp }) {
   const navigate = useNavigate();
@@ -157,7 +105,7 @@ function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInst
   );
 }
 
-function Sidebar({ user, open, onClose, adminUnreadMessageCount = 0 }) {
+function Sidebar({ user, open, onClose, adminUnreadMessageCount = 0, adminFinance = true }) {
   const { t } = useLanguage();
   const location = useLocation();
   const supportCount = adminUnreadMessageCount ?? 0;
@@ -219,7 +167,7 @@ function Sidebar({ user, open, onClose, adminUnreadMessageCount = 0 }) {
             <Link to="/admin?section=notifications" className={getLinkClasses("/admin?section=notifications") + " pl-6 text-sm"}>{t('admin.menuNotifications')}</Link>
             <Link to="/admin?section=platforms" className={getLinkClasses("/admin?section=platforms") + " pl-6 text-sm"}>{t('admin.menuPlatforms')}</Link>
             <Link to="/admin?section=payments" className={getLinkClasses("/admin?section=payments") + " pl-6 text-sm"}>{t('admin.menuPayments')}</Link>
-            <Link to="/admin?section=alerts" className={getLinkClasses("/admin?section=alerts") + " pl-6 text-sm"}>{t('admin.menuAlerts')}</Link>
+            {adminFinance && <Link to="/admin?section=alerts" className={getLinkClasses("/admin?section=alerts") + " pl-6 text-sm"}>{t('admin.menuAlerts')}</Link>}
           </>
         )}
       </nav>
@@ -354,15 +302,20 @@ function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
   const [adminUnreadMessageCount, setAdminUnreadMessageCount] = useState(0);
-  // Admin: fetch unread support message count for sidebar badge
+  const [adminFinance, setAdminFinance] = useState(true);
+  // Admin: fetch unread support message count and feature flags for sidebar
   useEffect(() => {
     if (!user?.isAdmin || !token) {
       setAdminUnreadMessageCount(0);
+      setAdminFinance(true);
       return;
     }
     getUnreadMessageCount(token)
       .then((r) => setAdminUnreadMessageCount(r.data?.unreadCount ?? 0))
       .catch(() => setAdminUnreadMessageCount(0));
+    getAdminFeatures(token)
+      .then((f) => setAdminFinance(f.adminFinance))
+      .catch(() => setAdminFinance(false));
   }, [user?.isAdmin, token, location.pathname]);
 
   // Close sidebar on mobile/tablet when route changes (e.g. after tapping Dashboard, Profile, Settings)
@@ -427,70 +380,11 @@ function AppContent() {
     <>
       <Toaster position="top-right" />
       <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900 min-w-0">
-        {user && <Sidebar user={user} open={sidebarOpen} onClose={() => setSidebarOpen(false)} adminUnreadMessageCount={adminUnreadMessageCount} />}
+        {user && <Sidebar user={user} open={sidebarOpen} onClose={() => setSidebarOpen(false)} adminUnreadMessageCount={adminUnreadMessageCount} adminFinance={adminFinance} />}
         <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
           <Header user={user} token={token} onLogout={clearAuth} onMenuClick={() => setSidebarOpen(true)} installPromptEvent={deferredInstallPrompt} onInstallApp={handleInstallClick} />
           <div className="flex-1">
-            <Routes>
-              <Route path="/login" element={<Login setAuth={setAuth} />} />
-              <Route path="/auth/callback" element={<AuthCallback setAuth={setAuth} />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/faq" element={<FAQ />} />
-              <Route path="/dashboard" element={
-                <UserRoute user={user}>
-                  <Dashboard user={user} token={token} />
-                </UserRoute>
-              } />
-              <Route path="/admin" element={
-                <AdminRoute user={user}>
-                  <AdminDashboard user={user} token={token} onLogout={clearAuth} />
-                </AdminRoute>
-              } />
-              <Route path="/settings" element={
-                <PrivateRoute user={user}>
-                  <Settings user={user} token={token} setUser={setUser} />
-                </PrivateRoute>
-              } />
-              <Route path="/profile" element={
-                <PrivateRoute user={user}>
-                  <Profile user={user} token={token} />
-                </PrivateRoute>
-              } />
-              <Route path="/schedule" element={
-                <PrivateRoute user={user}>
-                  <Schedule user={user} token={token} />
-                </PrivateRoute>
-              } />
-              <Route path="/templates" element={
-                <PrivateRoute user={user}>
-                  <Templates user={user} token={token} />
-                </PrivateRoute>
-              } />
-              <Route path="/discord" element={<Navigate to="/schedule" replace />} />
-              <Route path="/media" element={
-                <PrivateRoute user={user}>
-                  <MediaUpload user={user} token={token} />
-                </PrivateRoute>
-              } />
-              <Route path="/messages" element={
-                <PrivateRoute user={user}>
-                  <MessagesPage token={token} />
-                </PrivateRoute>
-              } />
-              <Route path="/todos" element={
-                <PrivateRoute user={user}>
-                  <TodoList token={token} />
-                </PrivateRoute>
-              } />
-              <Route path="/" element={
-                user
-                  ? user.isAdmin
-                    ? <Navigate to="/admin" replace />
-                    : <Navigate to="/dashboard" replace />
-                  : <Navigate to="/login" replace />
-              } />
-            </Routes>
+            <AppRoutes user={user} token={token} setAuth={setAuth} setUser={setUser} clearAuth={clearAuth} />
           </div>
           {/* Icono de bolsa flotante para merchandising - arrastrable */}
           {user && user.merchandisingLink && (

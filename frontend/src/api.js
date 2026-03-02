@@ -639,6 +639,14 @@ export async function updateTrialExtensionConfig({ trialExtensionConfig, token }
   });
 }
 
+/** GET /admin/features - Feature flags (adminFinance, prometheusMetrics). Admin only. */
+export async function getAdminFeatures(token) {
+  const res = await apiClient.get('/admin/features', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return res.data;
+}
+
 /** GET /user/admin/fixed-costs - List of fixed monthly costs (admin). */
 export async function getFixedCosts(token) {
   return apiClient.get('/user/admin/fixed-costs', {

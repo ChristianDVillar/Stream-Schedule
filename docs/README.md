@@ -4,6 +4,10 @@ Este archivo es el **índice de la carpeta docs/** (no el README del proyecto; e
 
 Documentación de **Streamer Scheduler** (protección, licencia, scripts).
 
+## Estructura y funcionalidad
+
+- **[ESTRUCTURA_Y_FUNCIONALIDAD.md](ESTRUCTURA_Y_FUNCIONALIDAD.md)** – Estructura de carpetas/archivos del proyecto y descripción de la funcionalidad (backend, frontend, rutas API, servicios, modelos, páginas y flujos principales).
+
 ## Información para usuarios
 
 - **[GUIA-USUARIOS.md](GUIA-USUARIOS.md)** – Guía para usuarios finales (español): qué es la aplicación, registro, dashboard, programar contenido, to-do, media, plantillas, perfil, configuración, conectar plataformas, licencias, idioma y tema.

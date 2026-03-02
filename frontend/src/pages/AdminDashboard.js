@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { X } from 'lucide-react';
 // Admin: usuarios, licencias, pagos (listado/export), modal detalle, mensajes
-import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob, sendNotification, getPlatformConfig, updatePlatformConfig, getFixedCosts, updateFixedCosts, getUsdToEurRate, getAlertConfig, updateAlertConfig, testAlertConfig, getCostMetrics, getTrialExtensionConfig, updateTrialExtensionConfig } from '../api';
+import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob, sendNotification, getPlatformConfig, updatePlatformConfig, getFixedCosts, updateFixedCosts, getUsdToEurRate, getAlertConfig, updateAlertConfig, testAlertConfig, getCostMetrics, getTrialExtensionConfig, updateTrialExtensionConfig, getAdminFeatures } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatDateUTC } from '../utils/dateUtils';
 import { maskEmail } from '../utils/emailUtils';
@@ -90,6 +90,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
   const [alertTestSending, setAlertTestSending] = useState(null);
   const [costMetrics, setCostMetrics] = useState({ byUser: [], byPlatform: [], totalJobs: 0, redisMonthlyCostEur: null });
   const [costMetricsLoading, setCostMetricsLoading] = useState(false);
+  const [adminFeatures, setAdminFeatures] = useState({ adminFinance: true, prometheusMetrics: false });
   const networkErrorShownRef = useRef(false);
 
   const isNetworkError = (err) => {
@@ -114,6 +115,9 @@ export default function AdminDashboard({ token, user, onLogout }) {
     fetchMessages();
     fetchUnreadCount();
     fetchPlatformConfig();
+    if (token) {
+      getAdminFeatures(token).then((f) => setAdminFeatures(f)).catch(() => setAdminFeatures({ adminFinance: false, prometheusMetrics: false }));
+    }
     // eslint-disable-next-line
   }, []);
 
@@ -162,9 +166,9 @@ export default function AdminDashboard({ token, user, onLogout }) {
   };
 
   useEffect(() => {
-    if (token) fetchFixedCostsList();
+    if (token && adminFeatures.adminFinance) fetchFixedCostsList();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, adminFeatures.adminFinance]);
 
   const fetchCostMetrics = async () => {
     if (!token) return;
@@ -187,9 +191,9 @@ export default function AdminDashboard({ token, user, onLogout }) {
   };
 
   useEffect(() => {
-    if (token) fetchCostMetrics();
+    if (token && adminFeatures.adminFinance) fetchCostMetrics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, adminFeatures.adminFinance]);
 
   useEffect(() => {
     fetchMessages();
@@ -760,8 +764,8 @@ export default function AdminDashboard({ token, user, onLogout }) {
   const section = searchParams.get('section') || 'overview';
 
   useEffect(() => {
-    if (token && section === 'alerts') fetchAlertConfig();
-  }, [token, section]);
+    if (token && section === 'alerts' && adminFeatures.adminFinance) fetchAlertConfig();
+  }, [token, section, adminFeatures.adminFinance]);
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 min-w-0">
@@ -819,7 +823,8 @@ export default function AdminDashboard({ token, user, onLogout }) {
         </div>
       </div>
 
-      {/* Cost metrics: who costs money */}
+      {/* Cost metrics: who costs money (ENABLE_ADMIN_FINANCE) */}
+      {adminFeatures.adminFinance && (
       <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-amber-400">
         <h3 className="text-lg font-bold text-amber-700 dark:text-amber-300 mb-2">
           {t('admin.costMetricsTitle') || 'Coste por usuario'}
@@ -891,6 +896,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
           </>
         )}
       </div>
+      )}
 
       {/* Password Reminder Alert */}
       {passwordReminders.some(r => r.needsChange) && (
@@ -1747,7 +1753,8 @@ export default function AdminDashboard({ token, user, onLogout }) {
           </div>
         )}
       </div>
-      {/* Costes fijos mensuales (control) - editables */}
+      {/* Costes fijos mensuales (control) - editables (ENABLE_ADMIN_FINANCE) */}
+      {adminFeatures.adminFinance && (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-amber-500 mb-6">
         <h3 className="text-lg font-bold text-amber-700 dark:text-amber-300 mb-4">{t('admin.fixedCostsTitle')}</h3>
         {fixedCostsLoading ? (
@@ -1832,6 +1839,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
           </>
         )}
       </div>
+      )}
       {/* Listado de pagos y descarga para gestores */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-indigo-500">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
@@ -1876,6 +1884,8 @@ export default function AdminDashboard({ token, user, onLogout }) {
             >
               {t('admin.downloadJson')}
             </button>
+            {adminFeatures.adminFinance && (
+            <>
             <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
               <span>USD/EUR:</span>
               <input
@@ -1909,6 +1919,8 @@ export default function AdminDashboard({ token, user, onLogout }) {
             >
               {fetchingRate ? '...' : (t('admin.pdfFetchRate') || 'Obtener cotización')}
             </button>
+            </>
+            )}
             <button
               onClick={handleDownloadPaymentsPdf}
               disabled={exporting}
@@ -1989,6 +2001,12 @@ export default function AdminDashboard({ token, user, onLogout }) {
 
           {section === 'alerts' && (
             <>
+      {!adminFeatures.adminFinance ? (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-6">
+          <p className="text-amber-800 dark:text-amber-200 font-medium">{t('admin.featureDisabled') || 'Feature disabled'}</p>
+          <p className="text-sm text-amber-700 dark:text-amber-300 mt-2">{t('admin.featureDisabledPhase2') || 'Admin finance features (alerts, cost metrics, fixed costs, exchange rate) are in Phase 2. Set ENABLE_ADMIN_FINANCE=true in backend .env to enable.'}</p>
+        </div>
+      ) : (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-amber-500 mb-8">
         <h3 className="text-lg font-bold text-amber-700 dark:text-amber-300 mb-2">{t('admin.alertsTitle') || 'Alertas operativas'}</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
@@ -2139,6 +2157,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
           </div>
         )}
       </div>
+      )}
             </>
           )}
       </main>
