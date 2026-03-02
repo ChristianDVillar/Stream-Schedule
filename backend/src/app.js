@@ -57,6 +57,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 dotenv.config();
 
+// Feature flags: disable optional modules to reduce surface (audit: "fase 2")
+const ENABLE_ADMIN_FINANCE = process.env.ENABLE_ADMIN_FINANCE !== 'false'; // true by default (backwards compat)
+const ENABLE_PROMETHEUS_METRICS = process.env.ENABLE_PROMETHEUS_METRICS === 'true'; // false by default
+
 const app = express();
 const nodeEnv = process.env.NODE_ENV || 'development';
 
@@ -121,8 +125,8 @@ app.use(apiLimiter);
 app.use(passport.initialize());
 
 // Webhooks must be before JSON parsing (raw body required for signature verification).
+// Single canonical Stripe webhook: use /api/payments/webhook in Stripe Dashboard (avoids duplicate processing).
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }), handleStripeWebhook);
-app.use('/stripe/webhook', express.raw({ type: 'application/json' }), handleStripeWebhook);
 app.use('/api/webhooks/twitch/eventsub', express.raw({ type: 'application/json' }), (req, res, next) => {
   handleTwitchEventSub(req, res).catch((err) => {
     logger.error('Twitch EventSub webhook error', { error: err.message });
@@ -169,11 +173,20 @@ app.use(authenticateToken);
 app.get('/api/user/connected-accounts', requireAuth, connectedAccountsHandler);
 app.get('/api/user/post-performance', requireAuth, postPerformanceHandler);
 
+// Admin features flag: frontend can check GET /api/admin/features to hide disabled sections
+app.get('/api/admin/features', requireAdmin, (req, res) => {
+  res.json({
+    adminFinance: ENABLE_ADMIN_FINANCE,
+    prometheusMetrics: ENABLE_PROMETHEUS_METRICS,
+  });
+});
+
 const DEFAULT_FIXED_MONTHLY_COSTS = [
   { label: 'Cursor', amount: 20, currency: 'EUR' },
   { label: 'Render', amount: 7, currency: 'EUR' },
   { label: 'Upstash Redis', amount: 0.38, currency: 'USD' },
 ];
+if (ENABLE_ADMIN_FINANCE) {
 app.get('/api/user/admin/fixed-costs', requireAdmin, async (req, res) => {
   try {
     const config = await SystemConfig.findOne({ where: { key: 'fixedMonthlyCosts' } });
@@ -228,6 +241,7 @@ app.get('/api/user/admin/cost-metrics', requireAdmin, async (req, res) => {
 app.get('/api/user/admin/alert-config', requireAdmin, getAlertConfigHandler);
 app.put('/api/user/admin/alert-config', requireAdmin, putAlertConfigHandler);
 app.post('/api/user/admin/alert-config/test', requireAdmin, postAlertConfigTestHandler);
+}
 
 app.use('/api/user', userRoutes);
 app.use('/api/discord', discordRoutes);
@@ -251,11 +265,13 @@ app.use('/api/admin/platforms', adminPlatformsRoutes);
 // Enhanced health check endpoint
 app.use('/api/health', healthRoutes);
 
-// Metrics endpoint (Prometheus format)
-app.get('/api/metrics', (req, res) => {
-  res.set('Content-Type', 'text/plain');
-  res.send(metrics.export());
-});
+// Metrics endpoint (Prometheus format) - disabled by default; set ENABLE_PROMETHEUS_METRICS=true to enable
+if (ENABLE_PROMETHEUS_METRICS) {
+  app.get('/api/metrics', (req, res) => {
+    res.set('Content-Type', 'text/plain');
+    res.send(metrics.export());
+  });
+}
 
 // Swagger documentation (if available)
 setupSwagger(app);

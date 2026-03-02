@@ -6,7 +6,10 @@
 import dotenv from 'dotenv';
 import { Sequelize } from 'sequelize';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import logger from '../utils/logger.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Load environment variables
 dotenv.config();
@@ -60,7 +63,8 @@ const sequelize = usePostgres
     })
   : new Sequelize({
       dialect: 'sqlite',
-      storage: process.env.SQLITE_STORAGE || path.resolve(process.cwd(), 'database.sqlite'),
+      // Always use backend/database.sqlite (never root) - avoids confusion when running from repo root
+      storage: process.env.SQLITE_STORAGE || path.resolve(__dirname, '..', '..', 'database.sqlite'),
       logging: enableLogging ? (msg) => logger.debug(msg) : false,
     });
 
