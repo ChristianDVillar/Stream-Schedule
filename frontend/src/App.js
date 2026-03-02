@@ -23,7 +23,7 @@ import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { AuthProvider, useAuth } from './store/authStore';
 import { getStoredAccentColor, applyAccentColor, THEME_CHANGE_EVENT } from './utils/themeUtils';
 import { APP_VERSION } from './version';
-import { getUnreadMessageCount } from './api';
+import { getUnreadMessageCount, apiClient } from './api';
 
 function PrivateRoute({ user, children }) {
   if (!user) return <Navigate to="/login" replace />;
@@ -228,6 +228,125 @@ function Sidebar({ user, open, onClose, adminUnreadMessageCount = 0 }) {
   );
 }
 
+/** Parse merchandisingButtonPosition: preset string or JSON {x,y} */
+function parseMerchandisingPosition(pos) {
+  if (!pos) return { x: 92, y: 92 };
+  if (typeof pos === 'object' && typeof pos.x === 'number' && typeof pos.y === 'number') {
+    return { x: Math.max(0, Math.min(100, pos.x)), y: Math.max(0, Math.min(100, pos.y)) };
+  }
+  if (typeof pos === 'string') {
+    try {
+      const parsed = JSON.parse(pos);
+      if (parsed && typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+        return { x: Math.max(0, Math.min(100, parsed.x)), y: Math.max(0, Math.min(100, parsed.y)) };
+      }
+    } catch (_) {}
+    const preset = { 'bottom-right': { x: 92, y: 92 }, 'bottom-left': { x: 8, y: 92 }, 'top-right': { x: 92, y: 8 }, 'top-left': { x: 8, y: 8 } };
+    return preset[pos] || preset['bottom-right'];
+  }
+  return { x: 92, y: 92 };
+}
+
+function DraggableMerchandisingButton({ link, position, token, setUser, user, t }) {
+  const parsed = parseMerchandisingPosition(position);
+  const [pos, setPos] = React.useState(parsed);
+  const dragStartRef = React.useRef(null);
+  const hasMovedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    setPos(parseMerchandisingPosition(position));
+  }, [position]);
+
+  const savePosition = React.useCallback(async (x, y) => {
+    if (!token || !setUser || !user) return;
+    try {
+      const response = await apiClient.put('/user/profile', { merchandisingButtonPosition: { x, y } }, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true,
+      });
+      if (response.data?.user) {
+        setUser({ ...user, ...response.data.user });
+      }
+    } catch (_) {}
+  }, [token, setUser, user]);
+
+  const handlePointerDown = (e) => {
+    e.preventDefault();
+    hasMovedRef.current = false;
+    dragStartRef.current = { x: e.clientX, y: e.clientY, posX: pos.x, posY: pos.y };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e) => {
+    if (dragStartRef.current === null) return;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const cx = e.clientX;
+    const cy = e.clientY;
+    const start = dragStartRef.current;
+    const dist = Math.sqrt((cx - start.x) ** 2 + (cy - start.y) ** 2);
+    if (dist > 5) hasMovedRef.current = true;
+    const dx = ((cx - start.x) / w) * 100;
+    const dy = ((cy - start.y) / h) * 100;
+    const nx = Math.max(0, Math.min(100, start.posX + dx));
+    const ny = Math.max(0, Math.min(100, start.posY + dy));
+    setPos({ x: nx, y: ny });
+    dragStartRef.current = { x: cx, y: cy, posX: nx, posY: ny };
+  };
+
+  const handlePointerUp = (e) => {
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    const start = dragStartRef.current;
+    const finalX = start ? start.posX : pos.x;
+    const finalY = start ? start.posY : pos.y;
+    if (hasMovedRef.current) {
+      setPos({ x: finalX, y: finalY });
+      savePosition(finalX, finalY);
+    }
+    dragStartRef.current = null;
+  };
+
+  const handlePointerCancel = (e) => {
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    if (dragStartRef.current && hasMovedRef.current) {
+      const start = dragStartRef.current;
+      setPos({ x: start.posX, y: start.posY });
+      savePosition(start.posX, start.posY);
+    }
+    dragStartRef.current = null;
+  };
+
+  const handleClick = (e) => {
+    e.preventDefault();
+    if (!hasMovedRef.current) {
+      window.open(link, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  return (
+    <a
+      href={link}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={handleClick}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
+      className="fixed z-50 bg-accent text-white rounded-full p-3 sm:p-4 shadow-lg transition-shadow duration-300 hover:scale-110 flex items-center justify-center min-w-[44px] min-h-[44px] select-none cursor-grab active:cursor-grabbing touch-none"
+      style={{
+        left: `${pos.x}%`,
+        top: `${pos.y}%`,
+        transform: 'translate(-50%, -50%)',
+        margin: 0,
+      }}
+      aria-label={t('common.merchandisingLink')}
+    >
+      <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6 pointer-events-none" />
+    </a>
+  );
+}
+
 function AppContent() {
   const { user, token, setAuth, clearAuth, setUser } = useAuth();
   const { t } = useLanguage();
@@ -373,27 +492,17 @@ function AppContent() {
               } />
             </Routes>
           </div>
-          {/* Icono de bolsa flotante para merchandising - posición configurable */}
-          {user && user.merchandisingLink && (() => {
-            const pos = user.merchandisingButtonPosition || 'bottom-right';
-            const positionClasses = {
-              'bottom-right': 'bottom-4 right-4 sm:bottom-6 sm:right-6',
-              'bottom-left': 'bottom-4 left-4 sm:bottom-6 sm:left-6',
-              'top-right': 'top-4 right-4 sm:top-6 sm:right-6',
-              'top-left': 'top-4 left-4 sm:top-6 sm:left-6',
-            };
-            return (
-              <a
-                href={user.merchandisingLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`fixed ${positionClasses[pos] || positionClasses['bottom-right']} z-50 bg-accent text-white rounded-full p-3 sm:p-4 shadow-lg transition-all duration-300 hover:scale-110 flex items-center justify-center min-w-[44px] min-h-[44px]`}
-                aria-label={t('common.merchandisingLink')}
-              >
-                <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
-              </a>
-            );
-          })()}
+          {/* Icono de bolsa flotante para merchandising - arrastrable */}
+          {user && user.merchandisingLink && (
+            <DraggableMerchandisingButton
+              link={user.merchandisingLink}
+              position={user.merchandisingButtonPosition}
+              token={token}
+              setUser={setUser}
+              user={user}
+              t={t}
+            />
+          )}
           <footer className="text-center text-gray-500 dark:text-gray-400 py-3 sm:py-4 px-4 text-sm border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
             <span className="inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
               <span>© 2025 Christian · Develop · v{APP_VERSION}</span>
