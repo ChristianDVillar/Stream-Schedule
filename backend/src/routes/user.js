@@ -2647,7 +2647,30 @@ router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog(
         ? (link.startsWith('http://') || link.startsWith('https://') ? link : `https://${link}`)
         : null;
     }
-    if (merchandisingButtonPosition !== undefined) user.merchandisingButtonPosition = ['bottom-right', 'bottom-left', 'top-right', 'top-left'].includes(merchandisingButtonPosition) ? merchandisingButtonPosition : 'bottom-right';
+    if (merchandisingButtonPosition !== undefined) {
+      if (typeof merchandisingButtonPosition === 'object' && merchandisingButtonPosition !== null && typeof merchandisingButtonPosition.x === 'number' && typeof merchandisingButtonPosition.y === 'number') {
+        const x = Math.max(0, Math.min(100, merchandisingButtonPosition.x));
+        const y = Math.max(0, Math.min(100, merchandisingButtonPosition.y));
+        user.merchandisingButtonPosition = JSON.stringify({ x, y });
+      } else if (['bottom-right', 'bottom-left', 'top-right', 'top-left'].includes(merchandisingButtonPosition)) {
+        user.merchandisingButtonPosition = merchandisingButtonPosition;
+      } else if (typeof merchandisingButtonPosition === 'string' && merchandisingButtonPosition.trim().startsWith('{')) {
+        try {
+          const parsed = JSON.parse(merchandisingButtonPosition);
+          if (parsed && typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+            const x = Math.max(0, Math.min(100, parsed.x));
+            const y = Math.max(0, Math.min(100, parsed.y));
+            user.merchandisingButtonPosition = JSON.stringify({ x, y });
+          } else {
+            user.merchandisingButtonPosition = 'bottom-right';
+          }
+        } catch {
+          user.merchandisingButtonPosition = 'bottom-right';
+        }
+      } else {
+        user.merchandisingButtonPosition = 'bottom-right';
+      }
+    }
     if (profileImageUrl !== undefined) user.profileImageUrl = profileImageUrl && profileImageUrl.trim() ? profileImageUrl.trim() : null;
     if (dashboardShowTwitchSubs !== undefined) user.dashboardShowTwitchSubs = dashboardShowTwitchSubs;
     if (dashboardShowTwitchBits !== undefined) user.dashboardShowTwitchBits = dashboardShowTwitchBits;

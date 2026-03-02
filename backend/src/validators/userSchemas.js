@@ -119,7 +119,11 @@ export const updateProfileSchema = Joi.object({
   dashboardShowTwitchDonations: Joi.boolean().optional(),
   discordClipsGuildId: Joi.string().max(100).allow('', null).optional(),
   discordClipsChannelId: Joi.string().max(100).allow('', null).optional(),
-  merchandisingButtonPosition: Joi.string().valid('bottom-right', 'bottom-left', 'top-right', 'top-left').optional()
+  merchandisingButtonPosition: Joi.alternatives().try(
+    Joi.string().valid('bottom-right', 'bottom-left', 'top-right', 'top-left'),
+    Joi.object({ x: Joi.number().min(0).max(100).required(), y: Joi.number().min(0).max(100).required() }),
+    Joi.string().pattern(/^\{.*\}$/) // JSON string from stored custom position
+  ).optional()
 }).min(1).messages({
   'object.min': 'At least one field must be provided to update'
 });
