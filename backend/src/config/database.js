@@ -55,9 +55,9 @@ const sequelize = usePostgres
         }),
       },
       pool: {
-        max: 5,
+        max: Math.max(1, parseInt(process.env.DB_POOL_MAX, 10) || 5),
         min: 0,
-        acquire: 30000,
+        acquire: Math.max(5000, parseInt(process.env.DB_POOL_ACQUIRE_MS, 10) || 30000),
         idle: 10000,
       },
     })
