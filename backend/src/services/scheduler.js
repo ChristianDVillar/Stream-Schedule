@@ -171,13 +171,34 @@ async function publishToPlatform(content, platform) {
     // Get integration token (prefer Integration model, fallback to User for backward compatibility)
     let accessToken = null;
     let refreshToken = null;
+    const userId = Number(content.userId);
+    if (Number.isNaN(userId)) {
+      logger.warn('Invalid content.userId for integration lookup', {
+        contentId: content.id,
+        platform,
+        userIdRaw: content.userId
+      });
+    }
     let integration = await Integration.findOne({
       where: {
-        userId: content.userId,
+        userId,
         provider: platform,
         status: 'active'
       }
     });
+
+    // Diagnostic log for publication failures (no token values logged)
+    if (platform === 'twitch' || !integration || (integration && !integration.accessToken && !integration.refreshToken)) {
+      logger.info('Integration lookup for publish', {
+        contentId: content.id,
+        platform,
+        userId: content.userId,
+        userIdNormalized: userId,
+        integrationFound: !!integration,
+        hasAccessToken: !!integration?.accessToken,
+        hasRefreshToken: !!integration?.refreshToken
+      });
+    }
 
     if (integration) {
       // For YouTube, we need refreshToken; for others, accessToken
@@ -188,7 +209,7 @@ async function publishToPlatform(content, platform) {
       }
     } else {
       // Fallback: check User model for backward compatibility
-      const user = await User.findByPk(content.userId, {
+      const user = await User.findByPk(userId, {
         attributes: ['id', `${platform}AccessToken`, `${platform}Id`]
       });
       if (platform === 'twitter' && user?.twitterAccessToken) {
