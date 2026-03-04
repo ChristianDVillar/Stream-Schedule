@@ -9,7 +9,7 @@ export const swaggerOptions = {
     openapi: '3.0.0',
     info: {
       title: 'Streamer Scheduler API',
-      version: '2.1.0',
+      version: '2.2.0',
       description: 'API for managing scheduled content across multiple platforms',
       contact: {
         name: 'API Support',
