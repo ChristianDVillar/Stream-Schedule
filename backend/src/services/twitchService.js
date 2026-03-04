@@ -106,11 +106,13 @@ export class TwitchService {
       const response = await axios(config);
       return response.data;
     } catch (error) {
+      // Log detailed error including response data for debugging (no tokens)
       logger.error('Twitch API request failed', {
         endpoint,
         method,
         error: error.message,
         status: error.response?.status,
+        responseData: error.response?.data,
       });
       throw error;
     }
