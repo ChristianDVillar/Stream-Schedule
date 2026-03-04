@@ -189,6 +189,7 @@ async function publishToPlatform(content, platform) {
 
     // Diagnostic log for publication failures (no token values logged)
     if (platform === 'twitch' || !integration || (integration && !integration.accessToken && !integration.refreshToken)) {
+      const hasToken = !!(integration?.accessToken || integration?.refreshToken);
       logger.info('Integration lookup for publish', {
         contentId: content.id,
         platform,
@@ -198,6 +199,13 @@ async function publishToPlatform(content, platform) {
         hasAccessToken: !!integration?.accessToken,
         hasRefreshToken: !!integration?.refreshToken
       });
+      if (integration && !hasToken) {
+        logger.warn('Integration row exists but tokens are null (decryption may have failed). Ensure TOKEN_ENCRYPTION_KEY or JWT_SECRET matches the environment where the account was linked.', {
+          contentId: content.id,
+          platform,
+          userId: userId
+        });
+      }
     }
 
     if (integration) {
