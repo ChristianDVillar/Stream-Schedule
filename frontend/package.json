@@ -1,6 +1,6 @@
 {
   "name": "streamer-scheduler-frontend",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "private": true,
   "dependencies": {
     "@supabase/supabase-js": "^2.93.1",
