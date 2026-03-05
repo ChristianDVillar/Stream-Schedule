@@ -165,7 +165,8 @@
     "exportSuccess": "Data exported successfully!",
     "exportFailed": "Failed to export data",
     "rescheduleSuccess": "Content rescheduled",
-    "rescheduleFailed": "Failed to reschedule"
+    "rescheduleFailed": "Failed to reschedule",
+    "discordBotNotConfigured": "Discord bot is not configured on the server. To publish to Discord from production, the admin must add DISCORD_BOT_TOKEN in Render (backend Environment variables). Create the token in Discord Developer Portal → Your application → Bot → Token."
   },
   "templates": {
     "title": "Content templates",

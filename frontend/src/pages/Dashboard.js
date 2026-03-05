@@ -995,7 +995,9 @@ const Dashboard = ({ user, token, ...props }) => {
                     )}
                     {selectedContent.status === 'failed' && selectedContent.publishError && (
                       <p className="text-xs text-red-600 dark:text-red-400 mt-1" title={selectedContent.publishError}>
-                        Error: {selectedContent.publishError}
+                        Error: {selectedContent.publishError === 'Discord bot not configured'
+                          ? (t('dashboard.discordBotNotConfigured') || selectedContent.publishError)
+                          : selectedContent.publishError}
                       </p>
                     )}
                   </div>
