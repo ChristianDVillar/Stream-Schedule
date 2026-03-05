@@ -149,6 +149,15 @@ To avoid redirecting to localhost after Google or Twitch login:
    - Under **Redirect URLs**, add: `https://your-frontend-domain.onrender.com/auth/callback` (and keep `http://localhost:3000/auth/callback` for local dev)
 2. The app uses the current page origin for the OAuth redirect, so `REACT_APP_FRONTEND_URL` is not required for OAuth when deployed.
 
+**Publishing to Discord (scheduled events and messages):** Connecting Discord in Settings uses OAuth (`DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET`). For the backend to **publish** to your servers (scheduled events, messages, etc.), you also need the **bot token**:
+
+- **Render** → backend service (API) → **Environment**. Add:
+  - **DISCORD_BOT_TOKEN**: your Discord application bot token.
+- **Discord Developer Portal** → [discord.com/developers](https://discord.com/developers/applications) → your application → **Bot** → **Reset Token** / **View Token**. Copy the token and set it as `DISCORD_BOT_TOKEN` in Render. Do not share it or commit it to the repo.
+- Save the variables and **redeploy** the backend.
+
+If `DISCORD_BOT_TOKEN` is not set in production, scheduled Discord publications will show "Discord bot not configured" (content will be marked as failed or retrying).
+
 ---
 
 ## License
