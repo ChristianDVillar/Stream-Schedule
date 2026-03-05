@@ -165,7 +165,8 @@
     "exportSuccess": "¡Datos exportados correctamente!",
     "exportFailed": "Error al exportar los datos",
     "rescheduleSuccess": "Contenido reprogramado",
-    "rescheduleFailed": "Error al reprogramar"
+    "rescheduleFailed": "Error al reprogramar",
+    "discordBotNotConfigured": "El bot de Discord no está configurado en el servidor. Para publicar en Discord desde producción, el administrador debe añadir DISCORD_BOT_TOKEN en Render (Variables de entorno del backend). El token se crea en Discord Developer Portal → Tu aplicación → Bot → Token."
   },
   "templates": {
     "title": "Plantillas de contenido",

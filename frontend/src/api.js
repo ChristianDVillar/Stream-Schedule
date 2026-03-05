@@ -159,37 +159,13 @@ export async function loginBackendWithSupabaseToken(accessToken) {
 }
 
 /**
- * Login or register with Twitch via Supabase OAuth.
- * Same flow as Google: Supabase redirects to /auth/callback, then backend creates/links user.
- * Requires Twitch app redirect URL: https://<project-ref>.supabase.co/auth/v1/callback
- * and Twitch provider configured in Supabase Dashboard (Authentication > Providers).
+ * Login or register with Twitch via backend OAuth only.
+ * We always use the backend so one Twitch connection gives both login and publishing/bits
+ * (no second "Connect for publish" step). Supabase is not used for Twitch.
  */
 export async function loginWithTwitch() {
-  try {
-    if (supabase) {
-      const redirectTo = getOAuthRedirectUrl();
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'twitch',
-        options: { 
-          redirectTo,
-          skipBrowserRedirect: false
-        },
-      });
-      
-      if (error) throw error;
-      
-      if (data?.url) {
-        window.location.replace(data.url);
-        return;
-      }
-      throw new Error('Could not start Twitch sign in');
-    }
-    
-    const backendUrl = `${apiClient.defaults.baseURL}/user/auth/twitch`;
-    window.location.replace(backendUrl);
-  } catch (error) {
-    throw error;
-  }
+  const backendUrl = `${apiClient.defaults.baseURL}/user/auth/twitch`;
+  window.location.replace(backendUrl);
 }
 
 /**

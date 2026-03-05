@@ -189,6 +189,15 @@ Para que el login con Google o Twitch no redirija a localhost:
    - `https://stream-schedule-api.onrender.com/api/user/auth/twitter/link/callback`
    Sin estas URLs de producción, el backend no puede completar el flujo OAuth en Render.
 
+**Publicar en Discord (eventos y mensajes programados):** conectar Discord en Ajustes usa OAuth (`DISCORD_CLIENT_ID` y `DISCORD_CLIENT_SECRET`). Para que el backend **publique** en tus servidores (eventos programados, mensajes, etc.) hace falta además el **token del bot**:
+
+- **Render** → servicio **backend** (API) → **Environment**. Añade:
+  - **DISCORD_BOT_TOKEN**: token del bot de tu aplicación de Discord.
+- **Discord Developer Portal** → [discord.com/developers](https://discord.com/developers/applications) → tu aplicación → **Bot** → **Reset Token** / **View Token**. Copia el token y pégalo como `DISCORD_BOT_TOKEN` en Render. No lo compartas ni lo subas al repositorio.
+- Guarda las variables y haz **redeploy** del backend.
+
+Si `DISCORD_BOT_TOKEN` no está definido en producción, verás *"Discord bot not configured"* en las publicaciones programadas a Discord (el contenido se marcará como fallido o en reintento).
+
 ---
 
 ## Licencia

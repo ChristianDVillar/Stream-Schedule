@@ -133,13 +133,41 @@ const isTwitchConfigured = () => {
   return id.length > 0 && secret.length > 0 && id !== 'your-twitch-client-id' && secret !== 'your-twitch-client-secret';
 };
 
-// Configure Twitch OAuth Strategy
+/** Scopes for Twitch OAuth: login + publishing (schedule) + bits. One connection covers all. */
+const TWITCH_PUBLISH_SCOPES = ['user:read:email', 'bits:read', 'channel:manage:schedule', 'channel:read:subscriptions', 'moderator:read:followers'];
+
+/**
+ * Create or replace EventSub channel.cheer subscription for a broadcaster (bits chronological).
+ * Used by both login callback (Passport) and "connect for publish" callback.
+ * Best-effort; logs warnings on failure, does not throw.
+ */
+async function ensureTwitchEventSubSubscription(broadcasterUserId) {
+  const id = String(broadcasterUserId);
+  const baseUrl = (process.env.BACKEND_URL || 'http://localhost:5000').replace(/\/$/, '');
+  const callbackUrl = `${baseUrl}/api/webhooks/twitch/eventsub`;
+  try {
+    const { twitchService } = await import('../services/twitchService.js');
+    const existing = await TwitchEventSubSubscription.findOne({ where: { broadcasterUserId: id } });
+    if (existing?.subscriptionId) {
+      await twitchService.deleteEventSubSubscription(existing.subscriptionId).catch(() => {});
+      await existing.destroy();
+    }
+    const secret = crypto.randomBytes(32).toString('hex');
+    await TwitchEventSubSubscription.create({ broadcasterUserId: id, secret, status: 'pending' });
+    await twitchService.createEventSubCheerSubscription(id, callbackUrl, secret);
+    logger.info('Twitch EventSub channel.cheer subscription requested', { broadcasterUserId: id });
+  } catch (err) {
+    logger.warn('Twitch EventSub subscribe failed (bits chronological may be limited)', { error: err.message, broadcasterUserId: id });
+  }
+}
+
+// Configure Twitch OAuth Strategy (scope: login + publish/bits so one connection is enough)
 if (isTwitchConfigured()) {
   passport.use(new TwitchStrategy({
     clientID: process.env.TWITCH_CLIENT_ID,
     clientSecret: process.env.TWITCH_CLIENT_SECRET,
     callbackURL: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/user/auth/twitch/callback`,
-    scope: 'user:read:email'
+    scope: TWITCH_PUBLISH_SCOPES.join(' '),
   },
   async (accessToken, refreshToken, profile, done) => {
     try {
@@ -235,7 +263,29 @@ if (isTwitchConfigured()) {
         });
       }
 
-      logger.info('Twitch OAuth user processed successfully', { userId: user.id, email: user.email });
+      // One connection: also save Integration (publish + bits) so user does not need "Connect for publish" later
+      const [integration] = await Integration.findOrCreate({
+        where: { userId: user.id, provider: 'twitch' },
+        defaults: {
+          userId: user.id,
+          provider: 'twitch',
+          providerUserId: twitchIdStr,
+          accessToken,
+          refreshToken: refreshToken || null,
+          expiresAt: null, // Passport does not provide expires_in; refresh will run when token is used
+          status: 'active',
+        },
+      });
+      if (integration) {
+        integration.providerUserId = twitchIdStr;
+        integration.accessToken = accessToken;
+        integration.refreshToken = refreshToken || integration.refreshToken;
+        integration.status = 'active';
+        await integration.save();
+      }
+      await ensureTwitchEventSubSubscription(twitchIdStr);
+
+      logger.info('Twitch OAuth user processed successfully (login + Integration)', { userId: user.id, email: user.email });
       return done(null, user);
     } catch (error) {
       logger.error('Twitch OAuth error in strategy', { 
@@ -467,8 +517,8 @@ router.get('/auth/twitch', (req, res, next) => {
     logger.warn('Twitch OAuth login attempted but Twitch is not configured');
     return res.redirect(`${FRONTEND_URL}/login?error=twitch_not_configured`);
   }
-  logger.info('Initiating Twitch OAuth flow');
-  passport.authenticate('twitch', { scope: ['user:read:email'] })(req, res, next);
+  logger.info('Initiating Twitch OAuth flow (login + publish/bits in one step)');
+  passport.authenticate('twitch', { scope: TWITCH_PUBLISH_SCOPES })(req, res, next);
 });
 
 router.get('/auth/twitch/callback',
@@ -2498,24 +2548,7 @@ router.get('/twitch/callback', async (req, res) => {
     }
     logger.info('Twitch connected for publishing', { userId, twitchUserId: twitchUser.id });
 
-    // EventSub: subscribe to channel.cheer for bits (chronological). Best-effort; do not fail redirect.
-    const broadcasterUserId = String(twitchUser.id);
-    const baseUrl = (process.env.BACKEND_URL || 'http://localhost:5000').replace(/\/$/, '');
-    const callbackUrl = `${baseUrl}/api/webhooks/twitch/eventsub`;
-    try {
-      const { twitchService } = await import('../services/twitchService.js');
-      const existing = await TwitchEventSubSubscription.findOne({ where: { broadcasterUserId } });
-      if (existing?.subscriptionId) {
-        await twitchService.deleteEventSubSubscription(existing.subscriptionId).catch(() => {});
-        await existing.destroy();
-      }
-      const secret = crypto.randomBytes(32).toString('hex');
-      await TwitchEventSubSubscription.create({ broadcasterUserId, secret, status: 'pending' });
-      await twitchService.createEventSubCheerSubscription(broadcasterUserId, callbackUrl, secret);
-      logger.info('Twitch EventSub channel.cheer subscription requested', { broadcasterUserId });
-    } catch (eventsubErr) {
-      logger.warn('Twitch EventSub subscribe failed (bits chronological may be limited)', { error: eventsubErr.message, broadcasterUserId });
-    }
+    await ensureTwitchEventSubSubscription(String(twitchUser.id));
 
     res.redirect(`${FRONTEND_URL_SAFE}/settings?twitch_connected=1`);
   } catch (err) {
