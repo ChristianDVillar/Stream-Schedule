@@ -8,6 +8,11 @@ const API_BASE_URL = `${API_URL}/api`;
 
 /** Full URL where Supabase redirects after OAuth. Add this to Supabase Dashboard > URL Configuration > Redirect URLs. */
 function getOAuthRedirectUrl() {
+  // In production, prefer REACT_APP_FRONTEND_URL so Supabase always redirects to your domain (avoids redirect to localhost when Site URL was left as localhost).
+  const envFrontend = (process.env.REACT_APP_FRONTEND_URL || '').replace(/\/$/, '');
+  if (envFrontend && !envFrontend.includes('localhost')) {
+    return `${envFrontend}/auth/callback`;
+  }
   if (typeof window === 'undefined' || !window.location.origin) {
     throw new Error('OAuth redirect requires browser origin');
   }
@@ -159,13 +164,17 @@ export async function loginBackendWithSupabaseToken(accessToken) {
 }
 
 /**
- * Login or register with Twitch via backend OAuth only.
- * We always use the backend so one Twitch connection gives both login and publishing/bits
- * (no second "Connect for publish" step). Supabase is not used for Twitch.
+ * Login or register with Twitch via backend OAuth only (never Supabase).
+ * Twitch OAuth always hits our backend so redirect_uri is our backend, not supabase.co.
  */
-export async function loginWithTwitch() {
-  const backendUrl = `${apiClient.defaults.baseURL}/user/auth/twitch`;
-  window.location.replace(backendUrl);
+export function loginWithTwitch() {
+  const backend = (process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000').replace(/\/$/, '');
+  const base = backend.endsWith('/api') ? backend : `${backend}/api`;
+  const url = `${base}/user/auth/twitch`;
+  if (typeof window !== 'undefined' && window.location?.hostname === 'localhost') {
+    console.log('[Twitch] Redirecting to backend (not Supabase):', url);
+  }
+  window.location.replace(url);
 }
 
 /**
@@ -176,8 +185,7 @@ export async function loginWithTwitch() {
  */
 export async function loginWithTwitter() {
   if (supabase) {
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const redirectTo = origin ? `${origin.replace(/\/$/, '')}/auth/callback` : '/auth/callback';
+    const redirectTo = getOAuthRedirectUrl();
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'twitter',
       options: { redirectTo },
@@ -351,20 +359,14 @@ export function startTwitchLink() {
   loginWithTwitch();
 }
 
-/** Start Twitch connect for publishing (schedule + bits). Redirects to backend OAuth flow; tokens stored in Integration. Call with auth token (e.g. from localStorage). */
+/** Start Twitch connect for publishing (schedule + bits). Always uses backend URL (never Supabase). */
 export function startTwitchPublishConnect(token) {
   if (!token) {
     console.warn('startTwitchPublishConnect: token required');
     return;
   }
-  // When main API URL is Supabase, Twitch OAuth must hit your real backend (set REACT_APP_TWITCH_OAUTH_BASE_URL or we use localhost)
-  let base = apiClient.defaults.baseURL;
-  if (process.env.REACT_APP_TWITCH_OAUTH_BASE_URL) {
-    base = process.env.REACT_APP_TWITCH_OAUTH_BASE_URL.replace(/\/$/, '');
-    if (!base.endsWith('/api')) base = `${base}/api`;
-  } else if (base && base.includes('supabase.co')) {
-    base = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000/api';
-  }
+  const backend = (process.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_TWITCH_OAUTH_BASE_URL || 'http://localhost:5000').replace(/\/$/, '');
+  const base = backend.endsWith('/api') ? backend : `${backend}/api`;
   window.location.href = `${base}/user/twitch/connect?token=${encodeURIComponent(token)}`;
 }
 

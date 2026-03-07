@@ -19,6 +19,8 @@ import TodoList from '../pages/TodoList';
 import Privacy from '../pages/Privacy';
 import Terms from '../pages/Terms';
 import FAQ from '../pages/FAQ';
+import Landing from '../pages/Landing';
+import Pricing from '../pages/Pricing';
 import { PrivateRoute, AdminRoute, UserRoute } from './routeGuards';
 
 export function AppRoutes({ user, token, setAuth, setUser, clearAuth }) {
@@ -26,6 +28,8 @@ export function AppRoutes({ user, token, setAuth, setUser, clearAuth }) {
     <Routes>
       <Route path="/login" element={<Login setAuth={setAuth} />} />
       <Route path="/auth/callback" element={<AuthCallback setAuth={setAuth} />} />
+      <Route path="/" element={!user ? <Landing /> : (user.isAdmin ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />)} />
+      <Route path="/pricing" element={<Pricing />} />
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/terms" element={<Terms />} />
       <Route path="/faq" element={<FAQ />} />
@@ -100,16 +104,6 @@ export function AppRoutes({ user, token, setAuth, setUser, clearAuth }) {
           <PrivateRoute user={user}>
             <TodoList token={token} />
           </PrivateRoute>
-        }
-      />
-      <Route
-        path="/"
-        element={
-          user
-            ? user.isAdmin
-              ? <Navigate to="/admin" replace />
-              : <Navigate to="/dashboard" replace />
-            : <Navigate to="/login" replace />
         }
       />
     </Routes>

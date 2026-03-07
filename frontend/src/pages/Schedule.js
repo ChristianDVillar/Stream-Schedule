@@ -31,6 +31,23 @@ import { getPlatformColors } from '../utils/platformColors';
 import { parsePastedPost } from '../utils/copyPastePost';
 import { TWITTER_MAX_CHARS, DISCORD_ICON_URL } from '../constants/platforms';
 
+// Content types available per platform (platform-first UX)
+const PLATFORM_CONTENT_TYPES = {
+  discord: ['post', 'event'],
+  instagram: ['post', 'reel'],
+  twitch: ['stream', 'event', 'reel'],
+  twitter: ['post'],
+  youtube: ['post', 'stream', 'event'],
+};
+
+function normalizeEventLocationUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return 'https://' + trimmed.replace(/^\/+/, '');
+}
+
 const Schedule = ({ user, token }) => {
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -263,8 +280,14 @@ const Schedule = ({ user, token }) => {
       newErrors.platforms = t('schedule.validationPlatformsRequired');
     }
     
-    // Validate event dates for events
+    // Validate event: when to create + event start (and optionally end)
     if (formData.contentType === 'event') {
+      if (!formData.scheduledFor?.trim()) {
+        newErrors.scheduledFor = t('schedule.validationDateRequired') || 'Date is required (when to create event)';
+      }
+      if (!formData.scheduledTime?.trim()) {
+        newErrors.scheduledTime = t('schedule.validationTimeRequired') || 'Time is required (when to create event)';
+      }
       if (formData.eventDates.length === 0) {
         newErrors.eventDates = t('schedule.validationEventDatesRequired') || 'At least one event date is required';
       } else {
@@ -358,9 +381,13 @@ const Schedule = ({ user, token }) => {
       const hasTime = !!formData.scheduledTime?.trim();
       
       if (formData.contentType === 'event' && formData.eventDates.length > 0) {
-        // Use first event date as scheduledFor for the content
-        const firstDate = formData.eventDates[0];
-        scheduledDateTime = new Date(`${firstDate.date}T${firstDate.time}`);
+        // When to create: use explicit scheduledFor/scheduledTime (create/publish time)
+        if (hasDate && hasTime) {
+          scheduledDateTime = new Date(`${formData.scheduledFor}T${formData.scheduledTime}`);
+        } else {
+          const firstDate = formData.eventDates[0];
+          scheduledDateTime = new Date(`${firstDate.date}T${firstDate.time}`);
+        }
       } else if (hasDate && hasTime) {
         scheduledDateTime = new Date(`${formData.scheduledFor}T${formData.scheduledTime}`);
       } else {
@@ -457,7 +484,7 @@ const Schedule = ({ user, token }) => {
       
       // Add event location URL if provided (for Discord external events)
       if (formData.contentType === 'event' && formData.eventLocationUrl?.trim()) {
-        payload.eventLocationUrl = formData.eventLocationUrl.trim();
+        payload.eventLocationUrl = normalizeEventLocationUrl(formData.eventLocationUrl);
       }
 
       const response = await apiClient.post('/content', payload, {
@@ -595,15 +622,9 @@ const Schedule = ({ user, token }) => {
     setFormData(prev => {
       const newData = { ...prev, [field]: value };
       
-      // When contentType changes to 'event', initialize eventDates if empty
-      // Also initialize with scheduledFor/scheduledTime if they exist
+      // When contentType changes to 'event', one occurrence by default (event start/end separate from "when to create")
       if (field === 'contentType' && value === 'event' && prev.eventDates.length === 0) {
-        newData.eventDates = [{ 
-          date: prev.scheduledFor || '', 
-          time: prev.scheduledTime || '', 
-          endDate: prev.eventEndDate || '', 
-          endTime: prev.eventEndTime || '' 
-        }];
+        newData.eventDates = [{ date: '', time: '', endDate: '', endTime: '' }];
       }
       
       // When contentType changes away from 'event', clear eventDates and announcement channel
@@ -626,7 +647,12 @@ const Schedule = ({ user, token }) => {
       const nextPlatforms = prev.platforms.includes(platform)
         ? prev.platforms.filter(p => p !== platform)
         : [...prev.platforms, platform];
-      const next = { ...prev, platforms: nextPlatforms };
+      const allowedTypes = [...new Set(nextPlatforms.flatMap(p => PLATFORM_CONTENT_TYPES[p] || []))];
+      let contentType = prev.contentType;
+      if (nextPlatforms.length > 0 && allowedTypes.length > 0 && !allowedTypes.includes(prev.contentType)) {
+        contentType = allowedTypes[0];
+      }
+      const next = { ...prev, platforms: nextPlatforms, contentType };
       if (platform === 'discord' && !nextPlatforms.includes('discord')) {
         next.discordGuildId = '';
         next.discordChannelId = '';
@@ -1165,48 +1191,93 @@ const Schedule = ({ user, token }) => {
               )}
             </div>
 
-            {/* Content Type */}
+            {/* Platforms first: user chooses platform(s), then content type for that platform */}
+            <div className="platforms-section">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {t('schedule.platforms')} <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {platforms.map((platform) => {
+                  const isSelected = formData.platforms.includes(platform.id);
+                  const bgColor = platformColorsMap[platform.id] || platformColorsMap.twitch;
+                  return (
+                    <button
+                      key={platform.id}
+                      type="button"
+                      onClick={() => handlePlatformToggle(platform.id)}
+                      className={`p-4 rounded-lg border-2 transition-all duration-200 flex flex-col items-center space-y-2 ${
+                        isSelected
+                          ? 'border-transparent text-white shadow-lg transform scale-105'
+                          : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
+                      }`}
+                      style={isSelected ? { backgroundColor: bgColor } : undefined}
+                    >
+                      {getPlatformIcon(platform.id, isSelected)}
+                      <span className="text-sm font-medium">{platform.name}</span>
+                      {isSelected && (
+                        <CheckCircle className="w-4 h-4" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {errors.platforms && (
+                <p className="mt-1 text-sm text-red-600">{errStr(errors.platforms)}</p>
+              )}
+
+            {/* Content type: options depend on selected platform(s) */}
             <div>
               <label htmlFor="contentType" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Content Type <span className="text-red-500">*</span>
+                {t('schedule.contentType')} <span className="text-red-500">*</span>
               </label>
               <select
                 id="contentType"
-                value={formData.contentType}
+                value={formData.platforms.length === 0 ? '' : formData.contentType}
                 onChange={(e) => handleInputChange('contentType', e.target.value)}
+                disabled={formData.platforms.length === 0}
                 className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.contentType ? 'border-red-500' : 'border-gray-300'
-                }`}
+                  formData.platforms.length === 0 ? 'opacity-60 cursor-not-allowed' : ''
+                } ${errors.contentType ? 'border-red-500' : 'border-gray-300'}`}
               >
-                <option value="post">📝 Post</option>
-                <option value="stream">🔴 Stream</option>
-                <option value="event">📅 Event</option>
-                <option value="reel">🎬 Reel</option>
+                {formData.platforms.length === 0 ? (
+                  <option value="">{t('schedule.selectPlatformFirst')}</option>
+                ) : (
+                  (() => {
+                    const allowed = [...new Set(formData.platforms.flatMap(p => PLATFORM_CONTENT_TYPES[p] || []))];
+                    const order = ['post', 'stream', 'event', 'reel'];
+                    const options = order.filter(t => allowed.includes(t));
+                    return options.map(type => (
+                      <option key={type} value={type}>
+                        {type === 'post' && '📝 Post'}
+                        {type === 'stream' && '🔴 Stream'}
+                        {type === 'event' && '📅 Event'}
+                        {type === 'reel' && '🎬 Reel'}
+                      </option>
+                    ));
+                  })()
+                )}
               </select>
               {errors.contentType && (
                 <p className="mt-1 text-sm text-red-600">{errStr(errors.contentType)}</p>
               )}
-              {/* Info message for Event type */}
               {formData.contentType === 'event' && (
                 <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                   <p className="text-sm text-blue-800 dark:text-blue-200">
-                    <strong>📅 {t('schedule.event')}:</strong> {formData.platforms.includes('discord') 
+                    <strong>📅 {t('schedule.event')}:</strong> {formData.platforms.includes('discord')
                       ? t('schedule.eventInfoDiscord')
                       : t('schedule.eventInfoDiscordGeneral')}
                   </p>
                 </div>
               )}
-              {/* Info message for Stream type */}
               {formData.contentType === 'stream' && (
                 <div className="mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                   <p className="text-sm text-red-800 dark:text-red-200">
-                    <strong>🔴 {t('schedule.stream')}:</strong> {formData.platforms.includes('discord') 
+                    <strong>🔴 {t('schedule.stream')}:</strong> {formData.platforms.includes('discord')
                       ? t('schedule.streamInfoDiscord')
                       : t('schedule.streamInfoDiscordGeneral')}
                   </p>
                 </div>
               )}
-              {/* Info message for Reel type */}
               {formData.contentType === 'reel' && (
                 <div className="mt-2 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
                   <p className="text-sm text-purple-800 dark:text-purple-200">
@@ -1215,40 +1286,7 @@ const Schedule = ({ user, token }) => {
                 </div>
               )}
             </div>
-                  
-            {/* Platforms */}
-            <div className="platforms-section">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                Platforms <span className="text-red-500">*</span>
-                      </label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {platforms.map((platform) => {
-                  const isSelected = formData.platforms.includes(platform.id);
-                  const bgColor = platformColorsMap[platform.id] || platformColorsMap.twitch;
-                  return (
-                  <button
-                    key={platform.id}
-                    type="button"
-                    onClick={() => handlePlatformToggle(platform.id)}
-                    className={`p-4 rounded-lg border-2 transition-all duration-200 flex flex-col items-center space-y-2 ${
-                      isSelected
-                        ? 'border-transparent text-white shadow-lg transform scale-105'
-                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
-                    }`}
-                    style={isSelected ? { backgroundColor: bgColor } : undefined}
-                  >
-                    {getPlatformIcon(platform.id, isSelected)}
-                    <span className="text-sm font-medium">{platform.name}</span>
-                    {isSelected && (
-                      <CheckCircle className="w-4 h-4" />
-                    )}
-                  </button>
-                  );
-                })}
-              </div>
-              {errors.platforms && (
-                <p className="mt-1 text-sm text-red-600">{errStr(errors.platforms)}</p>
-              )}
+
               {formData.platforms.includes('discord') && (
                 <div className="mt-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
                   {/* Event-specific info for Discord */}
@@ -1360,13 +1398,40 @@ const Schedule = ({ user, token }) => {
                     
             {/* Date and Time */}
             {formData.contentType === 'event' ? (
-              // Multiple dates interface for events
+              // Events: (1) When to create, (2) Event start, (3) Event end
               <div className="datetime-section space-y-4">
                 <p className="text-sm text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2">
                   {t('schedule.timezoneHint')} {formData.timezone && (
                     <span className="font-medium">{formData.timezone.replace(/_/g, ' ')}</span>
                   )}
                 </p>
+
+                {/* When to create/publish this event */}
+                <div className="p-4 border border-amber-200 dark:border-amber-800 rounded-lg bg-amber-50 dark:bg-amber-900/20">
+                  <label className="block text-sm font-medium text-amber-900 dark:text-amber-200 mb-2">
+                    {t('schedule.eventWhenToCreate')}
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">{t('schedule.date')}</label>
+                      <input
+                        type="date"
+                        value={formData.scheduledFor || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, scheduledFor: e.target.value }))}
+                        className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 border-gray-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">{t('schedule.time')}</label>
+                      <input
+                        type="time"
+                        value={formData.scheduledTime || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, scheduledTime: e.target.value }))}
+                        className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 border-gray-300"
+                      />
+                    </div>
+                  </div>
+                </div>
                 
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -1386,66 +1451,6 @@ const Schedule = ({ user, token }) => {
                     {t('schedule.addEventDate') || 'Add Date'}
                   </button>
                 </div>
-
-                {/* Show date/time fields when eventDates is empty - auto-initialize on input */}
-                {formData.eventDates.length === 0 ? (
-                  <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900/50 space-y-4">
-                    <div className="mb-2">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {t('schedule.eventDate') || 'Event'} #1
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          {t('schedule.date')} <span className="text-red-500">*</span>
-                        </label>
-                        <div className="relative">
-                          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
-                          <input
-                            id="event-date-initial"
-                            name="eventDateInitial"
-                            type="date"
-                            value={formData.scheduledFor || ''}
-                            onChange={(e) => {
-                              const dateValue = e.target.value;
-                              setFormData(prev => ({
-                                ...prev,
-                                scheduledFor: dateValue,
-                                eventDates: [{ date: dateValue, time: prev.scheduledTime || '', endDate: '', endTime: '' }]
-                              }));
-                            }}
-                            className="w-full pl-11 pr-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300 cursor-pointer"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          {t('schedule.time')} <span className="text-red-500">*</span>
-                        </label>
-                        <div className="relative">
-                          <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
-                          <input
-                            id="event-time-initial"
-                            name="eventTimeInitial"
-                            type="time"
-                            value={formData.scheduledTime || ''}
-                            onChange={(e) => {
-                              const timeValue = e.target.value;
-                              setFormData(prev => ({
-                                ...prev,
-                                scheduledTime: timeValue,
-                                eventDates: [{ date: prev.scheduledFor || '', time: timeValue, endDate: '', endTime: '' }]
-                              }));
-                            }}
-                            className="w-full pl-11 pr-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300 cursor-pointer"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
 
                 {formData.eventDates.map((eventDate, index) => (
                   <div key={index} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900/50 space-y-4">
@@ -1472,7 +1477,7 @@ const Schedule = ({ user, token }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          {t('schedule.date')} <span className="text-red-500">*</span>
+                          {t('schedule.eventStart')} – {t('schedule.date')} <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
                           <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
@@ -1493,7 +1498,7 @@ const Schedule = ({ user, token }) => {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          {t('schedule.time')} <span className="text-red-500">*</span>
+                          {t('schedule.eventStart')} – {t('schedule.time')} <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
                           <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
@@ -1514,7 +1519,7 @@ const Schedule = ({ user, token }) => {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          {t('schedule.eventEndDate')} <span className="text-gray-400 text-xs">({t('schedule.optional')})</span>
+                          {t('schedule.eventEnd')} – {t('schedule.eventEndDate')} <span className="text-gray-400 text-xs">({t('schedule.optional')})</span>
                         </label>
                         <div className="relative">
                           <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
@@ -1536,7 +1541,7 @@ const Schedule = ({ user, token }) => {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          {t('schedule.eventEndTime')} <span className="text-gray-400 text-xs">({t('schedule.optional')})</span>
+                          {t('schedule.eventEnd')} – {t('schedule.eventEndTime')} <span className="text-gray-400 text-xs">({t('schedule.optional')})</span>
                         </label>
                         <div className="relative">
                           <Clock className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none z-10 ${
@@ -1577,10 +1582,10 @@ const Schedule = ({ user, token }) => {
                     </label>
                     <input
                       id="eventLocationUrl"
-                      type="url"
+                      type="text"
                       value={formData.eventLocationUrl || ''}
                       onChange={(e) => handleInputChange('eventLocationUrl', e.target.value)}
-                      placeholder={t('schedule.eventLocationUrlPlaceholder') || 'https://twitch.tv/yourchannel or https://youtube.com/...'}
+                      placeholder={t('schedule.eventLocationUrlPlaceholder')}
                       className="w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
                     />
                     <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">

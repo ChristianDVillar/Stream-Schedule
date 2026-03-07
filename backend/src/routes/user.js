@@ -3,7 +3,6 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
-import { Strategy as TwitchStrategy } from 'passport-twitch';
 import { Op } from 'sequelize';
 
 const require = createRequire(import.meta.url);
@@ -136,9 +135,13 @@ const isTwitchConfigured = () => {
 /** Scopes for Twitch OAuth: login + publishing (schedule) + bits. One connection covers all. */
 const TWITCH_PUBLISH_SCOPES = ['user:read:email', 'bits:read', 'channel:manage:schedule', 'channel:read:subscriptions', 'moderator:read:followers'];
 
+/** Twitch OAuth2 endpoints (current; Kraken api.twitch.tv/kraken/oauth2 is deprecated and returns 404). */
+const TWITCH_OAUTH_AUTHORIZE = 'https://id.twitch.tv/oauth2/authorize';
+const TWITCH_OAUTH_TOKEN = 'https://id.twitch.tv/oauth2/token';
+
 /**
  * Create or replace EventSub channel.cheer subscription for a broadcaster (bits chronological).
- * Used by both login callback (Passport) and "connect for publish" callback.
+ * Used by both login callback and "connect for publish" callback.
  * Best-effort; logs warnings on failure, does not throw.
  */
 async function ensureTwitchEventSubSubscription(broadcasterUserId) {
@@ -161,140 +164,78 @@ async function ensureTwitchEventSubSubscription(broadcasterUserId) {
   }
 }
 
-// Configure Twitch OAuth Strategy (scope: login + publish/bits so one connection is enough)
-if (isTwitchConfigured()) {
-  passport.use(new TwitchStrategy({
-    clientID: process.env.TWITCH_CLIENT_ID,
-    clientSecret: process.env.TWITCH_CLIENT_SECRET,
-    callbackURL: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/user/auth/twitch/callback`,
-    scope: TWITCH_PUBLISH_SCOPES.join(' '),
-  },
-  async (accessToken, refreshToken, profile, done) => {
-    try {
-      logger.debug('Twitch OAuth profile received', { 
-        profileId: profile.id,
-        profileKeys: Object.keys(profile),
-        hasEmail: !!profile.email,
-        displayName: profile.display_name,
-        login: profile.login
-      });
-      
-      let email = profile.email;
-      const displayName = profile.display_name || profile.login || 'User';
-      
-      // If email is not in profile, fetch it from Twitch API
-      if (!email && accessToken) {
-        try {
-          logger.info('Email not in profile, fetching from Twitch API', { profileId: profile.id });
-          const response = await fetch('https://api.twitch.tv/helix/users', {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Client-Id': process.env.TWITCH_CLIENT_ID
-            }
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data.data && data.data.length > 0 && data.data[0].email) {
-              email = data.data[0].email;
-              logger.info('Email retrieved from Twitch API', { profileId: profile.id, hasEmail: !!email });
-            }
-          } else {
-            logger.warn('Failed to fetch email from Twitch API', { 
-              status: response.status,
-              statusText: response.statusText 
-            });
-          }
-        } catch (apiError) {
-          logger.error('Error fetching email from Twitch API', { error: apiError.message });
-        }
-      }
-      
-      if (!email) {
-        logger.error('Twitch OAuth: No email provided', { 
-          profileId: profile.id,
-          profileKeys: Object.keys(profile),
-          hasAccessToken: !!accessToken,
-          profileData: JSON.stringify(profile, null, 2)
-        });
-        return done(new Error('No email provided by Twitch. Please ensure your Twitch account has a verified email and the OAuth app has the user:read:email scope.'), null);
-      }
-
-      // Find or create user (by email or any linked Twitch id)
-      const twitchIdStr = profile.id.toString();
-      let user = await User.findOne({
-        where: {
-          [Op.or]: [
-            { email },
-            { twitchId: twitchIdStr },
-            { oauthId: twitchIdStr, oauthProvider: 'twitch' },
-          ],
-        },
-      });
-
-      if (user) {
-        user.twitchId = twitchIdStr;
-        if (!user.oauthId) {
-          user.oauthId = twitchIdStr;
-          user.oauthProvider = 'twitch';
-        }
-        // Assign trial on first login if user has no license and never used trial
-        if ((!user.licenseKey || String(user.licenseKey).length < 10) && !user.hasUsedTrial) {
-          const expiryResult = resolveLicenseExpiry({ licenseType: normalizeLicenseType('trial') });
-          user.licenseType = normalizeLicenseType('trial');
-          user.licenseKey = generateLicenseKey('TRIAL', 12);
-          user.licenseExpiresAt = expiryResult.error ? null : expiryResult.value;
-          user.hasUsedTrial = true;
-        }
-        await user.save();
-      } else {
-        const expiryResult = resolveLicenseExpiry({ licenseType: normalizeLicenseType('trial') });
-        user = await User.create({
-          username: displayName.replace(/\s+/g, '').toLowerCase().replace(/[^a-z0-9]/g, '') + generateUsernameSuffix(3),
-          email,
-          passwordHash: null,
-          oauthProvider: 'twitch',
-          oauthId: twitchIdStr,
-          twitchId: twitchIdStr,
-          licenseType: normalizeLicenseType('trial'),
-          licenseKey: generateLicenseKey('TRIAL', 12),
-          licenseExpiresAt: expiryResult.error ? null : expiryResult.value,
-          hasUsedTrial: true,
-        });
-      }
-
-      // One connection: also save Integration (publish + bits) so user does not need "Connect for publish" later
-      const [integration] = await Integration.findOrCreate({
-        where: { userId: user.id, provider: 'twitch' },
-        defaults: {
-          userId: user.id,
-          provider: 'twitch',
-          providerUserId: twitchIdStr,
-          accessToken,
-          refreshToken: refreshToken || null,
-          expiresAt: null, // Passport does not provide expires_in; refresh will run when token is used
-          status: 'active',
-        },
-      });
-      if (integration) {
-        integration.providerUserId = twitchIdStr;
-        integration.accessToken = accessToken;
-        integration.refreshToken = refreshToken || integration.refreshToken;
-        integration.status = 'active';
-        await integration.save();
-      }
-      await ensureTwitchEventSubSubscription(twitchIdStr);
-
-      logger.info('Twitch OAuth user processed successfully (login + Integration)', { userId: user.id, email: user.email });
-      return done(null, user);
-    } catch (error) {
-      logger.error('Twitch OAuth error in strategy', { 
-        error: error.message,
-        stack: error.stack 
-      });
-      return done(error, null);
+/**
+ * Find or create User + Integration + EventSub after Twitch OAuth (login flow).
+ * twitchUser = { id, login, display_name, email? } from Helix /users.
+ * Returns the User instance.
+ */
+async function processTwitchOAuthUser(accessToken, refreshToken, twitchUser) {
+  const twitchIdStr = String(twitchUser.id);
+  let email = twitchUser.email;
+  const displayName = twitchUser.display_name || twitchUser.login || 'User';
+  if (!email) {
+    logger.warn('Twitch OAuth: no email in Helix user', { twitchId: twitchUser.id });
+    throw new Error('No email provided by Twitch. Please ensure your Twitch account has a verified email and the app has the user:read:email scope.');
+  }
+  let user = await User.findOne({
+    where: {
+      [Op.or]: [
+        { email },
+        { twitchId: twitchIdStr },
+        { oauthId: twitchIdStr, oauthProvider: 'twitch' },
+      ],
+    },
+  });
+  if (user) {
+    user.twitchId = twitchIdStr;
+    if (!user.oauthId) {
+      user.oauthId = twitchIdStr;
+      user.oauthProvider = 'twitch';
     }
-  }));
+    if ((!user.licenseKey || String(user.licenseKey).length < 10) && !user.hasUsedTrial) {
+      const expiryResult = resolveLicenseExpiry({ licenseType: normalizeLicenseType('trial') });
+      user.licenseType = normalizeLicenseType('trial');
+      user.licenseKey = generateLicenseKey('TRIAL', 12);
+      user.licenseExpiresAt = expiryResult.error ? null : expiryResult.value;
+      user.hasUsedTrial = true;
+    }
+    await user.save();
+  } else {
+    const expiryResult = resolveLicenseExpiry({ licenseType: normalizeLicenseType('trial') });
+    user = await User.create({
+      username: displayName.replace(/\s+/g, '').toLowerCase().replace(/[^a-z0-9]/g, '') + generateUsernameSuffix(3),
+      email,
+      passwordHash: null,
+      oauthProvider: 'twitch',
+      oauthId: twitchIdStr,
+      twitchId: twitchIdStr,
+      licenseType: normalizeLicenseType('trial'),
+      licenseKey: generateLicenseKey('TRIAL', 12),
+      licenseExpiresAt: expiryResult.error ? null : expiryResult.value,
+      hasUsedTrial: true,
+    });
+  }
+  const [integration] = await Integration.findOrCreate({
+    where: { userId: user.id, provider: 'twitch' },
+    defaults: {
+      userId: user.id,
+      provider: 'twitch',
+      providerUserId: twitchIdStr,
+      accessToken,
+      refreshToken: refreshToken || null,
+      expiresAt: null,
+      status: 'active',
+    },
+  });
+  if (integration) {
+    integration.providerUserId = twitchIdStr;
+    integration.accessToken = accessToken;
+    integration.refreshToken = refreshToken || integration.refreshToken;
+    integration.status = 'active';
+    await integration.save();
+  }
+  await ensureTwitchEventSubSubscription(twitchIdStr);
+  return user;
 }
 
 // Discord Client ID must be a numeric snowflake (e.g. 1467906951827423305), not a placeholder
@@ -512,47 +453,84 @@ router.get('/auth/google/callback',
   }
 );
 
-router.get('/auth/twitch', (req, res, next) => {
+/** Base URL for Twitch OAuth redirect_uri: never use Supabase (Twitch must redirect back to our API). */
+function getTwitchRedirectBase() {
+  const back = (process.env.BACKEND_URL || '').replace(/\/$/, '');
+  if (back && !back.includes('supabase.co')) return back;
+  return (process.env.TWITCH_OAUTH_REDIRECT_BASE_URL || 'http://localhost:5000').replace(/\/$/, '');
+}
+
+/** GET /auth/twitch - Redirect to Twitch OAuth2 (id.twitch.tv; Kraken is deprecated). */
+router.get('/auth/twitch', (req, res) => {
   if (!isTwitchConfigured()) {
     logger.warn('Twitch OAuth login attempted but Twitch is not configured');
     return res.redirect(`${FRONTEND_URL}/login?error=twitch_not_configured`);
   }
-  logger.info('Initiating Twitch OAuth flow (login + publish/bits in one step)');
-  passport.authenticate('twitch', { scope: TWITCH_PUBLISH_SCOPES })(req, res, next);
+  const backendBase = getTwitchRedirectBase();
+  const redirectUri = `${backendBase}/api/user/auth/twitch/callback`;
+  const state = jwt.sign({ n: crypto.randomBytes(16).toString('hex') }, JWT_SECRET, { expiresIn: '10m' });
+  const url = `${TWITCH_OAUTH_AUTHORIZE}?response_type=code&client_id=${encodeURIComponent(process.env.TWITCH_CLIENT_ID)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(TWITCH_PUBLISH_SCOPES.join(' '))}&state=${encodeURIComponent(state)}`;
+  logger.info('Initiating Twitch OAuth flow (id.twitch.tv, login + publish/bits in one step)', { redirectUri });
+  res.redirect(url);
 });
 
-router.get('/auth/twitch/callback',
-  (req, res, next) => {
-    if (!isTwitchConfigured()) {
-      logger.warn('Twitch OAuth callback attempted but Twitch is not configured');
-      return res.redirect(`${FRONTEND_URL}/login?error=twitch_not_configured`);
-    }
-    // Log callback attempt for debugging
-    logger.info('Twitch OAuth callback received', { 
-      query: req.query,
-      hasCode: !!req.query.code,
-      hasError: !!req.query.error 
-    });
-    
-    if (req.query.error) {
-      logger.error('Twitch OAuth callback error', { 
-        error: req.query.error,
-        errorDescription: req.query.error_description 
-      });
-      return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=${encodeURIComponent(req.query.error_description || req.query.error)}`);
-    }
-    
-    passport.authenticate('twitch', { session: false, failureRedirect: `${FRONTEND_URL}/login?error=oauth_failed` })(req, res, next);
-  },
-  (req, res) => {
-    if (!req.user) {
-      logger.error('Twitch OAuth callback: user not found after authentication');
-      return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=user_not_found`);
-    }
-    logger.info('Twitch OAuth callback successful', { userId: req.user.id, email: req.user.email });
-    generateAuthResponse(req.user, res);
+/** GET /auth/twitch/callback - Exchange code for token, get user, process and redirect with JWT. */
+router.get('/auth/twitch/callback', async (req, res) => {
+  if (!isTwitchConfigured()) {
+    return res.redirect(`${FRONTEND_URL}/login?error=twitch_not_configured`);
   }
-);
+  const { code, state, error, error_description } = req.query;
+  if (error) {
+    logger.warn('Twitch OAuth callback error', { error, error_description });
+    return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=${encodeURIComponent(error_description || error)}`);
+  }
+  if (!code || !state) {
+    return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=missing_code_or_state`);
+  }
+  try {
+    jwt.verify(state, JWT_SECRET);
+  } catch (e) {
+    logger.warn('Twitch callback invalid state', { error: e.message });
+    return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=invalid_state`);
+  }
+  const backendBase = getTwitchRedirectBase();
+  const redirectUri = `${backendBase}/api/user/auth/twitch/callback`;
+  const axios = (await import('axios')).default;
+  let tokenRes;
+  try {
+    tokenRes = await axios.post(TWITCH_OAUTH_TOKEN, null, {
+      params: {
+        client_id: process.env.TWITCH_CLIENT_ID,
+        client_secret: process.env.TWITCH_CLIENT_SECRET,
+        code,
+        grant_type: 'authorization_code',
+        redirect_uri: redirectUri,
+      },
+    });
+  } catch (err) {
+    logger.error('Twitch token exchange failed', { error: err.message, response: err.response?.data });
+    return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=token_exchange_failed`);
+  }
+  const { access_token, refresh_token } = tokenRes.data;
+  const userRes = await axios.get('https://api.twitch.tv/helix/users', {
+    headers: {
+      Authorization: `Bearer ${access_token}`,
+      'Client-ID': process.env.TWITCH_CLIENT_ID,
+    },
+  });
+  const twitchUser = userRes.data?.data?.[0];
+  if (!twitchUser?.id) {
+    return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=no_user`);
+  }
+  try {
+    const user = await processTwitchOAuthUser(access_token, refresh_token || null, twitchUser);
+    logger.info('Twitch OAuth login successful', { userId: user.id, email: user.email });
+    generateAuthResponse(user, res);
+  } catch (err) {
+    logger.error('Twitch OAuth process user failed', { error: err.message });
+    return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=${encodeURIComponent(err.message || 'processing_failed')}`);
+  }
+});
 
 // --- X (Twitter) OAuth 2.0 (opción 2: propio, sin depender de Supabase) ---
 const X_OAUTH2_AUTHORIZE = 'https://x.com/i/oauth2/authorize';
@@ -2897,16 +2875,33 @@ router.post('/admin/license-config', requireAdmin, async (req, res) => {
 });
 
 const DEFAULT_FIXED_MONTHLY_COSTS = [
-  { label: 'Cursor', amount: 20, currency: 'EUR' },
-  { label: 'Render', amount: 7, currency: 'EUR' },
-  { label: 'Upstash Redis', amount: 0.38, currency: 'USD' },
+  { label: 'Cursor', amount: 20, currency: 'EUR', type: 'monthly' },
+  { label: 'Render', amount: 7, currency: 'EUR', type: 'monthly' },
+  { label: 'Upstash Redis', amount: 0.38, currency: 'USD', type: 'monthly' },
+  { label: 'Dominio', amount: 12, currency: 'EUR', type: 'annual', effectiveFrom: null },
 ];
 
-// Handlers exported for explicit registration in app.js (avoids 404 if router order differs)
+function normalizeFixedCostItem(item) {
+  const label = String(item?.label ?? '').trim() || 'Item';
+  const amount = Number(item?.amount) || 0;
+  const currency = String(item?.currency ?? 'EUR').trim().toUpperCase() || 'EUR';
+  const type = item?.type === 'annual' ? 'annual' : 'monthly';
+  let effectiveFrom = item?.effectiveFrom;
+  if (effectiveFrom != null && typeof effectiveFrom === 'string') {
+    const d = effectiveFrom.trim().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) effectiveFrom = null;
+    else effectiveFrom = d;
+  } else {
+    effectiveFrom = null;
+  }
+  return { label, amount, currency, type, effectiveFrom };
+}
+
 export async function getFixedCostsAdmin(req, res) {
   try {
     const config = await SystemConfig.findOne({ where: { key: 'fixedMonthlyCosts' } });
-    const fixedCosts = config && Array.isArray(config.value) ? config.value : DEFAULT_FIXED_MONTHLY_COSTS;
+    const raw = config && Array.isArray(config.value) ? config.value : DEFAULT_FIXED_MONTHLY_COSTS;
+    const fixedCosts = raw.map((item) => normalizeFixedCostItem(item));
     res.json({ fixedCosts });
   } catch (err) {
     logger.error('Error getting fixed costs', { error: err.message, adminId: req.user?.id });
@@ -2919,11 +2914,7 @@ export async function updateFixedCostsAdmin(req, res) {
   if (!Array.isArray(fixedCosts)) {
     return res.status(400).json({ error: 'fixedCosts must be an array' });
   }
-  const normalized = fixedCosts.map((item) => ({
-    label: String(item?.label ?? '').trim() || 'Item',
-    amount: Number(item?.amount) || 0,
-    currency: String(item?.currency ?? 'EUR').trim().toUpperCase() || 'EUR',
-  })).filter((item) => item.label && item.amount >= 0);
+  const normalized = fixedCosts.map(normalizeFixedCostItem).filter((item) => item.label && item.amount >= 0);
   try {
     let config = await SystemConfig.findOne({ where: { key: 'fixedMonthlyCosts' } });
     if (config) {

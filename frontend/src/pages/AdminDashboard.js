@@ -152,7 +152,12 @@ export default function AdminDashboard({ token, user, onLogout }) {
     setFixedCostsLoading(true);
     try {
       const res = await getFixedCosts(token);
-      setFixedCosts(Array.isArray(res.data.fixedCosts) ? res.data.fixedCosts : []);
+      const list = Array.isArray(res.data.fixedCosts) ? res.data.fixedCosts : [];
+      setFixedCosts(list.map((x) => ({
+        ...x,
+        type: x.type === 'annual' ? 'annual' : 'monthly',
+        effectiveFrom: x.effectiveFrom && /^\d{4}-\d{2}-\d{2}$/.test(String(x.effectiveFrom).slice(0, 10)) ? String(x.effectiveFrom).slice(0, 10) : null,
+      })));
     } catch (err) {
       if (err.response?.status === 404) {
         setFixedCosts([{ label: 'Cursor', amount: 20, currency: 'EUR' }, { label: 'Render', amount: 7, currency: 'EUR' }, { label: 'Upstash Redis', amount: 0.38, currency: 'USD' }]);
@@ -422,7 +427,17 @@ export default function AdminDashboard({ token, user, onLogout }) {
         titleLabel: t('admin.pdfTitle'),
         accountingSectionLabel: t('admin.pdfAccountingSection'),
         noteText: t('admin.pdfNote'),
-        fixedCosts: (fixedCosts.length > 0 ? fixedCosts : [{ label: 'Cursor', amount: 20, currency: 'EUR' }, { label: 'Render', amount: 7, currency: 'EUR' }, { label: 'Upstash Redis', amount: 0.38, currency: 'USD' }]).map(x => ({ label: x.label, amount: Number(x.amount) || 0, currency: (x.currency || 'EUR').toUpperCase() })),
+        fixedCosts: (() => {
+          const list = fixedCosts.length > 0 ? fixedCosts : [{ label: 'Cursor', amount: 20, currency: 'EUR', type: 'monthly' }, { label: 'Render', amount: 7, currency: 'EUR', type: 'monthly' }, { label: 'Upstash Redis', amount: 0.38, currency: 'USD', type: 'monthly' }, { label: 'Dominio', amount: 12, currency: 'EUR', type: 'annual', effectiveFrom: null }];
+          const reportMonth = new Date().toISOString().slice(0, 7);
+          return list
+            .filter((x) => !x.effectiveFrom || x.effectiveFrom.slice(0, 7) <= reportMonth)
+            .map((x) => ({
+              label: x.label,
+              amount: x.type === 'annual' ? (Number(x.amount) || 0) / 12 : (Number(x.amount) || 0),
+              currency: (x.currency || 'EUR').toUpperCase(),
+            }));
+        })(),
         fixedCostsSectionLabel: t('admin.pdfFixedCostsSection'),
         revenueMinusFixedLabel: t('admin.pdfRevenueMinusFixed'),
         resultLabel: t('admin.pdfResult'),
@@ -1762,8 +1777,11 @@ export default function AdminDashboard({ token, user, onLogout }) {
         ) : (
           <>
             <div className="space-y-3 mb-4">
-              {fixedCosts.map((item, index) => (
-                <div key={index} className="flex flex-wrap items-center gap-2 py-1 border-b border-gray-100 dark:border-gray-700 last:border-0">
+              {fixedCosts.map((item, index) => {
+                const isAnnual = item.type === 'annual';
+                const monthlyEquivalent = isAnnual ? (Number(item.amount) || 0) / 12 : Number(item.amount) || 0;
+                return (
+                <div key={index} className="flex flex-wrap items-center gap-2 py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
                   <input
                     type="text"
                     value={item.label}
@@ -1771,6 +1789,14 @@ export default function AdminDashboard({ token, user, onLogout }) {
                     placeholder={t('admin.fixedCostLabelPlaceholder') || 'Concepto'}
                     className="flex-1 min-w-[100px] px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
                   />
+                  <select
+                    value={item.type === 'annual' ? 'annual' : 'monthly'}
+                    onChange={(e) => setFixedCosts(prev => prev.map((x, i) => i === index ? { ...x, type: e.target.value } : x))}
+                    className="w-24 px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                  >
+                    <option value="monthly">{t('admin.fixedCostTypeMonthly') || 'Mensual'}</option>
+                    <option value="annual">{t('admin.fixedCostTypeAnnual') || 'Anual'}</option>
+                  </select>
                   <input
                     type="number"
                     min="0"
@@ -1778,7 +1804,13 @@ export default function AdminDashboard({ token, user, onLogout }) {
                     value={item.amount}
                     onChange={(e) => setFixedCosts(prev => prev.map((x, i) => i === index ? { ...x, amount: parseFloat(e.target.value) || 0 } : x))}
                     className="w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                    title={isAnnual ? (t('admin.fixedCostTypeAnnual') || 'Anual') + ' (total año)' : ''}
                   />
+                  {isAnnual && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                      {(t('admin.fixedCostMonthlyEquivalent') || '→ {amount} €/mes').replace('{amount}', monthlyEquivalent.toFixed(2))}
+                    </span>
+                  )}
                   <input
                     type="text"
                     value={item.currency}
@@ -1786,6 +1818,15 @@ export default function AdminDashboard({ token, user, onLogout }) {
                     placeholder="EUR"
                     className="w-16 px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm uppercase"
                   />
+                  <label className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                    {t('admin.fixedCostEffectiveFrom') || 'Se cuenta desde'}
+                    <input
+                      type="date"
+                      value={item.effectiveFrom || ''}
+                      onChange={(e) => setFixedCosts(prev => prev.map((x, i) => i === index ? { ...x, effectiveFrom: e.target.value || null } : x))}
+                      className="w-36 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-xs"
+                    />
+                  </label>
                   <button
                     type="button"
                     onClick={() => setFixedCosts(prev => prev.filter((_, i) => i !== index))}
@@ -1795,12 +1836,12 @@ export default function AdminDashboard({ token, user, onLogout }) {
                     <X className="w-4 h-4" />
                   </button>
                 </div>
-              ))}
+              ); })}
             </div>
             <div className="flex flex-wrap items-center gap-2 mb-3">
               <button
                 type="button"
-                onClick={() => setFixedCosts(prev => [...prev, { label: '', amount: 0, currency: 'EUR' }])}
+                onClick={() => setFixedCosts(prev => [...prev, { label: '', amount: 0, currency: 'EUR', type: 'monthly', effectiveFrom: null }])}
                 className="px-3 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 text-sm font-medium"
               >
                 {t('admin.fixedCostAdd') || 'Añadir concepto'}
@@ -1808,7 +1849,13 @@ export default function AdminDashboard({ token, user, onLogout }) {
               <button
                 type="button"
                 onClick={async () => {
-                  const toSave = fixedCosts.map(x => ({ label: (x.label || '').trim() || 'Item', amount: Number(x.amount) || 0, currency: (x.currency || 'EUR').trim().toUpperCase() || 'EUR' })).filter(x => x.label && x.amount >= 0);
+                  const toSave = fixedCosts.map(x => ({
+                    label: (x.label || '').trim() || 'Item',
+                    amount: Number(x.amount) || 0,
+                    currency: (x.currency || 'EUR').trim().toUpperCase() || 'EUR',
+                    type: x.type === 'annual' ? 'annual' : 'monthly',
+                    effectiveFrom: x.effectiveFrom && /^\d{4}-\d{2}-\d{2}$/.test(String(x.effectiveFrom).slice(0, 10)) ? String(x.effectiveFrom).slice(0, 10) : null,
+                  })).filter(x => x.label && x.amount >= 0);
                   if (toSave.length === 0) { toast.error(t('admin.fixedCostsEmpty')); return; }
                   setFixedCostsSaving(true);
                   try {
@@ -1829,10 +1876,19 @@ export default function AdminDashboard({ token, user, onLogout }) {
             </div>
             {fixedCosts.length > 0 && (() => {
               const byCurrency = {};
-              fixedCosts.forEach(x => { const c = (x.currency || 'EUR').toUpperCase(); byCurrency[c] = (byCurrency[c] || 0) + (Number(x.amount) || 0); });
+              const now = new Date();
+              const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+              fixedCosts.forEach((x) => {
+                const monthlyAmount = x.type === 'annual' ? (Number(x.amount) || 0) / 12 : (Number(x.amount) || 0);
+                const effectiveFrom = x.effectiveFrom && /^\d{4}-\d{2}-\d{2}$/.test(String(x.effectiveFrom).slice(0, 10)) ? String(x.effectiveFrom).slice(0, 10) : null;
+                const fromMonthKey = effectiveFrom ? effectiveFrom.slice(0, 7) : null;
+                if (fromMonthKey && currentMonthKey < fromMonthKey) return;
+                const c = (x.currency || 'EUR').toUpperCase();
+                byCurrency[c] = (byCurrency[c] || 0) + monthlyAmount;
+              });
               return (
                 <p className="pt-3 border-t border-gray-200 dark:border-gray-600 font-semibold text-amber-800 dark:text-amber-200">
-                  {t('admin.fixedCostsTotalMonthly')}: {Object.entries(byCurrency).map(([c, sum]) => `${sum.toFixed(2)} ${c}`).join(', ')}
+                  {t('admin.fixedCostsTotalMonthly')}: {Object.entries(byCurrency).length ? Object.entries(byCurrency).map(([c, sum]) => `${sum.toFixed(2)} ${c}`).join(', ') : '0.00 EUR'}
                 </p>
               );
             })()}

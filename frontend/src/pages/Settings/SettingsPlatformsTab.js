@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Twitch, Save } from 'lucide-react';
+import { Twitch, Save, Server, AlertCircle } from 'lucide-react';
 import { DISCORD_ICON_URL } from '../../constants/platforms';
-import { getDiscordGuilds, getDiscordChannels } from '../../api';
+import { getDiscordGuilds, getDiscordChannels, getDiscordInviteUrl } from '../../api';
 
 // Platform-specific icons (same style as Login page)
 const GoogleIcon = () => (
@@ -81,6 +81,7 @@ export default function SettingsPlatformsTab({
   const [loadingClipsGuilds, setLoadingClipsGuilds] = useState(false);
   const [loadingClipsChannels, setLoadingClipsChannels] = useState(false);
   const [savingClipsChannel, setSavingClipsChannel] = useState(false);
+  const [clipsGuildsError, setClipsGuildsError] = useState(null);
 
   useEffect(() => {
     setClipsGuildId(user?.discordClipsGuildId || '');
@@ -91,18 +92,26 @@ export default function SettingsPlatformsTab({
     if (!discordConnected || !token) {
       setClipsGuilds([]);
       setClipsChannels([]);
+      setClipsGuildsError(null);
       return;
     }
     let cancelled = false;
     setLoadingClipsGuilds(true);
+    setClipsGuildsError(null);
     getDiscordGuilds()
       .then((data) => {
         if (!cancelled) setClipsGuilds(data.guilds || []);
       })
-      .catch(() => { if (!cancelled) setClipsGuilds([]); })
+      .catch((err) => {
+        if (!cancelled) {
+          setClipsGuilds([]);
+          const msg = err.response?.data?.error || err.response?.data?.details || err.message;
+          setClipsGuildsError(msg || t('settings.clipsGuildsLoadFailed'));
+        }
+      })
       .finally(() => { if (!cancelled) setLoadingClipsGuilds(false); });
     return () => { cancelled = true; };
-  }, [discordConnected, token]);
+  }, [discordConnected, token, t]);
 
   useEffect(() => {
     if (!clipsGuildId) {
@@ -241,6 +250,39 @@ export default function SettingsPlatformsTab({
           <p className="text-xs text-gray-600 dark:text-gray-400">
             {t('settings.discordClipsChannelDescription') || 'Los clips de Twitch se publicarán automáticamente en el canal que elijas.'}
           </p>
+          {clipsGuildsError && (
+            <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-amber-800 dark:text-amber-200">{clipsGuildsError}</p>
+                <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">{t('settings.clipsErrorHint') || 'Disconnect and reconnect Discord in Settings, or add the bot to a server you own.'}</p>
+              </div>
+            </div>
+          )}
+          {!loadingClipsGuilds && clipsGuilds.length === 0 && !clipsGuildsError && (
+            <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <Server className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">{t('settings.clipsNoServersTitle')}</p>
+                <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">{t('settings.clipsNoServersHint')}</p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const { inviteUrl } = await getDiscordInviteUrl();
+                      if (inviteUrl) window.open(inviteUrl, '_blank', 'noopener,noreferrer');
+                    } catch {
+                      // Silently fail - user will see no action
+                    }
+                  }}
+                  className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#5865F2] text-white rounded-lg hover:bg-[#4752C4]"
+                >
+                  <Server className="w-4 h-4" />
+                  {t('settings.addBotButton') || t('discord.addBotButton') || 'Add bot to server'}
+                </button>
+              </div>
+            </div>
+          )}
           <div className="flex flex-wrap gap-3 items-end">
             <div className="min-w-[180px]">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">

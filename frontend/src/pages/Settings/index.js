@@ -347,7 +347,11 @@ export default function Settings({ user, token, setUser }) {
   const handleConnect = (key) => {
     setConnectingKey(key);
     if (key === 'google') startGoogleLink();
-    else if (key === 'twitch') startTwitchLink();
+    else if (key === 'twitch') {
+      // Twitch always uses backend (never Supabase). Link to current user via connect-for-publish flow.
+      if (token) startTwitchPublishConnect(token);
+      else startTwitchLink();
+    }
     else if (key === 'discord') startDiscordLink(token);
     else if (key === 'twitter') startTwitterLink(token);
     else if (key === 'youtube') startYoutubeConnect(token);

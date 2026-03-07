@@ -183,7 +183,8 @@ export default function Login({ setAuth }) {
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 py-6">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 py-6">
+      <button type="button" onClick={() => navigate('/')} className="absolute top-4 left-4 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">← {t('common.back')}</button>
       <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-5 sm:p-8 rounded-lg shadow-md w-full max-w-sm min-w-0">
         <h1 className="text-2xl font-bold mb-6 text-center text-gray-900 dark:text-gray-100">{isRegister ? t('login.createAccount') : t('login.title')}</h1>
         {error && <div className="mb-4 text-red-600 dark:text-red-400 text-center">{error}</div>}

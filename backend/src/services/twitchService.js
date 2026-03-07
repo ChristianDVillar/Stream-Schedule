@@ -165,7 +165,7 @@ export class TwitchService {
   async getBitsLeaderboard(broadcasterId, userAccessToken, period = 'all') {
     try {
       const data = await this.makeRequest(
-        `/bits/leaderboard?broadcaster_id=${broadcasterId}&period=${period}`,
+        `/bits/leaderboard?broadcaster_id=${broadcasterId}&period=${period}&first=100`,
         userAccessToken
       );
       const leaderboard = data.data || [];
