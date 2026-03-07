@@ -12,6 +12,8 @@ import { getStoredAccentColor, applyAccentColor, THEME_CHANGE_EVENT } from './ut
 import { APP_VERSION } from './version';
 import { getUnreadMessageCount, getAdminFeatures, apiClient } from './api';
 
+const PUBLIC_PAGES_WITH_OWN_FOOTER = ['/', '/pricing', '/privacy', '/terms', '/faq'];
+
 function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInstallApp }) {
   const navigate = useNavigate();
   const { t, toggleLanguage, language } = useLanguage();
@@ -405,14 +407,16 @@ function AppContent() {
               t={t}
             />
           )}
-          <footer className="text-center text-gray-500 dark:text-gray-400 py-3 sm:py-4 px-4 text-sm border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-            <span className="inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-              <span>© 2025 Christian · Develop · v{APP_VERSION}</span>
-              <Link to="/faq" className="hover:text-accent underline">{t('faq.menuTitle') || 'FAQ'}</Link>
-              <Link to="/privacy" className="hover:text-accent underline">{t('footer.privacy') || 'Privacy'}</Link>
-              <Link to="/terms" className="hover:text-accent underline">{t('footer.terms') || 'Terms'}</Link>
-            </span>
-          </footer>
+          {!PUBLIC_PAGES_WITH_OWN_FOOTER.includes(location.pathname) && (
+            <footer className="text-center text-gray-500 dark:text-gray-400 py-3 sm:py-4 px-4 text-sm border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+              <span className="inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+                <span>© {new Date().getFullYear()} Christian · Develop · v{APP_VERSION}</span>
+                <Link to="/faq" className="hover:text-accent underline">{t('faq.menuTitle') || 'FAQ'}</Link>
+                <Link to="/privacy" className="hover:text-accent underline">{t('footer.privacy') || 'Privacy'}</Link>
+                <Link to="/terms" className="hover:text-accent underline">{t('footer.terms') || 'Terms'}</Link>
+              </span>
+            </footer>
+          )}
         </div>
       </div>
     </>
