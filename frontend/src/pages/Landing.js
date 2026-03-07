@@ -17,18 +17,29 @@ import {
   Twitter,
   Server,
   Video,
+  Globe,
 } from 'lucide-react';
 
 export default function Landing() {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language, toggleLanguage } = useLanguage();
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Top nav */}
       <nav className="flex justify-between items-center px-4 sm:px-6 py-4">
         <span className="text-lg font-semibold text-gray-900 dark:text-white">{t('dashboard.appTitle') || 'Streamer Scheduler'}</span>
-        <div className="flex gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <button
+            type="button"
+            onClick={toggleLanguage}
+            className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-50 dark:focus:ring-offset-gray-900"
+            title={language === 'es' ? t('common.switchToEnglish') : t('common.switchToSpanish')}
+            aria-label={language === 'es' ? t('common.switchToEnglish') : t('common.switchToSpanish')}
+          >
+            <Globe className="w-5 h-5 flex-shrink-0" aria-hidden />
+            <span className="text-sm font-medium">{language === 'es' ? 'ES' : 'EN'}</span>
+          </button>
           <button onClick={() => navigate('/pricing')} className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">
             {t('landing.viewPricing')}
           </button>
@@ -134,7 +145,7 @@ export default function Landing() {
             <Twitter className="w-8 h-8 text-gray-700 dark:text-gray-300" />
             <Server className="w-8 h-8 text-[#5865F2]" />
             <Video className="w-8 h-8 text-[#FF0000]" />
-            <span className="text-gray-500 dark:text-gray-400">+ more</span>
+            <span className="text-gray-500 dark:text-gray-400">{t('landing.integrationsMore') || '+ more'}</span>
           </div>
         </div>
       </section>

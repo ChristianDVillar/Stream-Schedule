@@ -22,6 +22,8 @@ startCommand: node src/app.js
 #
 # OAuth (Twitch/Google/YouTube/Discord): tras el callback el API redirige al frontend.
 # Sin FRONTEND_URL redirige a localhost:3000 y verás "bad_oauth_state" en localhost.
+# Si usas dominio propio (ej. streamautomator.com), en Render Dashboard > Backend > Environment
+# define FRONTEND_URL=https://tudominio.com para que login/admin redirijan a tu dominio.
 # BACKEND_URL debe ser la URL pública del API para redirect_uri y webhooks.
 envVars:
   - NODE_ENV=production
