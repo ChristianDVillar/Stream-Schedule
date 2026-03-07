@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Bell, MessageSquare } from 'lucide-react';
 import MyMessages from '../components/MyMessages';
 import { getNotifications, markNotificationRead } from '../api';
+import { useLanguage } from '../contexts/LanguageContext';
 
 /**
  * Centro de mensajes: conversaciones con soporte (MyMessages) + notificaciones del admin.
  */
 export default function MessagesPage({ token }) {
+  const { t } = useLanguage();
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
@@ -28,17 +30,17 @@ export default function MessagesPage({ token }) {
 
   return (
     <div className="max-w-4xl mx-auto px-3 sm:px-6 py-6 space-y-8 min-w-0">
-      <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">Mensajes y notificaciones</h1>
+      <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{t('messagesPage.title') || 'Messages and notifications'}</h1>
 
       {/* Notificaciones del admin */}
       <section className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 font-semibold">
           <Bell className="w-5 h-5" />
-          Notificaciones
+          {t('messagesPage.notifications') || 'Notifications'}
         </div>
         <div className="divide-y divide-gray-100 dark:divide-gray-700">
           {notifications.length === 0 ? (
-            <p className="px-4 py-6 text-gray-500 dark:text-gray-400 text-sm">No hay notificaciones.</p>
+            <p className="px-4 py-6 text-gray-500 dark:text-gray-400 text-sm">{t('messagesPage.noNotifications') || 'No notifications.'}</p>
           ) : (
             notifications.map((n) => (
               <div
@@ -57,7 +59,7 @@ export default function MessagesPage({ token }) {
                       onClick={() => handleMarkRead(n.id)}
                       className="flex-shrink-0 px-2 py-1 text-xs bg-amber-600 text-white rounded hover:bg-amber-700"
                     >
-                      Marcar leída
+                      {t('messagesPage.markRead') || 'Mark as read'}
                     </button>
                   )}
                 </div>
@@ -71,7 +73,7 @@ export default function MessagesPage({ token }) {
       <section className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 font-semibold">
           <MessageSquare className="w-5 h-5" />
-          Respuestas de soporte
+          {t('messagesPage.supportReplies') || 'Support replies'}
         </div>
         <div className="p-4">
           <MyMessages token={token} />

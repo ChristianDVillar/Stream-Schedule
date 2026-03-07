@@ -38,14 +38,22 @@ function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInst
           >
             <Menu className="w-6 h-6 text-accent" />
           </button>
-          <ThemeImage
-            srcLight="/blacklogo.png"
-            srcDark="/whitelogo.png"
-            alt=""
-            className="h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0 object-contain rounded-lg ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white dark:ring-offset-gray-800"
-            aria-hidden
-          />
-          <span className="font-bold text-accent truncate text-sm sm:text-base">Streamer Scheduler</span>
+          <button
+            type="button"
+            onClick={() => navigate(user.isAdmin ? '/admin' : '/dashboard')}
+            className="flex items-center gap-2 sm:gap-4 min-w-0 flex-shrink-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800"
+            title={user.isAdmin ? (t('common.goToAdminDashboard') || 'Go to Admin') : (t('common.goToUserDashboard') || 'Go to Dashboard')}
+            aria-label={user.isAdmin ? (t('common.goToAdminDashboard') || 'Go to Admin') : (t('common.goToUserDashboard') || 'Go to Dashboard')}
+          >
+            <ThemeImage
+              srcLight="/blacklogo.png"
+              srcDark="/whitelogo.png"
+              alt=""
+              className="h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0 object-contain rounded-lg ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white dark:ring-offset-gray-800"
+              aria-hidden
+            />
+            <span className="font-bold text-accent truncate text-sm sm:text-base hover:opacity-90">Streamer Scheduler</span>
+          </button>
           <button
             type="button"
             onClick={() => navigate('/settings')}

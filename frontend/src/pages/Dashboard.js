@@ -294,17 +294,18 @@ const Dashboard = ({ user, token, ...props }) => {
     }
   }, [token]);
 
-  // Función para convertir datos a CSV - memoizada
-  const convertToCSV = useCallback((data, headers) => {
-    const csvHeaders = headers.join(',');
+  // Convierte datos a CSV; headerLabels opcional: primera fila en idioma del usuario
+  const convertToCSV = useCallback((data, headers, headerLabels) => {
+    const csvHeaderRow = (headerLabels && headerLabels.length === headers.length)
+      ? headerLabels.map(l => (l.includes(',') || l.includes('"') ? `"${String(l).replace(/"/g, '""')}"` : l)).join(',')
+      : headers.join(',');
     const csvRows = data.map(row => headers.map(header => {
-      const value = row[header] || '';
-      // Escapar comillas y envolver en comillas si contiene comas o saltos de línea
+      const value = row[header] ?? '';
       return typeof value === 'string' && (value.includes(',') || value.includes('\n'))
         ? `"${value.replace(/"/g, '""')}"`
         : value;
     }).join(','));
-    return [csvHeaders, ...csvRows].join('\n');
+    return [csvHeaderRow, ...csvRows].join('\n');
   }, []);
 
   // Helper function to download CSV file
@@ -336,10 +337,11 @@ const Dashboard = ({ user, token, ...props }) => {
         tipo: sub.tier || 'N/A',
         meses: sub.cumulative_months || 0
       }));
-      
-      const csv = convertToCSV(csvData, ['usuario', 'fecha', 'tipo', 'meses']);
+      const headers = ['usuario', 'fecha', 'tipo', 'meses'];
+      const labels = [t('dashboard.csvUser'), t('dashboard.csvDate'), t('dashboard.csvTier'), t('dashboard.csvMonths')];
+      const csv = convertToCSV(csvData, headers, labels);
       downloadCSV(csv, `twitch-subs-${new Date().toISOString().split('T')[0]}.csv`);
-      toast.success(t('dashboard.subsDownloaded'));
+      toast.success((t('dashboard.csvDownloadedRows') || 'Downloaded: {count} rows').replace('{count}', String(csvData.length)));
     } catch (error) {
       toast.error(t('dashboard.errorDownloadingSubs'));
     }
@@ -378,12 +380,15 @@ const Dashboard = ({ user, token, ...props }) => {
         }));
       }
       
-      const headers = bitsFormat === 'chronological' 
+      const headers = bitsFormat === 'chronological'
         ? ['usuario', 'cantidad', 'fecha']
         : ['usuario', 'total'];
-      const csv = convertToCSV(csvData, headers);
+      const labels = bitsFormat === 'chronological'
+        ? [t('dashboard.csvUser'), t('dashboard.csvAmount'), t('dashboard.csvDate')]
+        : [t('dashboard.csvUser'), t('dashboard.csvTotal')];
+      const csv = convertToCSV(csvData, headers, labels);
       downloadCSV(csv, `twitch-bits-${bitsFormat}-${new Date().toISOString().split('T')[0]}.csv`);
-      toast.success(t('dashboard.bitsDownloaded'));
+      toast.success((t('dashboard.csvDownloadedRows') || 'Downloaded: {count} rows').replace('{count}', String(csvData.length)));
     } catch (error) {
       toast.error(t('dashboard.errorDownloadingBits'));
     }
@@ -405,10 +410,11 @@ const Dashboard = ({ user, token, ...props }) => {
         mensaje: donation.message || '',
         fecha: donation.created_at || donation.date || 'N/A'
       }));
-      
-      const csv = convertToCSV(csvData, ['usuario', 'cantidad', 'mensaje', 'fecha']);
+      const headers = ['usuario', 'cantidad', 'mensaje', 'fecha'];
+      const labels = [t('dashboard.csvUser'), t('dashboard.csvAmount'), t('dashboard.csvMessage'), t('dashboard.csvDate')];
+      const csv = convertToCSV(csvData, headers, labels);
       downloadCSV(csv, `twitch-donations-${new Date().toISOString().split('T')[0]}.csv`);
-      toast.success(t('dashboard.donationsDownloaded'));
+      toast.success((t('dashboard.csvDownloadedRows') || 'Downloaded: {count} rows').replace('{count}', String(csvData.length)));
     } catch (error) {
       toast.error(t('dashboard.errorDownloadingDonations'));
     }

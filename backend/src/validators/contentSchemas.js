@@ -99,9 +99,25 @@ export const contentSchema = Joi.object({
       'array.base': 'Event dates must be an array',
       'object.missing': 'Each event date must have date and time'
     }),
-  eventLocationUrl: Joi.string().uri().max(500).allow('', null).optional().messages({
-    'string.uri': 'Event location URL must be a valid URL (e.g. https://twitch.tv/yourchannel)'
-  })
+  eventLocationUrl: Joi.string()
+    .max(500)
+    .allow('', null)
+    .optional()
+    .custom((value, helpers) => {
+      if (value == null || typeof value !== 'string') return value;
+      const t = value.trim();
+      if (!t) return '';
+      const normalized = /^https?:\/\//i.test(t) ? t : 'https://' + t.replace(/^\/+/, '');
+      try {
+        new URL(normalized);
+        return normalized;
+      } catch {
+        return helpers.error('string.uri');
+      }
+    }, 'normalize and validate URL')
+    .messages({
+      'string.uri': 'Event location URL must be a valid URL (e.g. twitch.tv/yourchannel or www.youtube.com/...)'
+    })
 }).required();
 
 // Update content schema (all fields optional)
@@ -155,9 +171,25 @@ export const updateContentSchema = Joi.object({
       'array.base': 'Event dates must be an array',
       'object.missing': 'Each event date must have date and time'
     }),
-  eventLocationUrl: Joi.string().uri().max(500).allow('', null).optional().messages({
-    'string.uri': 'Event location URL must be a valid URL (e.g. https://twitch.tv/yourchannel)'
-  }),
+  eventLocationUrl: Joi.string()
+    .max(500)
+    .allow('', null)
+    .optional()
+    .custom((value, helpers) => {
+      if (value == null || typeof value !== 'string') return value;
+      const t = value.trim();
+      if (!t) return '';
+      const normalized = /^https?:\/\//i.test(t) ? t : 'https://' + t.replace(/^\/+/, '');
+      try {
+        new URL(normalized);
+        return normalized;
+      } catch {
+        return helpers.error('string.uri');
+      }
+    }, 'normalize and validate URL')
+    .messages({
+      'string.uri': 'Event location URL must be a valid URL (e.g. twitch.tv/yourchannel or www.youtube.com/...)'
+    }),
   status: Joi.string()
     .valid(...CONTENT_STATUS_VALUES)
     .optional()

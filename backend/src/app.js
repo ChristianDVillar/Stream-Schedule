@@ -182,15 +182,32 @@ app.get('/api/admin/features', requireAdmin, (req, res) => {
 });
 
 const DEFAULT_FIXED_MONTHLY_COSTS = [
-  { label: 'Cursor', amount: 20, currency: 'EUR' },
-  { label: 'Render', amount: 7, currency: 'EUR' },
-  { label: 'Upstash Redis', amount: 0.38, currency: 'USD' },
+  { label: 'Cursor', amount: 20, currency: 'EUR', type: 'monthly' },
+  { label: 'Render', amount: 7, currency: 'EUR', type: 'monthly' },
+  { label: 'Upstash Redis', amount: 0.38, currency: 'USD', type: 'monthly' },
+  { label: 'Dominio', amount: 12, currency: 'EUR', type: 'annual', effectiveFrom: null },
 ];
+function normalizeFixedCostItem(item) {
+  const label = String(item?.label ?? '').trim() || 'Item';
+  const amount = Number(item?.amount) || 0;
+  const currency = String(item?.currency ?? 'EUR').trim().toUpperCase() || 'EUR';
+  const type = item?.type === 'annual' ? 'annual' : 'monthly';
+  let effectiveFrom = item?.effectiveFrom;
+  if (effectiveFrom != null && typeof effectiveFrom === 'string') {
+    const d = effectiveFrom.trim().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) effectiveFrom = null;
+    else effectiveFrom = d;
+  } else {
+    effectiveFrom = null;
+  }
+  return { label, amount, currency, type, effectiveFrom };
+}
 if (ENABLE_ADMIN_FINANCE) {
 app.get('/api/user/admin/fixed-costs', requireAdmin, async (req, res) => {
   try {
     const config = await SystemConfig.findOne({ where: { key: 'fixedMonthlyCosts' } });
-    const fixedCosts = config && Array.isArray(config.value) ? config.value : DEFAULT_FIXED_MONTHLY_COSTS;
+    const raw = config && Array.isArray(config.value) ? config.value : DEFAULT_FIXED_MONTHLY_COSTS;
+    const fixedCosts = raw.map((item) => normalizeFixedCostItem(item));
     res.json({ fixedCosts });
   } catch (err) {
     logger.error('Error getting fixed costs', { error: err.message, adminId: req.user?.id });
@@ -202,11 +219,7 @@ app.post('/api/user/admin/fixed-costs', requireAdmin, async (req, res) => {
   if (!Array.isArray(fixedCosts)) {
     return res.status(400).json({ error: 'fixedCosts must be an array' });
   }
-  const normalized = fixedCosts.map((item) => ({
-    label: String(item?.label ?? '').trim() || 'Item',
-    amount: Number(item?.amount) || 0,
-    currency: String(item?.currency ?? 'EUR').trim().toUpperCase() || 'EUR',
-  })).filter((item) => item.label && item.amount >= 0);
+  const normalized = fixedCosts.map(normalizeFixedCostItem).filter((item) => item.label && item.amount >= 0);
   try {
     let config = await SystemConfig.findOne({ where: { key: 'fixedMonthlyCosts' } });
     if (config) {

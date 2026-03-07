@@ -6,8 +6,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export default function Privacy() {
+  const { t } = useLanguage();
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12">
@@ -16,11 +18,11 @@ export default function Privacy() {
           className="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 mb-8"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Stream Schedule
+          {t('privacy.backToApp') || 'Back to app'}
         </Link>
 
-        <h1 className="text-3xl font-bold mb-2">Privacy Policy</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">Last updated: January 2026</p>
+        <h1 className="text-3xl font-bold mb-2">{t('privacy.title') || 'Privacy Policy'}</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">{t('privacy.lastUpdated') || 'Last updated: January 2026'}</p>
 
         <div className="prose prose-gray dark:prose-invert max-w-none space-y-6 text-gray-700 dark:text-gray-300">
           <section>
@@ -99,7 +101,7 @@ export default function Privacy() {
           className="inline-flex items-center gap-2 mt-10 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Stream Schedule
+          {t('privacy.backToApp') || 'Back to app'}
         </Link>
       </div>
     </div>
