@@ -168,7 +168,12 @@ export async function loginBackendWithSupabaseToken(accessToken) {
  * Twitch OAuth always hits our backend so redirect_uri is our backend, not supabase.co.
  */
 export function loginWithTwitch() {
-  const backend = (process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000').replace(/\/$/, '');
+  let backend = (process.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+  // In production, if env still points to localhost, use same-origin API (e.g. api.streamautomator.com when on streamautomator.com)
+  if (typeof window !== 'undefined' && window.location?.hostname && !window.location.hostname.includes('localhost') && backend.includes('localhost')) {
+    const host = window.location.hostname;
+    backend = host.startsWith('api.') ? `https://${host}` : `https://api.${host}`;
+  }
   const base = backend.endsWith('/api') ? backend : `${backend}/api`;
   const url = `${base}/user/auth/twitch`;
   if (typeof window !== 'undefined' && window.location?.hostname === 'localhost') {
@@ -365,7 +370,11 @@ export function startTwitchPublishConnect(token) {
     console.warn('startTwitchPublishConnect: token required');
     return;
   }
-  const backend = (process.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_TWITCH_OAUTH_BASE_URL || 'http://localhost:5000').replace(/\/$/, '');
+  let backend = (process.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_TWITCH_OAUTH_BASE_URL || process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+  if (typeof window !== 'undefined' && window.location?.hostname && !window.location.hostname.includes('localhost') && backend.includes('localhost')) {
+    const host = window.location.hostname;
+    backend = host.startsWith('api.') ? `https://${host}` : `https://api.${host}`;
+  }
   const base = backend.endsWith('/api') ? backend : `${backend}/api`;
   window.location.href = `${base}/user/twitch/connect?token=${encodeURIComponent(token)}`;
 }
