@@ -38,6 +38,7 @@ import logger from '../utils/logger.js';
 
 const router = express.Router();
 
+/** All OAuth/login redirects go here. For custom domain (e.g. streamautomator.com), set FRONTEND_URL to that domain in Render. */
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 /** In production, never redirect users to localhost (avoids bad_oauth_state ending on localhost when FRONTEND_URL is unset on Render). */
