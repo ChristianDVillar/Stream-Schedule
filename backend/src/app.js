@@ -80,7 +80,9 @@ if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process
 }
 
 // CORS: allow FRONTEND_URL (single) or FRONTEND_URLS (comma-separated). Default localhost for dev.
-// In production, allow *.onrender.com if FRONTEND_URL/FRONTEND_URLS not set (fallback for Render).
+// If you use a custom domain (e.g. streamautomator.com), set FRONTEND_URLS to include both:
+//   FRONTEND_URLS=https://stream-schedule-v1.onrender.com,https://streamautomator.com
+// so requests from the custom domain are allowed. FRONTEND_URL is still used for OAuth redirects.
 const corsOriginConfig = (() => {
   const urls = process.env.FRONTEND_URLS
     ? process.env.FRONTEND_URLS.split(',').map((u) => u.trim()).filter(Boolean)

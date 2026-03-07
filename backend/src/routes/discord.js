@@ -12,6 +12,21 @@ import logger from '../utils/logger.js';
 const router = express.Router();
 const DISCORD_API = 'https://discord.com/api/v10';
 const DISCORD_OAUTH2 = 'https://discord.com/api/oauth2';
+const DISCORD_FETCH_TIMEOUT_MS = 15000;
+
+/** fetch with timeout to avoid hanging (e.g. on Render cold start or Discord API slowness). */
+async function discordFetch(url, options = {}) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), DISCORD_FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timeoutId);
+    return res;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
+  }
+}
 
 function getBotToken() {
   const token = process.env.DISCORD_BOT_TOKEN;
@@ -90,14 +105,31 @@ async function getOwnedGuildsWithBot(user) {
   }
   if (!accessToken) return null;
   const botToken = getBotToken();
-  if (!botToken) return null;
+  if (!botToken) {
+    logger.warn('Discord guilds: DISCORD_BOT_TOKEN not set');
+    return null;
+  }
 
-  const [userGuildsRes, botGuildsRes] = await Promise.all([
-    fetch(`${DISCORD_API}/users/@me/guilds`, { headers: { Authorization: `Bearer ${accessToken}` } }),
-    fetch(`${DISCORD_API}/users/@me/guilds`, { headers: { Authorization: `Bot ${botToken}` } }),
-  ]);
+  let userGuildsRes;
+  let botGuildsRes;
+  try {
+    [userGuildsRes, botGuildsRes] = await Promise.all([
+      discordFetch(`${DISCORD_API}/users/@me/guilds`, { headers: { Authorization: `Bearer ${accessToken}` } }),
+      discordFetch(`${DISCORD_API}/users/@me/guilds`, { headers: { Authorization: `Bot ${botToken}` } }),
+    ]);
+  } catch (err) {
+    logger.warn('Discord guilds: fetch failed (timeout or network)', { error: err.message });
+    return null;
+  }
 
-  if (!userGuildsRes.ok || !botGuildsRes.ok) return null;
+  if (!userGuildsRes.ok) {
+    logger.warn('Discord guilds: user guilds API not ok', { status: userGuildsRes.status, userId: user?.id });
+    return null;
+  }
+  if (!botGuildsRes.ok) {
+    logger.warn('Discord guilds: bot guilds API not ok', { status: botGuildsRes.status });
+    return null;
+  }
   const userGuilds = await userGuildsRes.json();
   const botGuildIds = new Set((await botGuildsRes.json()).map((g) => g.id));
   const guilds = userGuilds
@@ -162,17 +194,17 @@ router.get('/guilds', requireAuth, async (req, res) => {
 
     const result = await getOwnedGuildsWithBot(user);
     if (!result) {
-      return res.status(502).json({
+      return res.status(503).json({
         code: 'discord_fetch_failed',
         error: 'Could not load your Discord servers',
-        details: 'Session may have expired. Try reconnecting Discord in Settings.',
+        details: 'Session may have expired or Discord is temporarily unavailable. Try reconnecting Discord in Settings.',
       });
     }
 
     res.json({ guilds: result.guilds });
   } catch (err) {
     logger.error('Discord guilds error', { error: err.message, userId: req.user?.id });
-    res.status(500).json({ error: 'Failed to list Discord servers' });
+    res.status(503).json({ code: 'discord_error', error: 'Failed to list Discord servers', details: err.message });
   }
 });
 
