@@ -18,6 +18,7 @@ Documentación de **Streamer Scheduler** (protección, licencia, scripts).
 ## Integraciones
 
 - **[DISCORD-BOT-PERMISSIONS.md](DISCORD-BOT-PERMISSIONS.md)** – Permisos del bot de Discord para publicar en canales y eventos.
+- **Bots (Nightbot):** En la app, Configuración → Bots: cómo conectar Nightbot para el comando `!todo` y enlace a la página pública del streamer (`/streamer/username`, `/embed/streamer/username`).
 
 ## Monitor y producción
 

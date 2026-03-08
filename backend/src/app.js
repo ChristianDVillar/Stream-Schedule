@@ -32,6 +32,8 @@ import youtubeRoutes from './routes/youtube.js';
 import healthRoutes from './routes/health.js';
 import templatesRoutes from './routes/templates.js';
 import todosRoutes from './routes/todos.js';
+import nightbotRoutes from './routes/nightbot.js';
+import streamerRoutes from './routes/streamer.js';
 import messagesRoutes from './routes/messages.js';
 import notificationsRoutes from './routes/notifications.js';
 import adminPlatformsRoutes from './routes/admin/platforms.js';
@@ -273,6 +275,8 @@ app.use('/api/upload', (req, res, next) => {
 // CSRF disabled for templates until frontend sends X-CSRF-Token
 app.use('/api/templates', templatesRoutes);
 app.use('/api/todos', todosRoutes);
+app.use('/api/nightbot', nightbotRoutes);
+app.use('/api/streamer', streamerRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/admin/platforms', adminPlatformsRoutes);

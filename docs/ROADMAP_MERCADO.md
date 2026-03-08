@@ -12,8 +12,10 @@ Streamer Scheduler helps creators stay consistent and promote their streams with
 
 **Current features:**
 
-- **Stream scheduling calendar** — Plan streams and content with a simple visual calendar.
+- **Stream scheduling calendar** — Plan streams and content with a simple visual calendar (color by type, platform icons, live indicator).
 - **Multi-platform publishing** — Schedule announcements across Twitch, Discord, X, Instagram and YouTube.
+- **Public streamer page** — Each creator has a shareable page (`/streamer/username`) with upcoming streams, countdown and optional embed (`/embed/streamer/username`) for Discord panels or websites.
+- **Bots (Nightbot)** — Connect Nightbot so viewers can add todos from chat (e.g. `!todo buy new mic`); API key in Settings → Bots.
 - **Creator integrations** — Login and connect accounts using Twitch, Google, Discord or X.
 - **Flexible plans** — Free trial available with simple Starter and Pro plans.
 - **Multi-language support** — Available in English and Spanish.
@@ -52,7 +54,7 @@ The goal is simple: *Spend less time managing posts and more time streaming.*
 
 ## What we are building next
 
-### Auto-Promotion Engine
+### Auto-Promotion Engine (in progress)
 
 One of the most requested features.
 
@@ -67,18 +69,20 @@ When you schedule a stream, the platform will automatically promote it across yo
 
 *Schedule once. Promotion happens automatically.*
 
-### Public Streamer Pages
+### ~~Public Streamer Pages~~ (shipped — see “What you can do today”)
 
-Each creator will have a public page (e.g. *streamerscheduler.com/username*).
+Each creator has a public page: **yoursite.com/streamer/username**.
 
-Fans will be able to see:
+Fans can see:
 
-- Upcoming streams  
-- Countdown timer  
-- Creator links  
-- Schedule overview  
+- Upcoming streams (schedule list)  
+- Countdown to next stream  
+- LIVE indicator when the streamer is live  
+- Lightweight “Powered by Streamer Scheduler” branding and link to create your own schedule  
 
-Useful for bios, communities and discoverability.
+**Embed:** Use **yoursite.com/embed/streamer/username** in an iframe for Discord panels, fan sites or personal pages.
+
+Share the link in your Twitch bio, Discord, or Twitter for organic discovery.
 
 ### Notifications
 

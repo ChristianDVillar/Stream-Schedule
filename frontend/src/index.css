@@ -229,9 +229,8 @@ html.dark .rbc-label {
   font-size: 11px;
 }
 
+/* Event background and border-left come from eventPropGetter (contentType/platform colors); avoid setting background here so inline style wins */
 html.dark .rbc-event {
-  background-color: var(--color-calendar-event);
-  border-color: var(--color-calendar-event-hover);
   color: #ffffff;
   padding: 2px 4px;
   border-radius: 4px;
@@ -239,13 +238,12 @@ html.dark .rbc-event {
 }
 
 html.dark .rbc-event:hover {
-  background-color: var(--color-calendar-event-hover);
-  border-color: var(--color-calendar-event-hover);
+  filter: brightness(1.1);
 }
 
 html.dark .rbc-event.rbc-selected {
-  background-color: var(--color-calendar-event-hover);
-  border-color: var(--color-calendar-event);
+  filter: brightness(1.15);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 html.dark .rbc-event-label {
@@ -254,6 +252,21 @@ html.dark .rbc-event-label {
 
 html.dark .rbc-event-content {
   color: #ffffff;
+}
+
+/* Dashboard calendar: ensure event color and platform icons are visible */
+.dashboard-calendar-wrapper .rbc-event {
+  min-height: 2.25rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-calendar-wrapper .rbc-event-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  width: 100%;
 }
 
 html.dark .rbc-show-more {
@@ -392,9 +405,13 @@ code {
     font-size: 10px;
     padding: 2px 3px;
     line-height: 1.2;
+    min-height: 2rem;
   }
   .rbc-event-label {
     font-size: 9px;
+  }
+  .dashboard-calendar-wrapper .rbc-event-content {
+    gap: 2px;
   }
   .rbc-header {
     padding: 4px 2px;

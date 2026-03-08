@@ -66,7 +66,17 @@ Under **To-do** (/todos) you can:
 
 - Maintain a **personal to-do list**: add items, mark them done or pending, and delete them.
 - It is available to **all users** (not only non-admins).
-- Handy for reminders or steps related to your content.
+- Handy for reminders or steps related to your content. If you connect **Nightbot** (Settings → Bots), you can add to-dos from Twitch chat with `!todo text`.
+
+---
+
+## Public streamer page
+
+Each user has a **public page** you can share in your Twitch bio, Discord, or socials:
+
+- **URL:** `yoursite.com/streamer/your_username` — shows your upcoming streams, countdown, and a live indicator when you’re streaming.
+- **Embed:** `yoursite.com/embed/streamer/your_username` — for use in an iframe (Discord panels, fan site, etc.).
+- Copy the link and embed code from **Settings → Bots**.
 
 ---
 
@@ -120,6 +130,7 @@ Under **Settings** (/settings) you have several tabs:
 - **Profile:** name, email, merchandising link, photo, dashboard options (Twitch).
 - **Notifications:** notification preferences.
 - **Platforms:** connect or disconnect Google, Twitch, Discord, X (Twitter), YouTube. Here you can also set the **Discord channel for Twitch clips**: automatically published clips will go to the server and channel you choose.
+- **Bots:** connect **Nightbot** so you or your viewers can add to-do items from chat (e.g. `!todo buy new mic`). You also get your **public schedule link** (`/streamer/your_username`) and **embed** code for Discord or your site (`/embed/streamer/your_username`).
 - **Security:** change password.
 - **Appearance:** theme, accent colour, header banners.
 - **Billing:** view license, purchase or renew (Stripe), payment history.

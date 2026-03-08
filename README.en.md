@@ -24,7 +24,9 @@ Streamer Scheduler is a content management platform that allows content creators
 ### Current features
 
 - ✅ **Multi-platform scheduling** – Schedule content for Twitch, Twitter/X, Instagram, Discord
-- ✅ **Visual calendar** – Drag and drop interface for content management
+- ✅ **Visual calendar** – Drag and drop, colors by type, platform icons, and live indicator
+- ✅ **Public streamer page** – `/streamer/username` and embed `/embed/streamer/username` for Twitch bio, Discord, or websites
+- ✅ **Bots (Nightbot)** – `!todo` command from Twitch chat; API key in Settings → Bots
 - ✅ **License system** – Trial, Monthly, Quarterly, and Lifetime plans
 - ✅ **Admin dashboard** – Complete user and license management
 - ✅ **OAuth authentication** – Login with Google and Twitch
