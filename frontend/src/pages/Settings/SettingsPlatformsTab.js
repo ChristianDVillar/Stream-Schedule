@@ -89,9 +89,11 @@ export default function SettingsPlatformsTab({
   }, [user?.discordClipsGuildId, user?.discordClipsChannelId]);
 
   useEffect(() => {
-    if (!discordConnected || !token) {
+    if (!discordConnected || !token || disconnectingKey === 'discord') {
       setClipsGuilds([]);
       setClipsChannels([]);
+      setClipsGuildId('');
+      setClipsChannelId('');
       setClipsGuildsError(null);
       return;
     }
@@ -100,21 +102,27 @@ export default function SettingsPlatformsTab({
     setClipsGuildsError(null);
     getDiscordGuilds()
       .then((data) => {
-        if (!cancelled) setClipsGuilds(data.guilds || []);
+        if (!cancelled) {
+          setClipsGuilds(data.guilds || []);
+          setClipsGuildsError(null);
+        }
       })
       .catch((err) => {
         if (!cancelled) {
           setClipsGuilds([]);
+          setClipsGuildId('');
+          setClipsChannelId('');
+          setClipsChannels([]);
           const msg = err.response?.data?.error || err.response?.data?.details || err.message;
           setClipsGuildsError(msg || t('settings.clipsGuildsLoadFailed'));
         }
       })
       .finally(() => { if (!cancelled) setLoadingClipsGuilds(false); });
     return () => { cancelled = true; };
-  }, [discordConnected, token, t]);
+  }, [discordConnected, token, disconnectingKey, t]);
 
   useEffect(() => {
-    if (!clipsGuildId) {
+    if (!clipsGuildId || !discordConnected || disconnectingKey === 'discord') {
       setClipsChannels([]);
       return;
     }
@@ -125,10 +133,18 @@ export default function SettingsPlatformsTab({
       .then((data) => {
         if (!cancelled) setClipsChannels(data.channels || []);
       })
-      .catch(() => { if (!cancelled) setClipsChannels([]); })
+      .catch((err) => {
+        if (!cancelled) {
+          setClipsChannels([]);
+          if (err.response?.status === 403) {
+            setClipsGuildId('');
+            setClipsChannelId('');
+          }
+        }
+      })
       .finally(() => { if (!cancelled) setLoadingClipsChannels(false); });
     return () => { cancelled = true; };
-  }, [clipsGuildId]);
+  }, [clipsGuildId, discordConnected, disconnectingKey]);
 
   const handleSaveClipsChannel = async () => {
     if (typeof onSaveClipsChannel !== 'function') return;

@@ -4,16 +4,20 @@ Este archivo es el **índice de la carpeta docs/** (no el README del proyecto; e
 
 Documentación de **Streamer Scheduler** (protección, licencia, scripts).
 
-## Estructura y funcionalidad
-
-- **[ESTRUCTURA_Y_FUNCIONALIDAD.md](ESTRUCTURA_Y_FUNCIONALIDAD.md)** – Estructura de carpetas/archivos del proyecto y descripción de la funcionalidad (backend, frontend, rutas API, servicios, modelos, páginas y flujos principales).
-
 ## Información para usuarios
 
 - **[GUIA-USUARIOS.md](GUIA-USUARIOS.md)** – Guía para usuarios finales (español): qué es la aplicación, registro, dashboard, programar contenido, to-do, media, plantillas, perfil, configuración, conectar plataformas, licencias, idioma y tema.
 - **[USER-GUIDE.md](USER-GUIDE.md)** – User guide (English): same content for end users.
 - **[FAQ_ES.md](FAQ_ES.md)** – Preguntas frecuentes en español.
 - **[FAQ_EN.md](FAQ_EN.md)** – Frequently asked questions in English.
+
+## Producto y crecimiento
+
+- **[ROADMAP_MERCADO.md](ROADMAP_MERCADO.md)** – Roadmap público (producto actual, próximas funcionalidades, visión, precios).
+
+## Integraciones
+
+- **[DISCORD-BOT-PERMISSIONS.md](DISCORD-BOT-PERMISSIONS.md)** – Permisos del bot de Discord para publicar en canales y eventos.
 
 ## Monitor y producción
 
