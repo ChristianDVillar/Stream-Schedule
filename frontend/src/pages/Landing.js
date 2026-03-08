@@ -3,9 +3,10 @@
  * Value prop from market analysis: Schedule your streams. Promote them automatically. Grow your audience.
  * Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
+import AppFooter from '../components/AppFooter';
 import {
   Calendar,
   Share2,
@@ -17,18 +18,30 @@ import {
   Twitter,
   Server,
   Video,
+  Globe,
 } from 'lucide-react';
 
 export default function Landing() {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language, toggleLanguage } = useLanguage();
+  const [previewImageFailed, setPreviewImageFailed] = useState(false);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Top nav */}
       <nav className="flex justify-between items-center px-4 sm:px-6 py-4">
         <span className="text-lg font-semibold text-gray-900 dark:text-white">{t('dashboard.appTitle') || 'Streamer Scheduler'}</span>
-        <div className="flex gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <button
+            type="button"
+            onClick={toggleLanguage}
+            className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-50 dark:focus:ring-offset-gray-900"
+            title={language === 'es' ? t('common.switchToEnglish') : t('common.switchToSpanish')}
+            aria-label={language === 'es' ? t('common.switchToEnglish') : t('common.switchToSpanish')}
+          >
+            <Globe className="w-5 h-5 flex-shrink-0" aria-hidden />
+            <span className="text-sm font-medium">{language === 'es' ? 'ES' : 'EN'}</span>
+          </button>
           <button onClick={() => navigate('/pricing')} className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">
             {t('landing.viewPricing')}
           </button>
@@ -66,9 +79,41 @@ export default function Landing() {
                 {t('landing.viewPricing') || 'View pricing'}
               </button>
             </div>
+            <p className="mt-3 text-sm text-white/80">
+              {t('landing.ctaMicroTrust') || 'No credit card required · Free trial'}
+            </p>
           </div>
         </div>
       </header>
+
+      {/* Product preview */}
+      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-900">
+        <div className="max-w-5xl mx-auto text-center">
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+            {t('landing.productPreviewTitle') || 'See your stream schedule at a glance'}
+          </h2>
+          <p className="mt-4 text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+            {t('landing.productPreviewSubtitle') || 'Plan streams, automate announcements and manage all your platforms from one dashboard.'}
+          </p>
+          <div className="mt-10 rounded-xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 min-h-[280px] flex items-center justify-center">
+            {!previewImageFailed ? (
+              <img
+                src="/dashboard-preview.png"
+                alt="Streamer Scheduler dashboard preview"
+                className="w-full h-full object-cover object-top min-h-[280px]"
+                onError={() => setPreviewImageFailed(true)}
+              />
+            ) : null}
+            {previewImageFailed && (
+              <div className="w-full py-16 px-8 text-center text-gray-500 dark:text-gray-400">
+                <Calendar className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                <p className="text-sm font-medium">{t('landing.featureCalendar') || 'Calendar & scheduling'}</p>
+                <p className="text-xs mt-1">{t('landing.productPreviewSubtitle') || 'Dashboard preview'}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* Features */}
       <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8">
@@ -93,9 +138,9 @@ export default function Landing() {
             </div>
             <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
               <Zap className="w-10 h-10 text-amber-500 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('landing.featureAutomation') || 'Automation & workers'}</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('landing.featureAutoPromo') || 'Automatic promotion'}</h3>
               <p className="mt-2 text-gray-600 dark:text-gray-300">
-                {t('landing.featureAutomationDesc') || 'Queues, workers, auto-publish. Set it and forget it.'}
+                {t('landing.featureAutoPromoDesc') || 'Schedule your stream once and your announcements are sent automatically across your platforms.'}
               </p>
             </div>
             <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
@@ -123,6 +168,47 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* How it works */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-50 dark:bg-gray-900/50">
+        <div className="max-w-6xl mx-auto text-center">
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+            {t('landing.howItWorksTitle') || 'How it works'}
+          </h2>
+          <div className="mt-12 grid md:grid-cols-3 gap-8">
+            <div>
+              <h3 className="font-semibold text-lg text-gray-900 dark:text-white">{t('landing.howItWorks1Title') || '1. Connect platforms'}</h3>
+              <p className="mt-2 text-gray-600 dark:text-gray-300">
+                {t('landing.howItWorks1Desc') || 'Link Twitch, Discord and your social media.'}
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg text-gray-900 dark:text-white">{t('landing.howItWorks2Title') || '2. Schedule streams'}</h3>
+              <p className="mt-2 text-gray-600 dark:text-gray-300">
+                {t('landing.howItWorks2Desc') || 'Plan your streams using a simple visual calendar.'}
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg text-gray-900 dark:text-white">{t('landing.howItWorks3Title') || '3. Promote automatically'}</h3>
+              <p className="mt-2 text-gray-600 dark:text-gray-300">
+                {t('landing.howItWorks3Desc') || 'Your announcements are sent automatically before going live.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Built for small streamers */}
+      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-900">
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+            {t('landing.builtForTitle') || 'Built for small streamers'}
+          </h2>
+          <p className="mt-4 text-gray-600 dark:text-gray-300">
+            {t('landing.builtForDesc') || 'Most tools are made for marketing teams. Streamer Scheduler is creator-first — simple scheduling and automatic promotion so you can focus on streaming.'}
+          </p>
+        </div>
+      </section>
+
       {/* Integrations */}
       <section className="py-12 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-800/50">
         <div className="max-w-4xl mx-auto text-center">
@@ -134,7 +220,7 @@ export default function Landing() {
             <Twitter className="w-8 h-8 text-gray-700 dark:text-gray-300" />
             <Server className="w-8 h-8 text-[#5865F2]" />
             <Video className="w-8 h-8 text-[#FF0000]" />
-            <span className="text-gray-500 dark:text-gray-400">+ more</span>
+            <span className="text-gray-500 dark:text-gray-400">{t('landing.integrationsMore') || '+ more'}</span>
           </div>
         </div>
       </section>
@@ -157,34 +243,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-6 px-4 border-t border-gray-200 dark:border-gray-700">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-          <span className="text-sm text-gray-500 dark:text-gray-400">
-            © {new Date().getFullYear()} {t('dashboard.appTitle') || 'Streamer Scheduler'}
-          </span>
-          <div className="flex gap-6">
-            <button
-              onClick={() => navigate('/privacy')}
-              className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-            >
-              {t('common.privacy') || 'Privacy'}
-            </button>
-            <button
-              onClick={() => navigate('/terms')}
-              className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-            >
-              {t('common.terms') || 'Terms'}
-            </button>
-            <button
-              onClick={() => navigate('/faq')}
-              className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-            >
-              {t('faq.menuTitle') || 'FAQ'}
-            </button>
-          </div>
-        </div>
-      </footer>
+      <AppFooter className="py-6 px-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-center text-gray-500 dark:text-gray-400 text-sm" />
     </div>
   );
 }

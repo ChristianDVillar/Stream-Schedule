@@ -7,6 +7,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Check, Zap, Star, Rocket } from 'lucide-react';
+import AppFooter from '../components/AppFooter';
 
 const TIERS = [
   {
@@ -139,6 +140,7 @@ export default function Pricing() {
           {t('pricing.note') || 'Prices may vary. Check Settings → Billing for current plans. Trial available for new users.'}
         </p>
       </div>
+      <AppFooter className="mt-12 py-6 px-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-center text-gray-500 dark:text-gray-400 text-sm" />
     </div>
   );
 }

@@ -100,7 +100,6 @@ export async function forgotPassword({ email }) {
  * URL to which Supabase should redirect after "reset password" email link click.
  * Uses current origin so it works in dev (localhost) and production (Render/domain).
  * Use with: supabase.auth.resetPasswordForEmail(email, { redirectTo: getPasswordResetRedirectUrl() })
- * See SUPABASE_PRODUCTION.md for full Supabase + Resend setup.
  */
 export function getPasswordResetRedirectUrl() {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';

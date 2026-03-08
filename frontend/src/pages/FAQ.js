@@ -5,6 +5,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { ArrowLeft, HelpCircle } from 'lucide-react';
+import AppFooter from '../components/AppFooter';
 
 const FAQ_ITEMS = 10;
 
@@ -65,6 +66,7 @@ export default function FAQ() {
           </p>
         )}
       </div>
+      <AppFooter className="mt-12 py-6 px-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-center text-gray-500 dark:text-gray-400 text-sm" />
     </div>
   );
 }

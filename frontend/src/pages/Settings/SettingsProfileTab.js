@@ -150,7 +150,7 @@ export default function SettingsProfileTab({
           </div>
 
           <div>
-            <label htmlFor="language" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Language</label>
+            <label htmlFor="language" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('settings.language')}</label>
             <select
               id="language"
               value={profileData.language}

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, useNavigate, Link, useLocation } from 'react-router-dom';
-import { Menu, X, ShoppingBag, Globe } from 'lucide-react';
+import { Menu, X, ShoppingBag, Globe, LogOut } from 'lucide-react';
 import { AppRoutes } from './routes/AppRoutes';
 import HeaderBanners from './components/HeaderBanners';
 import MessagesAndNotificationsDropdown from './components/MessagesAndNotificationsDropdown';
@@ -9,8 +9,8 @@ import { Toaster } from 'react-hot-toast';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { AuthProvider, useAuth } from './store/authStore';
 import { getStoredAccentColor, applyAccentColor, THEME_CHANGE_EVENT } from './utils/themeUtils';
-import { APP_VERSION } from './version';
 import { getUnreadMessageCount, getAdminFeatures, apiClient } from './api';
+import AppFooter from './components/AppFooter';
 
 const PUBLIC_PAGES_WITH_OWN_FOOTER = ['/', '/pricing', '/privacy', '/terms', '/faq'];
 
@@ -30,8 +30,8 @@ function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInst
   const settingsLabel = t('settings.profile') || t('settings.title') || 'Settings';
   return (
     <header className="bg-white dark:bg-gray-800 shadow-sm border-b mb-4">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 flex items-center justify-between h-14 sm:h-16 min-h-[44px] gap-2">
-        <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 flex items-center justify-between h-14 sm:h-16 min-h-[44px] gap-1 sm:gap-2 flex-nowrap">
+        <div className="flex items-center gap-1 sm:gap-4 min-w-0 flex-1 overflow-hidden">
           <button
             type="button"
             className="md:hidden flex-shrink-0 p-2 -ml-1 rounded focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800"
@@ -43,7 +43,7 @@ function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInst
           <button
             type="button"
             onClick={() => navigate(user.isAdmin ? '/admin' : '/dashboard')}
-            className="flex items-center gap-2 sm:gap-4 min-w-0 flex-shrink-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800"
+            className="flex items-center gap-1.5 sm:gap-4 min-w-0 flex-shrink-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800"
             title={user.isAdmin ? (t('common.goToAdminDashboard') || 'Go to Admin') : (t('common.goToUserDashboard') || 'Go to Dashboard')}
             aria-label={user.isAdmin ? (t('common.goToAdminDashboard') || 'Go to Admin') : (t('common.goToUserDashboard') || 'Go to Dashboard')}
           >
@@ -54,12 +54,12 @@ function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInst
               className="h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0 object-contain rounded-lg ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white dark:ring-offset-gray-800"
               aria-hidden
             />
-            <span className="font-bold text-accent truncate text-sm sm:text-base hover:opacity-90">Streamer Scheduler</span>
+            <span className="hidden sm:inline font-bold text-accent truncate text-sm sm:text-base hover:opacity-90">Streamer Scheduler</span>
           </button>
           <button
             type="button"
             onClick={() => navigate('/settings')}
-            className="h-8 w-8 sm:h-9 sm:w-9 rounded-full flex-shrink-0 flex items-center justify-center ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white dark:ring-offset-gray-800 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800"
+            className="h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0 rounded-full flex items-center justify-center ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white dark:ring-offset-gray-800 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800 ml-3 sm:ml-4"
             title={settingsLabel}
             aria-label={settingsLabel}
           >
@@ -76,14 +76,14 @@ function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInst
               </span>
             )}
           </button>
-          <span className="hidden sm:inline text-gray-600 dark:text-gray-300 truncate text-sm">{user.isAdmin ? t('common.admin') : t('common.user')}: <span className="font-semibold">{user.username}</span></span>
+          <span className="hidden md:inline text-gray-600 dark:text-gray-300 truncate text-sm min-w-0">{user.isAdmin ? t('common.admin') : t('common.user')}: <span className="font-semibold">{user.username}</span></span>
         </div>
-        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 flex-nowrap">
           {process.env.REACT_APP_SHOW_PWA_INSTALL === 'true' && installPromptEvent && onInstallApp && (
             <button
               type="button"
               onClick={onInstallApp}
-              className="px-3 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 hidden sm:inline focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800"
+              className="p-2 sm:px-3 sm:py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 hidden sm:inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800"
             >
               {t('common.installApp') || 'Install app'}
             </button>
@@ -92,21 +92,25 @@ function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInst
           <button
             type="button"
             onClick={toggleLanguage}
-            className="p-2 sm:px-3 sm:py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-1 sm:gap-2 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800"
+            className="p-2 sm:px-3 sm:py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-1 sm:gap-2 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800"
             title={language === 'es' ? t('common.switchToEnglish') : t('common.switchToSpanish')}
+            aria-label={language === 'es' ? t('common.switchToEnglish') : t('common.switchToSpanish')}
           >
             <Globe className="w-5 h-5 flex-shrink-0" />
             <span className="hidden sm:inline text-sm font-medium">{language.toUpperCase()}</span>
           </button>
-          <span className="hidden sm:inline text-sm text-gray-500 dark:text-gray-400 tabular-nums" title={dateTimeStr}>
+          <span className="hidden lg:inline text-sm text-gray-500 dark:text-gray-400 tabular-nums whitespace-nowrap" title={dateTimeStr}>
             {dateTimeStr}
           </span>
           <button
             type="button"
             onClick={() => { onLogout(); navigate('/login'); }}
-            className="px-3 py-2 sm:px-4 bg-red-600 text-white rounded hover:bg-red-700 text-sm whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800"
+            className="p-2 sm:px-4 sm:py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800"
+            title={t('common.logout')}
+            aria-label={t('common.logout')}
           >
-            {t('common.logout')}
+            <LogOut className="w-5 h-5 sm:hidden flex-shrink-0" aria-hidden />
+            <span className="hidden sm:inline text-sm whitespace-nowrap">{t('common.logout')}</span>
           </button>
         </div>
       </div>
@@ -407,16 +411,7 @@ function AppContent() {
               t={t}
             />
           )}
-          {!PUBLIC_PAGES_WITH_OWN_FOOTER.includes(location.pathname) && (
-            <footer className="text-center text-gray-500 dark:text-gray-400 py-3 sm:py-4 px-4 text-sm border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-              <span className="inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-                <span>© {new Date().getFullYear()} Christian · Develop · v{APP_VERSION}</span>
-                <Link to="/faq" className="hover:text-accent underline">{t('faq.menuTitle') || 'FAQ'}</Link>
-                <Link to="/privacy" className="hover:text-accent underline">{t('footer.privacy') || 'Privacy'}</Link>
-                <Link to="/terms" className="hover:text-accent underline">{t('footer.terms') || 'Terms'}</Link>
-              </span>
-            </footer>
-          )}
+          {!PUBLIC_PAGES_WITH_OWN_FOOTER.includes(location.pathname) && <AppFooter />}
         </div>
       </div>
     </>

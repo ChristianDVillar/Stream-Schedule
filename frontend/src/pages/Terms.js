@@ -7,6 +7,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import AppFooter from '../components/AppFooter';
 
 export default function Terms() {
   const { t } = useLanguage();
@@ -108,6 +109,7 @@ export default function Terms() {
           {t('terms.backToApp') || 'Back to app'}
         </Link>
       </div>
+      <AppFooter className="mt-12 py-6 px-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-center text-gray-500 dark:text-gray-400 text-sm" />
     </div>
   );
 }

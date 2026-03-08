@@ -484,12 +484,42 @@ const Dashboard = ({ user, token, ...props }) => {
   const calendarEvents = useMemo(() => {
     return filteredContents.map(content => ({
       id: content.id,
-      title: content.title,
+      title: content.title || content.content?.slice(0, 30) || t('dashboard.noContent') || 'Untitled',
       start: new Date(content.scheduledFor),
       end: new Date(new Date(content.scheduledFor).getTime() + 30 * 60 * 1000),
       resource: content
     }));
-  }, [filteredContents]);
+  }, [filteredContents, t]);
+
+  // Custom calendar event: title + platform icons
+  const CalendarEventComponent = useCallback(({ event }) => {
+    const title = event.title || event.resource?.title || event.resource?.content?.slice(0, 40) || '';
+    const platforms = Array.isArray(event.resource?.platforms) ? event.resource.platforms : [];
+    return (
+      <div className="rbc-event-content flex flex-col min-h-0 overflow-hidden h-full px-1 py-0.5">
+        <span className="truncate text-left font-medium text-sm leading-tight block" title={title || (event.resource?.content ?? '')}>
+          {title || (t('dashboard.untitledEvent') || 'Untitled')}
+        </span>
+        {platforms.length > 0 && (
+          <div className="flex items-center gap-0.5 mt-0.5 flex-shrink-0">
+            {platforms.slice(0, 4).map((platform) => (
+              <span
+                key={platform}
+                className="inline-flex items-center justify-center w-4 h-4 rounded flex-shrink-0 text-white"
+                style={{ backgroundColor: getPlatformColor(platform) }}
+                title={getPlatformLabel(platform)}
+              >
+                {getPlatformIcon(platform, 'w-3 h-3')}
+              </span>
+            ))}
+            {platforms.length > 4 && (
+              <span className="text-xs opacity-90">+{platforms.length - 4}</span>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }, [t]);
 
   const eventStyleGetter = useCallback((event) => {
     // Use accent color for calendar events (as per design spec)
@@ -762,6 +792,7 @@ const Dashboard = ({ user, token, ...props }) => {
               views={isMobile ? ['day', 'month'] : ['week', 'month', 'day']}
               onEventDrop={handleEventDrop}
               eventPropGetter={eventStyleGetter}
+              components={{ event: CalendarEventComponent }}
               selectable
               onSelectSlot={(slotInfo) => setSelectedDate(slotInfo.start)}
               onSelectEvent={(event) => {

@@ -120,7 +120,7 @@ npm start
 
 Ver `backend/env.example` para todas las variables requeridas.
 
-**Stripe webhook:** Usa únicamente `POST /api/payments/webhook`. En Stripe Dashboard → Webhooks, configura la URL `https://tu-dominio.com/api/payments/webhook` (o `http://localhost:5000/api/payments/webhook` en desarrollo). Ver `docs/ESTRUCTURA_Y_FUNCIONALIDAD.md` (sección 3) para más detalles y feature flags.
+**Stripe webhook:** Usa únicamente `POST /api/payments/webhook`. En Stripe Dashboard → Webhooks, configura la URL `https://tu-dominio.com/api/payments/webhook` (o `http://localhost:5000/api/payments/webhook` en desarrollo). Ver [docs/README.md](docs/README.md) para más documentación.
 
 ### Frontend
 
