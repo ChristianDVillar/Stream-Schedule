@@ -190,6 +190,12 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: true,
     comment: 'Discord channel ID where Twitch clips are published automatically'
+  },
+  nightbotApiKey: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    unique: true,
+    comment: 'API key for Nightbot custom commands (e.g. !todo) to create todos in this account'
   }
 });
 

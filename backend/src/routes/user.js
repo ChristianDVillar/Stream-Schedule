@@ -2756,6 +2756,32 @@ router.put('/password', requireAuth, validateBody(changePasswordSchema), async (
   }
 });
 
+// Nightbot (and similar bots) API key for custom commands (e.g. !todo)
+router.get('/nightbot-key', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, { attributes: ['nightbotApiKey'] });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ key: user.nightbotApiKey || null });
+  } catch (err) {
+    logger.error('Nightbot key get error', { error: err.message, userId: req.user?.id });
+    res.status(500).json({ error: 'Failed to get key' });
+  }
+});
+
+router.post('/nightbot-key', requireAuth, async (req, res) => {
+  try {
+    const key = crypto.randomBytes(24).toString('hex');
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    user.nightbotApiKey = key;
+    await user.save();
+    res.json({ key });
+  } catch (err) {
+    logger.error('Nightbot key generate error', { error: err.message, userId: req.user?.id });
+    res.status(500).json({ error: 'Failed to generate key' });
+  }
+});
+
 // Get available license types configuration (admin)
 router.get('/admin/license-config', requireAdmin, async (req, res) => {
   try {

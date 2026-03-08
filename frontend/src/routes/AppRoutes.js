@@ -21,6 +21,8 @@ import Terms from '../pages/Terms';
 import FAQ from '../pages/FAQ';
 import Landing from '../pages/Landing';
 import Pricing from '../pages/Pricing';
+import PublicStreamPage from '../pages/PublicStreamPage';
+import PublicStreamEmbed from '../pages/PublicStreamEmbed';
 import { PrivateRoute, AdminRoute, UserRoute } from './routeGuards';
 
 export function AppRoutes({ user, token, setAuth, setUser, clearAuth }) {
@@ -33,6 +35,8 @@ export function AppRoutes({ user, token, setAuth, setUser, clearAuth }) {
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/terms" element={<Terms />} />
       <Route path="/faq" element={<FAQ />} />
+      <Route path="/streamer/:username" element={<PublicStreamPage />} />
+      <Route path="/embed/streamer/:username" element={<PublicStreamEmbed />} />
       <Route
         path="/dashboard"
         element={

@@ -245,6 +245,24 @@ export async function getConnectedAccounts() {
   return res.data;
 }
 
+/** GET /user/nightbot-key — get current Nightbot API key (or null). */
+export async function getNightbotKey() {
+  const res = await apiClient.get('/user/nightbot-key');
+  return res.data?.key ?? null;
+}
+
+/** POST /user/nightbot-key — generate a new Nightbot API key. */
+export async function generateNightbotKey() {
+  const res = await apiClient.post('/user/nightbot-key');
+  return res.data?.key ?? null;
+}
+
+/** GET /streamer/:username/events — public upcoming events for a streamer (no auth). */
+export async function getPublicStreamerEvents(username) {
+  const res = await apiClient.get(`/streamer/${encodeURIComponent(username)}/events`);
+  return res.data;
+}
+
 /** GET /user/twitch-dashboard-stats - Twitch subs/bits/donations for dashboard (requires Twitch connected). */
 export async function getTwitchDashboardStats() {
   const res = await apiClient.get('/user/twitch-dashboard-stats');

@@ -66,7 +66,17 @@ En **To-do** (/todos) puedes:
 
 - Crear una **lista de tareas** personal: añadir ítems, marcar como hechos o pendientes y borrarlos.
 - Está disponible para **todos los usuarios** (no solo para no administradores).
-- Útil para anotar recordatorios o pasos relacionados con tu contenido.
+- Útil para anotar recordatorios o pasos relacionados con tu contenido. Si conectas **Nightbot** (Configuración → Bots), puedes añadir tareas desde el chat de Twitch con `!todo texto`.
+
+---
+
+## Página pública del streamer
+
+Cada usuario tiene una **página pública** que puede compartir en su bio de Twitch, Discord o redes:
+
+- **URL:** `tudominio.com/streamer/tu_usuario` — muestra tus próximos streams, cuenta atrás y un aviso si estás en directo.
+- **Incrustar:** `tudominio.com/embed/streamer/tu_usuario` — para poner en un iframe (paneles de Discord, web de fans, etc.).
+- El enlace y el código de incrustación se copian desde **Configuración → Bots**.
 
 ---
 
@@ -120,6 +130,7 @@ En **Configuración** (/settings) tienes varias pestañas:
 - **Perfil:** nombre, email, enlace de merchandising, foto, opciones del dashboard (Twitch).
 - **Notificaciones:** preferencias de avisos.
 - **Plataformas:** conectar o desconectar Google, Twitch, Discord, X (Twitter), YouTube. Aquí también puedes elegir el **canal de Discord para clips de Twitch**: los clips que se publiquen automáticamente irán al servidor y canal que configures.
+- **Bots:** conectar **Nightbot** para que tú o tus viewers añadan tareas desde el chat (comando `!todo`). También verás el **enlace de tu página pública** (`/streamer/tu_usuario`) y el código para **incrustar** el calendario en Discord o en tu web (`/embed/streamer/tu_usuario`).
 - **Seguridad:** cambiar contraseña.
 - **Apariencia:** tema, color de acento, banners de cabecera.
 - **Facturación:** ver licencia, comprar o renovar (Stripe), historial de pagos.

@@ -3,10 +3,11 @@
  * Value prop from market analysis: Schedule your streams. Promote them automatically. Grow your audience.
  * Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.
  */
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import AppFooter from '../components/AppFooter';
+import LandingCalendarPreview from '../components/LandingCalendarPreview';
 import {
   Calendar,
   Share2,
@@ -24,7 +25,6 @@ import {
 export default function Landing() {
   const navigate = useNavigate();
   const { t, language, toggleLanguage } = useLanguage();
-  const [previewImageFailed, setPreviewImageFailed] = useState(false);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -95,22 +95,8 @@ export default function Landing() {
           <p className="mt-4 text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
             {t('landing.productPreviewSubtitle') || 'Plan streams, automate announcements and manage all your platforms from one dashboard.'}
           </p>
-          <div className="mt-10 rounded-xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 min-h-[280px] flex items-center justify-center">
-            {!previewImageFailed ? (
-              <img
-                src="/dashboard-preview.png"
-                alt="Streamer Scheduler dashboard preview"
-                className="w-full h-full object-cover object-top min-h-[280px]"
-                onError={() => setPreviewImageFailed(true)}
-              />
-            ) : null}
-            {previewImageFailed && (
-              <div className="w-full py-16 px-8 text-center text-gray-500 dark:text-gray-400">
-                <Calendar className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <p className="text-sm font-medium">{t('landing.featureCalendar') || 'Calendar & scheduling'}</p>
-                <p className="text-xs mt-1">{t('landing.productPreviewSubtitle') || 'Dashboard preview'}</p>
-              </div>
-            )}
+          <div className="mt-10 rounded-xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 min-h-[280px] flex items-center justify-center p-2 sm:p-4">
+            <LandingCalendarPreview />
           </div>
         </div>
       </section>

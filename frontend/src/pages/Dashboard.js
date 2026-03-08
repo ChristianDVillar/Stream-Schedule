@@ -491,15 +491,33 @@ const Dashboard = ({ user, token, ...props }) => {
     }));
   }, [filteredContents, t]);
 
-  // Custom calendar event: title + platform icons
+  // Colors by content type for calendar events (stream=purple, post=blue, event=green, reel=red)
+  const CONTENT_TYPE_CALENDAR_COLORS = useMemo(() => ({
+    stream: '#7c3aed',
+    post: '#2563eb',
+    event: '#059669',
+    reel: '#dc2626',
+  }), []);
+
+  // Custom calendar event: title + platform icons + Live badge
   const CalendarEventComponent = useCallback(({ event }) => {
     const title = event.title || event.resource?.title || event.resource?.content?.slice(0, 40) || '';
     const platforms = Array.isArray(event.resource?.platforms) ? event.resource.platforms : [];
+    const now = new Date();
+    const isLive = event.start && event.end && now >= event.start && now <= event.end;
     return (
       <div className="rbc-event-content flex flex-col min-h-0 overflow-hidden h-full px-1 py-0.5">
-        <span className="truncate text-left font-medium text-sm leading-tight block" title={title || (event.resource?.content ?? '')}>
-          {title || (t('dashboard.untitledEvent') || 'Untitled')}
-        </span>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {isLive && (
+            <span className="flex items-center gap-0.5 text-xs font-semibold text-red-400" title={t('dashboard.liveNow') || 'Live now'}>
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" aria-hidden />
+              LIVE
+            </span>
+          )}
+          <span className="truncate text-left font-medium text-sm leading-tight block flex-1 min-w-0" title={title || (event.resource?.content ?? '')}>
+            {title || (t('dashboard.untitledEvent') || 'Untitled')}
+          </span>
+        </div>
         {platforms.length > 0 && (
           <div className="flex items-center gap-0.5 mt-0.5 flex-shrink-0">
             {platforms.slice(0, 4).map((platform) => (
@@ -522,11 +540,11 @@ const Dashboard = ({ user, token, ...props }) => {
   }, [t]);
 
   const eventStyleGetter = useCallback((event) => {
-    // Use accent color for calendar events (as per design spec)
-    // Fallback to platform color if accent color not available
-    const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--color-calendar-event').trim() || '#3b82f6';
+    const contentType = (event.resource?.contentType || '').trim().toLowerCase();
+    const typeColor = CONTENT_TYPE_CALENDAR_COLORS[contentType];
+    const color = typeColor || getPlatformColor(event.resource?.platforms) ||
+      (getComputedStyle(document.documentElement).getPropertyValue('--color-calendar-event').trim() || '#3b82f6');
     const accentHoverColor = getComputedStyle(document.documentElement).getPropertyValue('--color-calendar-event-hover').trim() || '#2563eb';
-    const color = accentColor || getPlatformColor(event.resource?.platforms);
     return {
       style: {
         backgroundColor: color,
@@ -535,7 +553,7 @@ const Dashboard = ({ user, token, ...props }) => {
         borderRadius: '4px',
       }
     };
-  }, []);
+  }, [CONTENT_TYPE_CALENDAR_COLORS]);
 
   const handleEventDrop = useCallback(async ({ event, start, end }) => {
     try {
@@ -779,7 +797,18 @@ const Dashboard = ({ user, token, ...props }) => {
 
         {/* Calendario */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-2 sm:p-4 lg:p-6 border-t-4 border-blue-400 mb-6 sm:mb-8 overflow-hidden">
-          <h3 className="text-base sm:text-lg font-bold text-blue-700 dark:text-blue-400 mb-2 sm:mb-4 flex items-center"><CalendarIcon className="w-5 h-5 mr-2 flex-shrink-0" />Calendar</h3>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2 sm:mb-4">
+            <h3 className="text-base sm:text-lg font-bold text-blue-700 dark:text-blue-400 flex items-center"><CalendarIcon className="w-5 h-5 mr-2 flex-shrink-0" />Calendar</h3>
+            <button
+              type="button"
+              onClick={() => navigate('/schedule')}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors"
+              aria-label={t('dashboard.scheduleStream') || 'Schedule stream'}
+            >
+              <Plus className="w-4 h-4 flex-shrink-0" />
+              <span>{t('dashboard.scheduleStream') || 'Schedule Stream'}</span>
+            </button>
+          </div>
           <div className="dashboard-calendar-wrapper h-[300px] min-h-[260px] sm:h-[400px] md:h-[450px] lg:h-[520px] w-full overflow-hidden rounded border border-gray-200 dark:border-gray-600">
             <DragAndDropCalendar
               localizer={localizer}

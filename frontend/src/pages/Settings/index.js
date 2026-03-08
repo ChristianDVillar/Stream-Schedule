@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Save, User, Bell, Globe, Shield, Palette, Key, MessageSquare, Download } from 'lucide-react';
+import { Save, User, Bell, Globe, Shield, Palette, Key, MessageSquare, Download, Bot } from 'lucide-react';
 import {
   apiClient,
   createCheckout,
@@ -41,11 +41,13 @@ import SettingsAppearanceTab from './SettingsAppearanceTab';
 import SettingsBillingTab from './SettingsBillingTab';
 import SettingsSupportTab from './SettingsSupportTab';
 import SettingsDataTab from './SettingsDataTab';
+import SettingsBotsTab from './SettingsBotsTab';
 
 const getTabsConfig = (t) => [
   { id: 'profile', name: t('settings.profile'), Icon: User },
   { id: 'notifications', name: t('settings.notifications'), Icon: Bell },
   { id: 'platforms', name: t('settings.platforms'), Icon: Globe },
+  { id: 'bots', name: t('settings.bots') || 'Bots', Icon: Bot },
   { id: 'security', name: t('settings.security'), Icon: Shield },
   { id: 'appearance', name: t('settings.appearance'), Icon: Palette },
   { id: 'billing', name: t('settings.licensesBilling'), Icon: Key },
@@ -685,6 +687,14 @@ export default function Settings({ user, token, setUser }) {
           <SettingsNotificationsTab
             notificationSettings={notificationSettings}
             setNotificationSettings={setNotificationSettings}
+            t={t}
+          />
+        );
+      case 'bots':
+        return (
+          <SettingsBotsTab
+            user={user}
+            token={token}
             t={t}
           />
         );
