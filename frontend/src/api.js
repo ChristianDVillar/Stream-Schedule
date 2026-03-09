@@ -263,6 +263,12 @@ export async function getPublicStreamerEvents(username) {
   return res.data;
 }
 
+/** POST /streamer/:username/remind — subscribe to stream reminders by email (no auth). */
+export async function subscribeStreamReminder(username, email) {
+  const res = await apiClient.post(`/streamer/${encodeURIComponent(username)}/remind`, { email });
+  return res.data;
+}
+
 /** GET /user/twitch-dashboard-stats - Twitch subs/bits/donations for dashboard (requires Twitch connected). */
 export async function getTwitchDashboardStats() {
   const res = await apiClient.get('/user/twitch-dashboard-stats');
@@ -337,6 +343,29 @@ export async function updateTodo(id, { title, completed, order }) {
 
 export async function deleteTodo(id) {
   await apiClient.delete(`/todos/${id}`);
+}
+
+/** Stream items (!idea, !note, !quote, !clipidea) */
+export async function getStreamItems(type) {
+  const params = type ? { type } : {};
+  const res = await apiClient.get('/stream-items', { params });
+  return res.data;
+}
+
+/** Viewer suggestions (!suggest) */
+export async function getSuggestions() {
+  const res = await apiClient.get('/suggestions');
+  return res.data;
+}
+
+export async function deleteSuggestion(id) {
+  await apiClient.delete(`/suggestions/${id}`);
+}
+
+/** Stream timeline (events from POST /webhooks/timeline) */
+export async function getTimeline(hours = 24) {
+  const res = await apiClient.get('/timeline', { params: { hours } });
+  return res.data;
 }
 
 /** Start Discord link flow (add Discord to current account). Pass token; redirects to backend. */

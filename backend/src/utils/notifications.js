@@ -310,3 +310,27 @@ If you did not request this password reset, please contact our support team imme
 
   return await sendEmail(user.email, subject, html, text);
 }
+
+/**
+ * Send stream reminder email (viewer subscribed via "Notify me" on public page).
+ * @param {string} to - Subscriber email
+ * @param {string} streamTitle - Title of the stream
+ * @param {Date|string} scheduledFor - When the stream starts
+ * @param {string} streamerUsername - Streamer username
+ */
+export async function sendStreamReminderEmail(to, streamTitle, scheduledFor, streamerUsername) {
+  const timeStr = typeof scheduledFor === 'string' ? new Date(scheduledFor).toLocaleString() : scheduledFor.toLocaleString();
+  const subject = `Reminder: ${streamerUsername} streams in ~1 hour — ${streamTitle}`;
+  const html = `
+    <html><body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #7c3aed;">Stream starting soon</h2>
+        <p><strong>${streamerUsername}</strong> is going live in about 1 hour.</p>
+        <p><strong>${streamTitle}</strong></p>
+        <p>Time: ${timeStr}</p>
+        <p><a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/streamer/${encodeURIComponent(streamerUsername)}" style="color: #7c3aed;">View schedule</a></p>
+      </div>
+    </body></html>`;
+  const text = `Reminder: ${streamerUsername} streams in ~1 hour — ${streamTitle}. Time: ${timeStr}.`;
+  return await sendEmail(to, subject, html, text);
+}

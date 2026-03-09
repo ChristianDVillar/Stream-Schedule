@@ -1,6 +1,5 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
 
 export default function SettingsBillingTab({
   paymentConfig,

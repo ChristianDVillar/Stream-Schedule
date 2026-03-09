@@ -16,6 +16,9 @@ import AuthCallback from '../pages/AuthCallback';
 import AdminDashboard from '../pages/AdminDashboard';
 import MessagesPage from '../pages/MessagesPage';
 import TodoList from '../pages/TodoList';
+import StreamIdeasPage from '../pages/StreamIdeasPage';
+import SuggestionsPage from '../pages/SuggestionsPage';
+import StreamTimelinePage from '../pages/StreamTimelinePage';
 import Privacy from '../pages/Privacy';
 import Terms from '../pages/Terms';
 import FAQ from '../pages/FAQ';
@@ -107,6 +110,30 @@ export function AppRoutes({ user, token, setAuth, setUser, clearAuth }) {
         element={
           <PrivateRoute user={user}>
             <TodoList token={token} />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/stream-ideas"
+        element={
+          <PrivateRoute user={user}>
+            <StreamIdeasPage token={token} />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/suggestions"
+        element={
+          <PrivateRoute user={user}>
+            <SuggestionsPage token={token} />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/stream-timeline"
+        element={
+          <PrivateRoute user={user}>
+            <StreamTimelinePage token={token} />
           </PrivateRoute>
         }
       />

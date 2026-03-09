@@ -28,6 +28,11 @@ import TwitchBitEvent from './TwitchBitEvent.js';
 import TwitchEventSubSubscription from './TwitchEventSubSubscription.js';
 import PublicationMetric from './PublicationMetric.js';
 import Todo from './Todo.js';
+import StreamReminder from './StreamReminder.js';
+import StreamItem from './StreamItem.js';
+import StreamSuggestion from './StreamSuggestion.js';
+import StreamTimelineEvent from './StreamTimelineEvent.js';
+import ReminderSent from './ReminderSent.js';
 
 // 👤 User
 const User = sequelize.define('User', {
@@ -196,6 +201,21 @@ const User = sequelize.define('User', {
     allowNull: true,
     unique: true,
     comment: 'API key for Nightbot custom commands (e.g. !todo) to create todos in this account'
+  },
+  discordAnnounceWebhookUrl: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Discord webhook URL to post "Stream started!" when POST /webhooks/stream/start is called'
+  },
+  streamGoalType: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'followers or subs — for !goal command'
+  },
+  streamGoalTarget: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    comment: 'Target number for stream goal (e.g. 500 followers)'
   }
 });
 
@@ -543,6 +563,18 @@ User.hasMany(Notification, { foreignKey: 'createdBy', as: 'createdNotifications'
 User.hasMany(NotificationRead, { foreignKey: 'userId', as: 'notificationReads' });
 User.hasMany(PublicationMetric, { foreignKey: 'userId', as: 'publicationMetrics' });
 PublicationMetric.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(StreamReminder, { foreignKey: 'userId', onDelete: 'CASCADE' });
+StreamReminder.belongsTo(User, { foreignKey: 'userId' });
+User.hasMany(StreamItem, { foreignKey: 'userId', onDelete: 'CASCADE' });
+StreamItem.belongsTo(User, { foreignKey: 'userId' });
+User.hasMany(StreamSuggestion, { foreignKey: 'userId', onDelete: 'CASCADE' });
+StreamSuggestion.belongsTo(User, { foreignKey: 'userId' });
+User.hasMany(StreamTimelineEvent, { foreignKey: 'userId', onDelete: 'CASCADE' });
+StreamTimelineEvent.belongsTo(User, { foreignKey: 'userId' });
+StreamReminder.hasMany(ReminderSent, { foreignKey: 'streamReminderId', onDelete: 'CASCADE' });
+ReminderSent.belongsTo(StreamReminder, { foreignKey: 'streamReminderId' });
+Content.hasMany(ReminderSent, { foreignKey: 'contentId', onDelete: 'CASCADE' });
+ReminderSent.belongsTo(Content, { foreignKey: 'contentId' });
 
 // ⚙️ System Configuration
 const SystemConfig = sequelize.define('SystemConfig', {
@@ -585,4 +617,9 @@ export {
   TwitchEventSubSubscription,
   PublicationMetric,
   Todo,
+  StreamReminder,
+  StreamItem,
+  StreamSuggestion,
+  StreamTimelineEvent,
+  ReminderSent,
 };

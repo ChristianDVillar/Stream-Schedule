@@ -27,7 +27,7 @@ import {
   disconnectYoutube,
 } from '../../api';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { applyAccentColor, THEME_CHANGE_EVENT, getCustomColorConfig, setCustomColorConfig, applyCustomColors } from '../../utils/themeUtils';
+import { THEME_CHANGE_EVENT, getCustomColorConfig, setCustomColorConfig, applyCustomColors } from '../../utils/themeUtils';
 import { getPlatformColors } from '../../utils/platformColors';
 import { BANNER_CONFIG_KEY, getBannersFromEnv } from '../../components/HeaderBanners';
 import { handleUpload, getUploadStats } from '../../utils/uploadHelper';
@@ -86,6 +86,9 @@ export default function Settings({ user, token, setUser }) {
     dashboardShowTwitchSubs: user?.dashboardShowTwitchSubs !== false,
     dashboardShowTwitchBits: user?.dashboardShowTwitchBits !== false,
     dashboardShowTwitchDonations: user?.dashboardShowTwitchDonations === true,
+    streamGoalType: user?.streamGoalType || '',
+    streamGoalTarget: user?.streamGoalTarget ?? '',
+    discordAnnounceWebhookUrl: user?.discordAnnounceWebhookUrl || '',
   });
   const [profilePhotoUploading, setProfilePhotoUploading] = useState(false);
 
@@ -184,6 +187,9 @@ export default function Settings({ user, token, setUser }) {
         dashboardShowTwitchSubs: user.dashboardShowTwitchSubs !== false,
         dashboardShowTwitchBits: user.dashboardShowTwitchBits !== false,
         dashboardShowTwitchDonations: user.dashboardShowTwitchDonations === true,
+        streamGoalType: user.streamGoalType || '',
+        streamGoalTarget: user.streamGoalTarget ?? '',
+        discordAnnounceWebhookUrl: user.discordAnnounceWebhookUrl || '',
       }));
     }
   }, [user]);
@@ -227,6 +233,7 @@ export default function Settings({ user, token, setUser }) {
     }
     fetchAvailableLicenses();
     fetchPaymentConfig();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: run on token change only
   }, [token]);
 
   useEffect(() => {
@@ -287,6 +294,7 @@ export default function Settings({ user, token, setUser }) {
       toast.error(msg);
       setSearchParams({}, { replace: true });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- searchParams and t are the triggers
   }, [searchParams, t]);
 
   const fetchConnectedAccounts = async () => {
@@ -610,6 +618,7 @@ export default function Settings({ user, token, setUser }) {
       }
     };
     if (token) checkPaymentStatus();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- run on token/url change
   }, [token, t]);
 
   const handleProfilePhotoSelect = async (e) => {

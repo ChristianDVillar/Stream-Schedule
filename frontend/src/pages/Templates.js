@@ -7,7 +7,7 @@ import { getTemplates, createTemplate, updateTemplate, deleteTemplate, createCon
 import { getEnabledPlatforms } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
-import { FileText, Plus, Pencil, Trash2, Calendar, X } from 'lucide-react';
+import { FileText, Pencil, Trash2, Calendar, X } from 'lucide-react';
 import { getPlatformColor } from '../utils/platformColors';
 
 const CONTENT_TYPES = [

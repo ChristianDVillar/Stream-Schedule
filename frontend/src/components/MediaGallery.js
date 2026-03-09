@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Image, Video, X, Check, Trash2 } from 'lucide-react';
+import { Image, Video, Check, Trash2 } from 'lucide-react';
 import { supabase, getPublicImageUrl } from '../utils/supabaseClient';
 import { getUploadStats } from '../utils/uploadHelper';
 import { deleteUpload, getVideoSignedUrl } from '../api';
@@ -30,7 +30,8 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
 
   useEffect(() => {
     loadMediaFiles();
-  }, [user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadMediaFiles stable, user.id is the trigger
+  }, [user?.id]);
 
   const loadMediaFiles = async () => {
     if (!user?.id || !supabase) {
@@ -71,8 +72,6 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
                   const data = backendError.response?.data;
                   const isInvalidPath = status === 400 && typeof data === 'object' && data !== null && (data.error === 'requested path is invalid' || data.message);
                   const isOurApi404 = status === 404 && typeof data === 'object' && data !== null && (data.error || data.orphaned !== undefined);
-                  const looksLikeHtml = typeof data === 'string' && (data.includes('<!DOCTYPE') || data.includes('<html') || data.includes('GET /api/upload'));
-                  const backendUnreachable = status === 404 && (looksLikeHtml || !data);
                   if (isInvalidPath) {
                     return null;
                   }

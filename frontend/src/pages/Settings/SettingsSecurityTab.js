@@ -1,6 +1,5 @@
 import React from 'react';
 import { Lock } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
 
 export default function SettingsSecurityTab({
   securityData,

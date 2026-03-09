@@ -18,6 +18,7 @@ export default function MyMessages({ token }) {
 
   useEffect(() => {
     fetchMessages();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
   const fetchMessages = async () => {

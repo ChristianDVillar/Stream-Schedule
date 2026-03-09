@@ -1,6 +1,5 @@
 import React from 'react';
 import { Download, AlertTriangle } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
 
 export default function SettingsDataTab({ loading, onExport, onDeleteAccount, t }) {
   return (

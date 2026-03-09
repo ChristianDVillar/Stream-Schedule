@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login, register, loginWithGoogle, loginWithTwitch, loginWithTwitter, loginWithDiscord, forgotPassword } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye } from 'lucide-react';
 
 export default function Login({ setAuth }) {
   const { t } = useLanguage();
@@ -68,7 +68,6 @@ export default function Login({ setAuth }) {
         // If registration returns token, use it directly (no need to login again)
         if (registerRes.data.token && registerRes.data.user) {
           setAuth(registerRes.data.user, registerRes.data.token);
-          const alert = registerRes.data.user?.licenseAlert;
           const licenseType = registerRes.data.user?.licenseType;
           
           // Show welcome message based on license type
@@ -88,7 +87,6 @@ export default function Login({ setAuth }) {
       const res = await login({ email, password });
       setAuth(res.data.user, res.data.token);
       const alert = res.data.user?.licenseAlert;
-      const licenseType = res.data.user?.licenseType;
       
       // Show welcome message (only for non-registration logins)
       if (alert === 'expired') {

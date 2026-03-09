@@ -182,3 +182,34 @@ export function getTimezoneMessage(dateString) {
   }
   return `Will be shown automatically in your local time (${timezone})`;
 }
+
+/**
+ * Format a scheduled event date for display (public stream page / embed).
+ * @param {string|Date} scheduledFor - ISO date or Date
+ * @param {{ short?: boolean }} options - short: omit month/day (for embed)
+ * @returns {string}
+ */
+export function formatEventDate(scheduledFor, options = {}) {
+  if (!scheduledFor) return '—';
+  const d = new Date(scheduledFor);
+  if (options.short) {
+    return d.toLocaleDateString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  }
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+/**
+ * Countdown to a date (for next stream).
+ * @param {string|Date} toDate
+ * @returns {{ live: true } | { live: false, hours: number, minutes: number }}
+ */
+export function getCountdown(toDate) {
+  if (!toDate) return null;
+  const now = new Date();
+  const to = new Date(toDate);
+  if (to <= now) return { live: true };
+  const ms = to - now;
+  const h = Math.floor(ms / (1000 * 60 * 60));
+  const m = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  return { live: false, hours: h, minutes: m };
+}

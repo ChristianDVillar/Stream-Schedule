@@ -121,12 +121,23 @@ export default function SettingsPlatformsTab({
     return () => { cancelled = true; };
   }, [discordConnected, token, disconnectingKey, t]);
 
+  // Only fetch channels after guilds loaded successfully and selected guild is in the list (avoids 403 when guilds returned 503)
+  const guildInList = clipsGuilds.some((g) => g.id === clipsGuildId);
   useEffect(() => {
     if (!clipsGuildId || !discordConnected || disconnectingKey === 'discord') {
       setClipsChannels([]);
       return;
     }
+    if (loadingClipsGuilds || clipsGuildsError) return;
+    // Guilds loaded but saved guild not in list (e.g. bot removed from server) → clear selection
+    if (!guildInList) {
+      setClipsChannels([]);
+      setClipsGuildId('');
+      setClipsChannelId('');
+      return;
+    }
     let cancelled = false;
+    // Guild is in list: safe to fetch channels
     setLoadingClipsChannels(true);
     setClipsChannels([]);
     getDiscordChannels(clipsGuildId)
@@ -144,7 +155,7 @@ export default function SettingsPlatformsTab({
       })
       .finally(() => { if (!cancelled) setLoadingClipsChannels(false); });
     return () => { cancelled = true; };
-  }, [clipsGuildId, discordConnected, disconnectingKey]);
+  }, [clipsGuildId, discordConnected, disconnectingKey, loadingClipsGuilds, clipsGuildsError, guildInList, clipsGuilds]);
 
   const handleSaveClipsChannel = async () => {
     if (typeof onSaveClipsChannel !== 'function') return;
