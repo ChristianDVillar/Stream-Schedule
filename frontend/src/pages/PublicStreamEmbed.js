@@ -91,15 +91,22 @@ export default function PublicStreamEmbed() {
   const bannerUrl = data.publicPageBannerUrl || null;
   const bannerPosition = data.publicPageBannerPosition || 'top';
   const showBannerInEmbed = bannerUrl && (bannerPosition === 'top' || bannerPosition === 'above-avatar');
+  const showBgInEmbed = bannerUrl && bannerPosition === 'background';
 
   return (
-    <div className="rounded-lg overflow-hidden min-w-[280px] max-w-[400px] border-2 border-purple-200 dark:border-purple-800 bg-gradient-to-b from-violet-50 via-white to-fuchsia-50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-800">
+    <div className={`rounded-lg overflow-hidden min-w-[280px] max-w-[400px] border-2 border-purple-200 dark:border-purple-800 bg-gradient-to-b from-violet-50 via-white to-fuchsia-50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-800 ${showBgInEmbed ? 'relative' : ''}`}>
+      {showBgInEmbed && (
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          <img src={bannerUrl} alt="" className="w-full h-full object-cover object-center opacity-55" />
+          <div className="absolute inset-0 bg-white/35 dark:bg-gray-900/45" />
+        </div>
+      )}
       {showBannerInEmbed && (
         <div className="w-full h-12 overflow-hidden flex-shrink-0">
           <img src={bannerUrl} alt="" className="w-full h-full object-cover object-center" onError={(e) => { e.target.style.display = 'none'; }} />
         </div>
       )}
-      <div className="px-3 py-2 border-b border-accent-light dark:border-gray-700 flex items-center justify-between bg-accent-subtle dark:bg-gray-800">
+      <div className={`px-3 py-2 border-b border-accent-light dark:border-gray-700 flex items-center justify-between bg-accent-subtle dark:bg-gray-800 ${showBgInEmbed ? 'relative z-10' : ''}`}>
         <span className="font-semibold text-gray-900 dark:text-white text-sm truncate">{data.username}</span>
         <a
           href="/"
@@ -111,7 +118,8 @@ export default function PublicStreamEmbed() {
         </a>
       </div>
       {(showLive || (countdown && !countdown.live && firstEvent)) && (
-        <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2 text-xs">
+        <div className={showBgInEmbed ? 'relative z-10' : ''}>
+          <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2 text-xs">
           {showLive ? (
             <>
               <span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse" aria-hidden />
@@ -132,9 +140,10 @@ export default function PublicStreamEmbed() {
               </>
             )
           )}
+          </div>
         </div>
       )}
-      <div className="p-3">
+      <div className={`p-3 ${showBgInEmbed ? 'relative z-10' : ''}`}>
         {data.events.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('publicStream.noUpcoming') || 'No upcoming streams.'}</p>
         ) : (

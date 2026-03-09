@@ -37,15 +37,15 @@ function PublicPagePreview({ bannerUrl, position, username }) {
   return (
     <div className={`rounded-lg border-2 border-gray-300 dark:border-gray-600 overflow-hidden shadow-inner ${isBackground ? 'relative' : 'bg-gray-100 dark:bg-gray-800'}`}>
       {isBackground && (
-        <div className="absolute inset-0 overflow-hidden rounded-lg">
-          <img src={bannerUrl} alt="" className="w-full h-full object-cover opacity-40" />
-          <div className="absolute inset-0 bg-white/60 dark:bg-gray-900/60" />
+        <div className="absolute inset-0 overflow-hidden rounded-lg z-0">
+          <img src={bannerUrl} alt="" className="w-full h-full object-cover object-center opacity-60" />
+          <div className="absolute inset-0 bg-white/40 dark:bg-gray-900/50" />
         </div>
       )}
-      <div className={`text-[10px] font-medium text-gray-500 dark:text-gray-400 px-2 py-1 border-b border-gray-300 dark:border-gray-600 ${isBackground ? 'relative bg-gray-200/80 dark:bg-gray-700/80' : 'bg-gray-200 dark:bg-gray-700'}`}>
+      <div className={`text-[10px] font-medium text-gray-500 dark:text-gray-400 px-2 py-1 border-b border-gray-300 dark:border-gray-600 ${isBackground ? 'relative z-10 bg-gray-200/80 dark:bg-gray-700/80' : 'bg-gray-200 dark:bg-gray-700'}`}>
         {username ? `/streamer/${username}` : 'Vista previa'}
       </div>
-      <div className={`p-2 space-y-1 min-h-[140px] flex flex-col ${isBackground ? 'relative' : ''}`}>
+      <div className={`p-2 space-y-1 min-h-[140px] flex flex-col ${isBackground ? 'relative z-10' : ''}`}>
         {renderBanner('top')}
         <div className="flex gap-1.5 items-center flex-shrink-0">
           <div className="w-6 h-6 rounded-full bg-accent-subtle flex items-center justify-center text-[10px] font-bold text-[var(--accent)] flex-shrink-0">
