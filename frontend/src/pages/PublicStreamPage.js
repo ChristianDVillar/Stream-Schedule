@@ -1,19 +1,156 @@
 /**
  * Public streamer page: tusitio.com/streamer/username
  * Shows upcoming streams, countdown, LIVE on Twitch, Notify me (email reminder). No auth.
+ * Calendar style aligned with landing page (grid, event cards).
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Calendar, Clock, Radio, ExternalLink, Bell } from 'lucide-react';
+import { Calendar, Radio, ExternalLink, Bell } from 'lucide-react';
+import { Twitch, Twitter } from 'lucide-react';
 import { getPublicStreamerEvents, subscribeStreamReminder } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
-import { formatEventDate, getCountdown } from '../utils/dateUtils';
+import { getCountdown } from '../utils/dateUtils';
+import { DEFAULT_PLATFORM_COLORS } from '../utils/platformColors';
+import { DISCORD_ICON_URL } from '../constants/platforms';
 
 function isLiveNow(scheduledFor, eventEndTime) {
   const now = new Date();
   const start = new Date(scheduledFor);
   const end = eventEndTime ? new Date(eventEndTime) : new Date(start.getTime() + 3 * 60 * 60 * 1000);
   return now >= start && now <= end;
+}
+
+/** Next 7 days for calendar columns: { label, dateKey } */
+function getNextSevenDays() {
+  const days = [];
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  const todayKey = d.toISOString().slice(0, 10);
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  for (let i = 0; i < 7; i++) {
+    const key = d.toISOString().slice(0, 10);
+    const dayName = dayNames[d.getDay()];
+    const dayNum = d.getDate();
+    let label = `${dayName} ${dayNum}`;
+    if (i === 0) label = 'Today';
+    else if (i === 1) label = 'Tomorrow';
+    days.push({ label, dateKey: key, date: new Date(d.getTime()) });
+    d.setDate(d.getDate() + 1);
+  }
+  return days;
+}
+
+function PlatformIcon({ platform, size = 14 }) {
+  const style = { width: size, height: size };
+  switch (platform) {
+    case 'twitch':
+      return <Twitch style={style} className="flex-shrink-0" />;
+    case 'twitter':
+      return <Twitter style={style} className="flex-shrink-0" />;
+    case 'discord':
+      return (
+        <img
+          src={DISCORD_ICON_URL}
+          alt="Discord"
+          style={{ width: size, height: size }}
+          className="object-contain dark:invert flex-shrink-0"
+        />
+      );
+    default:
+      return null;
+  }
+}
+
+/** Event card in landing-style grid: colored header, time, title, platform icons */
+function PublicEventCard({ evt, isLive }) {
+  const d = new Date(evt.scheduledFor);
+  const timeStr = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  const platforms = Array.isArray(evt.platforms) ? evt.platforms : ['twitch'];
+  const headerColor = DEFAULT_PLATFORM_COLORS[platforms[0]] || DEFAULT_PLATFORM_COLORS.twitch;
+  return (
+    <div className="flex flex-col h-full min-h-[100px] sm:min-h-[140px] bg-white dark:bg-gray-800 overflow-hidden rounded">
+      <div
+        className="px-1.5 py-1 sm:px-2 sm:py-1.5 md:px-3 md:py-2 text-white text-[10px] sm:text-sm font-medium flex items-center gap-1 sm:gap-1.5 flex-shrink-0"
+        style={{ backgroundColor: headerColor }}
+      >
+        <Calendar className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 opacity-90" />
+        <span className="truncate">{timeStr}</span>
+        {isLive && <Radio className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 opacity-90" />}
+      </div>
+      <div className="px-1.5 py-1.5 sm:px-2 sm:py-2 md:px-3 md:py-2.5 flex-1 min-h-0">
+        <p className="text-[10px] sm:text-sm font-medium text-gray-900 dark:text-gray-100 truncate" title={evt.title}>
+          {evt.title}
+        </p>
+        <div className="flex items-center gap-0.5 sm:gap-1 mt-0.5 sm:mt-1.5 flex-wrap">
+          {platforms.map((p) => (
+            <span
+              key={p}
+              className="inline-flex items-center justify-center w-4 h-4 sm:w-6 sm:h-6 rounded text-white flex-shrink-0"
+              style={{ backgroundColor: DEFAULT_PLATFORM_COLORS[p] || '#6b7280' }}
+              title={p}
+            >
+              <PlatformIcon platform={p} size={8} />
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Calendar grid: 7 days (today + next 6), landing-style layout */
+function PublicStreamCalendar({ events, isLiveNow }) {
+  const sevenDays = useMemo(() => getNextSevenDays(), []);
+  const eventsByDay = useMemo(() => {
+    const map = {};
+    sevenDays.forEach(({ dateKey }) => { map[dateKey] = []; });
+    events.forEach((evt) => {
+      const key = evt.scheduledFor ? new Date(evt.scheduledFor).toISOString().slice(0, 10) : null;
+      if (key && map[key]) map[key].push(evt);
+    });
+    sevenDays.forEach(({ dateKey }) => {
+      if (map[dateKey]) map[dateKey].sort((a, b) => new Date(a.scheduledFor) - new Date(b.scheduledFor));
+    });
+    return map;
+  }, [events, sevenDays]);
+
+  return (
+    <div className="w-full min-w-0 rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden bg-gray-300 dark:bg-gray-600">
+      <div className="overflow-x-auto overflow-y-hidden -mx-1 sm:mx-0 px-1 sm:px-0">
+        <div className="inline-block min-w-[280px] sm:min-w-full rounded-lg overflow-hidden">
+          <div className="grid grid-cols-7 gap-px bg-gray-300 dark:bg-gray-600">
+            {sevenDays.map(({ label, dateKey }) => (
+              <div
+                key={`h-${dateKey}`}
+                className="min-w-[36px] sm:min-w-0 py-1.5 sm:py-2.5 md:py-3 text-center text-[10px] sm:text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800"
+              >
+                {label}
+              </div>
+            ))}
+            {sevenDays.map(({ dateKey }) => {
+              const dayEvents = eventsByDay[dateKey] || [];
+              const first = dayEvents[0];
+              return (
+                <div
+                  key={dateKey}
+                  className="min-w-[36px] sm:min-w-0 min-h-[120px] sm:min-h-[160px] md:min-h-[180px] bg-gray-50 dark:bg-gray-800/80 p-0.5 sm:p-1.5 flex flex-col"
+                >
+                  {first ? (
+                    <PublicEventCard
+                      evt={first}
+                      isLive={isLiveNow(first.scheduledFor, first.eventEndTime)}
+                    />
+                  ) : (
+                    <div className="h-full min-h-[100px] sm:min-h-[140px] bg-gray-100/80 dark:bg-gray-800/50 rounded-sm" aria-hidden />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function PublicStreamPage() {
@@ -175,25 +312,7 @@ export default function PublicStreamPage() {
           {data.events.length === 0 ? (
             <p className="text-gray-500 dark:text-gray-400">{t('publicStream.noUpcoming') || 'No upcoming streams.'}</p>
           ) : (
-            <ul className="space-y-3">
-              {data.events.map((evt) => (
-                <li
-                  key={evt.id}
-                  className="flex items-start gap-3 p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
-                >
-                  <Clock className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">{evt.title}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{formatEventDate(evt.scheduledFor)}</p>
-                  </div>
-                  {isLiveNow(evt.scheduledFor, evt.eventEndTime) && (
-                    <span className="flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400">
-                      <Radio className="w-3.5 h-3.5" /> LIVE
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <PublicStreamCalendar events={data.events} isLiveNow={isLiveNow} />
           )}
         </section>
 
