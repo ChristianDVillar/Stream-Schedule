@@ -289,12 +289,12 @@ export default function PublicStreamPage() {
   return (
     <div className={`min-h-screen bg-gradient-accent dark:bg-gray-900 ${bannerUrl && bannerPosition === 'background' ? 'relative' : ''}`}>
       {bannerUrl && bannerPosition === 'background' && (
-        <div className="fixed inset-0 overflow-hidden pointer-events-none">
-          <img src={bannerUrl} alt="" className="w-full h-full object-cover opacity-30" />
-          <div className="absolute inset-0 bg-gradient-accent dark:bg-gray-900/70" />
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          <img src={bannerUrl} alt="" className="w-full h-full object-cover object-center opacity-60" />
+          <div className="absolute inset-0 bg-white/40 dark:bg-gray-900/50" />
         </div>
       )}
-      <div className={`max-w-xl mx-auto px-4 py-8 sm:py-12 ${bannerUrl && bannerPosition === 'background' ? 'relative' : ''}`}>
+      <div className={`max-w-xl mx-auto px-4 py-8 sm:py-12 ${bannerUrl && bannerPosition === 'background' ? 'relative z-10' : ''}`}>
         {renderBanner('top')}
         <div className="flex items-center gap-4 mb-8">
           {data.profileImageUrl ? (
