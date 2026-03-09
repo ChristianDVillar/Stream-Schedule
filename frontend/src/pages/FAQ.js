@@ -7,7 +7,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { ArrowLeft, HelpCircle } from 'lucide-react';
 import AppFooter from '../components/AppFooter';
 
-const FAQ_ITEMS = 10;
+const FAQ_ITEMS = 12;
 
 export default function FAQ() {
   const { t } = useLanguage();

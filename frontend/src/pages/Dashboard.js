@@ -678,8 +678,8 @@ const Dashboard = ({ user, token, ...props }) => {
 
         {/* Twitch: suscripciones, bits, donaciones (según preferencias del perfil) */}
         {showTwitchOnDashboard && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border-t-4 border-purple-500 mb-6 sm:mb-8">
-            <h3 className="text-base sm:text-lg font-bold text-purple-700 dark:text-purple-400 mb-4 flex items-center">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border-t-4 border-accent mb-6 sm:mb-8">
+            <h3 className="text-base sm:text-lg font-bold text-accent mb-4 flex items-center">
               <Twitch className="w-5 h-5 mr-2 flex-shrink-0" />
               {t('dashboard.twitchStats') || 'Datos de Twitch'}
             </h3>
@@ -691,7 +691,7 @@ const Dashboard = ({ user, token, ...props }) => {
                 <button
                   type="button"
                   onClick={() => navigate('/settings')}
-                  className="ml-2 text-purple-600 dark:text-purple-400 hover:underline"
+                  className="ml-2 text-accent hover:underline"
                 >
                   {t('settings.title') || 'Ajustes'}
                 </button>
@@ -732,13 +732,13 @@ const Dashboard = ({ user, token, ...props }) => {
                         <div className="mt-2 flex flex-wrap gap-2">
                           <button
                             onClick={() => setBitsFormat('chronological')}
-                            className={`shrink-0 text-xs px-2 py-1 rounded whitespace-nowrap ${bitsFormat === 'chronological' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'}`}
+                            className={`shrink-0 text-xs px-2 py-1 rounded whitespace-nowrap ${bitsFormat === 'chronological' ? 'bg-accent text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'}`}
                           >
                             {t('dashboard.chronological')}
                           </button>
                           <button
                             onClick={() => setBitsFormat('total')}
-                            className={`shrink-0 text-xs px-2 py-1 rounded whitespace-nowrap ${bitsFormat === 'total' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'}`}
+                            className={`shrink-0 text-xs px-2 py-1 rounded whitespace-nowrap ${bitsFormat === 'total' ? 'bg-accent text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'}`}
                           >
                             {t('dashboard.total')}
                           </button>
@@ -799,8 +799,8 @@ const Dashboard = ({ user, token, ...props }) => {
 
         {/* Discord: servidores con el bot e invite */}
         {user && !user.isAdmin && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border-t-4 border-indigo-500 mb-6 sm:mb-8">
-            <h3 className="text-base sm:text-lg font-bold text-indigo-700 dark:text-indigo-400 mb-4 flex items-center">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border-t-4 border-accent mb-6 sm:mb-8">
+            <h3 className="text-base sm:text-lg font-bold text-accent mb-4 flex items-center">
               <img src={DISCORD_ICON_URL} alt="Discord" className="w-5 h-5 mr-2 object-contain dark:invert" />
               {t('dashboard.discordStats') || 'Discord'}
             </h3>
@@ -812,7 +812,7 @@ const Dashboard = ({ user, token, ...props }) => {
                 <button
                   type="button"
                   onClick={() => navigate('/settings')}
-                  className="ml-2 text-indigo-600 dark:text-indigo-400 hover:underline"
+                    className="ml-2 text-accent hover:underline"
                 >
                   {t('settings.title') || 'Ajustes'}
                 </button>
@@ -832,7 +832,7 @@ const Dashboard = ({ user, token, ...props }) => {
                     href={discordStats.inviteUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
+                    className="inline-flex items-center px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium transition-colors"
                   >
                     <ExternalLink className="w-4 h-4 mr-2" />
                     {t('dashboard.discordInviteBot') || 'Invitar bot a un servidor'}
@@ -841,7 +841,7 @@ const Dashboard = ({ user, token, ...props }) => {
                 <button
                   type="button"
                   onClick={() => navigate('/settings')}
-                  className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+                  className="text-sm text-accent hover:underline"
                 >
                   {t('dashboard.discordManageSettings') || 'Gestionar en Ajustes'}
                 </button>
@@ -851,13 +851,13 @@ const Dashboard = ({ user, token, ...props }) => {
         )}
 
         {/* Calendario */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-2 sm:p-4 lg:p-6 border-t-4 border-blue-400 mb-6 sm:mb-8 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-2 sm:p-4 lg:p-6 border-t-4 border-accent mb-6 sm:mb-8 overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2 sm:mb-4">
-            <h3 className="text-base sm:text-lg font-bold text-blue-700 dark:text-blue-400 flex items-center"><CalendarIcon className="w-5 h-5 mr-2 flex-shrink-0" />Calendar</h3>
+            <h3 className="text-base sm:text-lg font-bold text-accent flex items-center"><CalendarIcon className="w-5 h-5 mr-2 flex-shrink-0" />{t('dashboard.calendar') || 'Calendar'}</h3>
             <button
               type="button"
               onClick={() => navigate('/schedule')}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-accent text-white text-sm font-medium transition-colors"
               aria-label={t('dashboard.scheduleStream') || 'Schedule stream'}
             >
               <Plus className="w-4 h-4 flex-shrink-0" />
@@ -890,7 +890,7 @@ const Dashboard = ({ user, token, ...props }) => {
         </div>
 
         {/* Lista de posts del día */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border-t-4 border-blue-600 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border-t-4 border-accent overflow-hidden">
           {/* Search and Filters */}
           <div className="mb-6">
             <SearchAdvanced

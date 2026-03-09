@@ -75,6 +75,26 @@ It’s a **personal list** under **To-do** (/todos): you can add items, mark the
 
 ---
 
+## Stream mode and screen sharing
+
+### What is stream mode and when should I use it?
+**Stream mode** is a toggle in the header (video icon). When it’s **on**, sensitive data is hidden in **Settings → Bots** and **Settings → Profile**: your API key, webhook URLs, email, username, and Discord announce webhook are masked so you can share your screen during a stream without exposing them. The setting is saved in your browser. Turn it off when you’re done streaming to see and copy your keys and URLs again.
+
+---
+
+## Chat bots and commands (Nightbot, Streamer.bot)
+
+### Where do I get my API key and chat command URLs?
+Go to **Settings → Bots**. There you’ll see your **API key** and a table of **chat commands** with ready-to-use URLs (each URL includes your key). Copy the URL for the command you need (e.g. next stream, countdown, weekly schedule, goal, !commands list) and paste it into Nightbot, Streamer.bot, or Mix It Up.
+
+### What chat commands are available?
+Examples: **!nextstream** (next scheduled stream), **!countdown** (time until next stream), **!schedule** or **!week** (weekly schedule), **!goal** (follower/sub goal), **!myschedule** (link to your public schedule), **!streamstats**, **!quote random**, **!randomidea**, and **!commands** (lists all commands). In **Settings → Bots** you’ll see the full list with copy-paste URLs and Nightbot/Streamer.bot examples.
+
+### How do I set up Nightbot or Streamer.bot?
+In **Settings → Bots** each command has a URL. For **Nightbot**, use the “Nightbot” example (e.g. `$(urlfetch https://...)`). For **Streamer.bot**, call the same URL in your action. Your API key is included in the URL; keep it private and don’t share it on stream (use **stream mode** to hide it when sharing your screen).
+
+---
+
 ## Settings and language
 
 ### How do I change the language (Spanish / English)?
