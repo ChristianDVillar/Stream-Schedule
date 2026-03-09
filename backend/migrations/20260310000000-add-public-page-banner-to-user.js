@@ -1,7 +1,6 @@
-'use strict';
-
+/** @type {import('sequelize-cli').Migration} */
 /** Add public page customization: banner image URL and position */
-module.exports = {
+export default {
   async up(queryInterface, Sequelize) {
     await queryInterface.addColumn('Users', 'publicPageBannerUrl', {
       type: Sequelize.STRING,
