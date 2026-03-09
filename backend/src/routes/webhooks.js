@@ -290,12 +290,12 @@ router.get('/countdown', async (req, res) => {
   }
 });
 
-/** GET /api/webhooks/week — "This week's streams: Friday — Minecraft ..." */
-router.get('/week', async (req, res) => {
+/** GET /api/webhooks/week — "This week's streams: Friday — Minecraft ..." — also /schedule alias */
+async function handleWeekSchedule(req, res) {
   try {
     const user = await getUserByApiKey(req);
     if (!user) {
-      sendText(res, 'Add your API key in Settings → Bots to use !week.');
+      sendText(res, 'Add your API key in Settings → Bots to use !schedule.');
       return;
     }
     const now = new Date();
@@ -328,7 +328,9 @@ router.get('/week', async (req, res) => {
     logger.error('Webhook week error', { error: err.message });
     sendText(res, 'Could not load schedule.');
   }
-});
+}
+router.get('/week', handleWeekSchedule);
+router.get('/schedule', handleWeekSchedule);
 
 /** GET /api/webhooks/myschedule — "📅 My stream schedule: https://..." */
 router.get('/myschedule', async (req, res) => {
@@ -415,6 +417,32 @@ router.get('/idea/random', async (req, res) => {
   } catch (err) {
     logger.error('Webhook idea/random error', { error: err.message });
     sendText(res, 'Could not get idea.');
+  }
+});
+
+/** GET /api/webhooks/commands — list of available commands for !commands */
+router.get('/commands', async (req, res) => {
+  try {
+    const user = await getUserByApiKey(req);
+    if (!user) {
+      sendText(res, 'Add your API key in Settings → Bots to use !commands.');
+      return;
+    }
+    const lines = [
+      'Available commands:',
+      '!nextstream — next scheduled stream',
+      '!countdown — time until next stream',
+      '!schedule or !week — weekly schedule',
+      '!goal — follower/sub goal',
+      '!myschedule — public schedule link',
+      '!streamstats — stream statistics',
+      '!quote random — random quote',
+      '!randomidea — random stream idea',
+    ];
+    sendText(res, lines.join('\n'));
+  } catch (err) {
+    logger.error('Webhook commands error', { error: err.message });
+    sendText(res, 'Could not load commands.');
   }
 });
 

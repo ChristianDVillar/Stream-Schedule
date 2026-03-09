@@ -8,7 +8,7 @@ Información para usar **Streamer Scheduler**: qué es la aplicación, cómo emp
 
 ## ¿Qué es Streamer Scheduler?
 
-Streamer Scheduler es una aplicación web que te permite **programar y gestionar publicaciones** para varias redes sociales desde un solo sitio. Pensada para creadores de contenido y streamers que quieren planificar Twitch, X (Twitter), Instagram, Discord y YouTube sin tener que entrar en cada plataforma por separado.
+Streamer Scheduler es una aplicación web que te permite **programar streams y publicaciones** y **automatizar anuncios** para varias plataformas desde un solo panel. Pensada para streamers y creadores que quieren planificar Twitch, Discord, X (Twitter), Instagram y YouTube, compartir una página pública de horario y usar bots de chat (Nightbot, Streamer.bot) con comandos como !schedule y !nextstream, sin tener que entrar en cada plataforma por separado.
 
 ---
 
@@ -42,6 +42,10 @@ En el **Dashboard** (/dashboard) tienes:
 
 Desde aquí se llega al **calendario** y a la creación de publicaciones.
 
+### Modo stream (ocultar datos sensibles al transmitir)
+
+En la cabecera hay un **modo stream** (icono de vídeo). Cuando está **activado**, la app oculta datos sensibles en **Configuración → Bots** y **Configuración → Perfil** (API key, URLs, email, webhook de Discord) para que puedas compartir pantalla durante un stream con seguridad. Desactívalo cuando termines para volver a ver y copiar tus claves.
+
 ---
 
 ## Programar contenido (Calendario)
@@ -74,9 +78,10 @@ En **To-do** (/todos) puedes:
 
 Cada usuario tiene una **página pública** que puede compartir en su bio de Twitch, Discord o redes:
 
-- **URL:** `tudominio.com/streamer/tu_usuario` — muestra tus próximos streams, cuenta atrás y un aviso si estás en directo.
-- **Incrustar:** `tudominio.com/embed/streamer/tu_usuario` — para poner en un iframe (paneles de Discord, web de fans, etc.).
-- El enlace y el código de incrustación se copian desde **Configuración → Bots**.
+- **URL:** `tudominio.com/streamer/tu_usuario` — muestra tus próximos streams, cuenta atrás al siguiente y un aviso si estás en directo.
+- **Avísame:** Los viewers pueden suscribirse con su email para recibir recordatorios antes de que vayas en vivo.
+- **Incrustar:** `tudominio.com/embed/streamer/tu_usuario` — para usar en un iframe (paneles de Discord, web de fans, etc.).
+- El enlace y la URL de incrustación se copian desde **Configuración → Bots**.
 
 ---
 
@@ -130,7 +135,7 @@ En **Configuración** (/settings) tienes varias pestañas:
 - **Perfil:** nombre, email, enlace de merchandising, foto, opciones del dashboard (Twitch).
 - **Notificaciones:** preferencias de avisos.
 - **Plataformas:** conectar o desconectar Google, Twitch, Discord, X (Twitter), YouTube. Aquí también puedes elegir el **canal de Discord para clips de Twitch**: los clips que se publiquen automáticamente irán al servidor y canal que configures.
-- **Bots:** conectar **Nightbot** para que tú o tus viewers añadan tareas desde el chat (comando `!todo`). También verás el **enlace de tu página pública** (`/streamer/tu_usuario`) y el código para **incrustar** el calendario en Discord o en tu web (`/embed/streamer/tu_usuario`).
+- **Bots:** tu **API key** y las **URLs de los comandos de chat** para Nightbot, Streamer.bot o Mix It Up. Cada URL está lista para copiar (incluye la key). Comandos: próximo stream, countdown, horario semanal (!schedule / !week), goal (!goal), enlace al horario público (!myschedule), estadísticas de stream, frase/idea aleatoria y !commands (lista de comandos). También verás el **enlace de tu página pública** (`/streamer/tu_usuario`) y la **URL de incrustación** para Discord o tu web (`/embed/streamer/tu_usuario`). To-do: añadir ítems desde el chat con `!todo texto` cuando Nightbot esté configurado.
 - **Seguridad:** cambiar contraseña.
 - **Apariencia:** tema, color de acento, banners de cabecera.
 - **Facturación:** ver licencia, comprar o renovar (Stripe), historial de pagos.

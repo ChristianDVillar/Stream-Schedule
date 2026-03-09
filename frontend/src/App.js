@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, useNavigate, Link, useLocation } from 'react-router-dom';
-import { Menu, X, ShoppingBag, Globe, LogOut } from 'lucide-react';
+import { Menu, X, ShoppingBag, Globe, LogOut, Video } from 'lucide-react';
 import { AppRoutes } from './routes/AppRoutes';
 import HeaderBanners from './components/HeaderBanners';
 import MessagesAndNotificationsDropdown from './components/MessagesAndNotificationsDropdown';
 import ThemeImage from './components/ThemeImage';
 import { Toaster } from 'react-hot-toast';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
+import { StreamModeProvider, useStreamMode } from './contexts/StreamModeContext';
 import { AuthProvider, useAuth } from './store/authStore';
 import { getStoredAccentColor, applyAccentColor, THEME_CHANGE_EVENT } from './utils/themeUtils';
 import { getUnreadMessageCount, getAdminFeatures, apiClient } from './api';
@@ -17,6 +18,7 @@ const PUBLIC_PAGES_WITH_OWN_FOOTER = ['/', '/pricing', '/privacy', '/terms', '/f
 function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInstallApp }) {
   const navigate = useNavigate();
   const { t, toggleLanguage, language } = useLanguage();
+  const { streamMode, toggleStreamMode } = useStreamMode();
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -77,6 +79,17 @@ function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInst
             )}
           </button>
           <span className="hidden md:inline text-gray-600 dark:text-gray-300 truncate text-sm min-w-0">{user.isAdmin ? t('common.admin') : t('common.user')}: <span className="font-semibold">{user.username}</span></span>
+          <button
+            type="button"
+            onClick={toggleStreamMode}
+            className={`flex-shrink-0 p-2 sm:px-3 sm:py-2 rounded-lg flex items-center justify-center gap-1 sm:gap-2 transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800 ${streamMode ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+            title={streamMode ? (t('common.streamModeOff') || 'Turn off stream mode') : (t('common.streamModeOn') || 'Stream mode — hide sensitive data')}
+            aria-label={streamMode ? (t('common.streamModeOff') || 'Turn off stream mode') : (t('common.streamModeOn') || 'Stream mode')}
+            aria-pressed={streamMode}
+          >
+            <Video className="w-5 h-5 flex-shrink-0" />
+            <span className="hidden sm:inline text-sm font-medium">{t('common.streamMode') || 'Stream'}</span>
+          </button>
         </div>
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 flex-nowrap">
           {process.env.REACT_APP_SHOW_PWA_INSTALL === 'true' && installPromptEvent && onInstallApp && (
@@ -425,9 +438,11 @@ function AppContent() {
 const App = () => (
   <LanguageProvider>
     <AuthProvider>
-      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <AppContent />
-      </Router>
+      <StreamModeProvider>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <AppContent />
+        </Router>
+      </StreamModeProvider>
     </AuthProvider>
   </LanguageProvider>
 );

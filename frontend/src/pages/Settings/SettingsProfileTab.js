@@ -1,5 +1,6 @@
 import React from 'react';
 import { Camera } from 'lucide-react';
+import { useStreamMode } from '../../contexts/StreamModeContext';
 
 const timezones = [
   'UTC', 'America/New_York', 'America/Los_Angeles', 'Europe/London',
@@ -13,6 +14,8 @@ const languages = [
   { code: 'de', name: 'Deutsch' }
 ];
 
+const MASK = '••••••••';
+
 export default function SettingsProfileTab({
   user,
   profileData,
@@ -23,8 +26,15 @@ export default function SettingsProfileTab({
   onProfilePhotoRemove,
   t,
 }) {
+  const { streamMode } = useStreamMode();
+
   return (
     <div className="space-y-6 min-w-0">
+      {streamMode && (
+        <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 text-amber-800 dark:text-amber-200 text-sm">
+          {t('common.streamModeProfileHint') || 'Stream mode is on — email, username and other sensitive fields are hidden. Turn it off in the header to edit.'}
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div className="relative flex-shrink-0">
           {profileData.profileImageUrl ? (
@@ -75,13 +85,15 @@ export default function SettingsProfileTab({
             <input
               id="username"
               type="text"
-              value={profileData.username}
-              onChange={(e) => setProfileData(prev => ({ ...prev, username: e.target.value }))}
+              value={streamMode ? MASK : profileData.username}
+              onChange={(e) => !streamMode && setProfileData(prev => ({ ...prev, username: e.target.value }))}
+              readOnly={streamMode}
               className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                 errors.username ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-              }`}
+              } ${streamMode ? 'opacity-80' : ''}`}
             />
-            {errors.username && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.username}</p>}
+            {streamMode && <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">{t('common.streamModeHidden') || 'Hidden (stream mode is on)'}</p>}
+            {!streamMode && errors.username && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.username}</p>}
           </div>
 
           <div>
@@ -91,13 +103,15 @@ export default function SettingsProfileTab({
             <input
               id="email"
               type="email"
-              value={profileData.email}
-              onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
+              value={streamMode ? MASK : profileData.email}
+              onChange={(e) => !streamMode && setProfileData(prev => ({ ...prev, email: e.target.value }))}
+              readOnly={streamMode}
               className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                 errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-              }`}
+              } ${streamMode ? 'opacity-80' : ''}`}
             />
-            {errors.email && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email}</p>}
+            {streamMode && <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">{t('common.streamModeHidden') || 'Hidden (stream mode is on)'}</p>}
+            {!streamMode && errors.email && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email}</p>}
           </div>
         </div>
 
@@ -120,11 +134,13 @@ export default function SettingsProfileTab({
           <input
             id="merchandisingLink"
             type="url"
-            value={profileData.merchandisingLink}
-            onChange={(e) => setProfileData(prev => ({ ...prev, merchandisingLink: e.target.value }))}
-            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            value={streamMode && profileData.merchandisingLink ? MASK : profileData.merchandisingLink}
+            onChange={(e) => !streamMode && setProfileData(prev => ({ ...prev, merchandisingLink: e.target.value }))}
+            readOnly={streamMode}
+            className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${streamMode ? 'opacity-80' : ''}`}
             placeholder="https://ejemplo.com/tienda"
           />
+          {streamMode && profileData.merchandisingLink && <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">{t('common.streamModeHidden') || 'Hidden (stream mode is on)'}</p>}
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('profile.merchandisingLinkHint') || 'Agrega el link de tu página de merchandising'}</p>
           {profileData.merchandisingLink && (
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 italic">
@@ -211,11 +227,13 @@ export default function SettingsProfileTab({
             <input
               id="discordAnnounceWebhookUrl"
               type="url"
-              value={profileData.discordAnnounceWebhookUrl || ''}
-              onChange={(e) => setProfileData(prev => ({ ...prev, discordAnnounceWebhookUrl: e.target.value.trim() || '' }))}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              value={streamMode && profileData.discordAnnounceWebhookUrl ? MASK : (profileData.discordAnnounceWebhookUrl || '')}
+              onChange={(e) => !streamMode && setProfileData(prev => ({ ...prev, discordAnnounceWebhookUrl: e.target.value.trim() || '' }))}
+              readOnly={streamMode}
+              className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${streamMode ? 'opacity-80' : ''}`}
               placeholder="https://discord.com/api/webhooks/..."
             />
+            {streamMode && profileData.discordAnnounceWebhookUrl && <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">{t('common.streamModeHidden') || 'Hidden (stream mode is on)'}</p>}
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               {t('settings.discordAnnounceWebhookHint') || 'When you call "Stream start" webhook (or go live), we post a message to this Discord channel.'}
             </p>

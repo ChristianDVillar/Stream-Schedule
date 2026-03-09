@@ -75,6 +75,26 @@ Es una **lista personal** en **To-do** (/todos): puedes añadir ítems, marcar h
 
 ---
 
+## Modo stream y compartir pantalla
+
+### ¿Qué es el modo stream y cuándo usarlo?
+El **modo stream** es un botón en la cabecera (icono de vídeo). Cuando está **activado**, se ocultan datos sensibles en **Configuración → Bots** y **Configuración → Perfil**: tu API key, URLs de webhooks, email, nombre de usuario y webhook de anuncios de Discord se enmascaran para que puedas compartir pantalla durante un stream sin exponerlos. El estado se guarda en el navegador. Desactívalo cuando termines para volver a ver y copiar tus claves y URLs.
+
+---
+
+## Bots de chat y comandos (Nightbot, Streamer.bot)
+
+### ¿Dónde obtengo mi API key y las URLs de los comandos de chat?
+Ve a **Configuración → Bots**. Ahí verás tu **API key** y una tabla de **comandos de chat** con URLs listas para usar (cada URL incluye tu key). Copia la URL del comando que necesites (próximo stream, countdown, horario semanal, goal, lista !commands) y pégalas en Nightbot, Streamer.bot o Mix It Up.
+
+### ¿Qué comandos de chat hay?
+Por ejemplo: **!nextstream** (próximo stream), **!countdown** (tiempo hasta el próximo), **!schedule** o **!week** (horario semanal), **!goal** (meta de seguidores/subs), **!myschedule** (enlace a tu horario público), **!streamstats**, **!quote random**, **!randomidea** y **!commands** (lista todos). En **Configuración → Bots** verás la lista completa con URLs para copiar y ejemplos para Nightbot/Streamer.bot.
+
+### ¿Cómo configuro Nightbot o Streamer.bot?
+En **Configuración → Bots** cada comando tiene una URL. Para **Nightbot** usa el ejemplo “Nightbot” (p. ej. `$(urlfetch https://...)`). Para **Streamer.bot** llama a la misma URL en tu acción. Tu API key va en la URL; mantenla en privado y no la compartas en stream (activa el **modo stream** para ocultarla al compartir pantalla).
+
+---
+
 ## Ajustes e idioma
 
 ### ¿Cómo cambio el idioma (español / inglés)?
