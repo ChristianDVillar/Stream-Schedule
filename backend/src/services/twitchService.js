@@ -271,6 +271,32 @@ export class TwitchService {
   }
 
   /**
+   * Check if a broadcaster is currently live on Twitch.
+   * Uses Helix GET /streams?user_id= (app or user token).
+   * @returns {{ live: boolean, user_name?: string, title?: string, game_name?: string, viewer_count?: number } | { live: false }}
+   */
+  async getStreamByUserId(broadcasterId) {
+    if (!broadcasterId) return { live: false };
+    try {
+      const data = await this.makeRequest(
+        `/streams?user_id=${encodeURIComponent(broadcasterId)}`
+      );
+      const stream = data.data?.[0];
+      if (!stream) return { live: false };
+      return {
+        live: true,
+        user_name: stream.user_name,
+        title: stream.title,
+        game_name: stream.game_name,
+        viewer_count: stream.viewer_count,
+      };
+    } catch (error) {
+      logger.warn('Twitch getStreamByUserId failed', { broadcasterId, error: error.message });
+      return { live: false };
+    }
+  }
+
+  /**
    * Get user info by ID (uses app or user token).
    * Helix users include view_count (channel total views).
    */

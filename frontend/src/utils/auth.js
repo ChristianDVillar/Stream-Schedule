@@ -25,41 +25,11 @@ export function isTokenExpired(token) {
 }
 
 /**
- * Get token payload without verification
- * @param {string} token - JWT token
- * @returns {object|null} - Token payload or null if invalid
- */
-export function getTokenPayload(token) {
-  if (!token) return null;
-  
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload;
-  } catch (error) {
-    return null;
-  }
-}
-
-/**
  * Clear authentication data from localStorage
  */
 export function clearAuth() {
   localStorage.removeItem('auth_token');
   localStorage.removeItem('auth_user');
-}
-
-/**
- * Save authentication data to localStorage
- * @param {string} token - JWT token
- * @param {object} user - User object
- */
-export function saveAuth(token, user) {
-  if (token) {
-    localStorage.setItem('auth_token', token);
-  }
-  if (user) {
-    localStorage.setItem('auth_user', JSON.stringify(user));
-  }
 }
 
 /**

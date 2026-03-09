@@ -1,6 +1,6 @@
 /**
  * Dynamic mini-calendar preview for the landing page.
- * Shows fake demo events with titles and platform icons (no image asset).
+ * Responsive: horizontal scroll on small screens; compact layout on xs.
  */
 import React from 'react';
 import { Calendar, Twitch, Twitter } from 'lucide-react';
@@ -22,7 +22,6 @@ const eventsByDay = DEMO_EVENTS.reduce((acc, evt) => {
 }, {});
 
 function PlatformIcon({ platform, size = 14 }) {
-  const color = DEFAULT_PLATFORM_COLORS[platform] || '#6b7280';
   const style = { width: size, height: size };
   switch (platform) {
     case 'twitch':
@@ -45,27 +44,27 @@ function PlatformIcon({ platform, size = 14 }) {
 
 function EventCard({ evt }) {
   return (
-    <div className="flex flex-col h-full min-h-[140px] bg-white dark:bg-gray-800 overflow-hidden">
+    <div className="flex flex-col h-full min-h-[100px] sm:min-h-[140px] bg-white dark:bg-gray-800 overflow-hidden rounded">
       <div
-        className="px-2 py-1.5 sm:px-3 sm:py-2 text-white text-xs sm:text-sm font-medium flex items-center gap-1.5 flex-shrink-0"
+        className="px-1.5 py-1 sm:px-2 sm:py-1.5 md:px-3 md:py-2 text-white text-[10px] sm:text-sm font-medium flex items-center gap-1 sm:gap-1.5 flex-shrink-0"
         style={{ backgroundColor: DEFAULT_PLATFORM_COLORS.twitch }}
       >
-        <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 opacity-90" />
-        <span>{evt.day} {evt.time}</span>
+        <Calendar className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 opacity-90" />
+        <span className="truncate">{evt.day} {evt.time}</span>
       </div>
-      <div className="px-2 py-2 sm:px-3 sm:py-2.5 flex-1 min-h-0">
-        <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100 truncate" title={evt.title}>
+      <div className="px-1.5 py-1.5 sm:px-2 sm:py-2 md:px-3 md:py-2.5 flex-1 min-h-0">
+        <p className="text-[10px] sm:text-sm font-medium text-gray-900 dark:text-gray-100 truncate" title={evt.title}>
           {evt.title}
         </p>
-        <div className="flex items-center gap-1 sm:gap-1.5 mt-1 sm:mt-1.5 flex-wrap">
+        <div className="flex items-center gap-0.5 sm:gap-1 mt-0.5 sm:mt-1.5 flex-wrap">
           {evt.platforms.map((p) => (
             <span
               key={p}
-              className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded text-white flex-shrink-0"
+              className="inline-flex items-center justify-center w-4 h-4 sm:w-6 sm:h-6 rounded text-white flex-shrink-0"
               style={{ backgroundColor: DEFAULT_PLATFORM_COLORS[p] || '#6b7280' }}
               title={p}
             >
-              <PlatformIcon platform={p} size={10} />
+              <PlatformIcon platform={p} size={8} />
             </span>
           ))}
         </div>
@@ -76,32 +75,39 @@ function EventCard({ evt }) {
 
 export default function LandingCalendarPreview() {
   return (
-    <div className="w-full rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden bg-gray-300 dark:bg-gray-600">
-      {/* Single grid: header row + content row, 7 columns — one unified grid */}
-      <div className="grid grid-cols-7 gap-px bg-gray-300 dark:bg-gray-600">
-        {/* Row 1: day headers */}
-        {WEEK_DAYS.map((d) => (
-          <div
-            key={`h-${d}`}
-            className="py-2.5 sm:py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800"
-          >
-            {d}
+    <div className="w-full min-w-0 rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden bg-gray-300 dark:bg-gray-600">
+      {/* Scroll horizontally on narrow viewports so the 7-day grid stays readable */}
+      <div className="overflow-x-auto overflow-y-hidden -mx-1 sm:mx-0 px-1 sm:px-0">
+        <div className="inline-block min-w-[280px] sm:min-w-full rounded-lg overflow-hidden">
+          <div className="grid grid-cols-7 gap-px bg-gray-300 dark:bg-gray-600">
+            {/* Row 1: day headers */}
+            {WEEK_DAYS.map((d) => (
+              <div
+                key={`h-${d}`}
+                className="min-w-[36px] sm:min-w-0 py-1.5 sm:py-2.5 md:py-3 text-center text-[10px] sm:text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800"
+              >
+                {d}
+              </div>
+            ))}
+            {/* Row 2: one cell per day */}
+            {WEEK_DAYS.map((day) => (
+              <div
+                key={day}
+                className="min-w-[36px] sm:min-w-0 min-h-[120px] sm:min-h-[160px] md:min-h-[180px] bg-gray-50 dark:bg-gray-800/80 p-0.5 sm:p-1.5 flex flex-col"
+              >
+                {eventsByDay[day] ? (
+                  <EventCard evt={eventsByDay[day]} />
+                ) : (
+                  <div className="h-full min-h-[100px] sm:min-h-[140px] bg-gray-100/80 dark:bg-gray-800/50 rounded-sm" aria-hidden />
+                )}
+              </div>
+            ))}
           </div>
-        ))}
-        {/* Row 2: one cell per day — same columns as header */}
-        {WEEK_DAYS.map((day) => (
-          <div
-            key={day}
-            className="min-h-[160px] sm:min-h-[180px] bg-gray-50 dark:bg-gray-800/80 p-1 sm:p-1.5 flex flex-col"
-          >
-            {eventsByDay[day] ? (
-              <EventCard evt={eventsByDay[day]} />
-            ) : (
-              <div className="h-full min-h-[140px] bg-gray-100/80 dark:bg-gray-800/50 rounded-sm" aria-hidden />
-            )}
-          </div>
-        ))}
+        </div>
       </div>
+      <p className="sr-only">
+        Demo calendar: Mon 20:00 Elden Ring Stream, Wed 21:00 Indie Game Testing, Fri 19:30 Community Night, Sat 22:00 Ranked Grinding.
+      </p>
     </div>
   );
 }

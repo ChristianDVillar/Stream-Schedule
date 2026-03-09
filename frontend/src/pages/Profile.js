@@ -80,7 +80,7 @@ const Profile = ({ user, token }) => {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, t]);
 
   useEffect(() => {
     fetchProfileData();

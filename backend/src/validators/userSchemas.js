@@ -123,7 +123,10 @@ export const updateProfileSchema = Joi.object({
     Joi.string().valid('bottom-right', 'bottom-left', 'top-right', 'top-left'),
     Joi.object({ x: Joi.number().min(0).max(100).required(), y: Joi.number().min(0).max(100).required() }),
     Joi.string().pattern(/^\{.*\}$/) // JSON string from stored custom position
-  ).optional()
+  ).optional(),
+  streamGoalType: Joi.string().valid('followers', 'subs').allow(null).optional(),
+  streamGoalTarget: Joi.number().integer().min(1).allow(null).optional(),
+  discordAnnounceWebhookUrl: Joi.string().uri().allow('', null).optional()
 }).min(1).messages({
   'object.min': 'At least one field must be provided to update'
 });

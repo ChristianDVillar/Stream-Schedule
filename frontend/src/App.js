@@ -167,6 +167,9 @@ function Sidebar({ user, open, onClose, adminUnreadMessageCount = 0, adminFinanc
         {!user?.isAdmin && <Link to="/templates" className={getLinkClasses("/templates")}>{t('templates.menu') || 'Templates'}</Link>}
         {!user?.isAdmin && <Link to="/media" className={getLinkClasses("/media")}>{t('media.menu') || t('media.title') || 'Media'}</Link>}
         <Link to="/todos" className={getLinkClasses("/todos")}>{t('todo.menu') || 'To-do'}</Link>
+        {!user?.isAdmin && <Link to="/stream-ideas" className={getLinkClasses("/stream-ideas")}>{t('streamIdeas.menu') || 'Stream Ideas'}</Link>}
+        {!user?.isAdmin && <Link to="/suggestions" className={getLinkClasses("/suggestions")}>{t('suggestions.menu') || 'Suggestions'}</Link>}
+        {!user?.isAdmin && <Link to="/stream-timeline" className={getLinkClasses("/stream-timeline")}>{t('timeline.menu') || 'Timeline'}</Link>}
         {!user?.isAdmin && <Link to="/messages" className={getLinkClasses("/messages")}>{t('common.messages')}</Link>}
         <Link to="/settings" className={getLinkClasses("/settings")}>{t('settings.title')}</Link>
         <Link to="/profile" className={getLinkClasses("/profile")}>{t('profile.title')}</Link>

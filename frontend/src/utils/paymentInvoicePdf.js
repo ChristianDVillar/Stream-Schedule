@@ -51,7 +51,6 @@ const DEFAULT_FIXED_COSTS = [
 export function buildPaymentsInvoicePdf(payments, options = {}) {
   const {
     logoDataUrl,
-    appName = 'Streamer Scheduler',
     ownerName = 'Christian David Villar Colodro',
     ownerEmail = 'christiandvillar@gmail.com',
     usePlaceholders = true,
@@ -59,7 +58,6 @@ export function buildPaymentsInvoicePdf(payments, options = {}) {
     colTipoSuscripcion = 'Tipo de suscripción',
     colPago = 'Pago',
     colMoneda = 'Moneda',
-    totalLabel = 'Total',
     placeholderName = '[Nombre o Razón Social]',
     placeholderEmail = '[Email de contacto]',
     placeholderNif = '[NIF/CIF]',
@@ -74,12 +72,8 @@ export function buildPaymentsInvoicePdf(payments, options = {}) {
     noteText = 'Documento generado a partir de suscripciones. Completar con la gestoría: NIF/CIF, domicilio, período, IVA si aplica.',
     fixedCosts = DEFAULT_FIXED_COSTS,
     fixedCostsSectionLabel = 'Costes fijos mensuales (control)',
-    revenueMinusFixedLabel = 'Ingresos (suscripciones) − Costes fijos',
-    resultLabel = 'Resultado',
-    incomeTotalsSectionLabel = 'Total ingresos (suscripciones)',
     fixedCostsTotalLabel = 'Total gastos fijos',
     netIncomeLabel = 'Total de ingresos (ingresos − gastos fijos)',
-    totalIncomeHeadingLabel = 'Total income =',
     totalIncomeSubscriptionsLabel = 'Total income (subscriptions)',
     finalTotalSectionLabel = 'Final Total',
     conversionRateLabel = 'Conversion rate',

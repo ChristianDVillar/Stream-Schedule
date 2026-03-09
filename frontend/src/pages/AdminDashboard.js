@@ -10,12 +10,6 @@ import { maskEmail } from '../utils/emailUtils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { buildPaymentsInvoicePdf } from '../utils/paymentInvoicePdf';
 
-const mockLogs = [
-  { id: 1, action: 'User admin@example.com created', date: '2025-07-21 10:00' },
-  { id: 2, action: 'License generated for user1@example.com', date: '2025-07-21 10:05' },
-  { id: 3, action: 'User user2@example.com email changed', date: '2025-07-21 10:10' },
-];
-
 export default function AdminDashboard({ token, user, onLogout }) {
   const { t } = useLanguage();
   const [users, setUsers] = useState([]);
@@ -780,6 +774,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
 
   useEffect(() => {
     if (token && section === 'alerts' && adminFeatures.adminFinance) fetchAlertConfig();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchAlertConfig when section is alerts
   }, [token, section, adminFeatures.adminFinance]);
 
   return (

@@ -24,6 +24,9 @@ ALTER TABLE public."NotificationReads" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."ContentPlatforms" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."PublicationMetrics" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."TwitchBitEvents" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."Todos" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."StreamReminders" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."StreamItems" ENABLE ROW LEVEL SECURITY;
 -- TwitchEventSubSubscriptions contains sensitive column "secret"; RLS required to avoid API exposure.
 ALTER TABLE public."TwitchEventSubSubscriptions" ENABLE ROW LEVEL SECURITY;
 

@@ -1,18 +1,14 @@
 /**
  * Embeddable streamer schedule: iframe src="/embed/streamer/username"
  * Minimal layout for embedding in Discord panels, fan pages, etc.
+ * Shows LIVE on Twitch, countdown to next stream, and schedule.
  */
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { Calendar, Clock } from 'lucide-react';
+import { useParams } from 'react-router-dom';
+import { Clock, Radio } from 'lucide-react';
 import { getPublicStreamerEvents } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
-
-function formatEventDate(scheduledFor) {
-  if (!scheduledFor) return '—';
-  const d = new Date(scheduledFor);
-  return d.toLocaleDateString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
-}
+import { formatEventDate, getCountdown } from '../utils/dateUtils';
 
 function isLiveNow(scheduledFor, eventEndTime) {
   const now = new Date();
@@ -27,6 +23,7 @@ export default function PublicStreamEmbed() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [countdown, setCountdown] = useState(null);
 
   useEffect(() => {
     if (!username) {
@@ -56,6 +53,22 @@ export default function PublicStreamEmbed() {
     return () => { cancelled = true; };
   }, [username]);
 
+  useEffect(() => {
+    if (!data?.events?.length) {
+      setCountdown(null);
+      return;
+    }
+    const first = data.events[0];
+    const live = data.liveOnTwitch || isLiveNow(first.scheduledFor, first.eventEndTime);
+    const update = () => {
+      if (live) setCountdown({ live: true });
+      else setCountdown(getCountdown(first.scheduledFor));
+    };
+    update();
+    const interval = setInterval(update, 60000);
+    return () => clearInterval(interval);
+  }, [data?.events, data?.liveOnTwitch]);
+
   if (loading) {
     return (
       <div className="min-h-[120px] bg-gray-100 dark:bg-gray-800 flex items-center justify-center p-4 rounded-lg">
@@ -72,6 +85,9 @@ export default function PublicStreamEmbed() {
     );
   }
 
+  const firstEvent = data.events?.[0];
+  const showLive = data.liveOnTwitch || (firstEvent && isLiveNow(firstEvent.scheduledFor, firstEvent.eventEndTime));
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden min-w-[280px] max-w-[400px]">
       <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
@@ -85,6 +101,30 @@ export default function PublicStreamEmbed() {
           {t('publicStream.poweredBy') || 'Powered by'} Streamer Scheduler
         </a>
       </div>
+      {(showLive || (countdown && !countdown.live && firstEvent)) && (
+        <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2 text-xs">
+          {showLive ? (
+            <>
+              <span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse" aria-hidden />
+              <span className="font-medium text-red-600 dark:text-red-400">{t('publicStream.liveNow') || 'LIVE'}</span>
+              {data.twitchStreamUrl && (
+                <a href={data.twitchStreamUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:underline truncate">
+                  {t('publicStream.liveOnTwitch') || 'on Twitch'} →
+                </a>
+              )}
+            </>
+          ) : (
+            countdown && (
+              <>
+                <Clock className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                <span className="text-gray-600 dark:text-gray-400">
+                  {t('publicStream.nextStream') || 'Next'}: {countdown.hours}h {countdown.minutes}m
+                </span>
+              </>
+            )
+          )}
+        </div>
+      )}
       <div className="p-3">
         {data.events.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('publicStream.noUpcoming') || 'No upcoming streams.'}</p>
@@ -94,10 +134,10 @@ export default function PublicStreamEmbed() {
               <li key={evt.id} className="flex items-center gap-2 text-sm">
                 <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
                 <span className="text-gray-900 dark:text-white truncate flex-1">{evt.title}</span>
-                {isLiveNow(evt.scheduledFor, evt.eventEndTime) ? (
-                  <span className="text-xs font-medium text-red-600 dark:text-red-400 flex-shrink-0">LIVE</span>
+                {(data.liveOnTwitch && data.events[0]?.id === evt.id) || isLiveNow(evt.scheduledFor, evt.eventEndTime) ? (
+                  <span className="flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400 flex-shrink-0"><Radio className="w-3 h-3" /> LIVE</span>
                 ) : (
-                  <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">{formatEventDate(evt.scheduledFor)}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">{formatEventDate(evt.scheduledFor, { short: true })}</span>
                 )}
               </li>
             ))}

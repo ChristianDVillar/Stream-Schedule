@@ -1,6 +1,5 @@
 import React from 'react';
 import { Camera } from 'lucide-react';
-import { useLanguage } from '../../contexts/LanguageContext';
 
 const timezones = [
   'UTC', 'America/New_York', 'America/Los_Angeles', 'Europe/London',
@@ -161,6 +160,65 @@ export default function SettingsProfileTab({
                 <option key={lang.code} value={lang.code}>{lang.name}</option>
               ))}
             </select>
+          </div>
+        </div>
+
+        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+            {t('settings.streamGoal') || 'Stream goal (!goal)'}
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            {t('settings.streamGoalHint') || 'Set a follower or sub goal for the !goal chat command. Connect Twitch in Integrations to show current count.'}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="streamGoalType" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {t('settings.streamGoalType') || 'Goal type'}
+              </label>
+              <select
+                id="streamGoalType"
+                value={profileData.streamGoalType || ''}
+                onChange={(e) => setProfileData(prev => ({ ...prev, streamGoalType: e.target.value || null }))}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              >
+                <option value="">{t('settings.noGoal') || 'No goal'}</option>
+                <option value="followers">{t('settings.goalFollowers') || 'Followers'}</option>
+                <option value="subs">{t('settings.goalSubs') || 'Subs'}</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="streamGoalTarget" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {t('settings.streamGoalTarget') || 'Target'}
+              </label>
+              <input
+                id="streamGoalTarget"
+                type="number"
+                min={1}
+                value={profileData.streamGoalTarget === '' || profileData.streamGoalTarget == null ? '' : profileData.streamGoalTarget}
+                onChange={(e) => {
+                  const v = e.target.value.trim();
+                  setProfileData(prev => ({ ...prev, streamGoalTarget: v === '' ? '' : (parseInt(v, 10) || '') }));
+                }}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                placeholder="500"
+              />
+            </div>
+          </div>
+          <div className="mt-4">
+            <label htmlFor="discordAnnounceWebhookUrl" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {t('settings.discordAnnounceWebhook') || 'Discord announce webhook'}
+            </label>
+            <input
+              id="discordAnnounceWebhookUrl"
+              type="url"
+              value={profileData.discordAnnounceWebhookUrl || ''}
+              onChange={(e) => setProfileData(prev => ({ ...prev, discordAnnounceWebhookUrl: e.target.value.trim() || '' }))}
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              placeholder="https://discord.com/api/webhooks/..."
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              {t('settings.discordAnnounceWebhookHint') || 'When you call "Stream start" webhook (or go live), we post a message to this Discord channel.'}
+            </p>
           </div>
         </div>
 

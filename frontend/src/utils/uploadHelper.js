@@ -4,14 +4,8 @@
  * Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.
  */
 
-import { uploadFile, getPublicImageUrl, getSignedVideoUrl } from './supabaseClient';
-import { registerUpload, uploadFileThroughBackend } from '../api';
+import { uploadFileThroughBackend } from '../api';
 import toast from 'react-hot-toast';
-
-// Check if Supabase is configured
-const isSupabaseConfigured = () => {
-  return !!(process.env.REACT_APP_SUPABASE_URL && process.env.REACT_APP_SUPABASE_ANON_KEY);
-};
 
 /**
  * Complete upload flow: Upload through backend (secure method)

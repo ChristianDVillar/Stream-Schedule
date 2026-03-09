@@ -95,7 +95,7 @@ export default function Landing() {
           <p className="mt-4 text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
             {t('landing.productPreviewSubtitle') || 'Plan streams, automate announcements and manage all your platforms from one dashboard.'}
           </p>
-          <div className="mt-10 rounded-xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 min-h-[280px] flex items-center justify-center p-2 sm:p-4">
+          <div className="mt-10 rounded-xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 min-h-[200px] sm:min-h-[280px] flex items-center justify-center p-2 sm:p-4 w-full max-w-full min-w-0">
             <LandingCalendarPreview />
           </div>
         </div>

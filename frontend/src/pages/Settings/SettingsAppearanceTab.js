@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Palette, Image as ImageIcon, Upload, X, Plus, Trash2 } from 'lucide-react';
 import { setPlatformColors, resetPlatformColors, PLATFORM_IDS, DEFAULT_PLATFORM_COLORS } from '../../utils/platformColors';
 import { BANNER_CONFIG_KEY, getBannersFromEnv } from '../../components/HeaderBanners';
-import { ACCENT_COLORS, COLOR_PARTS, getCustomColorConfig, setCustomColorConfig, applyCustomColors } from '../../utils/themeUtils';
+import { ACCENT_COLORS, COLOR_PARTS, getCustomColorConfig, setCustomColorConfig } from '../../utils/themeUtils';
 import toast from 'react-hot-toast';
 
 const PRESET_COLOR_OPTIONS = [

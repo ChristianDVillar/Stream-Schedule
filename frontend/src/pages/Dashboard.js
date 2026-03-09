@@ -36,6 +36,7 @@ import {
   Paperclip,
   ExternalLink
 } from 'lucide-react';
+import html2canvas from 'html2canvas';
 import { DISCORD_ICON_URL } from '../constants/platforms';
 
 const Dashboard = ({ user, token, ...props }) => {
@@ -270,7 +271,7 @@ const Dashboard = ({ user, token, ...props }) => {
     } catch (error) {
       toast.error(t('dashboard.duplicateFailed'));
     }
-  }, [token, fetchContents]);
+  }, [token, fetchContents, t]);
 
   const handleExportData = useCallback(async () => {
     try {
@@ -292,7 +293,7 @@ const Dashboard = ({ user, token, ...props }) => {
     } catch (error) {
       toast.error(t('dashboard.exportFailed'));
     }
-  }, [token]);
+  }, [token, t]);
 
   // Convierte datos a CSV; headerLabels opcional: primera fila en idioma del usuario
   const convertToCSV = useCallback((data, headers, headerLabels) => {
@@ -480,6 +481,60 @@ const Dashboard = ({ user, token, ...props }) => {
 
   const DragAndDropCalendar = useMemo(() => withDragAndDrop(BigCalendar), []);
 
+  // This week's schedule (for Copy / Tweet)
+  const weeklyScheduleText = useMemo(() => {
+    const now = new Date();
+    const endOfWeek = new Date(now);
+    const daysUntilSat = (6 - endOfWeek.getDay() + 7) % 7;
+    endOfWeek.setDate(endOfWeek.getDate() + daysUntilSat);
+    endOfWeek.setHours(23, 59, 59, 999);
+    const weekContents = contents
+      .filter((c) => {
+        const d = new Date(c.scheduledFor);
+        return d >= now && d <= endOfWeek && ['scheduled', 'queued', 'publishing', 'published'].includes(c.status);
+      })
+      .sort((a, b) => new Date(a.scheduledFor) - new Date(b.scheduledFor));
+    if (weekContents.length === 0) return '';
+    const lines = weekContents.map((c) => {
+      const d = new Date(c.scheduledFor);
+      const day = d.toLocaleDateString(undefined, { weekday: 'long' });
+      const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+      return `${day} — ${c.title} (${time})`;
+    });
+    return (t('dashboard.weeklyScheduleTitle') || "This week's stream schedule:") + "\n\n" + lines.join('\n');
+  }, [contents, t]);
+
+  const handleCopyWeeklySchedule = useCallback(() => {
+    if (!weeklyScheduleText) {
+      toast.error(t('dashboard.noStreamsThisWeek') || 'No streams scheduled this week');
+      return;
+    }
+    navigator.clipboard.writeText(weeklyScheduleText).then(() => toast.success(t('dashboard.copied') || 'Copied to clipboard'));
+  }, [weeklyScheduleText, t]);
+
+  const weeklyScheduleCardRef = React.useRef(null);
+  const handleDownloadScheduleImage = useCallback(async () => {
+    if (!weeklyScheduleCardRef.current || !weeklyScheduleText) {
+      toast.error(t('dashboard.noStreamsThisWeek') || 'No streams scheduled this week.');
+      return;
+    }
+    try {
+      const canvas = await html2canvas(weeklyScheduleCardRef.current, {
+        backgroundColor: undefined,
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+      const link = document.createElement('a');
+      link.download = `schedule-${new Date().toISOString().slice(0, 10)}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      toast.success(t('dashboard.scheduleImageDownloaded') || 'Image downloaded');
+    } catch (e) {
+      toast.error(t('dashboard.scheduleImageFailed') || 'Could not generate image');
+    }
+  }, [weeklyScheduleText, t]);
+
   // Memoized calendar events
   const calendarEvents = useMemo(() => {
     return filteredContents.map(content => ({
@@ -568,7 +623,7 @@ const Dashboard = ({ user, token, ...props }) => {
     } catch (error) {
       toast.error(t('dashboard.rescheduleFailed'));
     }
-  }, [token, fetchContents]);
+  }, [token, fetchContents, t]);
 
   // Filtrar posts por día seleccionado - memoized
   const postsForSelectedDay = useMemo(() => {
@@ -865,6 +920,49 @@ const Dashboard = ({ user, token, ...props }) => {
             </div>
           </div>
         </div>
+
+        {!user?.isAdmin && (
+          <div
+            ref={weeklyScheduleCardRef}
+            className="mb-6 p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700"
+          >
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('dashboard.weeklyScheduleCard') || "This week's schedule"}</h3>
+            {weeklyScheduleText ? (
+              <>
+                <pre className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap mb-3 font-sans">{weeklyScheduleText}</pre>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyWeeklySchedule}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+                  >
+                    <Copy className="w-4 h-4" />
+                    {t('dashboard.copySchedule') || 'Copy'}
+                  </button>
+                  <a
+                    href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(weeklyScheduleText.slice(0, 260))}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1DA1F2] hover:bg-[#1a8cd8] text-white text-sm"
+                  >
+                    <Twitter className="w-4 h-4" />
+                    {t('dashboard.tweetSchedule') || 'Tweet'}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleDownloadScheduleImage}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+                  >
+                    <Download className="w-4 h-4" />
+                    {t('dashboard.downloadImage') || 'Download image'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.noStreamsThisWeek') || 'No streams scheduled this week.'}</p>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
           <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">{t('dashboard.scheduledContent')}</h2>

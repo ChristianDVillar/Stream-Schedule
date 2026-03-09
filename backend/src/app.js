@@ -34,6 +34,11 @@ import templatesRoutes from './routes/templates.js';
 import todosRoutes from './routes/todos.js';
 import nightbotRoutes from './routes/nightbot.js';
 import streamerRoutes from './routes/streamer.js';
+import webhooksRoutes from './routes/webhooks.js';
+import streamItemsRoutes from './routes/streamItems.js';
+import suggestionsRoutes from './routes/suggestions.js';
+import cronRoutes, { runStreamReminders } from './routes/cron.js';
+import timelineRoutes from './routes/timeline.js';
 import messagesRoutes from './routes/messages.js';
 import notificationsRoutes from './routes/notifications.js';
 import adminPlatformsRoutes from './routes/admin/platforms.js';
@@ -277,6 +282,11 @@ app.use('/api/templates', templatesRoutes);
 app.use('/api/todos', todosRoutes);
 app.use('/api/nightbot', nightbotRoutes);
 app.use('/api/streamer', streamerRoutes);
+app.use('/api/webhooks', webhooksRoutes);
+app.use('/api/stream-items', streamItemsRoutes);
+app.use('/api/suggestions', suggestionsRoutes);
+app.use('/api/cron', cronRoutes);
+app.use('/api/timeline', timelineRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/admin/platforms', adminPlatformsRoutes);
@@ -403,8 +413,15 @@ async function initServer() {
     if (nodeEnv === 'production') {
       logger.warn('Production mode - ensure SSL is enabled for database connections');
     }
+
+    if (process.env.ENABLE_STREAM_REMINDER_CRON === 'true') {
+      const run = () => runStreamReminders().catch((e) => logger.error('Stream reminders job error', { error: e.message }));
+      setTimeout(run, 30 * 1000);
+      setInterval(run, 15 * 60 * 1000);
+      logger.info('Stream reminder cron enabled (every 15 min)');
+    }
   });
-  
+
   return server;
 }
 
