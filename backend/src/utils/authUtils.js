@@ -116,7 +116,9 @@ export function buildUserResponse(user) {
     dashboardShowTwitchBits: userPlain.dashboardShowTwitchBits !== false,
     dashboardShowTwitchDonations: userPlain.dashboardShowTwitchDonations === true,
     discordClipsGuildId: userPlain.discordClipsGuildId || null,
-    discordClipsChannelId: userPlain.discordClipsChannelId || null
+    discordClipsChannelId: userPlain.discordClipsChannelId || null,
+    publicPageBannerUrl: userPlain.publicPageBannerUrl || null,
+    publicPageBannerPosition: userPlain.publicPageBannerPosition || 'top'
   };
 }
 

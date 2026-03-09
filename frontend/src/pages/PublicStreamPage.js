@@ -13,6 +13,20 @@ import { getCountdown } from '../utils/dateUtils';
 import { DEFAULT_PLATFORM_COLORS } from '../utils/platformColors';
 import { DISCORD_ICON_URL } from '../constants/platforms';
 
+/** End color for gradient (slightly darker) per platform */
+const PLATFORM_GRADIENT_END = {
+  twitch: '#6d28d9',
+  discord: '#6d28d9',
+  twitter: '#0c85d0',
+  instagram: '#c13584',
+  youtube: '#cc0000',
+};
+function getHeaderGradient(platformId) {
+  const start = DEFAULT_PLATFORM_COLORS[platformId] || DEFAULT_PLATFORM_COLORS.twitch;
+  const end = PLATFORM_GRADIENT_END[platformId] || PLATFORM_GRADIENT_END.twitch;
+  return `linear-gradient(135deg, ${start} 0%, ${end} 100%)`;
+}
+
 function isLiveNow(scheduledFor, eventEndTime) {
   const now = new Date();
   const start = new Date(scheduledFor);
@@ -66,12 +80,12 @@ function PublicEventCard({ evt, isLive }) {
   const d = new Date(evt.scheduledFor);
   const timeStr = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   const platforms = Array.isArray(evt.platforms) ? evt.platforms : ['twitch'];
-  const headerColor = DEFAULT_PLATFORM_COLORS[platforms[0]] || DEFAULT_PLATFORM_COLORS.twitch;
+  const platformId = platforms[0] || 'twitch';
   return (
-    <div className="flex flex-col h-full min-h-[100px] sm:min-h-[140px] bg-white dark:bg-gray-800 overflow-hidden rounded">
+    <div className="flex flex-col h-full min-h-[100px] sm:min-h-[140px] bg-white dark:bg-gray-800 overflow-hidden rounded shadow-sm">
       <div
         className="px-1.5 py-1 sm:px-2 sm:py-1.5 md:px-3 md:py-2 text-white text-[10px] sm:text-sm font-medium flex items-center gap-1 sm:gap-1.5 flex-shrink-0"
-        style={{ backgroundColor: headerColor }}
+        style={{ background: getHeaderGradient(platformId) }}
       >
         <Calendar className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 opacity-90" />
         <span className="truncate">{timeStr}</span>
@@ -82,16 +96,20 @@ function PublicEventCard({ evt, isLive }) {
           {evt.title}
         </p>
         <div className="flex items-center gap-0.5 sm:gap-1 mt-0.5 sm:mt-1.5 flex-wrap">
-          {platforms.map((p) => (
-            <span
-              key={p}
-              className="inline-flex items-center justify-center w-4 h-4 sm:w-6 sm:h-6 rounded text-white flex-shrink-0"
-              style={{ backgroundColor: DEFAULT_PLATFORM_COLORS[p] || '#6b7280' }}
-              title={p}
-            >
-              <PlatformIcon platform={p} size={8} />
-            </span>
-          ))}
+          {platforms.map((p) => {
+            const start = DEFAULT_PLATFORM_COLORS[p] || '#6b7280';
+            const end = PLATFORM_GRADIENT_END[p] || '#4b5563';
+            return (
+              <span
+                key={p}
+                className="inline-flex items-center justify-center w-4 h-4 sm:w-6 sm:h-6 rounded text-white flex-shrink-0 shadow-sm"
+                style={{ background: `linear-gradient(145deg, ${start} 0%, ${end} 100%)` }}
+                title={p}
+              >
+                <PlatformIcon platform={p} size={8} />
+              </span>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -115,14 +133,14 @@ function PublicStreamCalendar({ events, isLiveNow }) {
   }, [events, sevenDays]);
 
   return (
-    <div className="w-full min-w-0 rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden bg-gray-300 dark:bg-gray-600">
+    <div className="w-full min-w-0 rounded-xl border border-gray-300 dark:border-gray-600 overflow-hidden shadow-md bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-600 dark:via-gray-700 dark:to-gray-600">
       <div className="overflow-x-auto overflow-y-hidden -mx-1 sm:mx-0 px-1 sm:px-0">
-        <div className="inline-block min-w-[280px] sm:min-w-full rounded-lg overflow-hidden">
-          <div className="grid grid-cols-7 gap-px bg-gray-300 dark:bg-gray-600">
+        <div className="inline-block min-w-[280px] sm:min-w-full rounded-xl overflow-hidden p-px">
+          <div className="grid grid-cols-7 gap-px bg-gray-300/80 dark:bg-gray-600/80">
             {sevenDays.map(({ label, dateKey }) => (
               <div
                 key={`h-${dateKey}`}
-                className="min-w-[36px] sm:min-w-0 py-1.5 sm:py-2.5 md:py-3 text-center text-[10px] sm:text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800"
+                className="min-w-[36px] sm:min-w-0 py-1.5 sm:py-2.5 md:py-3 text-center text-[10px] sm:text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gradient-to-b from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900"
               >
                 {label}
               </div>
@@ -133,7 +151,7 @@ function PublicStreamCalendar({ events, isLiveNow }) {
               return (
                 <div
                   key={dateKey}
-                  className="min-w-[36px] sm:min-w-0 min-h-[120px] sm:min-h-[160px] md:min-h-[180px] bg-gray-50 dark:bg-gray-800/80 p-0.5 sm:p-1.5 flex flex-col"
+                  className="min-w-[36px] sm:min-w-0 min-h-[120px] sm:min-h-[160px] md:min-h-[180px] p-0.5 sm:p-1.5 flex flex-col bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800/90 dark:to-gray-800"
                 >
                   {first ? (
                     <PublicEventCard
@@ -141,7 +159,10 @@ function PublicStreamCalendar({ events, isLiveNow }) {
                       isLive={isLiveNow(first.scheduledFor, first.eventEndTime)}
                     />
                   ) : (
-                    <div className="h-full min-h-[100px] sm:min-h-[140px] bg-gray-100/80 dark:bg-gray-800/50 rounded-sm" aria-hidden />
+                    <div
+                      className="h-full min-h-[100px] sm:min-h-[140px] rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700"
+                      aria-hidden
+                    />
                   )}
                 </div>
               );
@@ -212,7 +233,7 @@ export default function PublicStreamPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-accent dark:bg-gray-900 flex items-center justify-center p-4">
         <p className="text-gray-500 dark:text-gray-400">{t('common.loading') || 'Loading…'}</p>
       </div>
     );
@@ -220,10 +241,10 @@ export default function PublicStreamPage() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-accent dark:bg-gray-900 flex items-center justify-center p-4">
         <div className="text-center">
           <p className="text-gray-600 dark:text-gray-300 mb-4">{error === 'Streamer not found' ? (t('publicStream.notFound') || 'Streamer not found') : error}</p>
-          <Link to="/" className="text-indigo-600 dark:text-indigo-400 hover:underline">{t('publicStream.backHome') || 'Back to home'}</Link>
+          <Link to="/" className="text-[var(--accent)] hover:underline">{t('publicStream.backHome') || 'Back to home'}</Link>
         </div>
       </div>
     );
@@ -253,14 +274,33 @@ export default function PublicStreamPage() {
       .finally(() => setRemindSubmitting(false));
   };
 
+  const bannerUrl = data.publicPageBannerUrl || null;
+  const bannerPosition = data.publicPageBannerPosition || 'top';
+  const renderBanner = (at) => {
+    if (!bannerUrl || bannerPosition !== at) return null;
+    if (bannerPosition === 'background') return null;
+    return (
+      <div className="w-full rounded-xl overflow-hidden mb-6 -mx-4 sm:mx-0 shadow-md">
+        <img src={bannerUrl} alt="" className="w-full h-24 sm:h-32 object-cover object-center" onError={(e) => { e.target.style.display = 'none'; }} />
+      </div>
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-xl mx-auto px-4 py-8 sm:py-12">
+    <div className={`min-h-screen bg-gradient-accent dark:bg-gray-900 ${bannerUrl && bannerPosition === 'background' ? 'relative' : ''}`}>
+      {bannerUrl && bannerPosition === 'background' && (
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <img src={bannerUrl} alt="" className="w-full h-full object-cover opacity-30" />
+          <div className="absolute inset-0 bg-gradient-accent dark:bg-gray-900/70" />
+        </div>
+      )}
+      <div className={`max-w-xl mx-auto px-4 py-8 sm:py-12 ${bannerUrl && bannerPosition === 'background' ? 'relative' : ''}`}>
+        {renderBanner('top')}
         <div className="flex items-center gap-4 mb-8">
           {data.profileImageUrl ? (
-            <img src={data.profileImageUrl} alt="" className="w-16 h-16 rounded-full object-cover ring-2 ring-indigo-500/30" />
+            <img src={data.profileImageUrl} alt="" className="w-16 h-16 rounded-full object-cover ring-2 ring-[var(--accent)]/30" />
           ) : (
-            <div className="w-16 h-16 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 text-2xl font-bold">
+            <div className="w-16 h-16 rounded-full bg-accent-subtle flex items-center justify-center text-[var(--accent)] text-2xl font-bold">
               {(data.username || '?').charAt(0).toUpperCase()}
             </div>
           )}
@@ -269,9 +309,10 @@ export default function PublicStreamPage() {
             <p className="text-sm text-gray-500 dark:text-gray-400">{t('publicStream.upcomingStreams') || 'Upcoming streams'}</p>
           </div>
         </div>
+        {renderBanner('above-avatar')}
 
         {(showLiveTwitch || showLiveSchedule) && (
-          <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex flex-wrap items-center gap-3">
+          <div className="mb-6 p-4 rounded-xl border border-red-500/30 flex flex-wrap items-center gap-3 bg-gradient-to-r from-red-500/15 via-red-500/10 to-rose-500/15 dark:from-red-500/20 dark:via-red-500/15 dark:to-rose-500/20">
             <span className="flex h-3 w-3 rounded-full bg-red-500 animate-pulse" aria-hidden />
             <span className="font-semibold text-red-700 dark:text-red-300">{t('publicStream.liveNow') || 'LIVE NOW'}</span>
             {showLiveTwitch ? (
@@ -295,14 +336,16 @@ export default function PublicStreamPage() {
         )}
 
         {!showLiveTwitch && !showLiveSchedule && firstEvent && countdown && (
-          <div className="mb-6 p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
+          <div className="mb-6 p-4 rounded-xl border border-accent-light bg-accent-subtle">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('publicStream.nextStream') || 'Next stream'}</p>
             <p className="text-lg font-semibold text-gray-900 dark:text-white">{firstEvent.title}</p>
-            <p className="text-sm text-indigo-600 dark:text-indigo-400 mt-2">
+            <p className="text-sm text-[var(--accent)] mt-2">
               {t('publicStream.countdown') || 'In'} {countdown.hours}h {countdown.minutes}m
             </p>
           </div>
         )}
+        {renderBanner('above-schedule')}
+        {bannerPosition === 'center' && renderBanner('center')}
 
         <section className="mb-8">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
@@ -320,12 +363,13 @@ export default function PublicStreamPage() {
           <button
             type="button"
             onClick={() => { setRemindOpen(true); setRemindDone(false); setRemindError(null); }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2 dark:focus:ring-offset-gray-900"
           >
             <Bell className="w-4 h-4" />
             {t('publicStream.notifyMe') || 'Notify me'}
           </button>
         </div>
+        {renderBanner('bottom')}
 
         {remindOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !remindSubmitting && setRemindOpen(false)}>
@@ -341,7 +385,7 @@ export default function PublicStreamPage() {
                     value={remindEmail}
                     onChange={(e) => setRemindEmail(e.target.value)}
                     placeholder={t('publicStream.emailPlaceholder') || 'your@email.com'}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent mb-2"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent mb-2"
                     disabled={remindSubmitting}
                     autoFocus
                   />
@@ -350,26 +394,26 @@ export default function PublicStreamPage() {
                     <button type="button" onClick={() => setRemindOpen(false)} className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white" disabled={remindSubmitting}>
                       {t('common.cancel') || 'Cancel'}
                     </button>
-                    <button type="submit" disabled={remindSubmitting} className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
+                    <button type="submit" disabled={remindSubmitting} className="px-4 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50">
                       {remindSubmitting ? (t('common.loading') || 'Loading…') : (t('publicStream.subscribe') || 'Subscribe')}
                     </button>
                   </div>
                 </form>
               )}
-              <button type="button" onClick={() => setRemindOpen(false)} className="mt-2 text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
+              <button type="button" onClick={() => setRemindOpen(false)} className="mt-2 text-sm text-[var(--accent)] hover:underline">
                 {remindDone ? (t('common.close') || 'Close') : (t('common.cancel') || 'Cancel')}
               </button>
             </div>
           </div>
         )}
 
-        <footer className="pt-8 border-t border-gray-200 dark:border-gray-700 text-center">
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+        <footer className="mt-8 pt-6 pb-2 border-t border-accent-light dark:border-gray-700 text-center bg-accent-subtle dark:bg-gray-900/50 rounded-lg px-4">
+          <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
             {t('publicStream.poweredBy') || 'Powered by'} <span className="font-medium text-gray-700 dark:text-gray-300">Streamer Scheduler</span>
           </p>
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--accent)] hover:underline"
           >
             {t('publicStream.createYourOwn') || 'Create your own schedule'}
             <ExternalLink className="w-4 h-4" />

@@ -216,6 +216,17 @@ const User = sequelize.define('User', {
     type: DataTypes.INTEGER,
     allowNull: true,
     comment: 'Target number for stream goal (e.g. 500 followers)'
+  },
+  publicPageBannerUrl: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Banner/image URL for the public shared calendar page'
+  },
+  publicPageBannerPosition: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: 'top',
+    comment: 'Position of banner: top, above-avatar, above-schedule, center, bottom, background'
   }
 });
 

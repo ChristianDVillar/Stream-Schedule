@@ -88,9 +88,18 @@ export default function PublicStreamEmbed() {
   const firstEvent = data.events?.[0];
   const showLive = data.liveOnTwitch || (firstEvent && isLiveNow(firstEvent.scheduledFor, firstEvent.eventEndTime));
 
+  const bannerUrl = data.publicPageBannerUrl || null;
+  const bannerPosition = data.publicPageBannerPosition || 'top';
+  const showBannerInEmbed = bannerUrl && (bannerPosition === 'top' || bannerPosition === 'above-avatar');
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden min-w-[280px] max-w-[400px]">
-      <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+    <div className="rounded-lg overflow-hidden min-w-[280px] max-w-[400px] border-2 border-purple-200 dark:border-purple-800 bg-gradient-to-b from-violet-50 via-white to-fuchsia-50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-800">
+      {showBannerInEmbed && (
+        <div className="w-full h-12 overflow-hidden flex-shrink-0">
+          <img src={bannerUrl} alt="" className="w-full h-full object-cover object-center" onError={(e) => { e.target.style.display = 'none'; }} />
+        </div>
+      )}
+      <div className="px-3 py-2 border-b border-accent-light dark:border-gray-700 flex items-center justify-between bg-accent-subtle dark:bg-gray-800">
         <span className="font-semibold text-gray-900 dark:text-white text-sm truncate">{data.username}</span>
         <a
           href="/"
