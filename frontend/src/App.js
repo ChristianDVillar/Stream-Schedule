@@ -396,26 +396,27 @@ function AppContent() {
   return (
     <>
       <Toaster position="top-right" />
-      <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900 min-w-0">
-        {user && <Sidebar user={user} open={sidebarOpen} onClose={() => setSidebarOpen(false)} adminUnreadMessageCount={adminUnreadMessageCount} adminFinance={adminFinance} />}
-        <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
-          <Header user={user} token={token} onLogout={clearAuth} onMenuClick={() => setSidebarOpen(true)} installPromptEvent={deferredInstallPrompt} onInstallApp={handleInstallClick} />
-          <div className="flex-1">
-            <AppRoutes user={user} token={token} setAuth={setAuth} setUser={setUser} clearAuth={clearAuth} />
+      <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 min-w-0">
+        <div className="flex flex-1 min-w-0">
+          {user && <Sidebar user={user} open={sidebarOpen} onClose={() => setSidebarOpen(false)} adminUnreadMessageCount={adminUnreadMessageCount} adminFinance={adminFinance} />}
+          <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden">
+            <Header user={user} token={token} onLogout={clearAuth} onMenuClick={() => setSidebarOpen(true)} installPromptEvent={deferredInstallPrompt} onInstallApp={handleInstallClick} />
+            <main className="flex-1 min-h-0 overflow-y-auto">
+              <AppRoutes user={user} token={token} setAuth={setAuth} setUser={setUser} clearAuth={clearAuth} />
+            </main>
+            {user && user.merchandisingLink && (
+              <DraggableMerchandisingButton
+                link={user.merchandisingLink}
+                position={user.merchandisingButtonPosition}
+                token={token}
+                setUser={setUser}
+                user={user}
+                t={t}
+              />
+            )}
           </div>
-          {/* Icono de bolsa flotante para merchandising - arrastrable */}
-          {user && user.merchandisingLink && (
-            <DraggableMerchandisingButton
-              link={user.merchandisingLink}
-              position={user.merchandisingButtonPosition}
-              token={token}
-              setUser={setUser}
-              user={user}
-              t={t}
-            />
-          )}
-          {!PUBLIC_PAGES_WITH_OWN_FOOTER.includes(location.pathname) && <AppFooter />}
         </div>
+        {!PUBLIC_PAGES_WITH_OWN_FOOTER.includes(location.pathname) && <AppFooter />}
       </div>
     </>
   );

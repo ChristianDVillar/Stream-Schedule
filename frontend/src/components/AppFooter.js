@@ -11,7 +11,7 @@ const CURRENT_YEAR = 2026;
 
 export default function AppFooter({ className = '' }) {
   const { t } = useLanguage();
-  const baseClass = 'text-center text-gray-500 dark:text-gray-400 py-3 sm:py-4 px-4 text-sm border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800';
+  const baseClass = 'text-center text-gray-600 dark:text-gray-400 py-3 sm:py-4 px-4 text-sm border-t border-accent-light dark:border-gray-700 bg-accent-subtle dark:bg-gray-800';
   return (
     <footer className={className || baseClass}>
       <div className="flex flex-col items-center gap-2">

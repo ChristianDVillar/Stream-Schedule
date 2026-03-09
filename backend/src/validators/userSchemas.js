@@ -126,7 +126,11 @@ export const updateProfileSchema = Joi.object({
   ).optional(),
   streamGoalType: Joi.string().valid('followers', 'subs').allow(null).optional(),
   streamGoalTarget: Joi.number().integer().min(1).allow(null).optional(),
-  discordAnnounceWebhookUrl: Joi.string().uri().allow('', null).optional()
+  discordAnnounceWebhookUrl: Joi.string().uri().allow('', null).optional(),
+  publicPageBannerUrl: Joi.string().uri().max(2000).allow('', null).optional().messages({
+    'string.uri': 'Banner image must be a valid URL'
+  }),
+  publicPageBannerPosition: Joi.string().valid('top', 'above-avatar', 'above-schedule', 'center', 'bottom', 'background').optional()
 }).min(1).messages({
   'object.min': 'At least one field must be provided to update'
 });

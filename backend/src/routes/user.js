@@ -2646,7 +2646,7 @@ router.get('/license', requireAuth, async (req, res) => {
 
 // Update user profile
 router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog('profile_updated', 'User'), async (req, res) => {
-  const { username, email, merchandisingLink, merchandisingButtonPosition, profileImageUrl, dashboardShowTwitchSubs, dashboardShowTwitchBits, dashboardShowTwitchDonations, discordClipsGuildId, discordClipsChannelId, streamGoalType, streamGoalTarget, discordAnnounceWebhookUrl } = req.body;
+  const { username, email, merchandisingLink, merchandisingButtonPosition, profileImageUrl, dashboardShowTwitchSubs, dashboardShowTwitchBits, dashboardShowTwitchDonations, discordClipsGuildId, discordClipsChannelId, streamGoalType, streamGoalTarget, discordAnnounceWebhookUrl, publicPageBannerUrl, publicPageBannerPosition } = req.body;
   try {
     const user = await User.findByPk(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -2692,6 +2692,8 @@ router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog(
     if (streamGoalType !== undefined) user.streamGoalType = streamGoalType === 'followers' || streamGoalType === 'subs' ? streamGoalType : null;
     if (streamGoalTarget !== undefined) user.streamGoalTarget = streamGoalTarget != null && Number.isInteger(Number(streamGoalTarget)) && Number(streamGoalTarget) >= 1 ? Number(streamGoalTarget) : null;
     if (discordAnnounceWebhookUrl !== undefined) user.discordAnnounceWebhookUrl = discordAnnounceWebhookUrl && String(discordAnnounceWebhookUrl).trim() ? String(discordAnnounceWebhookUrl).trim() : null;
+    if (publicPageBannerUrl !== undefined) user.publicPageBannerUrl = publicPageBannerUrl && String(publicPageBannerUrl).trim() ? String(publicPageBannerUrl).trim() : null;
+    if (publicPageBannerPosition !== undefined) user.publicPageBannerPosition = ['top', 'above-avatar', 'above-schedule', 'center', 'bottom', 'background'].includes(publicPageBannerPosition) ? publicPageBannerPosition : 'top';
 
     await user.save();
     const licenseSummary = buildLicenseSummary(user);
@@ -2718,7 +2720,9 @@ router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog(
         discordClipsChannelId: plain.discordClipsChannelId || null,
         streamGoalType: plain.streamGoalType || null,
         streamGoalTarget: plain.streamGoalTarget ?? null,
-        discordAnnounceWebhookUrl: plain.discordAnnounceWebhookUrl || null
+        discordAnnounceWebhookUrl: plain.discordAnnounceWebhookUrl || null,
+        publicPageBannerUrl: plain.publicPageBannerUrl || null,
+        publicPageBannerPosition: plain.publicPageBannerPosition || 'top'
       }
     });
   } catch (err) {

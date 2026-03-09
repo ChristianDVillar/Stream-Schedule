@@ -35,7 +35,7 @@ router.get('/:username/events', async (req, res) => {
 
     const user = await User.findOne({
       where: sequelize.where(sequelize.fn('LOWER', sequelize.col('username')), username.toLowerCase()),
-      attributes: ['id', 'username', 'profileImageUrl'],
+      attributes: ['id', 'username', 'profileImageUrl', 'publicPageBannerUrl', 'publicPageBannerPosition'],
     });
     if (!user) {
       return res.status(404).json({ error: 'Streamer not found' });
@@ -95,6 +95,8 @@ router.get('/:username/events', async (req, res) => {
     res.json({
       username: user.username,
       profileImageUrl: user.profileImageUrl || null,
+      publicPageBannerUrl: user.publicPageBannerUrl || null,
+      publicPageBannerPosition: user.publicPageBannerPosition || 'top',
       events: eventsJson,
       liveOnTwitch,
       twitchStreamUrl,

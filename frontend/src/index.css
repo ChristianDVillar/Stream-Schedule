@@ -6,6 +6,13 @@
 :root {
   --accent: #3b82f6;
   --accent-hover: #2563eb;
+  /* Light tints derived from accent – update when user selects accent color */
+  --accent-light: color-mix(in srgb, var(--accent) 30%, white);
+  --accent-lighter: color-mix(in srgb, var(--accent) 18%, white);
+  --accent-subtle: color-mix(in srgb, var(--accent) 12%, white);
+  /* Darker variants for hero/CTA (white text) */
+  --accent-hero: color-mix(in srgb, var(--accent) 90%, black);
+  --accent-hero-dark: color-mix(in srgb, var(--accent-hover) 75%, black);
   --color-links: var(--accent);
   --color-sidebar: var(--accent);
   --color-header: var(--accent);
@@ -30,6 +37,32 @@
 .ring-accent,
 .ring-accent:focus {
   --tw-ring-color: var(--accent);
+}
+
+/* Accent-based light backgrounds (adapt when user selects accent) */
+.bg-accent-light {
+  background-color: var(--accent-light);
+}
+.bg-accent-lighter {
+  background-color: var(--accent-lighter);
+}
+.bg-accent-subtle {
+  background-color: var(--accent-subtle);
+}
+.border-accent-light {
+  border-color: var(--accent-light);
+}
+
+/* Full-page gradient using accent (Landing, PublicStreamPage) */
+.bg-gradient-accent {
+  background: linear-gradient(to bottom, var(--accent-light), var(--accent-lighter), var(--accent-subtle));
+}
+.bg-gradient-accent-section {
+  background: linear-gradient(to bottom, var(--accent-subtle), var(--accent-lighter));
+}
+/* Hero banner with accent (white text) */
+.bg-gradient-accent-hero {
+  background: linear-gradient(to bottom right, var(--accent-hero), var(--accent), var(--accent-hero-dark));
 }
 
 /* Part-based color utilities (Appearance → assign color to parts) */

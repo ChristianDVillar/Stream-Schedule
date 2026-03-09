@@ -27,7 +27,7 @@ export default function Landing() {
   const { t, language, toggleLanguage } = useLanguage();
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gradient-accent dark:bg-gray-900">
       {/* Top nav */}
       <nav className="flex justify-between items-center px-4 sm:px-6 py-4">
         <span className="text-lg font-semibold text-gray-900 dark:text-white">{t('dashboard.appTitle') || 'Streamer Scheduler'}</span>
@@ -35,7 +35,7 @@ export default function Landing() {
           <button
             type="button"
             onClick={toggleLanguage}
-            className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-50 dark:focus:ring-offset-gray-900"
+            className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2 focus:ring-offset-gray-50 dark:focus:ring-offset-gray-900"
             title={language === 'es' ? t('common.switchToEnglish') : t('common.switchToSpanish')}
             aria-label={language === 'es' ? t('common.switchToEnglish') : t('common.switchToSpanish')}
           >
@@ -45,14 +45,14 @@ export default function Landing() {
           <button onClick={() => navigate('/pricing')} className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">
             {t('landing.viewPricing')}
           </button>
-          <button onClick={() => navigate('/login')} className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700">
+          <button onClick={() => navigate('/login')} className="text-sm font-medium text-[var(--accent)] hover:opacity-90">
             {t('common.login')}
           </button>
         </div>
       </nav>
 
       {/* Hero */}
-      <header className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 dark:from-indigo-900 dark:via-purple-900 dark:to-pink-900">
+      <header className="relative overflow-hidden bg-gradient-accent-hero">
         <div className="absolute inset-0 bg-black/20 dark:bg-black/40" />
         <div className="relative px-4 sm:px-6 lg:px-8 py-16 sm:py-24 lg:py-32">
           <div className="max-w-4xl mx-auto text-center">
@@ -68,7 +68,7 @@ export default function Landing() {
             <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
               <button
                 onClick={() => navigate('/login')}
-                className="px-8 py-3.5 bg-white text-indigo-600 font-semibold rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
+                className="px-8 py-3.5 bg-white text-[var(--accent)] font-semibold rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
               >
                 {t('landing.getStarted') || 'Get started free'}
               </button>
@@ -87,7 +87,7 @@ export default function Landing() {
       </header>
 
       {/* Product preview */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-900">
+      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-gradient-accent-section dark:bg-gray-900">
         <div className="max-w-5xl mx-auto text-center">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
             {t('landing.productPreviewTitle') || 'See your stream schedule at a glance'}
@@ -102,7 +102,7 @@ export default function Landing() {
       </section>
 
       {/* Features */}
-      <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8">
+      <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 bg-gradient-accent dark:bg-transparent">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-2xl sm:text-3xl font-bold text-center text-gray-900 dark:text-white mb-12">
             {t('landing.featuresTitle') || 'Built for streamers'}
@@ -155,7 +155,7 @@ export default function Landing() {
       </section>
 
       {/* How it works */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-50 dark:bg-gray-900/50">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-accent-section dark:bg-gray-900/50">
         <div className="max-w-6xl mx-auto text-center">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
             {t('landing.howItWorksTitle') || 'How it works'}
@@ -184,7 +184,7 @@ export default function Landing() {
       </section>
 
       {/* Built for small streamers */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-900">
+      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-accent-light dark:bg-gray-900">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
             {t('landing.builtForTitle') || 'Built for small streamers'}
@@ -196,7 +196,7 @@ export default function Landing() {
       </section>
 
       {/* Integrations */}
-      <section className="py-12 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-800/50">
+      <section className="py-12 px-4 sm:px-6 lg:px-8 bg-accent-lighter dark:bg-gray-800/50">
         <div className="max-w-4xl mx-auto text-center">
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-4">
             {t('landing.integrationsLabel') || 'Integrations'}
@@ -212,7 +212,7 @@ export default function Landing() {
       </section>
 
       {/* CTA */}
-      <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8">
+      <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 bg-gradient-accent dark:bg-transparent">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
             {t('landing.ctaTitle') || 'Ready to grow?'}
@@ -222,14 +222,14 @@ export default function Landing() {
           </p>
           <button
             onClick={() => navigate('/login')}
-            className="mt-8 px-8 py-3.5 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
+            className="mt-8 px-8 py-3.5 bg-[var(--accent)] text-white font-semibold rounded-lg hover:opacity-90 transition-colors"
           >
             {t('landing.startFree') || 'Start free trial'}
           </button>
         </div>
       </section>
 
-      <AppFooter className="py-6 px-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-center text-gray-500 dark:text-gray-400 text-sm" />
+      <AppFooter className="py-6 px-4 border-t border-accent-light dark:border-gray-700 bg-accent-subtle dark:bg-gray-900 text-center text-gray-500 dark:text-gray-400 text-sm" />
     </div>
   );
 }

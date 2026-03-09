@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Save, User, Bell, Globe, Shield, Palette, Key, MessageSquare, Download, Bot } from 'lucide-react';
+import { Save, User, Bell, Globe, Shield, Palette, Key, MessageSquare, Download, Bot, Layout } from 'lucide-react';
 import {
   apiClient,
   createCheckout,
@@ -42,12 +42,14 @@ import SettingsBillingTab from './SettingsBillingTab';
 import SettingsSupportTab from './SettingsSupportTab';
 import SettingsDataTab from './SettingsDataTab';
 import SettingsBotsTab from './SettingsBotsTab';
+import SettingsPublicPageTab from './SettingsPublicPageTab';
 
 const getTabsConfig = (t) => [
   { id: 'profile', name: t('settings.profile'), Icon: User },
   { id: 'notifications', name: t('settings.notifications'), Icon: Bell },
   { id: 'platforms', name: t('settings.platforms'), Icon: Globe },
   { id: 'bots', name: t('settings.bots') || 'Bots', Icon: Bot },
+  { id: 'publicPage', name: t('settings.publicPage') || 'Página pública', Icon: Layout },
   { id: 'security', name: t('settings.security'), Icon: Shield },
   { id: 'appearance', name: t('settings.appearance'), Icon: Palette },
   { id: 'billing', name: t('settings.licensesBilling'), Icon: Key },
@@ -89,6 +91,10 @@ export default function Settings({ user, token, setUser }) {
     streamGoalType: user?.streamGoalType || '',
     streamGoalTarget: user?.streamGoalTarget ?? '',
     discordAnnounceWebhookUrl: user?.discordAnnounceWebhookUrl || '',
+  });
+  const [publicPageData, setPublicPageData] = useState({
+    publicPageBannerUrl: user?.publicPageBannerUrl || '',
+    publicPageBannerPosition: user?.publicPageBannerPosition || 'top',
   });
   const [profilePhotoUploading, setProfilePhotoUploading] = useState(false);
 
@@ -190,6 +196,11 @@ export default function Settings({ user, token, setUser }) {
         streamGoalType: user.streamGoalType || '',
         streamGoalTarget: user.streamGoalTarget ?? '',
         discordAnnounceWebhookUrl: user.discordAnnounceWebhookUrl || '',
+      }));
+      setPublicPageData((prev) => ({
+        ...prev,
+        publicPageBannerUrl: user.publicPageBannerUrl || '',
+        publicPageBannerPosition: user.publicPageBannerPosition || 'top',
       }));
     }
   }, [user]);
@@ -430,6 +441,32 @@ export default function Settings({ user, token, setUser }) {
     else if (!/\S+@\S+\.\S+/.test(profileData.email)) newErrors.email = t('admin.invalidEmail');
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const handlePublicPageSave = async () => {
+    setLoading(true);
+    try {
+      const response = await apiClient.put('/user/profile', {
+        publicPageBannerUrl: publicPageData.publicPageBannerUrl || null,
+        publicPageBannerPosition: publicPageData.publicPageBannerPosition || 'top',
+      }, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true,
+      });
+      if (setUser && response.data.user) {
+        const updatedUser = { ...user, ...response.data.user };
+        setUser(updatedUser);
+        localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+      }
+      toast.success(t('settings.publicPageSaved') || 'Página pública guardada.');
+    } catch (error) {
+      const msg = error.response?.data?.details
+        ? (Array.isArray(error.response.data.details) ? error.response.data.details.map((d) => d.message).join('. ') : error.response.data.details)
+        : error.response?.data?.error || t('settings.profileUpdateFailed');
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleProfileSave = async () => {
@@ -707,6 +744,18 @@ export default function Settings({ user, token, setUser }) {
             t={t}
           />
         );
+      case 'publicPage':
+        return (
+          <SettingsPublicPageTab
+            user={user}
+            token={token}
+            publicPageData={publicPageData}
+            setPublicPageData={setPublicPageData}
+            loading={loading}
+            onSave={handlePublicPageSave}
+            t={t}
+          />
+        );
       case 'platforms':
         return (
           <SettingsPlatformsTab
@@ -826,10 +875,10 @@ export default function Settings({ user, token, setUser }) {
 
             <div className="lg:col-span-3 p-4 sm:p-6 min-w-0 overflow-x-hidden">
               {renderTabContent()}
-              {['profile', 'notifications'].includes(activeTab) && (
+              {['profile', 'notifications', 'publicPage'].includes(activeTab) && (
                 <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
                   <button
-                    onClick={activeTab === 'profile' ? handleProfileSave : handleNotificationSave}
+                    onClick={activeTab === 'profile' ? handleProfileSave : activeTab === 'publicPage' ? handlePublicPageSave : handleNotificationSave}
                     disabled={loading}
                     className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center sm:justify-start gap-2 min-h-[44px]"
                   >
