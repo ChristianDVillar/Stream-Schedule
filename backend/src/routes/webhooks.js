@@ -420,6 +420,46 @@ router.get('/idea/random', async (req, res) => {
   }
 });
 
+/** GET /api/webhooks/idea/latest — latest idea for overlays / chat suggestion widgets */
+router.get('/idea/latest', async (req, res) => {
+  try {
+    const user = await getUserByApiKey(req);
+    if (!user) {
+      sendText(res, 'Add your API key to use idea overlays.');
+      return;
+    }
+    const item = await StreamItem.findOne({
+      where: { userId: user.id, type: 'idea' },
+      order: [['createdAt', 'DESC']],
+      attributes: ['text', 'createdAt'],
+    });
+    sendText(res, item ? item.text : '');
+  } catch (err) {
+    logger.error('Webhook idea/latest error', { error: err.message });
+    sendText(res, '');
+  }
+});
+
+/** GET /api/webhooks/clipidea/random — random clip idea for !randomclipidea */
+router.get('/clipidea/random', async (req, res) => {
+  try {
+    const user = await getUserByApiKey(req);
+    if (!user) {
+      sendText(res, 'Add your API key to use !randomclipidea.');
+      return;
+    }
+    const item = await StreamItem.findOne({
+      where: { userId: user.id, type: 'clipidea' },
+      order: [sequelize.literal('RANDOM()')],
+      attributes: ['text'],
+    });
+    sendText(res, item ? item.text : 'No clip ideas yet. Use !clipidea your moment to add one.');
+  } catch (err) {
+    logger.error('Webhook clipidea/random error', { error: err.message });
+    sendText(res, 'Could not get clip idea.');
+  }
+});
+
 /** GET /api/webhooks/commands — list of available commands for !commands */
 router.get('/commands', async (req, res) => {
   try {
@@ -433,16 +473,473 @@ router.get('/commands', async (req, res) => {
       '!nextstream — next scheduled stream',
       '!countdown — time until next stream',
       '!schedule or !week — weekly schedule',
+      '!nextgame — next planned game/title',
+      '!when <game> — next stream for a specific game',
+      '!calendar — public schedule page link',
       '!goal — follower/sub goal',
+      '!streamcount — number of streams this month',
+      '!laststream — last scheduled stream',
+      '!streak — streaming streak in days',
       '!myschedule — public schedule link',
       '!streamstats — stream statistics',
       '!quote random — random quote',
       '!randomidea — random stream idea',
+      '!randomclipidea — random clip idea',
+      '!contentwheel — random content idea',
+      '!idea your idea — save a stream idea',
+      '!note your note — save a note from chat',
+      '!clipidea your moment — save a clip idea',
+      '!suggest your idea — viewers send ideas (see docs for setup)',
     ];
     sendText(res, lines.join('\n'));
   } catch (err) {
     logger.error('Webhook commands error', { error: err.message });
     sendText(res, 'Could not load commands.');
+  }
+});
+
+/** GET /api/webhooks/nextgame — "Next planned game: Elden Ring — Friday 20:00" */
+router.get('/nextgame', async (req, res) => {
+  try {
+    const user = await getUserByApiKey(req);
+    if (!user) {
+      sendText(res, 'Add your API key in Settings → Bots to use !nextgame.');
+      return;
+    }
+    const events = await getUpcomingEvents(user.id, 1);
+    if (events.length === 0) {
+      sendText(res, 'No game planned yet.');
+      return;
+    }
+    const { scheduledFor, title } = events[0];
+    const formatted = formatEventForChat(scheduledFor, title);
+    sendText(res, `Next planned game: ${formatted}`);
+  } catch (err) {
+    logger.error('Webhook nextgame error', { error: err.message });
+    sendText(res, 'Could not load next game.');
+  }
+});
+
+/** GET /api/webhooks/when — "!when valorant" → "Next Valorant stream: Thursday 19:00" */
+router.get('/when', async (req, res) => {
+  try {
+    const user = await getUserByApiKey(req);
+    if (!user) {
+      sendText(res, 'Add your API key in Settings → Bots to use !when.');
+      return;
+    }
+    const raw = (req.query.game || req.query.q || req.query.text || '').toString().trim();
+    if (!raw) {
+      sendText(res, 'Usage: !when <game>. Example: !when valorant');
+      return;
+    }
+    const term = raw.slice(0, 80);
+    const now = new Date();
+    const event = await Content.findOne({
+      where: {
+        userId: user.id,
+        scheduledFor: { [Op.gte]: now },
+        status: { [Op.in]: UPCOMING_STATUSES },
+        deletedAt: null,
+        title: { [Op.iLike]: `%${term}%` },
+      },
+      order: [['scheduledFor', 'ASC']],
+      attributes: ['title', 'scheduledFor'],
+    });
+    if (!event) {
+      sendText(res, `No upcoming stream found for "${term}".`);
+      return;
+    }
+    const formatted = formatEventForChat(event.scheduledFor, event.title);
+    sendText(res, `Next ${term} stream: ${formatted}`);
+  } catch (err) {
+    logger.error('Webhook when error', { error: err.message });
+    sendText(res, 'Could not find stream for that game.');
+  }
+});
+
+/** GET /api/webhooks/calendar — alias for myschedule, different wording for !calendar */
+router.get('/calendar', async (req, res) => {
+  try {
+    const user = await getUserByApiKey(req);
+    if (!user) {
+      sendText(res, 'Add your API key in Settings → Bots to use !calendar.');
+      return;
+    }
+    const base = FRONTEND_URL.replace(/\/$/, '');
+    sendText(res, `Full stream schedule: ${base}/streamer/${encodeURIComponent(user.username)}`);
+  } catch (err) {
+    logger.error('Webhook calendar error', { error: err.message });
+    sendText(res, 'Error.');
+  }
+});
+
+/** GET /api/webhooks/streamcount — "Streams this month: 14" */
+router.get('/streamcount', async (req, res) => {
+  try {
+    const user = await getUserByApiKey(req);
+    if (!user) {
+      sendText(res, 'Add your API key in Settings → Bots to use !streamcount.');
+      return;
+    }
+    const now = new Date();
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const count = await Content.count({
+      where: {
+        userId: user.id,
+        scheduledFor: { [Op.gte]: firstOfMonth, [Op.lte]: now },
+        deletedAt: null,
+      },
+    });
+    sendText(res, `Streams this month: ${count}.`);
+  } catch (err) {
+    logger.error('Webhook streamcount error', { error: err.message });
+    sendText(res, 'Could not load stream count.');
+  }
+});
+
+/** GET /api/webhooks/laststream — info about the last scheduled/past stream */
+router.get('/laststream', async (req, res) => {
+  try {
+    const user = await getUserByApiKey(req);
+    if (!user) {
+      sendText(res, 'Add your API key in Settings → Bots to use !laststream.');
+      return;
+    }
+    const now = new Date();
+    const event = await Content.findOne({
+      where: {
+        userId: user.id,
+        scheduledFor: { [Op.lte]: now },
+        deletedAt: null,
+      },
+      order: [['scheduledFor', 'DESC']],
+      attributes: ['title', 'scheduledFor'],
+    });
+    if (!event) {
+      sendText(res, 'No past streams found.');
+      return;
+    }
+    const d = new Date(event.scheduledFor);
+    const day = d.toLocaleDateString(undefined, { weekday: 'long' });
+    const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    sendText(res, `Last stream: ${day} — ${time} — ${event.title}`);
+  } catch (err) {
+    logger.error('Webhook laststream error', { error: err.message });
+    sendText(res, 'Could not load last stream.');
+  }
+});
+
+/** GET /api/webhooks/streak — "Streaming streak: 5 days in a row" (based on scheduled/past content) */
+router.get('/streak', async (req, res) => {
+  try {
+    const user = await getUserByApiKey(req);
+    if (!user) {
+      sendText(res, 'Add your API key in Settings → Bots to use !streak.');
+      return;
+    }
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000); // ~60 days back
+    const items = await Content.findAll({
+      where: {
+        userId: user.id,
+        scheduledFor: { [Op.lte]: now, [Op.gte]: thirtyDaysAgo },
+        deletedAt: null,
+      },
+      order: [['scheduledFor', 'DESC']],
+      attributes: ['scheduledFor'],
+    });
+    if (items.length === 0) {
+      sendText(res, 'Streaming streak: 0 days in a row.');
+      return;
+    }
+    const daysWithStreams = new Set(
+      items.map((c) => {
+        const d = new Date(c.scheduledFor);
+        return d.toISOString().slice(0, 10); // YYYY-MM-DD
+      })
+    );
+    let streak = 0;
+    let cursor = new Date(now);
+    while (true) {
+      const key = cursor.toISOString().slice(0, 10);
+      if (!daysWithStreams.has(key)) break;
+      streak += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    sendText(res, `Streaming streak: ${streak} day${streak === 1 ? '' : 's'} in a row.`);
+  } catch (err) {
+    logger.error('Webhook streak error', { error: err.message });
+    sendText(res, 'Could not load streak.');
+  }
+});
+
+/** GET /api/webhooks/contentwheel — random built-in content idea for !contentwheel */
+router.get('/contentwheel', async (req, res) => {
+  try {
+    const user = await getUserByApiKey(req);
+    if (!user) {
+      sendText(res, 'Add your API key in Settings → Bots to use !contentwheel.');
+      return;
+    }
+    const ideas = [
+      'Play with inverted controls for one match.',
+      'Let chat pick your next game.',
+      'Do a \"no HUD\" challenge.',
+      'React to your oldest clips.',
+      'Try a speedrun of a game you have never speedrun before.',
+      'Do a \"one life\" run: if you die, stream switches game.',
+      'Play a viewer-recommended indie game.',
+      'Do a Just Chatting Q&A about how you started streaming.',
+      'Let a random wheel choose your next category.',
+      'Play using only voice commands for 5 minutes.',
+    ];
+    const pick = ideas[Math.floor(Math.random() * ideas.length)];
+    sendText(res, `Random stream idea: ${pick}`);
+  } catch (err) {
+    logger.error('Webhook contentwheel error', { error: err.message });
+    sendText(res, 'Could not generate idea.');
+  }
+});
+
+/**
+ * POST /api/webhooks/voteidea — register a vote for an idea from chat (!voteidea horror challenge)
+ * Body/query: { text } with the idea description.
+ */
+router.post('/voteidea', async (req, res) => {
+  try {
+    const user = await getUserByApiKey(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid or missing API key.' });
+    }
+    const text = (req.body?.text ?? req.query?.text ?? '').toString().trim();
+    if (!text) {
+      return res.status(400).json({ error: 'Missing text. Send { "text": "horror challenge" }.' });
+    }
+    const truncated = text.length > 200 ? text.slice(0, 197) + '…' : text;
+    await StreamItem.create({
+      userId: user.id,
+      type: 'idea',
+      text: truncated,
+    });
+    logger.info('Webhook voteidea', { userId: user.id, username: user.username });
+    res.status(201).json({ ok: true, message: `Vote added for: ${truncated}` });
+  } catch (err) {
+    logger.error('Webhook voteidea error', { error: err.message });
+    res.status(500).json({ error: 'Could not register vote.' });
+  }
+});
+
+/** GET /api/webhooks/voteidea/top — "Top chat idea this week: X (12 votes)" */
+router.get('/voteidea/top', async (req, res) => {
+  try {
+    const user = await getUserByApiKey(req);
+    if (!user) {
+      sendText(res, 'Add your API key to use !voteidea.');
+      return;
+    }
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const rows = await StreamItem.findAll({
+      where: {
+        userId: user.id,
+        type: 'idea',
+        createdAt: { [Op.gte]: sevenDaysAgo },
+      },
+      attributes: [
+        'text',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'votes'],
+      ],
+      group: ['text'],
+      order: [[sequelize.literal('votes'), 'DESC']],
+      limit: 1,
+    });
+    if (!rows.length) {
+      sendText(res, 'No ideas voted this week yet. Use !voteidea your idea to start voting.');
+      return;
+    }
+    const top = rows[0];
+    const ideaText = top.get('text');
+    const votes = top.get('votes');
+    sendText(res, `Top chat idea this week: ${ideaText} (${votes} votes)`);
+  } catch (err) {
+    logger.error('Webhook voteidea/top error', { error: err.message });
+    sendText(res, 'Could not load top idea.');
+  }
+});
+
+/**
+ * POST /api/webhooks/remindme — viewer asks for a reminder before next stream (!remindme)
+ * Body/query: { viewer } recommended (Twitch username, Discord user, etc.).
+ * For now we store it as a StreamItem so it can be used by reminder jobs later.
+ */
+router.post('/remindme', async (req, res) => {
+  try {
+    const user = await getUserByApiKey(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid or missing API key.' });
+    }
+    const viewer =
+      (req.body?.viewer ??
+        req.query?.viewer ??
+        req.body?.username ??
+        req.query?.username ??
+        '').toString().trim();
+    const note = viewer || 'anonymous-viewer';
+    await StreamItem.create({
+      userId: user.id,
+      type: 'note',
+      text: `[remindme] ${note}`,
+    });
+    logger.info('Webhook remindme', { userId: user.id, viewer: note });
+    res.status(201).json({
+      ok: true,
+      message: "You'll get a reminder before the next stream.",
+    });
+  } catch (err) {
+    logger.error('Webhook remindme error', { error: err.message });
+    res.status(500).json({ error: 'Could not register reminder.' });
+  }
+});
+
+/**
+ * POST /api/webhooks/challenge — save a challenge from chat (!challenge no map)
+ * Body/query: { text }
+ */
+router.post('/challenge', async (req, res) => {
+  try {
+    const user = await getUserByApiKey(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid or missing API key.' });
+    }
+    const text = (req.body?.text ?? req.query?.text ?? '').toString().trim();
+    if (!text) {
+      return res.status(400).json({ error: 'Missing text. Send { "text": "no HUD" }.' });
+    }
+    const truncated = text.length > 500 ? text.slice(0, 497) + '…' : text;
+    await StreamItem.create({
+      userId: user.id,
+      type: 'note',
+      text: `[challenge] ${truncated}`,
+    });
+    logger.info('Webhook challenge', { userId: user.id });
+    res.status(201).json({ ok: true, message: `Challenge added: ${truncated}` });
+  } catch (err) {
+    logger.error('Webhook challenge error', { error: err.message });
+    res.status(500).json({ error: 'Could not save challenge.' });
+  }
+});
+
+/** GET /api/webhooks/nextcollab — "Next collaboration stream: Saturday with StreamerX" */
+router.get('/nextcollab', async (req, res) => {
+  try {
+    const user = await getUserByApiKey(req);
+    if (!user) {
+      sendText(res, 'Add your API key in Settings → Bots to use !nextcollab.');
+      return;
+    }
+    const now = new Date();
+    const event = await Content.findOne({
+      where: {
+        userId: user.id,
+        scheduledFor: { [Op.gte]: now },
+        status: { [Op.in]: UPCOMING_STATUSES },
+        deletedAt: null,
+        title: {
+          [Op.iLike]: '%with %',
+        },
+      },
+      order: [['scheduledFor', 'ASC']],
+      attributes: ['title', 'scheduledFor'],
+    });
+    if (!event) {
+      sendText(res, 'No collaboration stream scheduled.');
+      return;
+    }
+    const formatted = formatEventForChat(event.scheduledFor, event.title);
+    sendText(res, `Next collaboration stream: ${formatted}`);
+  } catch (err) {
+    logger.error('Webhook nextcollab error', { error: err.message });
+    sendText(res, 'Could not load collaboration stream.');
+  }
+});
+
+/** GET /api/webhooks/raidnext — reuses nextcollab as a simple recommended raid target */
+router.get('/raidnext', async (req, res) => {
+  try {
+    const user = await getUserByApiKey(req);
+    if (!user) {
+      sendText(res, 'Add your API key in Settings → Bots to use !raidnext.');
+      return;
+    }
+    const now = new Date();
+    const event = await Content.findOne({
+      where: {
+        userId: user.id,
+        scheduledFor: { [Op.gte]: now },
+        status: { [Op.in]: UPCOMING_STATUSES },
+        deletedAt: null,
+        title: {
+          [Op.iLike]: '%with %',
+        },
+      },
+      order: [['scheduledFor', 'ASC']],
+      attributes: ['title', 'scheduledFor'],
+    });
+    if (!event) {
+      sendText(res, 'No collaboration streams found to suggest as raid target.');
+      return;
+    }
+    const formatted = formatEventForChat(event.scheduledFor, event.title);
+    sendText(res, `Recommended raid target (next collab): ${formatted}`);
+  } catch (err) {
+    logger.error('Webhook raidnext error', { error: err.message });
+    sendText(res, 'Could not load raid suggestion.');
+  }
+});
+
+/** GET /api/webhooks/uptimeweek — "Total stream time this week: 12h 30m" (approx, based on schedule) */
+router.get('/uptimeweek', async (req, res) => {
+  try {
+    const user = await getUserByApiKey(req);
+    if (!user) {
+      sendText(res, 'Add your API key in Settings → Bots to use !uptimeweek.');
+      return;
+    }
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    const day = startOfWeek.getDay(); // 0 Sunday ... 6 Saturday
+    const diffToMonday = (day + 6) % 7; // days since Monday
+    startOfWeek.setDate(startOfWeek.getDate() - diffToMonday);
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const events = await Content.findAll({
+      where: {
+        userId: user.id,
+        scheduledFor: { [Op.gte]: startOfWeek, [Op.lte]: now },
+        deletedAt: null,
+      },
+      attributes: ['scheduledFor', 'eventEndTime'],
+    });
+
+    let totalMs = 0;
+    for (const e of events) {
+      const start = new Date(e.scheduledFor);
+      const end = e.eventEndTime ? new Date(e.eventEndTime) : new Date(start.getTime() + 2 * 60 * 60 * 1000); // default 2h
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end > start) {
+        totalMs += end - start;
+      }
+    }
+
+    const totalHours = Math.floor(totalMs / (1000 * 60 * 60));
+    const totalMinutes = Math.floor((totalMs % (1000 * 60 * 60)) / (1000 * 60));
+    sendText(
+      res,
+      `Total stream time this week: ${totalHours}h ${totalMinutes}m (based on schedule).`
+    );
+  } catch (err) {
+    logger.error('Webhook uptimeweek error', { error: err.message });
+    sendText(res, 'Could not load uptime for this week.');
   }
 });
 

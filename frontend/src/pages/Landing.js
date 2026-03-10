@@ -47,7 +47,7 @@ function ProductMotionSteps({ t }) {
             className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all duration-500 ${
               step === i
                 ? 'border-accent bg-accent-subtle dark:bg-accent-subtle scale-105'
-                : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800/50'
+                : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50'
             }`}
           >
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{s.label}</span>
@@ -138,7 +138,7 @@ export default function Landing() {
       </header>
 
       {/* Social proof bar — no user counts, trust via platforms */}
-      <section className="py-5 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-800/80 border-b border-gray-100 dark:border-gray-700/50">
+      <section className="py-5 px-4 sm:px-6 lg:px-8 bg-gray-100 dark:bg-gray-800/80 border-b border-gray-100 dark:border-gray-700/50">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8">
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
             {t('landing.trustBar') || 'Built for streamers on'}
@@ -153,7 +153,7 @@ export default function Landing() {
       </section>
 
       {/* Product preview — scroll target for "See how it works" */}
-      <section ref={productPreviewRef} id="product-preview" className="py-16 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-800/50 scroll-mt-4">
+      <section ref={productPreviewRef} id="product-preview" className="py-16 px-4 sm:px-6 lg:px-8 bg-gray-50 dark:bg-gray-800/50 scroll-mt-4">
         <div className="max-w-5xl mx-auto text-center">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
             {t('landing.productPreviewTitle') || 'See your stream schedule at a glance'}
@@ -203,7 +203,7 @@ export default function Landing() {
       </section>
 
       {/* Public schedule page — key differentiator + mock preview */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-800/50">
+      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-gray-50 dark:bg-gray-800/50">
         <div className="max-w-4xl mx-auto text-center">
           <ExternalLink className="w-12 h-12 text-accent mx-auto mb-4" aria-hidden />
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
@@ -213,7 +213,7 @@ export default function Landing() {
             {t('landing.publicPageDesc') || 'Share one link in your Twitch bio or Discord. Viewers see your upcoming streams, a countdown and can subscribe to email reminders. Embed it in panels or your website.'}
           </p>
           {/* Mock preview — screenshot-style for trust */}
-          <div className="mt-8 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xl overflow-hidden text-left max-w-md mx-auto">
+          <div className="mt-8 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shadow-xl overflow-hidden text-left max-w-md mx-auto">
             <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
               <code className="text-xs font-mono text-gray-500 dark:text-gray-400">yoursite.com/streamer/yourname</code>
             </div>
@@ -251,20 +251,20 @@ export default function Landing() {
             {t('landing.notifiedSubtitle') || 'Schedule once. Your community sees the announcement on Discord, Twitter and your public schedule.'}
           </p>
           <div className="mt-10 grid sm:grid-cols-3 gap-4 sm:gap-6">
-            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg overflow-hidden text-left">
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shadow-lg overflow-hidden text-left">
               <div className="px-3 py-2 bg-[#5865F2] text-white text-xs font-medium">{t('landing.notifiedDiscord') || 'Discord'}</div>
               <div className="p-3 text-sm text-gray-700 dark:text-gray-300">
                 <p className="font-medium">🔴 Stream starting in 1h</p>
                 <p className="mt-1 text-gray-500 dark:text-gray-400">Friday 20:00 — Minecraft. Set your reminder!</p>
               </div>
             </div>
-            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg overflow-hidden text-left">
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shadow-lg overflow-hidden text-left">
               <div className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium">X</div>
               <div className="p-3 text-sm text-gray-700 dark:text-gray-300">
                 <p>Going live in 1 hour! 🎮 Minecraft — Friday 20:00. See you there!</p>
               </div>
             </div>
-            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg overflow-hidden text-left">
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shadow-lg overflow-hidden text-left">
               <div className="px-3 py-2 bg-accent-subtle text-[var(--accent)] text-xs font-medium">{t('landing.notifiedSchedule') || 'Schedule page'}</div>
               <div className="p-3 text-sm text-gray-700 dark:text-gray-300">
                 <p className="font-medium">Next stream in 1h 0m</p>
@@ -282,42 +282,42 @@ export default function Landing() {
             {t('landing.featuresTitle') || 'Built for streamers'}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
               <Zap className="w-10 h-10 text-amber-500 mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('landing.featureAutoAnnounce') || 'Auto-announce your streams'}</h3>
               <p className="mt-2 text-gray-600 dark:text-gray-300">
                 {t('landing.featureAutoAnnounceDesc') || 'Schedule once. Announcements go out to Twitch, Discord and social media automatically.'}
               </p>
             </div>
-            <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
               <Bell className="w-10 h-10 text-green-500 mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('landing.featureReminders') || 'Reminders to Discord'}</h3>
               <p className="mt-2 text-gray-600 dark:text-gray-300">
                 {t('landing.featureRemindersDesc') || 'Notify your community when you go live. Discord events and stream-start announcements.'}
               </p>
             </div>
-            <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
               <MessageSquare className="w-10 h-10 text-purple-500 mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('landing.featureChatIdeas') || 'Chat creates stream ideas'}</h3>
               <p className="mt-2 text-gray-600 dark:text-gray-300">
                 {t('landing.featureChatIdeasDesc') || 'Viewers suggest with !suggest. Save ideas, quotes and clip ideas from chat to your dashboard.'}
               </p>
             </div>
-            <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
               <Share2 className="w-10 h-10 text-accent mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('landing.featurePublicSchedule') || 'Share your public schedule'}</h3>
               <p className="mt-2 text-gray-600 dark:text-gray-300">
                 {t('landing.featurePublicScheduleDesc') || 'One link for your Twitch bio or Discord. Viewers see upcoming streams and can subscribe to email reminders.'}
               </p>
             </div>
-            <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
               <Calendar className="w-10 h-10 text-accent mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('landing.featureCalendar') || 'One calendar for all platforms'}</h3>
               <p className="mt-2 text-gray-600 dark:text-gray-300">
                 {t('landing.featureCalendarDesc') || 'Plan streams and posts. Drag & drop. Twitch, Discord, X, Instagram, YouTube from one place.'}
               </p>
             </div>
-            <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
               <Layers className="w-10 h-10 text-pink-500 mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('landing.featureBots') || 'Bots in one place'}</h3>
               <p className="mt-2 text-gray-600 dark:text-gray-300">
@@ -329,7 +329,7 @@ export default function Landing() {
       </section>
 
       {/* How it works */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-800/50">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-50 dark:bg-gray-800/50">
         <div className="max-w-6xl mx-auto text-center">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
             {t('landing.howItWorksTitle') || 'How it works'}
@@ -364,7 +364,7 @@ export default function Landing() {
       </section>
 
       {/* Built for streamers — 4 concrete checkmarks (this is made for me) */}
-      <section className="py-10 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-800/50">
+      <section className="py-10 px-4 sm:px-6 lg:px-8 bg-gray-50 dark:bg-gray-800/50">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-center text-lg font-semibold text-gray-700 dark:text-gray-300 mb-6">
             {t('landing.builtForStreamersTitle') || 'Built for streamers'}
@@ -397,8 +397,8 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Integrations — Works with (no user counts); white for contrast */}
-      <section className="py-12 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-800/50">
+      {/* Integrations — Works with (no user counts); subtle light background */}
+      <section className="py-12 px-4 sm:px-6 lg:px-8 bg-gray-50 dark:bg-gray-800/50">
         <div className="max-w-4xl mx-auto text-center">
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-6">
             {t('landing.integrationsLabel') || 'Works with'}
@@ -444,7 +444,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <AppFooter className="py-6 px-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-center text-gray-500 dark:text-gray-400 text-sm" />
+      <AppFooter className="py-6 px-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-center text-gray-500 dark:text-gray-400 text-sm" />
     </div>
   );
 }

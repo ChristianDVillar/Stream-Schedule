@@ -645,7 +645,7 @@ const Dashboard = ({ user, token, ...props }) => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 min-w-0 overflow-x-hidden">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b">
+      <header className="bg-gray-50 dark:bg-gray-800 shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-w-0">
           <div className="flex justify-between items-center h-14 sm:h-16 gap-2 min-w-0">
             <div className="flex items-center min-w-0 flex-1">
@@ -678,7 +678,7 @@ const Dashboard = ({ user, token, ...props }) => {
 
         {/* Twitch: suscripciones, bits, donaciones (según preferencias del perfil) */}
         {showTwitchOnDashboard && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border-t-4 border-accent mb-6 sm:mb-8">
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border-t-4 border-accent mb-6 sm:mb-8">
             <h3 className="text-base sm:text-lg font-bold text-accent mb-4 flex items-center">
               <Twitch className="w-5 h-5 mr-2 flex-shrink-0" />
               {t('dashboard.twitchStats') || 'Datos de Twitch'}
@@ -799,7 +799,7 @@ const Dashboard = ({ user, token, ...props }) => {
 
         {/* Discord: servidores con el bot e invite */}
         {user && !user.isAdmin && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border-t-4 border-accent mb-6 sm:mb-8">
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border-t-4 border-accent mb-6 sm:mb-8">
             <h3 className="text-base sm:text-lg font-bold text-accent mb-4 flex items-center">
               <img src={DISCORD_ICON_URL} alt="Discord" className="w-5 h-5 mr-2 object-contain dark:invert" />
               {t('dashboard.discordStats') || 'Discord'}
@@ -851,7 +851,7 @@ const Dashboard = ({ user, token, ...props }) => {
         )}
 
         {/* Calendario */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-2 sm:p-4 lg:p-6 border-t-4 border-accent mb-6 sm:mb-8 overflow-hidden">
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg shadow p-2 sm:p-4 lg:p-6 border-t-4 border-accent mb-6 sm:mb-8 overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2 sm:mb-4">
             <h3 className="text-base sm:text-lg font-bold text-accent flex items-center"><CalendarIcon className="w-5 h-5 mr-2 flex-shrink-0" />{t('dashboard.calendar') || 'Calendar'}</h3>
             <button
@@ -890,7 +890,7 @@ const Dashboard = ({ user, token, ...props }) => {
         </div>
 
         {/* Lista de posts del día */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border-t-4 border-accent overflow-hidden">
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border-t-4 border-accent overflow-hidden">
           {/* Search and Filters */}
           <div className="mb-6">
             <SearchAdvanced
@@ -975,7 +975,7 @@ const Dashboard = ({ user, token, ...props }) => {
           </button>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+        <div className="bg-gray-50 dark:bg-gray-800 shadow rounded-lg">
               {loading ? (
                 <div className="p-8 text-center">{t('common.loading')}</div>
               ) : postsForSelectedDay.length === 0 ? (
@@ -1012,7 +1012,7 @@ const Dashboard = ({ user, token, ...props }) => {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody className="bg-gray-50 dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {postsForSelectedDay.map((content) => (
                     <tr key={content.id} className="group hover:bg-gray-50 dark:hover:bg-gray-700/80 transition-colors">
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap max-w-[120px] sm:max-w-none">
@@ -1103,7 +1103,7 @@ const Dashboard = ({ user, token, ...props }) => {
         {/* Content Details Modal */}
         {showContentModal && selectedContent && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 sm:p-6">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
               <div className="flex justify-between items-start mb-4">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{selectedContent.title}</h2>
                 <button
