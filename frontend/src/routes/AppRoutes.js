@@ -26,6 +26,11 @@ import Landing from '../pages/Landing';
 import Pricing from '../pages/Pricing';
 import PublicStreamPage from '../pages/PublicStreamPage';
 import PublicStreamEmbed from '../pages/PublicStreamEmbed';
+import OverlayNextStream from '../pages/OverlayNextStream';
+import OverlaySuggestions from '../pages/OverlaySuggestions';
+import OverlayGoal from '../pages/OverlayGoal';
+import OverlayWeek from '../pages/OverlayWeek';
+import OverlayQuote from '../pages/OverlayQuote';
 import { PrivateRoute, AdminRoute, UserRoute } from './routeGuards';
 
 export function AppRoutes({ user, token, setAuth, setUser, clearAuth }) {
@@ -40,6 +45,12 @@ export function AppRoutes({ user, token, setAuth, setUser, clearAuth }) {
       <Route path="/faq" element={<FAQ />} />
       <Route path="/streamer/:username" element={<PublicStreamPage />} />
       <Route path="/embed/streamer/:username" element={<PublicStreamEmbed />} />
+      {/* Public overlays for OBS/Streamlabs (no auth, API key in query) */}
+      <Route path="/overlay/nextstream" element={<OverlayNextStream />} />
+      <Route path="/overlay/suggestions" element={<OverlaySuggestions />} />
+      <Route path="/overlay/goal" element={<OverlayGoal />} />
+      <Route path="/overlay/week" element={<OverlayWeek />} />
+      <Route path="/overlay/quote" element={<OverlayQuote />} />
       <Route
         path="/dashboard"
         element={
