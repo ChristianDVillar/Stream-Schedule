@@ -1,10 +1,60 @@
--- Enable RLS on all public tables (Supabase / PostgREST)
--- Run this in Supabase Dashboard → SQL Editor
--- Resolves: "Table public.<name> is public, but RLS has not been enabled."
+-- =============================================================================
+-- Supabase: fix "RLS Disabled in Public"
+-- =============================================================================
+-- Supabase shows this when tables in schema "public" are exposed to the API
+-- but Row Level Security (RLS) is not enabled. Without RLS, the anon key could
+-- read/write those tables if PostgREST is used directly.
+--
+-- This script enables RLS on all app tables. Your backend uses the service_role
+-- key (or DATABASE_URL), which bypasses RLS, so behaviour is unchanged.
+-- Only direct access via Supabase anon key becomes denied by default.
+--
+-- Run once: Supabase Dashboard → SQL Editor → paste and Run.
+-- =============================================================================
+
+-- =============================================================================
+-- Supabase: enable RLS on all public tables (with report)
+-- =============================================================================
+-- Checks which tables already have RLS enabled and enables RLS on the rest.
+-- Provides a notice/report for each table.
+-- =============================================================================
+
+DO $$
+DECLARE
+    r record;
+    rls_status boolean;
+BEGIN
+    FOR r IN
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_type = 'BASE TABLE'
+    LOOP
+        -- check current RLS status
+        SELECT relrowsecurity
+        INTO rls_status
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public'
+          AND c.relname = r.table_name;
+
+        IF rls_status THEN
+            RAISE NOTICE 'Table % already has RLS enabled.', r.table_name;
+        ELSE
+            EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', r.table_name);
+            RAISE NOTICE 'RLS enabled for table: %', r.table_name;
+        END IF;
+    END LOOP;
+END $$;
 
 -- ============================================
--- Application tables (Sequelize)
+-- Alternative: explicit list (optional reference)
 -- ============================================
+-- If you prefer not to use the dynamic block above, uncomment and run the
+-- ALTER TABLE statements below. The dynamic block above already covers all
+-- current tables and any new ones you add later.
+-- ============================================
+/*
 ALTER TABLE public."Users" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."Contents" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."Platforms" ENABLE ROW LEVEL SECURITY;
@@ -27,7 +77,9 @@ ALTER TABLE public."TwitchBitEvents" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."Todos" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."StreamReminders" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."StreamItems" ENABLE ROW LEVEL SECURITY;
--- TwitchEventSubSubscriptions contains sensitive column "secret"; RLS required to avoid API exposure.
+ALTER TABLE public."StreamSuggestions" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."StreamTimelineEvents" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."ReminderSents" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."TwitchEventSubSubscriptions" ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
@@ -42,4 +94,5 @@ ALTER TABLE public.uploads ENABLE ROW LEVEL SECURITY;
 -- ============================================
 
 -- With RLS enabled and no policies, only the service_role (backend) can access these tables.
--- Add policies below if you expose any table to authenticated/anon via PostgREST.
+-- Add policies below if you ever expose a table to authenticated/anon via PostgREST.
+*/
