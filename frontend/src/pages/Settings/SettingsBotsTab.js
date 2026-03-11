@@ -468,24 +468,33 @@ export default function SettingsBotsTab({ user, token, t }) {
                 {path === 'quote/random' && !streamMode && key && API_BASE && (
                   <details className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
                     <summary className="text-xs font-medium text-amber-700 dark:text-amber-400 cursor-pointer">
-                      {t('bots.quoteNightbotHint') || 'Nightbot !quote (add + random) — use GET only'}
+                      {t('bots.quoteNightbotHint') || 'Nightbot: two commands (no JavaScript)'}
                     </summary>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 mb-1">
-                      {t('bots.quoteNightbotDesc') || 'Nightbot often fails with POST. Use this command so both "!quote" (random) and "!quote your text" (add) use GET and avoid "Error Connecting To Remote Server".'}
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 mb-2">
+                      {t('bots.quoteNightbotDesc') || 'Nightbot does not run JavaScript (so no $(eval) or encodeURIComponent). Create two separate commands using only $(urlfetch) and $(query):'}
                     </p>
-                    <code className="block text-xs break-all bg-gray-100 dark:bg-gray-700 px-2 py-2 rounded font-mono mt-1 whitespace-pre-wrap">
-                      {`$(eval q="$(query)"; q.length>0 ? $(urlfetch ${API_BASE}/api/webhooks/quote/add?quote=$(urlencode $(query))&key=YOUR_KEY) : $(urlfetch ${API_BASE}/api/webhooks/quote/random?key=YOUR_KEY))`}
-                    </code>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {t('bots.quoteNightbotReplace') || 'Replace YOUR_KEY with your API key. Use the Copy button below to get the command with your key already filled in.'}
-                    </p>
-                    <div className="mt-2">
-                      <CopyButton
-                        text={`$(eval q="$(query)"; q.length>0 ? $(urlfetch ${API_BASE}/api/webhooks/quote/add?quote=$(urlencode $(query))&key=${key}) : $(urlfetch ${API_BASE}/api/webhooks/quote/random?key=${key}))`}
-                        label={t('bots.copy') || 'Copy'}
-                        copiedMessage={copiedMessage}
-                        className="text-xs"
-                      />
+                    <div className="space-y-2 text-xs">
+                      <div>
+                        <p className="font-medium text-gray-700 dark:text-gray-300 mb-0.5">1. !quote — random quote</p>
+                        <code className="block break-all bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded font-mono">
+                          $(urlfetch {API_BASE}/api/webhooks/quote/random?key=YOUR_KEY)
+                        </code>
+                        <div className="mt-1 flex items-center gap-2">
+                          <CopyButton text={`$(urlfetch ${API_BASE}/api/webhooks/quote/random?key=${key})`} label={copyLabel} copiedMessage={copiedMessage} className="text-xs" />
+                        </div>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700 dark:text-gray-300 mb-0.5">2. !addquote — save quote (e.g. !addquote Hello there)</p>
+                        <code className="block break-all bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded font-mono">
+                          $(urlfetch {API_BASE}/api/webhooks/quote/add?quote=$(query)&key=YOUR_KEY)
+                        </code>
+                        <div className="mt-1 flex items-center gap-2">
+                          <CopyButton text={`$(urlfetch ${API_BASE}/api/webhooks/quote/add?quote=$(query)&key=${key})`} label={copyLabel} copiedMessage={copiedMessage} className="text-xs" />
+                        </div>
+                        <p className="text-gray-500 dark:text-gray-400 mt-1 italic">
+                          {t('bots.quoteNightbotSpaces') || 'If spaces break the URL, try !addquote with words separated by + or use a single word.'}
+                        </p>
+                      </div>
                     </div>
                   </details>
                 )}
