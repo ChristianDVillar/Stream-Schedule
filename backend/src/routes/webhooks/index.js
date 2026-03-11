@@ -216,6 +216,16 @@ function addStreamItemHandler(type, paramLabel = 'text') {
         return res.status(400).send(`Missing ${paramLabel}. Use ?${paramLabel}=your text or body: { "${paramLabel}": "your text" }`);
       }
       const truncated = text.length > 1000 ? text.slice(0, 997) + '…' : text;
+      if (type === 'quote') {
+        const exists = await StreamItem.findOne({
+          where: { userId: user.id, type: 'quote', text: truncated },
+          attributes: ['id'],
+        });
+        if (exists) {
+          res.set('Content-Type', 'text/plain; charset=utf-8');
+          return res.status(200).send('Quote already saved.');
+        }
+      }
       await StreamItem.create({ userId: user.id, type, text: truncated });
       logger.info('Webhook stream item add created', { userId: user.id, type });
       res.set('Content-Type', 'text/plain; charset=utf-8');
@@ -371,7 +381,7 @@ router.get('/streamstats', async (req, res) => {
   }
 });
 
-/** GET /api/webhooks/quote/random — random quote for !quote random */
+/** GET /api/webhooks/quote/random — random quote for !quote (efficient: count + offset, no ORDER BY RANDOM()) */
 router.get('/quote/random', async (req, res) => {
   try {
     const user = await getUserByApiKey(req);
@@ -379,15 +389,25 @@ router.get('/quote/random', async (req, res) => {
       sendText(res, 'Add your API key to use !quote random.');
       return;
     }
+    const count = await StreamItem.count({
+      where: { userId: user.id, type: 'quote' },
+    });
+    if (count === 0) {
+      sendText(res, 'No quotes yet. Use !quote your funny line to add one.');
+      return;
+    }
+    const randomOffset = Math.floor(Math.random() * count);
     const item = await StreamItem.findOne({
       where: { userId: user.id, type: 'quote' },
-      order: [sequelize.literal('RANDOM()')],
+      order: [['id', 'ASC']],
+      offset: randomOffset,
+      limit: 1,
       attributes: ['text'],
     });
     sendText(res, item ? `"${item.text}"` : 'No quotes yet. Use !quote your funny line to add one.');
   } catch (err) {
     logger.error('Webhook quote/random error', { error: err.message });
-    sendText(res, 'Could not get quote.');
+    sendText(res, 'Could not get quote. Try again.');
   }
 });
 
