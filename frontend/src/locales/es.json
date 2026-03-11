@@ -320,7 +320,11 @@
     "sortBy": "Ordenar por",
     "sortRecent": "Más recientes",
     "sortVotes": "Más votos (esta semana)",
-    "votes": "votos"
+    "votes": "votos",
+    "delete": "Borrar",
+    "deleteConfirm": "¿Borrar este elemento?",
+    "deleted": "Borrado.",
+    "deleteFailed": "Error al borrar."
   },
   "timeline": {
     "title": "Timeline del stream",
