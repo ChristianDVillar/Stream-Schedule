@@ -543,6 +543,14 @@ export async function adminDeleteUser({ userId, token }) {
   });
 }
 
+export async function adminSetUserDisabled({ userId, disabled, token }) {
+  return apiClient.post(
+    `/user/admin/users/${userId}/disabled`,
+    { disabled },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+}
+
 export async function adminGenerateLicense({ userId, licenseType, token }) {
   return apiClient.post('/user/admin/generate-license', { userId, licenseType }, {
     headers: { Authorization: `Bearer ${token}` }

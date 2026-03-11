@@ -22,12 +22,34 @@ Streamer Scheduler is a web application that lets you **schedule streams and pos
 
 ### Licenses
 
-The application uses a license system:
+The application uses a license / plan system. With the current pricing model, a realistic structure is:
 
-- **Trial** – Time-limited use.
-- **Monthly / Quarterly / Lifetime** – Depending on what the service offers.
-- Your **license** type and expiry date are shown in your **Profile** and under **Settings → Billing**.
-- You can **purchase or renew** licenses from the app (Stripe payments) when this is enabled.
+- **Free** – 0 €  
+  To try the product and get started:
+  - 7-day trial for new accounts.
+  - Calendar and scheduling for one streamer.
+  - Public schedule page.
+  - Basic overlays (Next stream, Schedule, Quote).
+
+- **Creator** – ~7 €/month (indicative price)  
+  For streamers who already stream several times per week and want **automatic promotion**:
+  - Everything in Free.
+  - Unlimited schedules and announcements.
+  - Automatic Discord announcements.
+  - Public schedule without watermark.
+  - Overlays for OBS/Streamlabs (Next stream, Goal, Weekly schedule, Quote).
+
+- **Pro** – ~15 €/month (indicative price)  
+  For creators who need more (team, analytics, multi-platform automation):
+  - Everything in Creator.
+  - Viewer reminders and notification experiments.
+  - Slack workspace setup for the streaming team.
+  - Stream performance analytics (on the roadmap).
+  - More integrations and API access.
+  - Priority support.
+
+Your **current plan/license** and expiry date are shown in your **Profile** and under **Settings → Billing**.  
+From **Billing** you can **purchase, renew, or change plans** (Stripe payments) when payments are enabled. Final prices and active plans may vary depending on the project phase; the most up-to-date reference is always the public `/pricing` page and the billing section inside the app.
 
 ---
 

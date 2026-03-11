@@ -411,12 +411,19 @@ export default function SettingsBotsTab({ user, token, t }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-              {CHAT_COMMANDS.map(({ cmd, desc }) => (
-                <tr key={cmd} className="bg-white dark:bg-gray-800/50">
-                  <td className="px-3 py-2 font-mono text-indigo-600 dark:text-indigo-400">{cmd}</td>
-                  <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{desc}</td>
-                </tr>
-              ))}
+              {CHAT_COMMANDS.map(({ cmd, desc, path }) => {
+                const targetId = path ? `cmd-${path}` : undefined;
+                return (
+                  <tr
+                    key={cmd}
+                    className="bg-white dark:bg-gray-800/50 hover:bg-indigo-50/70 dark:hover:bg-indigo-900/40 cursor-pointer"
+                    onClick={() => targetId && scrollToId(targetId)}
+                  >
+                    <td className="px-3 py-2 font-mono text-indigo-600 dark:text-indigo-400">{cmd}</td>
+                    <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{desc}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -429,7 +436,11 @@ export default function SettingsBotsTab({ user, token, t }) {
             const nightbotMsg = getNightbotMsg(path);
             const urlAlt = pathAlt ? getChatUrl(pathAlt) : null;
             return (
-              <div key={path} className="rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 p-4">
+              <div
+                key={path || cmd}
+                id={path ? `cmd-${path}` : undefined}
+                className="rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 p-4"
+              >
                 <div className="flex flex-wrap items-center gap-2 mb-1">
                   <code className="font-mono font-medium text-indigo-600 dark:text-indigo-400">{cmd}</code>
                   <span className="text-gray-500 dark:text-gray-400 text-sm">— {desc}</span>
@@ -498,6 +509,22 @@ export default function SettingsBotsTab({ user, token, t }) {
                     </div>
                   </details>
                 )}
+                <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-gray-500 dark:text-gray-400">
+                  <button
+                    type="button"
+                    onClick={() => scrollToId('bots-chat-commands')}
+                    className="underline-offset-2 hover:underline"
+                  >
+                    {t('bots.backToList') || 'Back to list'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => scrollToId('bots-api-key')}
+                    className="underline-offset-2 hover:underline"
+                  >
+                    {t('bots.backToTop') || 'Back to top'}
+                  </button>
+                </div>
               </div>
             );
           })}

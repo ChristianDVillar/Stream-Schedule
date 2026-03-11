@@ -55,7 +55,7 @@ Eso significa que el administrador de la aplicación aún no ha configurado esa 
 En **Perfil** y en **Configuración → Facturación**. Ahí se muestra el tipo de licencia (trial, mensual, trimestral, permanente) y la fecha de vencimiento.
 
 ### ¿Cómo renuevo o compro una licencia?
-Si los pagos están habilitados (Stripe), en **Configuración → Facturación** verás opciones para **comprar** o **renovar** según los planes disponibles.
+Si los pagos están habilitados (Stripe), en **Configuración → Facturación** verás opciones para **comprar** o **renovar** según los planes disponibles (por ejemplo Free, Creator, Pro). Los precios orientativos actuales son: Free (0 €), Creator (~7 €/mes), Pro (~15 €/mes), pero la referencia oficial siempre es la página de precios `/pricing` y lo que aparezca en Facturación dentro de la app.
 
 ### ¿Puedo cambiar de plan?
 Depende de la configuración del servicio. Revisa la sección de facturación o contacta con soporte.

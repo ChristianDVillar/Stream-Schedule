@@ -22,12 +22,34 @@ Streamer Scheduler es una aplicación web que te permite **programar streams y p
 
 ### Licencias
 
-La aplicación usa un sistema de licencias:
+La aplicación usa un sistema de licencias / planes. A nivel de producto y precios actuales, se recomienda una estructura tipo:
 
-- **Prueba (trial)** – Uso limitado en tiempo.
-- **Mensual / Trimestral / Permanente** – Según lo que ofrezca el servicio.
-- La **licencia** y su fecha de vencimiento se muestran en tu **Perfil** y en **Configuración → Facturación**.
-- Puedes **comprar o renovar** licencias desde la app (pagos con Stripe) si está habilitado.
+- **Free** (Gratis) – 0 €  
+  Para probar el producto y empezar:
+  - 7 días de prueba (trial) para nuevas cuentas.
+  - Calendario y programación para un streamer.
+  - Página pública de horario.
+  - Overlays básicos (Next stream, Schedule, Quote).
+
+- **Creator** – ~7 €/mes (precio orientativo)  
+  Para streamers que ya streamean varias veces por semana y quieren **promoción automática**:
+  - Todo lo de Free.
+  - Horarios y anuncios ilimitados.
+  - Anuncios automáticos a Discord.
+  - Página pública sin marca de agua.
+  - Overlays para OBS/Streamlabs (Next stream, Goal, Weekly schedule, Quote).
+
+- **Pro** – ~15 €/mes (precio orientativo)  
+  Para creadores que quieren ir más allá (equipo, analytics, multi‑plataforma):
+  - Todo lo de Creator.
+  - Recordatorios a viewers y experimentos de notificaciones.
+  - Setup de workspace de Slack para el equipo de streaming.
+  - Analytics de rendimiento de stream (en roadmap).
+  - Más integraciones y acceso a la API.
+  - Soporte prioritario.
+
+La **licencia/plan activo** y su fecha de vencimiento se muestran en tu **Perfil** y en **Configuración → Facturación**.  
+Desde **Facturación** puedes **comprar, renovar o cambiar de plan** (pagos con Stripe) si los pagos están habilitados. Los precios finales y planes activos pueden variar según la fase del proyecto; la referencia más actualizada siempre es la página pública de precios `/pricing` y la sección de facturación dentro de la app.
 
 ---
 

@@ -1995,6 +1995,7 @@ router.get('/admin/users', requireAdmin, async (req, res) => {
       'licenseType', 
       'licenseExpiresAt', 
       'isAdmin', 
+      'isDisabled',
       'hasUsedTrial', 
       'trialExtensions',
       'googleId',
@@ -2043,6 +2044,7 @@ router.get('/admin/users', requireAdmin, async (req, res) => {
       licenseAlert: summary.alert,
       licenseDaysLeft: summary.daysLeft,
       isAdmin: user.isAdmin,
+      isDisabled: !!user.isDisabled,
       hasUsedTrial: user.hasUsedTrial,
       trialExtensions: user.trialExtensions || 0,
       lastUploadAt,
@@ -2074,7 +2076,7 @@ router.delete('/admin/users/:userId', requireAdmin, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     if (user.isAdmin) {
-      const adminCount = await User.count({ where: { isAdmin: true } });
+      const adminCount = await User.count({ where: { isAdmin: true, isDisabled: false } });
       if (adminCount <= 1) {
         return res.status(400).json({ error: 'Cannot delete the last admin' });
       }
@@ -2085,6 +2087,42 @@ router.delete('/admin/users/:userId', requireAdmin, async (req, res) => {
   } catch (err) {
     logger.error('Error deleting user', { error: err.message, userId: id, adminId: req.user?.id });
     res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// Enable / disable user (admin only). Cannot disable last active admin or self.
+router.post('/admin/users/:userId/disabled', requireAdmin, async (req, res) => {
+  const { userId } = req.params;
+  const { disabled } = req.body || {};
+  const id = parseInt(userId, 10);
+  if (Number.isNaN(id)) {
+    return res.status(400).json({ error: 'Invalid user id' });
+  }
+  if (id === req.user.id) {
+    return res.status(400).json({ error: 'Cannot disable your own account' });
+  }
+  try {
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (user.isAdmin && disabled) {
+      const activeAdminCount = await User.count({ where: { isAdmin: true, isDisabled: false } });
+      if (activeAdminCount <= 1) {
+        return res.status(400).json({ error: 'Cannot disable the last admin' });
+      }
+    }
+    user.isDisabled = !!disabled;
+    await user.save();
+    logger.info('User status changed by admin', {
+      userId: id,
+      adminId: req.user.id,
+      disabled: !!disabled,
+    });
+    res.json({ ok: true, disabled: !!disabled });
+  } catch (err) {
+    logger.error('Error changing user disabled status', { error: err.message, userId: id, adminId: req.user?.id });
+    res.status(500).json({ error: 'Failed to change user status' });
   }
 });
 

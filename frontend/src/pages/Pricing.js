@@ -136,7 +136,48 @@ export default function Pricing() {
           })}
         </div>
 
-        <p className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
+        {/* ROI / value explanation */}
+        <section className="mt-12 max-w-3xl mx-auto text-center">
+          <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-3">
+            {t('pricing.roiTitle') || 'Why pay for an automatic stream promotion system?'}
+          </h2>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
+            {t('pricing.roiText') ||
+              'If you stream 4 times a week and even 5 viewers miss each stream because they did not see the announcement, you lose 20 viewers every week. Streamer Scheduler makes sure your audience always knows when you go live.'}
+          </p>
+        </section>
+
+        {/* Pricing FAQ */}
+        <section className="mt-10 max-w-3xl mx-auto">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 text-center">
+            {t('pricing.faqTitle') || 'Pricing FAQ'}
+          </h3>
+          <dl className="space-y-4 text-sm text-gray-700 dark:text-gray-300">
+            <div>
+              <dt className="font-semibold">{t('pricing.faqQ1') || 'Do I need this if I am a small streamer?'}</dt>
+              <dd className="mt-1">
+                {t('pricing.faqA1') ||
+                  'Yes. Small streamers benefit the most from consistent schedules and automatic reminders because every viewer counts. A clear schedule and automatic promotion help you look more professional from day one.'}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-semibold">{t('pricing.faqQ2') || 'Does it post automatically to Discord?'}</dt>
+              <dd className="mt-1">
+                {t('pricing.faqA2') ||
+                  'Yes. You can configure automatic announcements to your Discord server, so your community always sees when you are about to go live.'}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-semibold">{t('pricing.faqQ3') || 'Do I need OBS to use this?'}</dt>
+              <dd className="mt-1">
+                {t('pricing.faqA3') ||
+                  'No. Overlays are optional. The core value is your schedule, public page and automatic announcements. If you use OBS or Streamlabs, you can also add overlays like “Next stream” or goals.'}
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        <p className="mt-10 text-center text-sm text-gray-500 dark:text-gray-400">
           {t('pricing.note') || 'Prices may vary. Check Settings → Billing for current plans. Trial available for new users.'}
         </p>
       </div>
