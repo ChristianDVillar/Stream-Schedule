@@ -122,6 +122,12 @@ const User = sequelize.define('User', {
     type: DataTypes.BOOLEAN,
     defaultValue: false
   },
+  isDisabled: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    comment: 'If true, user is deactivated and cannot log in or use the app.'
+  },
   merchandisingLink: {
     type: DataTypes.STRING,
     allowNull: true

@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { X } from 'lucide-react';
 // Admin: usuarios, licencias, pagos (listado/export), modal detalle, mensajes
-import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob, sendNotification, getPlatformConfig, updatePlatformConfig, getFixedCosts, updateFixedCosts, getUsdToEurRate, getAlertConfig, updateAlertConfig, testAlertConfig, getCostMetrics, getTrialExtensionConfig, updateTrialExtensionConfig, getAdminFeatures } from '../api';
+import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, adminSetUserDisabled, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob, sendNotification, getPlatformConfig, updatePlatformConfig, getFixedCosts, updateFixedCosts, getUsdToEurRate, getAlertConfig, updateAlertConfig, testAlertConfig, getCostMetrics, getTrialExtensionConfig, updateTrialExtensionConfig, getAdminFeatures } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatDateUTC } from '../utils/dateUtils';
 import { maskEmail } from '../utils/emailUtils';
@@ -636,6 +636,30 @@ export default function AdminDashboard({ token, user, onLogout }) {
     }
   }
 
+  async function handleToggleUserDisabled(user) {
+    const targetDisabled = !user.isDisabled;
+    const confirmText = targetDisabled
+      ? (t('admin.disableUserConfirm') || 'Disable this user? They will not be able to log in.')
+      : (t('admin.enableUserConfirm') || 'Enable this user again?');
+    if (!window.confirm(confirmText)) return;
+    try {
+      await adminSetUserDisabled({ userId: user.id, disabled: targetDisabled, token });
+      toast.success(
+        targetDisabled
+          ? (t('admin.disableUserSuccess') || 'User disabled')
+          : (t('admin.enableUserSuccess') || 'User enabled'),
+      );
+      await fetchUsers();
+    } catch (err) {
+      const msg =
+        err.response?.data?.error ||
+        (targetDisabled
+          ? (t('admin.disableUserError') || 'Error disabling user')
+          : (t('admin.enableUserError') || 'Error enabling user'));
+      window.alert(msg);
+    }
+  }
+
   async function handleAssignTrial(userId) {
     if (!window.confirm(t('admin.assignTrialConfirm'))) {
       return;
@@ -1253,6 +1277,9 @@ export default function AdminDashboard({ token, user, onLogout }) {
                     </td>
                     <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">{u.isAdmin ? t('common.yes') : t('common.no')}</td>
                     <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">
+                      {u.isDisabled ? (t('admin.disabled') || 'Disabled') : (t('admin.active') || 'Active')}
+                    </td>
+                    <td className="px-4 py-2 border dark:border-gray-700 text-gray-900 dark:text-gray-100 group-hover:dark:text-white">
                       {u.licenseType === 'trial' ? (
                         <span className="text-xs">
                           {u.trialExtensions || 0}
@@ -1365,6 +1392,13 @@ export default function AdminDashboard({ token, user, onLogout }) {
                           title={t('admin.sendPasswordResetEmail')}
                         >
                           {resetting === u.id ? '...' : '🔑'}
+                        </button>
+                        <button
+                          className={`px-2 py-1 text-xs rounded text-white ${u.isDisabled ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700'}`}
+                          onClick={(e) => { e.stopPropagation(); handleToggleUserDisabled(u); }}
+                          title={u.isDisabled ? (t('admin.enableUser') || 'Enable user') : (t('admin.disableUser') || 'Disable user')}
+                        >
+                          {u.isDisabled ? (t('admin.enableUser') || 'Enable') : (t('admin.disableUser') || 'Disable')}
                         </button>
                         <button
                           className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"

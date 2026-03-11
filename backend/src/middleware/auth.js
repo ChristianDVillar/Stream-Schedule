@@ -65,11 +65,16 @@ export function authenticateToken(req, res, next) {
       .then(async (user) => {
         if (!user) {
           req.user = null;
-        } else {
-          await ensureTrialForOAuthUser(user);
-          req.user = user.get({ plain: true });
+          return next();
         }
-        next();
+        if (user.isDisabled) {
+          logger.info('Blocked request from disabled user', { userId: user.id });
+          req.user = null;
+          return next();
+        }
+        await ensureTrialForOAuthUser(user);
+        req.user = user.get({ plain: true });
+        return next();
       })
       .catch(err => {
         logger.error('Error fetching user in auth middleware', {
