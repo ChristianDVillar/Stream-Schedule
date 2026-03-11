@@ -75,13 +75,22 @@ export default function Pricing() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 sm:py-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-12">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">
-            {t('pricing.title') || 'Simple, transparent pricing'}
-          </h1>
-          <p className="mt-4 text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-            {t('pricing.subtitle') || 'Start free. Upgrade when you grow. We recommend 7€/month for most streamers.'}
-          </p>
+        <div className="flex items-center justify-between mb-8">
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white underline-offset-2 hover:underline"
+          >
+            {t('pricing.backToLanding') || '← Back to landing'}
+          </button>
+          <div className="text-right flex-1">
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white text-center sm:text-right">
+              {t('pricing.title') || 'Simple, transparent pricing'}
+            </h1>
+            <p className="mt-4 text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto sm:ml-auto sm:mr-0 text-center sm:text-right">
+              {t('pricing.subtitle') || 'Start free. Upgrade when you grow. We recommend 7€/month for most streamers.'}
+            </p>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">

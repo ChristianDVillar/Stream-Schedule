@@ -206,6 +206,16 @@
     "startFree": "Empezar gratis",
     "getStarted": "Comenzar",
     "getPro": "Ir a Pro",
+    "backToLanding": "← Volver a la landing",
+    "roiTitle": "¿Por qué pagar por un sistema de promoción automática de streams?",
+    "roiText": "Si streameas 4 veces por semana y 5 viewers se pierden cada stream porque no vieron el anuncio, pierdes 20 viewers cada semana. Streamer Scheduler se asegura de que tu audiencia siempre sepa cuándo vas en vivo.",
+    "faqTitle": "Preguntas frecuentes sobre precios",
+    "faqQ1": "¿Necesito esto si soy un streamer pequeño?",
+    "faqA1": "Sí. Los streamers pequeños se benefician más de tener un horario consistente y recordatorios automáticos, porque cada viewer cuenta. Un horario claro y la promoción automática te hacen ver más profesional desde el primer día.",
+    "faqQ2": "¿Publica automáticamente en Discord?",
+    "faqA2": "Sí. Puedes configurar anuncios automáticos en tu servidor de Discord para que tu comunidad vea siempre cuándo vas a ir en vivo.",
+    "faqQ3": "¿Necesito OBS para usar esto?",
+    "faqA3": "No. Los overlays son opcionales. El valor principal es tu horario, la página pública y los anuncios automáticos. Si usas OBS o Streamlabs, también puedes añadir overlays como \"Next stream\" o metas.",
     "note": "Los precios pueden variar. Consulta Configuración → Facturación para los planes actuales. Trial disponible para nuevos usuarios."
   },
   "dashboard": {
