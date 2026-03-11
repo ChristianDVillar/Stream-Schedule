@@ -91,3 +91,20 @@ export const contentCreationLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+/**
+ * Rate limiter for public webhooks (bots API).
+ * Per-IP to avoid abuse; generous enough for Nightbot/Streamer.bot polling.
+ */
+export const webhookLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 300, // 300 requests per 15 min per IP
+  message: {
+    error: 'Webhook rate limit exceeded',
+    message: 'Too many requests. Slow down your bot.',
+    retryAfter: 900,
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
+});

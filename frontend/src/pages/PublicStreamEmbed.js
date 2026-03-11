@@ -94,7 +94,11 @@ export default function PublicStreamEmbed() {
   const showBgInEmbed = bannerUrl && bannerPosition === 'background';
 
   return (
-    <div className={`rounded-lg overflow-hidden min-w-[280px] max-w-[400px] border-2 border-purple-200 dark:border-purple-800 bg-gradient-to-b from-violet-50 via-white to-fuchsia-50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-800 ${showBgInEmbed ? 'relative' : ''}`}>
+    <div
+      className={`rounded-lg overflow-hidden min-w-[280px] max-w-[400px] border-2 border-purple-200 dark:border-purple-800 bg-gradient-to-b from-violet-50 via-white to-fuchsia-50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-800 ${showBgInEmbed ? 'relative' : ''}`}
+      role="region"
+      aria-label={data?.username ? `${data.username} stream schedule` : 'Stream schedule embed'}
+    >
       {showBgInEmbed && (
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
           <img src={bannerUrl} alt="" className="w-full h-full object-cover object-center opacity-55" />
@@ -107,7 +111,7 @@ export default function PublicStreamEmbed() {
         </div>
       )}
       <div className={`px-3 py-2 border-b border-accent-light dark:border-gray-700 flex items-center justify-between bg-accent-subtle dark:bg-gray-800 ${showBgInEmbed ? 'relative z-10' : ''}`}>
-        <span className="font-semibold text-gray-900 dark:text-white text-sm truncate">{data.username}</span>
+        <span className="font-semibold text-gray-900 dark:text-white text-sm truncate" id="embed-streamer-name">{data.username}</span>
         <a
           href="/"
           target="_blank"
@@ -147,7 +151,7 @@ export default function PublicStreamEmbed() {
         {data.events.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('publicStream.noUpcoming') || 'No upcoming streams.'}</p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="space-y-2" aria-labelledby="embed-streamer-name">
             {data.events.slice(0, 5).map((evt) => (
               <li key={evt.id} className="flex items-center gap-2 text-sm">
                 <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />

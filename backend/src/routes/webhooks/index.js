@@ -5,71 +5,42 @@
  */
 
 import express from 'express';
-import { User, Todo, Content, StreamItem, StreamTimelineEvent, Integration, sequelize } from '../models/index.js';
-import { contentService } from '../services/contentService.js';
-import { CONTENT_STATUS } from '../constants/contentStatus.js';
-import { Op } from 'sequelize';
-import logger from '../utils/logger.js';
+import {
+  User,
+  Todo,
+  Content,
+  StreamItem,
+  StreamTimelineEvent,
+  Integration,
+  sequelize,
+  contentService,
+  Op,
+  logger,
+  FRONTEND_URL,
+  UPCOMING_STATUSES,
+  getUpcomingEvents,
+  formatEventForChat,
+  formatCountdown,
+  sendText,
+  getUserByApiKey,
+} from './shared.js';
+import { announceStreamStarted } from '../../utils/discordAnnounce.js';
 
 const router = express.Router();
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
-const UPCOMING_STATUSES = [
-  CONTENT_STATUS.SCHEDULED,
-  CONTENT_STATUS.QUEUED,
-  CONTENT_STATUS.PUBLISHING,
-  CONTENT_STATUS.PUBLISHED,
-];
-
-async function getUpcomingEvents(userId, limit = 30) {
-  const now = new Date();
-  const events = await Content.findAll({
-    where: {
-      userId,
-      scheduledFor: { [Op.gte]: now },
-      status: { [Op.in]: UPCOMING_STATUSES },
-      deletedAt: null,
-    },
-    order: [['scheduledFor', 'ASC']],
-    limit,
-    attributes: ['id', 'title', 'scheduledFor'],
+// Centralized webhook request logging (method, path, status, duration)
+router.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    logger.info('Webhook request', {
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      durationMs: Date.now() - start,
+    });
   });
-  return events.map((e) => ({
-    title: e.title,
-    scheduledFor: e.scheduledFor,
-  }));
-}
-
-function formatEventForChat(scheduledFor, title) {
-  const d = new Date(scheduledFor);
-  const day = d.toLocaleDateString(undefined, { weekday: 'long' });
-  const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  return `${day} ${time} — ${title}`;
-}
-
-function sendText(res, text) {
-  res.set('Content-Type', 'text/plain; charset=utf-8');
-  res.send(text || '');
-}
-
-function getApiKey(req) {
-  const header = (req.headers['x-api-key'] || req.headers['authorization'] || '').trim();
-  if (header.toLowerCase().startsWith('bearer ')) return header.slice(7).trim();
-  if (header) return header;
-  const body = (req.body?.apiKey || req.body?.key || '').trim();
-  if (body) return body;
-  return (req.query?.key || req.query?.apiKey || '').trim();
-}
-
-async function getUserByApiKey(req) {
-  const key = getApiKey(req);
-  if (!key) return null;
-  const user = await User.findOne({
-    where: { nightbotApiKey: key },
-    attributes: ['id', 'username'],
-  });
-  return user;
-}
+  next();
+});
 
 /**
  * POST /api/webhooks/todo
@@ -186,17 +157,8 @@ router.post('/stream/start', async (req, res) => {
 
     const fullUser = await User.findByPk(user.id, { attributes: ['discordAnnounceWebhookUrl'] });
     const webhookUrl = fullUser?.discordAnnounceWebhookUrl?.trim();
-    if (webhookUrl && webhookUrl.startsWith('https://discord.com/api/webhooks/')) {
-      try {
-        const message = note ? `🔴 Stream started!\n${note}` : '🔴 Stream started!';
-        await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: message }),
-        });
-      } catch (e) {
-        logger.warn('Discord announce on stream/start failed', { userId: user.id, error: e.message });
-      }
+    if (webhookUrl) {
+      await announceStreamStarted(webhookUrl, note);
     }
 
     res.json({ ok: true, message: 'Stream start recorded.' });
@@ -234,6 +196,47 @@ router.post('/note', createStreamItem('note'));
 router.post('/quote', createStreamItem('quote'));
 router.post('/clipidea', createStreamItem('clipidea'));
 
+/** Shared handler for GET/POST .../add — add stream item (for Nightbot: GET ?text=...&key=API_KEY) */
+function addStreamItemHandler(type, paramLabel = 'text') {
+  const labels = { idea: 'idea', note: 'note', quote: 'quote', clipidea: 'clip idea' };
+  const label = labels[type] || type;
+  return async (req, res) => {
+    try {
+      const user = await getUserByApiKey(req);
+      if (!user) {
+        res.set('Content-Type', 'text/plain; charset=utf-8');
+        return res.status(401).send('Invalid or missing API key. Use the key from Settings → Bots.');
+      }
+      const raw = type === 'quote'
+        ? (req.query?.quote ?? req.query?.text ?? req.body?.quote ?? req.body?.text ?? req.body?.message ?? '')
+        : (req.query?.text ?? req.query?.[type] ?? req.body?.text ?? req.body?.message ?? req.body?.[type] ?? '');
+      const text = String(raw).trim();
+      if (!text) {
+        res.set('Content-Type', 'text/plain; charset=utf-8');
+        return res.status(400).send(`Missing ${paramLabel}. Use ?${paramLabel}=your text or body: { "${paramLabel}": "your text" }`);
+      }
+      const truncated = text.length > 1000 ? text.slice(0, 997) + '…' : text;
+      await StreamItem.create({ userId: user.id, type, text: truncated });
+      logger.info('Webhook stream item add created', { userId: user.id, type });
+      res.set('Content-Type', 'text/plain; charset=utf-8');
+      res.status(201).send(`${label.charAt(0).toUpperCase() + label.slice(1)} saved: "${truncated.slice(0, 80)}${truncated.length > 80 ? '…' : ''}"`);
+    } catch (err) {
+      logger.error(`Webhook ${type}/add error`, { error: err.message });
+      res.set('Content-Type', 'text/plain; charset=utf-8');
+      res.status(500).send(`Could not add ${label}.`);
+    }
+  };
+}
+
+router.get('/quote/add', addStreamItemHandler('quote', 'quote'));
+router.post('/quote/add', addStreamItemHandler('quote', 'quote'));
+router.get('/idea/add', addStreamItemHandler('idea'));
+router.post('/idea/add', addStreamItemHandler('idea'));
+router.get('/note/add', addStreamItemHandler('note'));
+router.post('/note/add', addStreamItemHandler('note'));
+router.get('/clipidea/add', addStreamItemHandler('clipidea'));
+router.post('/clipidea/add', addStreamItemHandler('clipidea'));
+
 // --- GET endpoints: return text/plain for bot to say in chat (use ?key= or X-API-Key) ---
 
 /** GET /api/webhooks/nextstream — "Next stream: Friday 20:00 Minecraft" */
@@ -258,18 +261,6 @@ router.get('/nextstream', async (req, res) => {
 });
 
 /** GET /api/webhooks/countdown — "Next stream in: 3h 14m" for !countdown */
-function formatCountdown(toDate) {
-  const now = new Date();
-  const to = new Date(toDate);
-  if (to <= now) return null;
-  const ms = to - now;
-  const h = Math.floor(ms / (1000 * 60 * 60));
-  const m = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m`;
-  const s = Math.floor((ms % (1000 * 60)) / 1000);
-  return `${s}s`;
-}
 router.get('/countdown', async (req, res) => {
   try {
     const user = await getUserByApiKey(req);
@@ -483,12 +474,16 @@ router.get('/commands', async (req, res) => {
       '!myschedule — public schedule link',
       '!streamstats — stream statistics',
       '!quote random — random quote',
+      '!quote add <text> — add quote (GET quote/add?quote=text&key=KEY)',
       '!randomidea — random stream idea',
       '!randomclipidea — random clip idea',
       '!contentwheel — random content idea',
-      '!idea your idea — save a stream idea',
-      '!note your note — save a note from chat',
-      '!clipidea your moment — save a clip idea',
+      '!idea <text> — save idea (GET idea/add?text=...&key=KEY)',
+      '!note <text> — save note (GET note/add?text=...&key=KEY)',
+      '!clipidea <text> — save clip idea (GET clipidea/add?text=...&key=KEY)',
+      '!voteidea <idea> — vote for idea (GET voteidea?text=...&key=KEY)',
+      '!remindme — request reminder (GET remindme?viewer=username&key=KEY)',
+      '!challenge <text> — add challenge (GET challenge?text=...&key=KEY)',
       '!suggest your idea — viewers send ideas (see docs for setup)',
     ];
     sendText(res, lines.join('\n'));
@@ -703,32 +698,34 @@ router.get('/contentwheel', async (req, res) => {
 });
 
 /**
- * POST /api/webhooks/voteidea — register a vote for an idea from chat (!voteidea horror challenge)
- * Body/query: { text } with the idea description.
+ * GET/POST /api/webhooks/voteidea — register a vote for an idea (!voteidea horror challenge)
+ * GET: ?text=...&key=KEY for Nightbot. POST: body { text }.
  */
-router.post('/voteidea', async (req, res) => {
+async function voteideaHandler(req, res) {
   try {
     const user = await getUserByApiKey(req);
     if (!user) {
-      return res.status(401).json({ error: 'Invalid or missing API key.' });
+      res.set('Content-Type', 'text/plain; charset=utf-8');
+      return res.status(401).send('Invalid or missing API key.');
     }
     const text = (req.body?.text ?? req.query?.text ?? '').toString().trim();
     if (!text) {
-      return res.status(400).json({ error: 'Missing text. Send { "text": "horror challenge" }.' });
+      res.set('Content-Type', 'text/plain; charset=utf-8');
+      return res.status(400).send('Missing text. Use ?text=your idea&key=KEY');
     }
     const truncated = text.length > 200 ? text.slice(0, 197) + '…' : text;
-    await StreamItem.create({
-      userId: user.id,
-      type: 'idea',
-      text: truncated,
-    });
+    await StreamItem.create({ userId: user.id, type: 'idea', text: truncated });
     logger.info('Webhook voteidea', { userId: user.id, username: user.username });
-    res.status(201).json({ ok: true, message: `Vote added for: ${truncated}` });
+    res.set('Content-Type', 'text/plain; charset=utf-8');
+    res.status(201).send(`Vote added for: ${truncated}`);
   } catch (err) {
     logger.error('Webhook voteidea error', { error: err.message });
-    res.status(500).json({ error: 'Could not register vote.' });
+    res.set('Content-Type', 'text/plain; charset=utf-8');
+    res.status(500).send('Could not register vote.');
   }
-});
+}
+router.get('/voteidea', voteideaHandler);
+router.post('/voteidea', voteideaHandler);
 
 /** GET /api/webhooks/voteidea/top — "Top chat idea this week: X (12 votes)" */
 router.get('/voteidea/top', async (req, res) => {
@@ -769,66 +766,61 @@ router.get('/voteidea/top', async (req, res) => {
 });
 
 /**
- * POST /api/webhooks/remindme — viewer asks for a reminder before next stream (!remindme)
- * Body/query: { viewer } recommended (Twitch username, Discord user, etc.).
- * For now we store it as a StreamItem so it can be used by reminder jobs later.
+ * GET/POST /api/webhooks/remindme — viewer asks for reminder (!remindme)
+ * GET: ?viewer=username&key=KEY or ?username=... for Nightbot.
  */
-router.post('/remindme', async (req, res) => {
+async function remindmeHandler(req, res) {
   try {
     const user = await getUserByApiKey(req);
     if (!user) {
-      return res.status(401).json({ error: 'Invalid or missing API key.' });
+      res.set('Content-Type', 'text/plain; charset=utf-8');
+      return res.status(401).send('Invalid or missing API key.');
     }
     const viewer =
-      (req.body?.viewer ??
-        req.query?.viewer ??
-        req.body?.username ??
-        req.query?.username ??
-        '').toString().trim();
+      (req.body?.viewer ?? req.query?.viewer ?? req.body?.username ?? req.query?.username ?? '').toString().trim();
     const note = viewer || 'anonymous-viewer';
-    await StreamItem.create({
-      userId: user.id,
-      type: 'note',
-      text: `[remindme] ${note}`,
-    });
+    await StreamItem.create({ userId: user.id, type: 'note', text: `[remindme] ${note}` });
     logger.info('Webhook remindme', { userId: user.id, viewer: note });
-    res.status(201).json({
-      ok: true,
-      message: "You'll get a reminder before the next stream.",
-    });
+    res.set('Content-Type', 'text/plain; charset=utf-8');
+    res.status(201).send("You'll get a reminder before the next stream.");
   } catch (err) {
     logger.error('Webhook remindme error', { error: err.message });
-    res.status(500).json({ error: 'Could not register reminder.' });
+    res.set('Content-Type', 'text/plain; charset=utf-8');
+    res.status(500).send('Could not register reminder.');
   }
-});
+}
+router.get('/remindme', remindmeHandler);
+router.post('/remindme', remindmeHandler);
 
 /**
- * POST /api/webhooks/challenge — save a challenge from chat (!challenge no map)
- * Body/query: { text }
+ * GET/POST /api/webhooks/challenge — save a challenge (!challenge no map)
+ * GET: ?text=...&key=KEY for Nightbot.
  */
-router.post('/challenge', async (req, res) => {
+async function challengeHandler(req, res) {
   try {
     const user = await getUserByApiKey(req);
     if (!user) {
-      return res.status(401).json({ error: 'Invalid or missing API key.' });
+      res.set('Content-Type', 'text/plain; charset=utf-8');
+      return res.status(401).send('Invalid or missing API key.');
     }
     const text = (req.body?.text ?? req.query?.text ?? '').toString().trim();
     if (!text) {
-      return res.status(400).json({ error: 'Missing text. Send { "text": "no HUD" }.' });
+      res.set('Content-Type', 'text/plain; charset=utf-8');
+      return res.status(400).send('Missing text. Use ?text=your challenge&key=KEY');
     }
     const truncated = text.length > 500 ? text.slice(0, 497) + '…' : text;
-    await StreamItem.create({
-      userId: user.id,
-      type: 'note',
-      text: `[challenge] ${truncated}`,
-    });
+    await StreamItem.create({ userId: user.id, type: 'note', text: `[challenge] ${truncated}` });
     logger.info('Webhook challenge', { userId: user.id });
-    res.status(201).json({ ok: true, message: `Challenge added: ${truncated}` });
+    res.set('Content-Type', 'text/plain; charset=utf-8');
+    res.status(201).send(`Challenge added: ${truncated}`);
   } catch (err) {
     logger.error('Webhook challenge error', { error: err.message });
-    res.status(500).json({ error: 'Could not save challenge.' });
+    res.set('Content-Type', 'text/plain; charset=utf-8');
+    res.status(500).send('Could not save challenge.');
   }
-});
+}
+router.get('/challenge', challengeHandler);
+router.post('/challenge', challengeHandler);
 
 /** GET /api/webhooks/nextcollab — "Next collaboration stream: Saturday with StreamerX" */
 router.get('/nextcollab', async (req, res) => {

@@ -346,8 +346,9 @@ export async function deleteTodo(id) {
 }
 
 /** Stream items (!idea, !note, !quote, !clipidea) */
-export async function getStreamItems(type) {
-  const params = type ? { type } : {};
+export async function getStreamItems(type, sort = 'recent') {
+  const params = { sort };
+  if (type) params.type = type;
   const res = await apiClient.get('/stream-items', { params });
   return res.data;
 }
@@ -445,6 +446,16 @@ export function startYoutubeConnect(token) {
   window.location.href = `${base}/youtube/connect?token=${encodeURIComponent(token)}`;
 }
 
+/** Start Slack link (add Slack workspace to current account). Redirects to backend OAuth flow. */
+export function startSlackLink(token) {
+  if (!token) {
+    console.warn('startSlackLink: token required');
+    return;
+  }
+  const base = apiClient.defaults.baseURL;
+  window.location.href = `${base}/user/auth/slack/link?token=${encodeURIComponent(token)}`;
+}
+
 /** GET /youtube/status - YouTube connection status (connected, channelTitle, etc.). */
 export async function getYoutubeStatus() {
   const res = await apiClient.get('/youtube/status');
@@ -492,6 +503,18 @@ export async function disconnectTwitter() {
 /** POST /user/disconnect-discord - remove Discord from current account. */
 export async function disconnectDiscord() {
   const res = await apiClient.post('/user/disconnect-discord');
+  return res.data;
+}
+
+/** POST /user/disconnect-slack - remove Slack integration. */
+export async function disconnectSlack() {
+  const res = await apiClient.post('/user/disconnect-slack');
+  return res.data;
+}
+
+/** POST /user/slack/setup-workspace - create streaming channels and user groups in connected Slack. */
+export async function setupSlackWorkspace() {
+  const res = await apiClient.post('/user/slack/setup-workspace');
   return res.data;
 }
 

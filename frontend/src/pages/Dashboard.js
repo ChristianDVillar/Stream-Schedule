@@ -12,6 +12,7 @@ import { formatDate, formatDateWithUTC, formatDateWithTimezone, getTimezoneMessa
 import { getPlatformColor } from '../utils/platformColors';
 import { copyPostToClipboard } from '../utils/copyPastePost';
 import TrialWarning from '../components/TrialWarning';
+import OnboardingChecklist from '../components/OnboardingChecklist';
 import { SearchAdvanced } from '../components/SearchAdvanced';
 import { 
   Calendar as CalendarIcon, 
@@ -675,6 +676,15 @@ const Dashboard = ({ user, token, ...props }) => {
       <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 min-w-0">
         {/* Trial Warning */}
         {!user?.isAdmin && <TrialWarning user={user} />}
+
+        {/* Onboarding checklist (dismissible, localStorage) */}
+        {!user?.isAdmin && (
+          <OnboardingChecklist
+            user={user}
+            token={token}
+            hasScheduledContent={contents.length > 0}
+          />
+        )}
 
         {/* Twitch: suscripciones, bits, donaciones (según preferencias del perfil) */}
         {showTwitchOnDashboard && (

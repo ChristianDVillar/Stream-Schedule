@@ -3,7 +3,7 @@
  * Streamer-friendly layout: quick setup, command table, copy-paste ready docs.
  */
 import React, { useState, useEffect } from 'react';
-import { Bot, Copy, RefreshCw, Check, ExternalLink, Key, ListTodo, Calendar, Radio, MessageSquare, Zap } from 'lucide-react';
+import { Bot, Copy, RefreshCw, Check, ExternalLink, Key, ListTodo, Calendar, Radio, MessageSquare, Zap, Monitor, ChevronDown, ChevronRight } from 'lucide-react';
 import { getNightbotKey, generateNightbotKey } from '../../api';
 import toast from 'react-hot-toast';
 import { useStreamMode } from '../../contexts/StreamModeContext';
@@ -61,6 +61,9 @@ export default function SettingsBotsTab({ user, token, t }) {
   }, [token]);
 
   const handleGenerate = async () => {
+    if (key && !window.confirm(t('bots.regenerateConfirm') || 'This will invalidate your current API key. Bots using the old key will stop working. Continue?')) {
+      return;
+    }
     setGenerating(true);
     try {
       const newKey = await generateNightbotKey();
@@ -115,6 +118,21 @@ export default function SettingsBotsTab({ user, token, t }) {
   const getChatUrl = (path) => !streamMode && key && API_BASE ? `${API_BASE}/api/webhooks/${path}?key=${encodeURIComponent(key)}` : '';
   const getNightbotMsg = (path) => !streamMode && key && API_BASE ? `$(urlfetch ${API_BASE}/api/webhooks/${path}?key=${encodeURIComponent(key)})` : '';
 
+  const OVERLAY_ITEMS = [
+    { id: 'nextstream', path: 'nextstream', label: t('bots.overlayNextStream') || 'Next stream + countdown', size: '500 × 200' },
+    { id: 'goal', path: 'goal', label: t('bots.overlayGoal') || 'Follower/sub goal', size: '400 × 140' },
+    { id: 'week', path: 'week', label: t('bots.overlayWeek') || 'Weekly schedule', size: '420 × 220' },
+    { id: 'quote', path: 'quote', label: t('bots.overlayQuote') || 'Random quote', size: '400 × 120' },
+    { id: 'suggestions', path: 'suggestions', label: t('bots.overlaySuggestions') || 'Chat ideas (when someone uses !idea)', size: '450 × 120' },
+  ];
+  const getOverlayUrl = (path) => !streamMode && key && FRONTEND_ORIGIN ? `${FRONTEND_ORIGIN}/overlay/${path}?key=${encodeURIComponent(key)}` : '';
+
+  const [overlaySectionOpen, setOverlaySectionOpen] = useState(true);
+
+  const scrollToId = (id) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
     <div className="space-y-8">
       {/* Header — streamer-friendly */}
@@ -130,6 +148,20 @@ export default function SettingsBotsTab({ user, token, t }) {
           <Zap className="w-4 h-4" />
           {t('bots.setupInMinutes') || 'Setup in ~2 minutes'}
         </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button type="button" onClick={() => scrollToId('bots-api-key')} className="text-xs px-3 py-1.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">
+            {t('bots.navApiKey') || 'API key'}
+          </button>
+          <button type="button" onClick={() => scrollToId('bots-overlays')} className="text-xs px-3 py-1.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800/50 transition-colors">
+            {t('bots.navOverlays') || 'Overlays (OBS)'}
+          </button>
+          <button type="button" onClick={() => scrollToId('bots-chat-commands')} className="text-xs px-3 py-1.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">
+            {t('bots.navChatCommands') || 'Chat commands'}
+          </button>
+          <button type="button" onClick={() => scrollToId('bots-public-schedule')} className="text-xs px-3 py-1.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">
+            {t('bots.navPublicSchedule') || 'Public schedule'}
+          </button>
+        </div>
       </div>
 
       {streamMode && (
@@ -139,7 +171,7 @@ export default function SettingsBotsTab({ user, token, t }) {
       )}
 
       {/* 1. API key — first and prominent */}
-      <div className="rounded-xl border border-gray-200 dark:border-gray-600 bg-gradient-to-br from-indigo-50 to-white dark:from-gray-800/80 dark:to-gray-800/50 p-5 sm:p-6">
+      <div id="bots-api-key" className="rounded-xl border border-gray-200 dark:border-gray-600 bg-gradient-to-br from-indigo-50 to-white dark:from-gray-800/80 dark:to-gray-800/50 p-5 sm:p-6 scroll-mt-4">
         <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100 font-medium mb-1">
           <Key className="w-5 h-5 text-indigo-500" />
           {t('bots.apiKeyLabel') || 'Your API key'}
@@ -175,6 +207,64 @@ export default function SettingsBotsTab({ user, token, t }) {
             <RefreshCw className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
             {generating ? (t('bots.generating') || 'Generating...') : (t('bots.generateKey') || 'Generate API key')}
           </button>
+        )}
+      </div>
+
+      {/* Overlays for OBS — prominent, step-by-step */}
+      <div id="bots-overlays" className="rounded-xl border-2 border-indigo-200 dark:border-indigo-800 bg-gradient-to-br from-indigo-50/80 to-white dark:from-gray-800/80 dark:to-gray-800/50 p-5 sm:p-6 scroll-mt-4">
+        <button
+          type="button"
+          onClick={() => setOverlaySectionOpen((o) => !o)}
+          className="flex w-full items-center gap-2 text-left"
+        >
+          <Monitor className="w-5 h-5 text-indigo-500 flex-shrink-0" />
+          <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+            {t('bots.overlaysTitle') || 'Overlays for OBS / Streamlabs'}
+          </h4>
+          {overlaySectionOpen ? <ChevronDown className="w-5 h-5 text-gray-500" /> : <ChevronRight className="w-5 h-5 text-gray-500" />}
+        </button>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+          {t('bots.overlaysIntro') || 'Show next stream, goal, weekly schedule or quotes on your stream. Add as Browser Source in OBS.'}
+        </p>
+        {overlaySectionOpen && (
+          <>
+            <div className="mt-4 p-4 rounded-lg bg-white dark:bg-gray-800/70 border border-indigo-100 dark:border-indigo-900/50">
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">{t('bots.overlaysStepsTitle') || 'How to add in OBS'}</p>
+              <ol className="space-y-2 text-sm text-gray-700 dark:text-gray-300 list-decimal list-inside">
+                <li>{t('bots.overlaysStep1') || 'In OBS: Sources → Add → Browser Source'}</li>
+                <li>{t('bots.overlaysStep2') || 'Paste one of the URLs below (it already includes your API key)'}</li>
+                <li>{t('bots.overlaysStep3') || 'Set width and height (e.g. 500 × 200). Optional: check "Shutdown source when not visible" to save resources.'}</li>
+              </ol>
+            </div>
+            <div className="mt-4 space-y-3">
+              {OVERLAY_ITEMS.map(({ id, path, label, size }) => {
+                const url = getOverlayUrl(path);
+                return (
+                  <div key={id} className="rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 p-3 sm:p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium text-gray-900 dark:text-gray-100 text-sm">{label}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{size}</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {url ? (
+                        <>
+                          <code className="flex-1 min-w-0 text-xs break-all bg-gray-100 dark:bg-gray-700 px-2 py-1.5 rounded">{url}</code>
+                          <CopyButton text={url} label={t('bots.copyObsUrl') || 'Copy OBS URL'} copiedMessage={copiedMessage} />
+                        </>
+                      ) : streamMode && key ? (
+                        <span className="text-gray-500 dark:text-gray-400 text-xs">{t('common.streamModeHidden') || 'Hidden (stream mode is on)'}</span>
+                      ) : (
+                        <span className="text-amber-600 dark:text-amber-400 text-xs">{t('bots.generateKeyFirst') || 'Generate a key above first.'}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+              {t('bots.overlaysHint') || 'Each overlay refreshes automatically. They show "Powered by Streamer Scheduler" so viewers can find the app.'}
+            </p>
+          </>
         )}
       </div>
 
@@ -277,7 +367,7 @@ export default function SettingsBotsTab({ user, token, t }) {
               <ListTodo className="w-4 h-4 text-indigo-500" />
               {t('bots.webhookIdeaNoteQuote') || '!idea / !note / !quote / !clipidea'}
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">POST — Body: {JSON.stringify({ text: 'your text' })} — Use /idea, /note, /quote or /clipidea</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">POST — Body: {JSON.stringify({ text: 'your text' })} — Or from Nightbot (GET): <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">idea/add?text=...</code>, <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">note/add?text=...</code>, <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">quote/add?quote=...</code>, <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">clipidea/add?text=...</code> (append <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">&amp;key=KEY</code>)</p>
             <div className="flex flex-wrap items-center gap-2">
               <code className="text-xs break-all text-gray-700 dark:text-gray-300">{API_BASE}/api/webhooks/idea</code>
               <CopyButton text={`${API_BASE}/api/webhooks/idea`} label={copyLabel} copiedMessage={copiedMessage} />
@@ -299,7 +389,7 @@ export default function SettingsBotsTab({ user, token, t }) {
       </div>
 
       {/* Chat commands (GET) — quick table + detailed cards */}
-      <div className="rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/30 p-5 sm:p-6">
+      <div id="bots-chat-commands" className="rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/30 p-5 sm:p-6 scroll-mt-4">
         <h4 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-2">
           <MessageSquare className="w-4 h-4 text-indigo-500" />
           {t('bots.chatCommandsTitle') || 'Chat commands (GET — bot replies in chat)'}
@@ -405,7 +495,7 @@ export default function SettingsBotsTab({ user, token, t }) {
 
       {/* 4. Public schedule — share link */}
       {user?.username && (
-        <div className="rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/30 p-5 sm:p-6">
+        <div id="bots-public-schedule" className="rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/30 p-5 sm:p-6 scroll-mt-4">
           <h4 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-1">
             <ExternalLink className="w-4 h-4 text-indigo-500" />
             {t('bots.publicScheduleTitle') || 'Your public schedule'}

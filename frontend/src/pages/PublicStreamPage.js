@@ -287,18 +287,21 @@ export default function PublicStreamPage() {
   };
 
   return (
-    <div className={`min-h-screen bg-gradient-accent dark:bg-gray-900 ${bannerUrl && bannerPosition === 'background' ? 'relative' : ''}`}>
+    <div className={`min-h-screen bg-gradient-accent dark:bg-gray-900 ${bannerUrl && bannerPosition === 'background' ? 'relative' : ''}`} role="document">
+      <a href="#main-content" className="absolute left-4 -top-12 focus:top-4 focus:z-[100] px-4 py-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg text-gray-900 dark:text-gray-100 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]">
+        {t('publicStream.skipToContent') || 'Skip to main content'}
+      </a>
       {bannerUrl && bannerPosition === 'background' && (
-        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none" aria-hidden>
           <img src={bannerUrl} alt="" className="w-full h-full object-cover object-center opacity-60" />
           <div className="absolute inset-0 bg-white/40 dark:bg-gray-900/50" />
         </div>
       )}
-      <div className={`max-w-xl mx-auto px-4 py-8 sm:py-12 ${bannerUrl && bannerPosition === 'background' ? 'relative z-10' : ''}`}>
+      <main id="main-content" className={`max-w-xl mx-auto px-4 py-8 sm:py-12 ${bannerUrl && bannerPosition === 'background' ? 'relative z-10' : ''}`} aria-label={t('publicStream.schedulePageLabel') || `${data.username} stream schedule`}>
         {renderBanner('top')}
-        <div className="flex items-center gap-4 mb-8">
+        <div className="flex items-center gap-4 mb-8" role="presentation">
           {data.profileImageUrl ? (
-            <img src={data.profileImageUrl} alt="" className="w-16 h-16 rounded-full object-cover ring-2 ring-[var(--accent)]/30" />
+            <img src={data.profileImageUrl} alt="" className="w-16 h-16 rounded-full object-cover ring-2 ring-[var(--accent)]/30" aria-hidden />
           ) : (
             <div className="w-16 h-16 rounded-full bg-accent-subtle flex items-center justify-center text-[var(--accent)] text-2xl font-bold">
               {(data.username || '?').charAt(0).toUpperCase()}
@@ -347,9 +350,9 @@ export default function PublicStreamPage() {
         {renderBanner('above-schedule')}
         {bannerPosition === 'center' && renderBanner('center')}
 
-        <section className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <Calendar className="w-5 h-5" />
+        <section className="mb-8" aria-labelledby="schedule-heading">
+          <h2 id="schedule-heading" className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <Calendar className="w-5 h-5" aria-hidden />
             {t('publicStream.schedule') || 'Schedule'}
           </h2>
           {data.events.length === 0 ? (
@@ -407,7 +410,7 @@ export default function PublicStreamPage() {
           </div>
         )}
 
-        <footer className="mt-8 pt-6 pb-2 border-t border-accent-light dark:border-gray-700 text-center bg-accent-subtle dark:bg-gray-900/50 rounded-lg px-4">
+        <footer className="mt-8 pt-6 pb-2 border-t border-accent-light dark:border-gray-700 text-center bg-accent-subtle dark:bg-gray-900/50 rounded-lg px-4" role="contentinfo">
           <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
             {t('publicStream.poweredBy') || 'Powered by'} <span className="font-medium text-gray-700 dark:text-gray-300">Streamer Scheduler</span>
           </p>
@@ -416,10 +419,10 @@ export default function PublicStreamPage() {
             className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--accent)] hover:underline"
           >
             {t('publicStream.createYourOwn') || 'Create your own schedule'}
-            <ExternalLink className="w-4 h-4" />
+            <ExternalLink className="w-4 h-4" aria-hidden />
           </Link>
         </footer>
-      </div>
+      </main>
     </div>
   );
 }

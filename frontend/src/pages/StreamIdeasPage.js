@@ -20,17 +20,23 @@ function formatDate(d) {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+const SORT_OPTIONS = [
+  { value: 'recent', labelKey: 'streamIdeas.sortRecent' },
+  { value: 'votes', labelKey: 'streamIdeas.sortVotes' },
+];
+
 export default function StreamIdeasPage({ token }) {
   const { t } = useLanguage();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('idea');
+  const [sort, setSort] = useState('recent');
 
-  const load = useCallback(async (type) => {
+  const load = useCallback(async (type, sortBy = 'recent') => {
     if (!token) return;
     setLoading(true);
     try {
-      const list = await getStreamItems(type || undefined);
+      const list = await getStreamItems(type || undefined, sortBy);
       setItems(Array.isArray(list) ? list : []);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to load');
@@ -41,8 +47,8 @@ export default function StreamIdeasPage({ token }) {
   }, [token]);
 
   useEffect(() => {
-    load(activeTab);
-  }, [load, activeTab]);
+    load(activeTab, sort);
+  }, [load, activeTab, sort]);
 
   const filtered = items.filter((i) => i.type === activeTab);
 
@@ -66,7 +72,7 @@ export default function StreamIdeasPage({ token }) {
         {t('streamIdeas.hint') || 'Saved from chat with !idea, !note, !quote, !clipidea. Configure in Settings → Bots.'}
       </p>
 
-      <div className="flex gap-2 mb-4 border-b border-gray-200 dark:border-gray-700 pb-2">
+      <div className="flex flex-wrap items-center gap-2 mb-4 border-b border-gray-200 dark:border-gray-700 pb-2">
         {TABS.map(({ key, labelKey, Icon }) => (
           <button
             key={key}
@@ -82,6 +88,20 @@ export default function StreamIdeasPage({ token }) {
             {t(labelKey) || key}
           </button>
         ))}
+        {activeTab === 'idea' && (
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+            className="ml-auto px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+            aria-label={t('streamIdeas.sortBy') || 'Sort by'}
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {t(opt.labelKey) || opt.value}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {loading ? (
@@ -96,7 +116,14 @@ export default function StreamIdeasPage({ token }) {
               className="p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
             >
               <p className="text-gray-900 dark:text-gray-100">{item.text}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatDate(item.createdAt)}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(item.createdAt)}</p>
+                {item.voteCount != null && item.voteCount > 1 && (
+                  <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
+                    {item.voteCount} {t('streamIdeas.votes') || 'votes'}
+                  </span>
+                )}
+              </div>
             </li>
           ))}
         </ul>

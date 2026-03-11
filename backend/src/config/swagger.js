@@ -31,6 +31,12 @@ export const swaggerOptions = {
           scheme: 'bearer',
           bearerFormat: 'JWT',
         },
+        apiKeyWebhook: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'X-API-Key',
+          description: 'API key from Settings → Bots (same key for all webhooks)',
+        },
       },
     },
     security: [
@@ -39,5 +45,5 @@ export const swaggerOptions = {
       },
     ],
   },
-  apis: ['./src/routes/*.js', './src/app.js'],
+  apis: ['./src/routes/*.js', './src/app.js', './src/docs/*.js'],
 };

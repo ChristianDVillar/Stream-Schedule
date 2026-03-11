@@ -3,7 +3,7 @@
  * Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.
  */
 
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from '../pages/Dashboard';
 import Settings from '../pages/Settings';
@@ -26,12 +26,10 @@ import Landing from '../pages/Landing';
 import Pricing from '../pages/Pricing';
 import PublicStreamPage from '../pages/PublicStreamPage';
 import PublicStreamEmbed from '../pages/PublicStreamEmbed';
-import OverlayNextStream from '../pages/OverlayNextStream';
-import OverlaySuggestions from '../pages/OverlaySuggestions';
-import OverlayGoal from '../pages/OverlayGoal';
-import OverlayWeek from '../pages/OverlayWeek';
-import OverlayQuote from '../pages/OverlayQuote';
 import { PrivateRoute, AdminRoute, UserRoute } from './routeGuards';
+
+// Generic overlay: single lazy-loaded component for all overlay types (nextstream, goal, week, quote, suggestions)
+const Overlay = lazy(() => import('../pages/Overlay'));
 
 export function AppRoutes({ user, token, setAuth, setUser, clearAuth }) {
   return (
@@ -45,12 +43,8 @@ export function AppRoutes({ user, token, setAuth, setUser, clearAuth }) {
       <Route path="/faq" element={<FAQ />} />
       <Route path="/streamer/:username" element={<PublicStreamPage />} />
       <Route path="/embed/streamer/:username" element={<PublicStreamEmbed />} />
-      {/* Public overlays for OBS/Streamlabs (no auth, API key in query) */}
-      <Route path="/overlay/nextstream" element={<OverlayNextStream />} />
-      <Route path="/overlay/suggestions" element={<OverlaySuggestions />} />
-      <Route path="/overlay/goal" element={<OverlayGoal />} />
-      <Route path="/overlay/week" element={<OverlayWeek />} />
-      <Route path="/overlay/quote" element={<OverlayQuote />} />
+      {/* Public overlays for OBS/Streamlabs: /overlay/:type?key=API_KEY (nextstream, goal, week, quote, suggestions) */}
+      <Route path="/overlay/:type" element={<Suspense fallback={null}><Overlay /></Suspense>} />
       <Route
         path="/dashboard"
         element={
