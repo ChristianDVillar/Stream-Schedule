@@ -259,6 +259,7 @@ docs/
 - **Backend:** `DATABASE_URL`, `FRONTEND_URL`, `BACKEND_URL`, `JWT_SECRET`, `CRON_SECRET` (o `INTERNAL_CRON_SECRET`), `ENABLE_STREAM_REMINDER_CRON` (cron in-process), `EMAIL_ENABLED`, `STRIPE_*`, OAuth para Twitch/Discord/X/Google, etc.
 - **Slack:** `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` (obligatorios para conectar Slack). Opcionales: `SLACK_SIGNING_SECRET`, `SLACK_VERIFICATION_TOKEN` (para Events API / slash en el futuro). Redirect URL en la app de Slack: `BACKEND_URL/api/user/auth/slack/link/callback`.
 - **Frontend:** `REACT_APP_API_URL` (base URL del API).
+- **Supabase (RLS):** Si usas PostgreSQL en Supabase, el dashboard puede mostrar *"RLS Disabled in Public"*. Para corregirlo, ejecuta una vez en **Supabase → SQL Editor** el script **`SUPABASE_RLS_ALL_TABLES.sql`** (raíz del repo). Habilita RLS en todas las tablas públicas; el backend sigue usando `service_role` o `DATABASE_URL` y no se ve afectado.
 
 ---
 
