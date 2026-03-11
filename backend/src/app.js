@@ -16,6 +16,8 @@ import userRoutes, {
   discordCallback,
   discordLinkStart,
   discordLinkCallback,
+  slackLinkStart,
+  slackLinkCallback,
   twitterOAuth2Start,
   twitterOAuth2Callback,
   twitterLinkStart,
@@ -34,7 +36,7 @@ import templatesRoutes from './routes/templates.js';
 import todosRoutes from './routes/todos.js';
 import nightbotRoutes from './routes/nightbot.js';
 import streamerRoutes from './routes/streamer.js';
-import webhooksRoutes from './routes/webhooks.js';
+import webhooksRoutes from './routes/webhooks/index.js';
 import streamItemsRoutes from './routes/streamItems.js';
 import suggestionsRoutes from './routes/suggestions.js';
 import cronRoutes, { runStreamReminders } from './routes/cron.js';
@@ -47,7 +49,7 @@ import { getAlertConfigHandler, putAlertConfigHandler, postAlertConfigTestHandle
 import { getCostMetricsForAdmin } from './services/publicationMetricService.js';
 import { sequelize, SystemConfig } from './models/index.js';
 import { authenticateToken, requireAuth, requireAdmin } from './middleware/auth.js';
-import { authLimiter, apiLimiter, uploadLimiter } from './middleware/rateLimit.js';
+import { authLimiter, apiLimiter, uploadLimiter, webhookLimiter } from './middleware/rateLimit.js';
 import { csrfProtection, getCsrfToken } from './middleware/csrf.js';
 import { metricsMiddleware, metrics } from './utils/metrics.js';
 import { setupSwagger } from './app-swagger.js';
@@ -162,6 +164,8 @@ app.get('/api/user/auth/twitter', authLimiter, twitterOAuth2Start);
 app.get('/api/user/auth/twitter/callback', twitterOAuth2Callback);
 app.get('/api/user/auth/twitter/link', twitterLinkStart);
 app.get('/api/user/auth/twitter/link/callback', twitterLinkCallback);
+app.get('/api/user/auth/slack/link', slackLinkStart);
+app.get('/api/user/auth/slack/link/callback', slackLinkCallback);
 
 // Public endpoint: Get enabled platforms (no auth required)
 app.get('/api/platforms/enabled', async (req, res) => {
@@ -282,7 +286,7 @@ app.use('/api/templates', templatesRoutes);
 app.use('/api/todos', todosRoutes);
 app.use('/api/nightbot', nightbotRoutes);
 app.use('/api/streamer', streamerRoutes);
-app.use('/api/webhooks', webhooksRoutes);
+app.use('/api/webhooks', webhookLimiter, webhooksRoutes);
 app.use('/api/stream-items', streamItemsRoutes);
 app.use('/api/suggestions', suggestionsRoutes);
 app.use('/api/cron', cronRoutes);

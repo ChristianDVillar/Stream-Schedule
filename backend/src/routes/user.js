@@ -14,6 +14,7 @@ import { auditLog } from '../middleware/audit.js';
 import { normalizeLicenseType, resolveLicenseExpiry, buildLicenseSummary } from '../utils/licenseUtils.js';
 import { syncEntitlementsFromLicense } from '../services/entitlementService.js';
 import { refreshIntegrationToken } from '../services/integrationTokenService.js';
+import { setupStreamingWorkspace } from '../services/slackWorkspaceService.js';
 import { generateLicenseKey, generateTemporaryPassword, generateUsernameSuffix } from '../utils/cryptoUtils.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -1075,6 +1076,126 @@ export const discordLinkCallback = async (req, res) => {
 router.get('/auth/discord/link', discordLinkStart);
 router.get('/auth/discord/link/callback', discordLinkCallback);
 
+// --- Slack OAuth (link only; stored in Integration) ---
+const SLACK_OAUTH_AUTHORIZE = 'https://slack.com/oauth/v2/authorize';
+const SLACK_OAUTH_ACCESS = 'https://slack.com/api/oauth.v2.access';
+
+const isSlackConfigured = () => {
+  const id = (process.env.SLACK_CLIENT_ID || '').trim();
+  const secret = (process.env.SLACK_CLIENT_SECRET || '').trim();
+  return id.length > 0 && secret.length > 0;
+};
+
+async function upsertSlackIntegration(userId, data) {
+  const providerUserId = data.authed_user?.id || data.user_id || data.team?.id || 'unknown';
+  const metadata = {
+    teamId: data.team?.id || null,
+    teamName: data.team?.name || null,
+    userName: data.authed_user?.name || null,
+    channels: null,
+    groups: null,
+  };
+  const existing = await Integration.findOne({ where: { userId, provider: 'slack' } });
+  if (existing) {
+    const existingMeta = (existing.metadata && typeof existing.metadata === 'object') ? existing.metadata : {};
+    existing.accessToken = data.access_token;
+    existing.refreshToken = data.refresh_token || existing.refreshToken;
+    existing.providerUserId = providerUserId;
+    existing.metadata = { ...existingMeta, ...metadata, channels: existingMeta.channels || null, groups: existingMeta.groups || null };
+    existing.status = 'active';
+    await existing.save();
+    return existing;
+  }
+  return Integration.create({
+    userId,
+    provider: 'slack',
+    providerUserId,
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token || null,
+    status: 'active',
+    metadata,
+  });
+}
+
+/** GET /auth/slack/link - start Slack OAuth link (token in query). Redirects to Slack. */
+export const slackLinkStart = async (req, res) => {
+  const token = req.query.token;
+  if (!token) {
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_token_required`);
+  }
+  if (!isSlackConfigured()) {
+    logger.warn('Slack link: SLACK_CLIENT_ID or SLACK_CLIENT_SECRET not set');
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=slack_not_configured`);
+  }
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET || 'dev-jwt-secret');
+    const stateToken = createLinkState(payload.id, 'link_slack');
+    const clientId = (process.env.SLACK_CLIENT_ID || '').trim();
+    const redirectUri = `${BACKEND_URL}/api/user/auth/slack/link/callback`;
+    const scope = 'chat:write,channels:manage,users:read,usergroups:write,usergroups:read';
+    const url = `${SLACK_OAUTH_AUTHORIZE}?client_id=${encodeURIComponent(clientId)}&scope=${encodeURIComponent(scope)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(stateToken)}`;
+    logger.info('Slack link start: redirecting to Slack OAuth', { userId: payload.id });
+    res.redirect(url);
+  } catch (err) {
+    logger.error('Slack link start: token verification failed', { error: err.message });
+    res.redirect(`${FRONTEND_URL}/settings?error=link_token_invalid`);
+  }
+};
+
+/** GET /auth/slack/link/callback - exchange code for token, upsert Integration(provider: slack). */
+export const slackLinkCallback = async (req, res) => {
+  const { code, state, error } = req.query;
+  if (error) {
+    logger.warn('Slack OAuth error in callback', { error });
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=${encodeURIComponent(error)}`);
+  }
+  if (!code || !state) {
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=missing_code_or_state`);
+  }
+  const parsed = verifyLinkState(state, 'link_slack');
+  if (!parsed) {
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_state_invalid`);
+  }
+  const clientId = (process.env.SLACK_CLIENT_ID || '').trim();
+  const clientSecret = (process.env.SLACK_CLIENT_SECRET || '').trim();
+  const redirectUri = `${BACKEND_URL}/api/user/auth/slack/link/callback`;
+  if (!clientId || !clientSecret) {
+    return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=slack_not_configured`);
+  }
+  try {
+    const body = new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      code,
+      redirect_uri: redirectUri,
+    });
+    const tokenRes = await fetch(SLACK_OAUTH_ACCESS, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    });
+    const data = await tokenRes.json();
+    if (!data.ok || !data.access_token) {
+      logger.warn('Slack token exchange failed', { ok: data.ok, error: data.error });
+      return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=token_exchange_failed`);
+    }
+    const user = await User.findByPk(parsed.userId);
+    if (!user) {
+      return res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=user_not_found`);
+    }
+    await upsertSlackIntegration(parsed.userId, data);
+    const metadata = { teamId: data.team?.id || null, teamName: data.team?.name || null };
+    logger.info('Slack link: successfully linked', { userId: parsed.userId, teamId: metadata.teamId });
+    res.redirect(`${FRONTEND_URL}/settings?linked=slack`);
+  } catch (err) {
+    logger.error('Slack link callback error', { error: err.message, stack: err.stack });
+    res.redirect(`${FRONTEND_URL}/settings?error=link_failed&reason=${encodeURIComponent(err.message)}`);
+  }
+};
+
+router.get('/auth/slack/link', slackLinkStart);
+router.get('/auth/slack/link/callback', slackLinkCallback);
+
 /** POST /link-google - link Google (Supabase OAuth) to current user. Requires JWT + body.supabaseAccessToken. */
 export async function linkGoogleHandler(req, res) {
   try {
@@ -1435,6 +1556,19 @@ export async function connectedAccountsHandler(req, res) {
     accountInfo.youtube.connected = youtubeConnected;
     accountInfo.youtube.username = youtubeChannelTitle;
 
+    // Slack: connected if active Integration exists
+    const slackIntegration = await Integration.findOne({
+      where: { userId, provider: 'slack', status: 'active' },
+      attributes: ['id', 'metadata'],
+    });
+    const slackConnected = !!slackIntegration;
+    const slackDisplayName = slackIntegration?.metadata?.teamName || slackIntegration?.metadata?.userName || null;
+    if (!accountInfo.slack) {
+      accountInfo.slack = { connected: false, username: null };
+    }
+    accountInfo.slack.connected = slackConnected;
+    accountInfo.slack.username = slackDisplayName;
+
     // Build result object safely
     const result = {
       google: accountInfo?.google?.connected || false,
@@ -1442,6 +1576,7 @@ export async function connectedAccountsHandler(req, res) {
       discord: accountInfo?.discord?.connected || false,
       twitter: accountInfo?.twitter?.connected || false,
       youtube: accountInfo?.youtube?.connected || false,
+      slack: accountInfo?.slack?.connected || false,
       email: accountInfo?.email?.connected || false,
       twitterTokenMissing: !!twitterTokenMissing,
       twitchPublishConnected,
@@ -1451,6 +1586,7 @@ export async function connectedAccountsHandler(req, res) {
         discord: accountInfo?.discord?.username || null,
         twitter: accountInfo?.twitter?.username || null,
         youtube: accountInfo?.youtube?.username || null,
+        slack: accountInfo?.slack?.username || null,
       }
     };
     
@@ -1663,6 +1799,51 @@ router.post('/disconnect-twitter', requireAuth, async (req, res) => {
   } catch (err) {
     logger.error('Disconnect Twitter error', { error: err.message, stack: err.stack, userId });
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/** POST /disconnect-slack - remove Slack integration (Integration only). */
+router.post('/disconnect-slack', requireAuth, async (req, res) => {
+  const userId = req.user?.id;
+  logger.info('Disconnect Slack request', { userId, ip: req.ip });
+  try {
+    const deleted = await Integration.destroy({ where: { userId, provider: 'slack' } });
+    if (deleted === 0) {
+      return res.status(400).json({ error: 'Slack is not connected' });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error('Disconnect Slack error', { error: err.message, userId });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/** POST /slack/setup-workspace - create streaming channels and user groups in Slack (requires connected Slack). */
+router.post('/slack/setup-workspace', requireAuth, async (req, res) => {
+  const userId = req.user?.id;
+  try {
+    const integration = await Integration.findOne({
+      where: { userId, provider: 'slack', status: 'active' },
+      attributes: ['id', 'accessToken', 'metadata'],
+    });
+    if (!integration || !integration.accessToken) {
+      return res.status(400).json({ error: 'Slack is not connected. Connect Slack in Settings first.' });
+    }
+    const token = integration.accessToken;
+    const currentMeta = (integration.metadata && typeof integration.metadata === 'object') ? integration.metadata : {};
+    const { channels, groups, errors } = await setupStreamingWorkspace(token, currentMeta);
+    integration.metadata = { ...currentMeta, channels, groups };
+    await integration.save();
+    logger.info('Slack setup-workspace completed', { userId, channels: Object.keys(channels || {}), groups: Object.keys(groups || {}), errorCount: errors.length });
+    return res.json({
+      ok: true,
+      channels: channels || {},
+      groups: groups || {},
+      errors: errors.length ? errors : undefined,
+    });
+  } catch (err) {
+    logger.error('Slack setup-workspace error', { error: err.message, userId });
+    return res.status(500).json({ error: err.message || 'Server error' });
   }
 });
 

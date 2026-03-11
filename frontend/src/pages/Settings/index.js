@@ -20,11 +20,13 @@ import {
   startTwitchPublishConnect,
   startTwitterLink,
   startYoutubeConnect,
+  startSlackLink,
   disconnectGoogle,
   disconnectTwitch,
   disconnectTwitter,
   disconnectDiscord,
   disconnectYoutube,
+  disconnectSlack,
 } from '../../api';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { THEME_CHANGE_EVENT, getCustomColorConfig, setCustomColorConfig, applyCustomColors } from '../../utils/themeUtils';
@@ -376,6 +378,7 @@ export default function Settings({ user, token, setUser }) {
     else if (key === 'discord') startDiscordLink(token);
     else if (key === 'twitter') startTwitterLink(token);
     else if (key === 'youtube') startYoutubeConnect(token);
+    else if (key === 'slack') startSlackLink(token);
   };
 
   const handleDisconnect = async (key) => {
@@ -386,6 +389,7 @@ export default function Settings({ user, token, setUser }) {
       else if (key === 'discord') await disconnectDiscord();
       else if (key === 'twitter') await disconnectTwitter();
       else if (key === 'youtube') await disconnectYoutube();
+      else if (key === 'slack') await disconnectSlack();
       toast.success(t('settings.disconnected') || 'Disconnected');
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || t('settings.linkFailed'));

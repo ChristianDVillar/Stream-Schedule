@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { Twitch, Save, Server, AlertCircle } from 'lucide-react';
 import { DISCORD_ICON_URL } from '../../constants/platforms';
-import { getDiscordGuilds, getDiscordChannels, getDiscordInviteUrl } from '../../api';
+import { getDiscordGuilds, getDiscordChannels, getDiscordInviteUrl, setupSlackWorkspace } from '../../api';
 
 // Platform-specific icons (same style as Login page)
 const GoogleIcon = () => (
@@ -33,6 +34,12 @@ const YouTubeIcon = () => (
   </svg>
 );
 
+const SlackIcon = () => (
+  <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" aria-hidden>
+    <path fill="#E01E5A" d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.52 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.521-2.522v-2.522h2.521zM15.165 17.688a2.527 2.527 0 0 1-2.521-2.523 2.526 2.526 0 0 1 2.521-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z" />
+  </svg>
+);
+
 const MailIcon = () => (
   <svg className="w-5 h-5 flex-shrink-0 text-gray-600 dark:text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
@@ -46,6 +53,7 @@ const PLATFORM_ICONS = {
   discord: DiscordIcon,
   twitter: TwitterIcon,
   youtube: YouTubeIcon,
+  slack: SlackIcon,
   email: MailIcon,
 };
 
@@ -55,6 +63,7 @@ const PLATFORMS = [
   { key: 'discord', label: 'Discord' },
   { key: 'twitter', label: 'X (Twitter)' },
   { key: 'youtube', label: 'YouTube' },
+  { key: 'slack', label: 'Slack' },
   { key: 'email', labelKey: 'settings.emailPassword', noConnect: true },
 ];
 
@@ -82,6 +91,7 @@ export default function SettingsPlatformsTab({
   const [loadingClipsChannels, setLoadingClipsChannels] = useState(false);
   const [savingClipsChannel, setSavingClipsChannel] = useState(false);
   const [clipsGuildsError, setClipsGuildsError] = useState(null);
+  const [setupSlackLoading, setSetupSlackLoading] = useState(false);
 
   useEffect(() => {
     setClipsGuildId(user?.discordClipsGuildId || '');
@@ -260,6 +270,38 @@ export default function SettingsPlatformsTab({
                   <p className="text-xs text-green-600 dark:text-green-400 pl-8">
                     {t('settings.youtubePublishConnected') || 'Connected for video uploads.'}
                   </p>
+                )}
+                {key === 'slack' && connected && (
+                  <div className="pl-8 space-y-2">
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      {t('settings.slackSetupWorkspaceHint') || 'Create streaming channels and groups (@mods, @editors) in your Slack workspace.'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setSetupSlackLoading(true);
+                        try {
+                          const data = await setupSlackWorkspace();
+                          if (data?.errors?.length) {
+                            const msg = data.errors.slice(0, 3).join('; ');
+                            toast.error((t('settings.slackSetupPartial') || 'Setup completed with some issues:') + ' ' + msg);
+                          } else {
+                            toast.success(t('settings.slackSetupDone') || 'Streaming workspace created: #stream-announcements, #stream-chat, #stream-clips, #stream-mods and @mods, @editors.');
+                          }
+                          if (fetchConnectedAccounts) fetchConnectedAccounts();
+                        } catch (err) {
+                          const msg = err.response?.data?.error || err.message;
+                          toast.error((t('settings.slackSetupFailed') || 'Setup failed:') + ' ' + msg);
+                        } finally {
+                          setSetupSlackLoading(false);
+                        }
+                      }}
+                      disabled={setupSlackLoading}
+                      className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[#E01E5A] text-white hover:bg-[#c41a4d] disabled:opacity-60 disabled:cursor-wait"
+                    >
+                      {setupSlackLoading ? (t('common.loading') || '...') : (t('settings.slackSetupWorkspace') || 'Setup Streaming Workspace')}
+                    </button>
+                  </div>
                 )}
               </div>
             );
