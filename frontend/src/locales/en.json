@@ -319,7 +319,11 @@
     "sortBy": "Sort by",
     "sortRecent": "Most recent",
     "sortVotes": "Most votes (this week)",
-    "votes": "votes"
+    "votes": "votes",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this item?",
+    "deleted": "Deleted.",
+    "deleteFailed": "Failed to delete."
   },
   "timeline": {
     "title": "Stream timeline",

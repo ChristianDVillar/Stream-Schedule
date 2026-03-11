@@ -353,6 +353,12 @@ export async function getStreamItems(type, sort = 'recent') {
   return res.data;
 }
 
+/** DELETE stream item (idea, note, quote, clip idea) by id */
+export async function deleteStreamItem(id) {
+  const res = await apiClient.delete(`/stream-items/${id}`);
+  return res.data;
+}
+
 /** Viewer suggestions (!suggest) */
 export async function getSuggestions() {
   const res = await apiClient.get('/suggestions');

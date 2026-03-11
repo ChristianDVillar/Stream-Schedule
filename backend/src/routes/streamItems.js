@@ -56,4 +56,24 @@ router.get('/', requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * DELETE /api/stream-items/:id — delete one stream item (idea, note, quote, clip idea).
+ * User can only delete their own items.
+ */
+router.delete('/:id', requireAuth, async (req, res) => {
+  try {
+    const item = await StreamItem.findOne({
+      where: { id: req.params.id, userId: req.user.id },
+    });
+    if (!item) {
+      return res.status(404).json({ error: 'Item not found or you do not own it.' });
+    }
+    await item.destroy();
+    res.status(200).json({ ok: true, message: 'Deleted.' });
+  } catch (err) {
+    logger.error('Stream item delete error', { error: err.message, userId: req.user?.id, id: req.params.id });
+    res.status(500).json({ error: 'Failed to delete item.' });
+  }
+});
+
 export default router;

@@ -2,10 +2,10 @@
  * Stream Ideas Board — ideas, notes, quotes, clip ideas from !idea, !note, !quote, !clipidea.
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { getStreamItems } from '../api';
+import { getStreamItems, deleteStreamItem } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
-import { Lightbulb, FileText, MessageCircle, Film, RefreshCw } from 'lucide-react';
+import { Lightbulb, FileText, MessageCircle, Film, RefreshCw, Trash2 } from 'lucide-react';
 
 const TABS = [
   { key: 'idea', labelKey: 'streamIdeas.ideas', Icon: Lightbulb },
@@ -51,6 +51,17 @@ export default function StreamIdeasPage({ token }) {
   }, [load, activeTab, sort]);
 
   const filtered = items.filter((i) => i.type === activeTab);
+
+  const handleDelete = async (id) => {
+    if (!window.confirm(t('streamIdeas.deleteConfirm') || 'Delete this item?')) return;
+    try {
+      await deleteStreamItem(id);
+      setItems((prev) => prev.filter((i) => i.id !== id));
+      toast.success(t('streamIdeas.deleted') || 'Deleted.');
+    } catch (err) {
+      toast.error(err.response?.data?.error || t('streamIdeas.deleteFailed') || 'Failed to delete.');
+    }
+  };
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
@@ -113,17 +124,28 @@ export default function StreamIdeasPage({ token }) {
           {filtered.map((item) => (
             <li
               key={item.id}
-              className="p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+              className="p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-start justify-between gap-2"
             >
-              <p className="text-gray-900 dark:text-gray-100">{item.text}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(item.createdAt)}</p>
-                {item.voteCount != null && item.voteCount > 1 && (
-                  <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
-                    {item.voteCount} {t('streamIdeas.votes') || 'votes'}
-                  </span>
-                )}
+              <div className="min-w-0 flex-1">
+                <p className="text-gray-900 dark:text-gray-100">{item.text}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(item.createdAt)}</p>
+                  {item.voteCount != null && item.voteCount > 1 && (
+                    <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
+                      {item.voteCount} {t('streamIdeas.votes') || 'votes'}
+                    </span>
+                  )}
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => handleDelete(item.id)}
+                className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex-shrink-0"
+                title={t('streamIdeas.delete') || 'Delete'}
+                aria-label={t('streamIdeas.delete') || 'Delete'}
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </li>
           ))}
         </ul>
