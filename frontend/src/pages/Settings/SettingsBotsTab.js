@@ -465,6 +465,30 @@ export default function SettingsBotsTab({ user, token, t }) {
                     {t('bots.scheduleAlsoAt') || 'Also works at'}: <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">/api/webhooks/week</code>
                   </p>
                 )}
+                {path === 'quote/random' && !streamMode && key && API_BASE && (
+                  <details className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                    <summary className="text-xs font-medium text-amber-700 dark:text-amber-400 cursor-pointer">
+                      {t('bots.quoteNightbotHint') || 'Nightbot !quote (add + random) — use GET only'}
+                    </summary>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 mb-1">
+                      {t('bots.quoteNightbotDesc') || 'Nightbot often fails with POST. Use this command so both "!quote" (random) and "!quote your text" (add) use GET and avoid "Error Connecting To Remote Server".'}
+                    </p>
+                    <code className="block text-xs break-all bg-gray-100 dark:bg-gray-700 px-2 py-2 rounded font-mono mt-1 whitespace-pre-wrap">
+                      {`$(eval q="$(query)"; q.length>0 ? $(urlfetch ${API_BASE}/api/webhooks/quote/add?quote=$(urlencode $(query))&key=YOUR_KEY) : $(urlfetch ${API_BASE}/api/webhooks/quote/random?key=YOUR_KEY))`}
+                    </code>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {t('bots.quoteNightbotReplace') || 'Replace YOUR_KEY with your API key. Use the Copy button below to get the command with your key already filled in.'}
+                    </p>
+                    <div className="mt-2">
+                      <CopyButton
+                        text={`$(eval q="$(query)"; q.length>0 ? $(urlfetch ${API_BASE}/api/webhooks/quote/add?quote=$(urlencode $(query))&key=${key}) : $(urlfetch ${API_BASE}/api/webhooks/quote/random?key=${key}))`}
+                        label={t('bots.copy') || 'Copy'}
+                        copiedMessage={copiedMessage}
+                        className="text-xs"
+                      />
+                    </div>
+                  </details>
+                )}
               </div>
             );
           })}
