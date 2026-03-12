@@ -593,7 +593,7 @@ export default function Settings({ user, token, setUser }) {
   };
 
   const handlePurchase = async (licenseType) => {
-    const useSubscription = licenseType === 'monthly' || licenseType === 'quarterly';
+    const useSubscription = licenseType === 'creator' || licenseType === 'pro_monthly' || licenseType === 'monthly' || licenseType === 'quarterly';
     setBillingLoading(true);
     try {
       let response;

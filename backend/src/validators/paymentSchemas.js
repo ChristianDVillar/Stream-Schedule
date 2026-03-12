@@ -8,11 +8,11 @@ import Joi from 'joi';
 // Create checkout schema
 export const checkoutSchema = Joi.object({
   licenseType: Joi.string()
-    .valid('monthly', 'quarterly', 'lifetime', 'temporary')
+    .valid('monthly', 'quarterly', 'creator', 'pro_monthly', 'lifetime', 'temporary')
     .optional()
-    .default('monthly')
+    .default('creator')
     .messages({
-      'any.only': 'License type must be one of: monthly, quarterly, lifetime, temporary'
+      'any.only': 'License type must be one of: creator, pro_monthly, monthly, quarterly, lifetime, temporary'
     })
 }).required();
 
@@ -44,13 +44,13 @@ export const verifySessionSchema = Joi.object({
     })
 }).required();
 
-// Create subscription schema (only monthly and quarterly can be subscriptions)
+// Create subscription schema (Creator / Pro plans; compat with legacy monthly/quarterly)
 export const subscribeSchema = Joi.object({
   licenseType: Joi.string()
-    .valid('monthly', 'quarterly')
+    .valid('creator', 'pro_monthly', 'monthly', 'quarterly')
     .required()
     .messages({
-      'any.only': 'Subscription license type must be monthly or quarterly',
+      'any.only': 'Subscription license type must be one of: creator, pro_monthly, monthly, quarterly',
       'any.required': 'License type is required for subscription'
     })
 }).required();
