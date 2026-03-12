@@ -3198,8 +3198,8 @@ router.get('/available-licenses', async (req, res) => {
   try {
     let config = await SystemConfig.findOne({ where: { key: 'availableLicenseTypes' } });
     if (!config) {
-      // Default: only monthly available
-      return res.json({ availableLicenseTypes: { monthly: true, quarterly: false, lifetime: false, temporary: false } });
+      // Default: Creator (monthly) and Pro (pro_monthly/quarterly) available
+      return res.json({ availableLicenseTypes: { monthly: true, quarterly: true, lifetime: false, temporary: false } });
     }
     res.json({ availableLicenseTypes: config.value });
   } catch (err) {
