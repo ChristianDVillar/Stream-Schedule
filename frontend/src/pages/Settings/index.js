@@ -5,6 +5,7 @@ import { Save, User, Bell, Globe, Shield, Palette, Key, MessageSquare, Download,
 import {
   apiClient,
   createCheckout,
+  createCustomerPortal,
   verifyPaymentSession,
   getLicenseStatus,
   getAvailableLicenses,
@@ -73,6 +74,7 @@ export default function Settings({ user, token, setUser }) {
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [loadingSubscription, setLoadingSubscription] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
   const [connectedAccounts, setConnectedAccounts] = useState(null);
   const [connectedAccountsLoading, setConnectedAccountsLoading] = useState(false);
   const [disconnectingKey, setDisconnectingKey] = useState(null);
@@ -434,6 +436,23 @@ export default function Settings({ user, token, setUser }) {
       toast.error(error.response?.data?.error || t('settings.subscriptionCancelFailed'));
     } finally {
       setLoadingSubscription(false);
+    }
+  };
+
+  const handleManageBilling = async () => {
+    setPortalLoading(true);
+    try {
+      const res = await createCustomerPortal(token);
+      if (res.data?.url) {
+        window.location.href = res.data.url;
+        return;
+      }
+      toast.error(t('settings.manageBillingFailed'));
+    } catch (error) {
+      const msg = error.response?.data?.error || t('settings.manageBillingFailed');
+      toast.error(msg);
+    } finally {
+      setPortalLoading(false);
     }
   };
 
@@ -824,9 +843,11 @@ export default function Settings({ user, token, setUser }) {
             availableLicenses={availableLicenses}
             billingLoading={billingLoading}
             loadingSubscription={loadingSubscription}
+            portalLoading={portalLoading}
             t={t}
             onPurchase={handlePurchase}
             onCancelSubscription={handleCancelSubscription}
+            onManageBilling={handleManageBilling}
           />
         );
       case 'support':

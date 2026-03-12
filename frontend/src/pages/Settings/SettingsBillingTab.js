@@ -9,9 +9,11 @@ export default function SettingsBillingTab({
   availableLicenses,
   billingLoading,
   loadingSubscription,
+  portalLoading,
   t,
   onPurchase,
   onCancelSubscription,
+  onManageBilling,
 }) {
   return (
     <div className="space-y-6">
@@ -88,16 +90,45 @@ export default function SettingsBillingTab({
                 )}
               </div>
             </div>
-            {subscriptionStatus.subscription.status === 'active' && !subscriptionStatus.subscription.cancelAtPeriodEnd && (
-              <button
-                onClick={onCancelSubscription}
-                disabled={loadingSubscription}
-                className="w-full sm:w-auto flex-shrink-0 px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 min-h-[44px]"
-              >
-                {loadingSubscription ? t('settings.processing') : t('settings.cancelSubscription')}
-              </button>
-            )}
+            <div className="flex flex-wrap gap-2 flex-shrink-0">
+              {onManageBilling && (
+                <button
+                  type="button"
+                  onClick={onManageBilling}
+                  disabled={portalLoading}
+                  className="px-4 py-2 text-sm bg-gray-700 dark:bg-gray-600 text-white rounded-lg hover:bg-gray-800 dark:hover:bg-gray-500 disabled:opacity-50 min-h-[44px]"
+                >
+                  {portalLoading ? t('settings.processing') : (t('settings.manageBilling') || 'Manage Billing')}
+                </button>
+              )}
+              {subscriptionStatus.subscription.status === 'active' && !subscriptionStatus.subscription.cancelAtPeriodEnd && (
+                <button
+                  onClick={onCancelSubscription}
+                  disabled={loadingSubscription}
+                  className="w-full sm:w-auto px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 min-h-[44px]"
+                >
+                  {loadingSubscription ? t('settings.processing') : t('settings.cancelSubscription')}
+                </button>
+              )}
+            </div>
           </div>
+        </div>
+      )}
+
+      {paymentConfig?.paymentEnabled && onManageBilling && !subscriptionStatus?.hasSubscription && (
+        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">{t('settings.manageBilling') || 'Manage Billing'}</h4>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            {t('settings.manageBillingDescription') || 'Update payment method, view invoices, or manage subscription in Stripe.'}
+          </p>
+          <button
+            type="button"
+            onClick={onManageBilling}
+            disabled={portalLoading}
+            className="px-4 py-2 text-sm bg-gray-700 dark:bg-gray-600 text-white rounded-lg hover:bg-gray-800 dark:hover:bg-gray-500 disabled:opacity-50"
+          >
+            {portalLoading ? t('settings.processing') : (t('settings.manageBilling') || 'Manage Billing')}
+          </button>
         </div>
       )}
 

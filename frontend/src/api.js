@@ -612,6 +612,13 @@ export async function verifyPaymentSession({ sessionId, token }) {
   });
 }
 
+/** Create Stripe Customer Portal session; returns { url } to redirect for managing billing/subscription. */
+export async function createCustomerPortal(token) {
+  return apiClient.post('/payments/customer-portal', {}, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
 export async function getPaymentStats(token) {
   return apiClient.get('/payments/admin/stats', {
     headers: { Authorization: `Bearer ${token}` }
