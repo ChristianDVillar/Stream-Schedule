@@ -65,6 +65,44 @@ function normalizeLicenseTypeFromApi(licenseType) {
   return API_LICENSE_TYPE_MAP[key] || LICENSE_TYPES.MONTHLY;
 }
 
+/**
+ * Get or create Stripe Customer for the user. Persists stripeCustomerId on User.
+ * @param {object} user - User model instance (id, email, stripeCustomerId)
+ * @returns {Promise<string>} Stripe customer ID
+ */
+async function getOrCreateCustomer(user) {
+  let customerId = user.stripeCustomerId;
+  if (customerId) {
+    try {
+      await stripe.customers.retrieve(customerId);
+      return customerId;
+    } catch (err) {
+      if (err.code === 'resource_missing' || (err.message && err.message.includes('No such customer'))) {
+        logger.warn('Stripe customer no longer exists, clearing invalid ID', {
+          userId: user.id,
+          oldCustomerId: customerId
+        });
+        user.stripeCustomerId = null;
+        await user.save();
+        customerId = null;
+      } else {
+        throw err;
+      }
+    }
+  }
+  if (!customerId) {
+    const customer = await stripe.customers.create({
+      email: user.email,
+      metadata: { userId: user.id.toString() }
+    });
+    customerId = customer.id;
+    user.stripeCustomerId = customerId;
+    await user.save();
+    logger.debug('Stripe customer created', { userId: user.id, customerId });
+  }
+  return customerId;
+}
+
 // requireAdmin is now imported from middleware/auth.js
 
 // Create a Stripe checkout session by Price lookup_key (Stripe docs pattern: form POST with lookup_key)
@@ -95,6 +133,8 @@ router.post('/create-checkout-session', requireAuth, validateBody(createCheckout
       line_items: [{ price: price.id, quantity: 1 }],
       mode: isSubscription ? 'subscription' : 'payment',
       ...(stripeTaxEnabled && { automatic_tax: { enabled: true } }),
+      ...(stripeTaxEnabled && { billing_address_collection: 'auto' }),
+      ...(stripeTaxEnabled && { customer_update: { address: 'auto' } }),
       locale: 'en',
       success_url: success_url || `${baseUrl}/settings?payment=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: cancel_url || `${baseUrl}/settings?payment=cancelled`,
@@ -161,6 +201,9 @@ router.post('/checkout', requireAuth, validateBody(checkoutSchema), async (req, 
   }
 
   try {
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
     // Resolve Stripe Price by lookup_key so that Stripe controls pricing/activation
     const prices = await stripe.prices.list({
       lookup_keys: [lookupKey],
@@ -228,28 +271,31 @@ router.post('/checkout', requireAuth, validateBody(checkoutSchema), async (req, 
       provider: 'stripe'
     });
 
-    // Create Stripe Checkout Session using the resolved Price
-    const session = await stripe.checkout.sessions.create({
+    const customerId = await getOrCreateCustomer(user);
+    const stripeTaxEnabled = process.env.STRIPE_TAX_ENABLED !== 'false';
+
+    const sessionConfig = {
       payment_method_types: ['card'],
-      line_items: [
-        {
-          price: price.id,
-          quantity: 1,
-        },
-      ],
+      customer: customerId,
+      line_items: [{ price: price.id, quantity: 1 }],
       mode: 'payment',
-      ...(process.env.STRIPE_TAX_ENABLED !== 'false' && { automatic_tax: { enabled: true } }),
-      locale: 'en', // Set checkout page language to English
+      locale: 'en',
       success_url: `${getFrontendUrl()}/settings?payment=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${getFrontendUrl()}/settings?payment=cancelled`,
       client_reference_id: payment.id.toString(),
-      customer_email: req.user.email,
       metadata: {
         userId: req.user.id.toString(),
         paymentId: payment.id.toString(),
         licenseType: licenseType,
       },
-    });
+    };
+    if (stripeTaxEnabled) {
+      sessionConfig.automatic_tax = { enabled: true };
+      sessionConfig.billing_address_collection = 'auto';
+      sessionConfig.customer_update = { address: 'auto' };
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
 
     // Update payment with Stripe session ID
     payment.stripeSessionId = session.id;
@@ -513,12 +559,14 @@ export async function handleStripeWebhook(req, res) {
       payment.stripeCustomerId = session.customer;
       await payment.save();
 
-      // Assign license to user
+      // Assign license to user and persist Stripe customer ID for portal
       const userId = parseInt(session.metadata?.userId || payment.userId);
       const user = await User.findByPk(userId);
-      
+
       if (user) {
-        // Use consistent license key generation
+        if (session.customer && !user.stripeCustomerId) {
+          user.stripeCustomerId = session.customer;
+        }
         const licenseKey = generateLicenseKey('', 16);
         const expiryResult = resolveLicenseExpiry({ licenseType: payment.licenseType });
         const expiresAt = expiryResult.value;
@@ -730,6 +778,37 @@ export async function handleStripeWebhook(req, res) {
 }
 
 router.post('/webhook', handleStripeWebhook);
+
+// Stripe Customer Portal: manage subscription, payment method, invoices (Stripe-hosted)
+router.post('/customer-portal', requireAuth, async (req, res) => {
+  if (!stripe) {
+    return res.status(500).json({
+      error: 'Stripe is not configured.',
+    });
+  }
+  const user = await User.findByPk(req.user.id);
+  if (!user || !user.stripeCustomerId) {
+    return res.status(400).json({
+      error: 'No billing customer found. Make a purchase or subscription first to manage billing.',
+    });
+  }
+  try {
+    const session = await stripe.billingPortal.sessions.create({
+      customer: user.stripeCustomerId,
+      return_url: `${getFrontendUrl()}/settings`,
+    });
+    return res.json({ url: session.url });
+  } catch (err) {
+    logger.error('Stripe customer portal error', {
+      error: err.message,
+      userId: req.user?.id,
+    });
+    return res.status(500).json({
+      error: 'Failed to create billing portal session',
+      details: err.message,
+    });
+  }
+});
 
 // Get Stripe configuration status (public endpoint for frontend to check)
 router.get('/config-status', async (req, res) => {
@@ -980,6 +1059,7 @@ router.post('/subscribe', requireAuth, validateBody(subscribeSchema), async (req
     
     // Build session config - only include customer_email if we don't have a customer ID
     // automatic_tax requires Stripe Tax to be enabled in Dashboard; disable via STRIPE_TAX_ENABLED=false if needed
+    // When tax is enabled, billing_address_collection + customer_update fix customer_tax_location_invalid
     const stripeTaxEnabled = process.env.STRIPE_TAX_ENABLED !== 'false';
     const sessionConfig = {
       payment_method_types: ['card'],
@@ -991,6 +1071,8 @@ router.post('/subscribe', requireAuth, validateBody(subscribeSchema), async (req
       ],
       mode: 'subscription',
       ...(stripeTaxEnabled && { automatic_tax: { enabled: true } }),
+      ...(stripeTaxEnabled && { billing_address_collection: 'auto' }),
+      ...(stripeTaxEnabled && { customer_update: { address: 'auto' } }),
       locale: 'en', // Set checkout page language to English
       success_url: `${getFrontendUrl()}/settings?subscription=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${getFrontendUrl()}/settings?subscription=cancelled`,
@@ -1000,7 +1082,7 @@ router.post('/subscribe', requireAuth, validateBody(subscribeSchema), async (req
         lookup_key: lookupKey,
       },
     };
-    
+
     // Only include customer OR customer_email, not both
     if (customerId) {
       sessionConfig.customer = customerId;
