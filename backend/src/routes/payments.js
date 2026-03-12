@@ -816,6 +816,28 @@ router.post('/subscribe', requireAuth, validateBody(subscribeSchema), async (req
       userKeys: Object.keys(user.toJSON ? user.toJSON() : user)
     });
 
+    // Special-case for test account: allow forcing Creator/Pro license without Stripe,
+    // useful when testing locally or when Stripe prices are not configured yet.
+    if (user.email && user.email.toLowerCase() === 'test@example.com') {
+      const expiryResult = resolveLicenseExpiry({ licenseType });
+      user.licenseType = licenseType;
+      user.licenseExpiresAt = expiryResult.value;
+      await user.save();
+      await syncEntitlementsFromLicense(user.id, user.licenseType, user.licenseExpiresAt);
+
+      logger.info('Test user upgraded via /subscribe without Stripe', {
+        userId: user.id,
+        email: user.email,
+        licenseType,
+      });
+
+      return res.json({
+        type: 'test-upgrade',
+        licenseType,
+        licenseExpiresAt: user.licenseExpiresAt,
+      });
+    }
+
     // Get or create Stripe customer (clear invalid IDs that no longer exist in Stripe)
     let customerId = user.stripeCustomerId;
     if (customerId) {
