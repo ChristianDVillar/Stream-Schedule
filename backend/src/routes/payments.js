@@ -32,13 +32,38 @@ const stripe = process.env.STRIPE_SECRET_KEY
     })
   : null;
 
+// Legacy plan definitions: kept mainly for durationDays and as a fallback.
+// Amounts/currencies should come from Stripe Prices configured with lookup_keys.
 const PLANS = {
-  [LICENSE_TYPES.MONTHLY]: { amount: 5.99, currency: 'USD', durationDays: 30 },
-  [LICENSE_TYPES.QUARTERLY]: { amount: 13.98, currency: 'USD', durationDays: 90 },
+  [LICENSE_TYPES.MONTHLY]: { amount: 6.99, currency: 'USD', durationDays: 30 },
+  [LICENSE_TYPES.QUARTERLY]: { amount: 14.99, currency: 'USD', durationDays: 90 },
   [LICENSE_TYPES.LIFETIME]: { amount: 99.0, currency: 'USD', durationDays: null },
   // Temporary plan removed - was more expensive than monthly for same duration
   // If needed, use monthly plan instead
 };
+
+// Mapping from internal license types to Stripe Price lookup keys.
+// These lookup_keys are defined in Stripe and can be enabled/disabled as the project evolves.
+// Creator plan → creator_monthly, Pro plan → pro_monthly.
+const LICENSE_LOOKUP_KEYS = {
+  [LICENSE_TYPES.MONTHLY]: 'creator_monthly',
+  [LICENSE_TYPES.QUARTERLY]: 'pro_monthly',
+  // LICENSE_TYPES.LIFETIME could later use something like 'lifetime_one_time'
+};
+
+// Map incoming API licenseType values (creator, pro_monthly, monthly, quarterly)
+// to internal LICENSE_TYPES used in DB and entitlements.
+const API_LICENSE_TYPE_MAP = {
+  monthly: LICENSE_TYPES.MONTHLY,
+  quarterly: LICENSE_TYPES.QUARTERLY,
+  creator: LICENSE_TYPES.MONTHLY,
+  pro_monthly: LICENSE_TYPES.QUARTERLY,
+};
+
+function normalizeLicenseTypeFromApi(licenseType) {
+  const key = typeof licenseType === 'string' ? licenseType.toLowerCase() : '';
+  return API_LICENSE_TYPE_MAP[key] || LICENSE_TYPES.MONTHLY;
+}
 
 // requireAdmin is now imported from middleware/auth.js
 
@@ -104,7 +129,7 @@ router.post('/create-checkout-session', requireAuth, validateBody(createCheckout
   }
 });
 
-// Create a Stripe checkout session (by licenseType - app-defined plans)
+// Create a Stripe checkout session (by licenseType - app-defined plans, resolved via Stripe Price lookup_key)
 router.post('/checkout', requireAuth, validateBody(checkoutSchema), async (req, res) => {
   if (!stripe) {
     return res.status(500).json({ 
@@ -113,9 +138,17 @@ router.post('/checkout', requireAuth, validateBody(checkoutSchema), async (req, 
     });
   }
   
-  const licenseType = req.body.licenseType || LICENSE_TYPES.MONTHLY;
+  const requestedLicenseType = req.body.licenseType || 'creator';
+  const licenseType = normalizeLicenseTypeFromApi(requestedLicenseType);
   const plan = PLANS[licenseType];
   if (!plan) return res.status(400).json({ error: 'Invalid licenseType' });
+
+  const lookupKey = LICENSE_LOOKUP_KEYS[licenseType];
+  if (!lookupKey) {
+    return res.status(400).json({
+      error: 'No Stripe Price configured for this license type. Ask the administrator to configure a lookup_key in Stripe.',
+    });
+  }
   
   // Warn if webhook is not configured (but allow payment to proceed)
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -128,6 +161,24 @@ router.post('/checkout', requireAuth, validateBody(checkoutSchema), async (req, 
   }
 
   try {
+    // Resolve Stripe Price by lookup_key so that Stripe controls pricing/activation
+    const prices = await stripe.prices.list({
+      lookup_keys: [lookupKey],
+      active: true,
+      limit: 1,
+    });
+    if (!prices.data || prices.data.length === 0) {
+      return res.status(400).json({
+        error: `Stripe Price not found for lookup_key: ${lookupKey}. Create an active Price with that lookup_key in Stripe.`,
+      });
+    }
+    const price = prices.data[0];
+
+    const resolvedAmount = typeof price.unit_amount === 'number'
+      ? price.unit_amount / 100
+      : plan.amount;
+    const resolvedCurrency = (price.currency || plan.currency || 'usd').toUpperCase();
+
     // Check for existing pending payment for this user and license type
     const existingPending = await Payment.findOne({
       where: {
@@ -167,31 +218,22 @@ router.post('/checkout', requireAuth, validateBody(checkoutSchema), async (req, 
       }
     }
 
-    // Create payment record
+    // Create payment record, using Stripe Price as source of truth for amount/currency
     const payment = await Payment.create({
       userId: req.user.id,
       licenseType,
-      amount: plan.amount,
-      currency: plan.currency,
+      amount: resolvedAmount,
+      currency: resolvedCurrency,
       status: PAYMENT_STATUS.PENDING,
       provider: 'stripe'
     });
 
-    // Create Stripe Checkout Session
+    // Create Stripe Checkout Session using the resolved Price
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
         {
-          price_data: {
-            currency: plan.currency.toLowerCase(),
-            product_data: {
-              name: `License - ${licenseType.charAt(0).toUpperCase() + licenseType.slice(1)}`,
-              description: licenseType === LICENSE_TYPES.LIFETIME 
-                ? 'Lifetime license - Unlimited access'
-                : `${plan.durationDays} days license`,
-            },
-            unit_amount: Math.round(plan.amount * 100), // Convert to cents
-          },
+          price: price.id,
           quantity: 1,
         },
       ],
@@ -219,6 +261,8 @@ router.post('/checkout', requireAuth, validateBody(checkoutSchema), async (req, 
       sessionId: session.id,
       url: session.url,
       paymentId: payment.id,
+      licenseType,
+      requestedLicenseType,
     };
     
     if (!webhookConfigured) {
@@ -720,16 +764,20 @@ router.post('/subscribe', requireAuth, validateBody(subscribeSchema), async (req
     });
   }
 
-  const licenseType = req.body?.licenseType;
-  if (!licenseType || !['monthly', 'quarterly'].includes(licenseType)) {
+  const requestedLicenseType = req.body?.licenseType || 'creator';
+  const licenseType = normalizeLicenseTypeFromApi(requestedLicenseType);
+
+  if (![LICENSE_TYPES.MONTHLY, LICENSE_TYPES.QUARTERLY].includes(licenseType)) {
     return res.status(400).json({
       error: 'Invalid or missing license type for subscription',
-      details: 'Send licenseType: "monthly" or "quarterly" in the request body.',
+      details: 'Send licenseType: "creator" or "pro_monthly" (or legacy "monthly"/"quarterly") in the request body.',
     });
   }
+
   logger.debug('Subscription request received', {
     userId: req.user?.id,
-    licenseType,
+    requestedLicenseType,
+    normalizedLicenseType: licenseType,
     availablePlans: Object.keys(PLANS)
   });
 
