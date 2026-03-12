@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { X } from 'lucide-react';
 // Admin: usuarios, licencias, pagos (listado/export), modal detalle, mensajes
-import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, adminSetUserDisabled, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob, sendNotification, getPlatformConfig, updatePlatformConfig, getFixedCosts, updateFixedCosts, getUsdToEurRate, getAlertConfig, updateAlertConfig, testAlertConfig, getCostMetrics, getTrialExtensionConfig, updateTrialExtensionConfig, getAdminFeatures } from '../api';
+import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, adminSetUserDisabled, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob, sendNotification, getPlatformConfig, updatePlatformConfig, getFixedCosts, updateFixedCosts, getUsdToEurRate, getAlertConfig, updateAlertConfig, testAlertConfig, getCostMetrics, getTrialExtensionConfig, updateTrialExtensionConfig, getAdminFeatures, getDiscountCodes, updateDiscountCodes } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatDateUTC } from '../utils/dateUtils';
 import { maskEmail } from '../utils/emailUtils';
@@ -85,6 +85,9 @@ export default function AdminDashboard({ token, user, onLogout }) {
   const [costMetrics, setCostMetrics] = useState({ byUser: [], byPlatform: [], totalJobs: 0, redisMonthlyCostEur: null });
   const [costMetricsLoading, setCostMetricsLoading] = useState(false);
   const [adminFeatures, setAdminFeatures] = useState({ adminFinance: true, prometheusMetrics: false });
+  const [discountCodes, setDiscountCodes] = useState([]);
+  const [discountCodesLoading, setDiscountCodesLoading] = useState(false);
+  const [discountCodesSaving, setDiscountCodesSaving] = useState(false);
   const networkErrorShownRef = useRef(false);
 
   const isNetworkError = (err) => {
@@ -191,6 +194,33 @@ export default function AdminDashboard({ token, user, onLogout }) {
 
   useEffect(() => {
     if (token && adminFeatures.adminFinance) fetchCostMetrics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, adminFeatures.adminFinance]);
+
+  const fetchDiscountCodes = async () => {
+    if (!token) return;
+    setDiscountCodesLoading(true);
+    try {
+      const res = await getDiscountCodes(token);
+      const list = Array.isArray(res.data.discountCodes) ? res.data.discountCodes : [];
+      setDiscountCodes(list.map((x) => ({
+        code: x.code || '',
+        percentOff: x.percentOff ?? 0,
+        maxRedemptions: x.maxRedemptions ?? null,
+        validFrom: x.validFrom || '',
+        validUntil: x.validUntil || '',
+        note: x.note || '',
+      })));
+    } catch (err) {
+      maybeShowNetworkError(err);
+      if (!isNetworkError(err)) toast.error(err.response?.data?.error || t('admin.discountCodesLoadError') || 'Error loading discount codes');
+    } finally {
+      setDiscountCodesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (token && adminFeatures.adminFinance) fetchDiscountCodes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, adminFeatures.adminFinance]);
 
@@ -1173,6 +1203,170 @@ export default function AdminDashboard({ token, user, onLogout }) {
             </table>
           </div>
         )}
+      </div>
+      {/* Discount codes configuration */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-emerald-500 mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
+            {t('admin.discountCodesTitle') || 'Códigos de descuento'}
+          </h3>
+          <button
+            type="button"
+            onClick={() => setDiscountCodes(prev => [...prev, { code: '', percentOff: 10, maxRedemptions: 1, validFrom: '', validUntil: '', note: '' }])}
+            className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-700"
+          >
+            {t('admin.addDiscountCode') || 'Añadir código'}
+          </button>
+        </div>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          {t('admin.discountCodesDescription') || 'Define códigos de descuento porcentuales, con límite de usos (por ejemplo, un solo uso) y fechas de validez.'}
+        </p>
+        {discountCodesLoading ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin.loading') || 'Cargando...'}</p>
+        ) : (
+          <div className="space-y-3">
+            {discountCodes.length === 0 && (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {t('admin.noDiscountCodes') || 'No hay códigos de descuento configurados.'}
+              </p>
+            )}
+            {discountCodes.map((code, idx) => (
+              <div key={idx} className="grid grid-cols-1 md:grid-cols-6 gap-2 md:gap-3 items-end bg-gray-50 dark:bg-gray-900/40 rounded px-3 py-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-200 mb-1">
+                    {t('admin.discountCodeCode') || 'Código'}
+                  </label>
+                  <input
+                    type="text"
+                    value={code.code}
+                    onChange={(e) => {
+                      const value = e.target.value.toUpperCase();
+                      setDiscountCodes(prev => prev.map((c, i) => i === idx ? { ...c, code: value } : c));
+                    }}
+                    className="w-full px-2 py-1.5 border rounded text-sm bg-white dark:bg-gray-900 dark:border-gray-700"
+                    placeholder="CREATOR20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-200 mb-1">
+                    {t('admin.discountCodePercent') || '% descuento'}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={code.percentOff}
+                    onChange={(e) => {
+                      const v = e.target.value === '' ? '' : Number(e.target.value);
+                      setDiscountCodes(prev => prev.map((c, i) => i === idx ? { ...c, percentOff: v } : c));
+                    }}
+                    className="w-full px-2 py-1.5 border rounded text-sm bg-white dark:bg-gray-900 dark:border-gray-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-200 mb-1">
+                    {t('admin.discountCodeMaxRedemptions') || 'Usos máx.'}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={code.maxRedemptions ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value === '' ? null : Number(e.target.value);
+                      setDiscountCodes(prev => prev.map((c, i) => i === idx ? { ...c, maxRedemptions: v } : c));
+                    }}
+                    className="w-full px-2 py-1.5 border rounded text-sm bg-white dark:bg-gray-900 dark:border-gray-700"
+                    placeholder={t('admin.discountCodeMaxRedemptionsPlaceholder') || 'Ej: 1 para un solo uso'}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-200 mb-1">
+                    {t('admin.discountCodeValidFrom') || 'Válido desde'}
+                  </label>
+                  <input
+                    type="date"
+                    value={code.validFrom || ''}
+                    onChange={(e) => {
+                      const v = e.target.value || '';
+                      setDiscountCodes(prev => prev.map((c, i) => i === idx ? { ...c, validFrom: v } : c));
+                    }}
+                    className="w-full px-2 py-1.5 border rounded text-sm bg-white dark:bg-gray-900 dark:border-gray-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-200 mb-1">
+                    {t('admin.discountCodeValidUntil') || 'Válido hasta'}
+                  </label>
+                  <input
+                    type="date"
+                    value={code.validUntil || ''}
+                    onChange={(e) => {
+                      const v = e.target.value || '';
+                      setDiscountCodes(prev => prev.map((c, i) => i === idx ? { ...c, validUntil: v } : c));
+                    }}
+                    className="w-full px-2 py-1.5 border rounded text-sm bg-white dark:bg-gray-900 dark:border-gray-700"
+                  />
+                </div>
+                <div className="flex items-end justify-between gap-2 md:flex-col md:items-stretch">
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-200 mb-1">
+                      {t('admin.discountCodeNote') || 'Nota'}
+                    </label>
+                    <input
+                      type="text"
+                      value={code.note}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setDiscountCodes(prev => prev.map((c, i) => i === idx ? { ...c, note: v } : c));
+                      }}
+                      className="w-full px-2 py-1.5 border rounded text-sm bg-white dark:bg-gray-900 dark:border-gray-700"
+                      placeholder={t('admin.discountCodeNotePlaceholder') || 'Ej: Solo Creator, campaña lanzamiento'}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDiscountCodes(prev => prev.filter((_, i) => i !== idx))}
+                    className="mt-2 md:mt-4 px-2 py-1 text-xs text-red-600 hover:text-red-700"
+                  >
+                    {t('admin.remove') || 'Quitar'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            disabled={discountCodesSaving}
+            onClick={async () => {
+              setDiscountCodesSaving(true);
+              try {
+                const payload = discountCodes
+                  .filter(c => (c.code || '').trim() && Number(c.percentOff) > 0)
+                  .map(c => ({
+                    code: (c.code || '').trim().toUpperCase(),
+                    percentOff: Number(c.percentOff),
+                    maxRedemptions: c.maxRedemptions == null || c.maxRedemptions === '' ? null : Number(c.maxRedemptions),
+                    validFrom: c.validFrom || null,
+                    validUntil: c.validUntil || null,
+                    note: c.note || null,
+                  }));
+                await updateDiscountCodes({ discountCodes: payload, token });
+                toast.success(t('admin.discountCodesSaved') || 'Códigos de descuento guardados.');
+                await fetchDiscountCodes();
+              } catch (err) {
+                maybeShowNetworkError(err);
+                if (!isNetworkError(err)) toast.error(err.response?.data?.error || t('admin.discountCodesSaveError') || 'Error al guardar códigos de descuento');
+              } finally {
+                setDiscountCodesSaving(false);
+              }
+            }}
+            className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50 text-sm"
+          >
+            {discountCodesSaving ? (t('admin.saving') || 'Guardando...') : (t('admin.saveDiscountCodes') || 'Guardar códigos')}
+          </button>
+        </div>
       </div>
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-blue-600">
         <h3 className="text-lg font-bold text-blue-800 dark:text-blue-200 mb-4">{t('admin.users')}</h3>

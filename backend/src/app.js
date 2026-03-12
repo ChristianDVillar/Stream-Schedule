@@ -215,6 +215,28 @@ function normalizeFixedCostItem(item) {
   }
   return { label, amount, currency, type, effectiveFrom };
 }
+
+function normalizeDiscountCodeItem(item) {
+  let code = String(item?.code || '').trim().toUpperCase();
+  if (!code) return null;
+  let percentOff = Number(item?.percentOff);
+  if (!Number.isFinite(percentOff) || percentOff <= 0) percentOff = 0;
+  if (percentOff > 100) percentOff = 100;
+  let maxRedemptions = item?.maxRedemptions;
+  if (maxRedemptions != null) {
+    const n = Number(maxRedemptions);
+    maxRedemptions = Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+  } else {
+    maxRedemptions = null;
+  }
+  let validFrom = item?.validFrom ? String(item.validFrom).trim() : null;
+  if (validFrom && !/^\d{4}-\d{2}-\d{2}$/.test(validFrom.slice(0, 10))) validFrom = null;
+  let validUntil = item?.validUntil ? String(item.validUntil).trim() : null;
+  if (validUntil && !/^\d{4}-\d{2}-\d{2}$/.test(validUntil.slice(0, 10))) validUntil = null;
+  const note = String(item?.note || '').trim() || null;
+  return { code, percentOff, maxRedemptions, validFrom, validUntil, note };
+}
+
 if (ENABLE_ADMIN_FINANCE) {
 app.get('/api/user/admin/fixed-costs', requireAdmin, async (req, res) => {
   try {
@@ -224,6 +246,48 @@ app.get('/api/user/admin/fixed-costs', requireAdmin, async (req, res) => {
     res.json({ fixedCosts });
   } catch (err) {
     logger.error('Error getting fixed costs', { error: err.message, adminId: req.user?.id });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Admin: discount codes configuration (percentage, max uses, valid period)
+app.get('/api/user/admin/discount-codes', requireAdmin, async (req, res) => {
+  try {
+    const config = await SystemConfig.findOne({ where: { key: 'discountCodes' } });
+    const raw = config && Array.isArray(config.value) ? config.value : [];
+    const discountCodes = raw
+      .map((item) => normalizeDiscountCodeItem(item))
+      .filter((item) => item && item.percentOff > 0);
+    res.json({ discountCodes });
+  } catch (err) {
+    logger.error('Error getting discount codes', { error: err.message, adminId: req.user?.id });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/user/admin/discount-codes', requireAdmin, async (req, res) => {
+  const { discountCodes } = req.body;
+  if (!Array.isArray(discountCodes)) {
+    return res.status(400).json({ error: 'discountCodes must be an array' });
+  }
+  const normalized = discountCodes
+    .map((item) => normalizeDiscountCodeItem(item))
+    .filter((item) => item && item.percentOff > 0);
+  try {
+    let config = await SystemConfig.findOne({ where: { key: 'discountCodes' } });
+    if (config) {
+      config.value = normalized;
+      await config.save();
+    } else {
+      config = await SystemConfig.create({
+        key: 'discountCodes',
+        value: normalized,
+        description: 'Admin-configured discount codes (percentage, max uses, valid period)',
+      });
+    }
+    res.json({ discountCodes: config.value, message: 'Discount codes updated' });
+  } catch (err) {
+    logger.error('Error updating discount codes', { error: err.message, adminId: req.user?.id });
     res.status(500).json({ error: 'Server error' });
   }
 });
