@@ -731,6 +731,20 @@ export async function updateFixedCosts({ fixedCosts, token }) {
   });
 }
 
+/** GET /user/admin/discount-codes - List of discount codes (admin). */
+export async function getDiscountCodes(token) {
+  return apiClient.get('/user/admin/discount-codes', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+/** POST /user/admin/discount-codes - Update discount codes (admin). */
+export async function updateDiscountCodes({ discountCodes, token }) {
+  return apiClient.post('/user/admin/discount-codes', { discountCodes }, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
 /** GET /user/admin/cost-metrics - Cost/usage metrics per user and retry rate per platform (admin). */
 export async function getCostMetrics(token) {
   return apiClient.get('/user/admin/cost-metrics', {
