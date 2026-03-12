@@ -816,27 +816,6 @@ router.post('/subscribe', requireAuth, validateBody(subscribeSchema), async (req
       userKeys: Object.keys(user.toJSON ? user.toJSON() : user)
     });
 
-    // Check if user already has an active subscription
-    const existingSubscriptionId = user.stripeSubscriptionId;
-
-    if (existingSubscriptionId) {
-      try {
-        const existingSubscription = await stripe.subscriptions.retrieve(existingSubscriptionId);
-        if (existingSubscription.status === 'active' || existingSubscription.status === 'trialing') {
-          return res.status(400).json({
-            error: 'You already have an active subscription',
-            details: 'Cancel it in the Stripe Dashboard or in Settings (Manage subscription) before starting a new one.',
-          });
-        }
-      } catch (err) {
-        // Subscription doesn't exist or is invalid, continue
-        logger.debug('Existing subscription invalid, creating new one', {
-          userId: user.id,
-          error: err.message
-        });
-      }
-    }
-
     // Get or create Stripe customer (clear invalid IDs that no longer exist in Stripe)
     let customerId = user.stripeCustomerId;
     if (customerId) {
@@ -879,13 +858,102 @@ router.post('/subscribe', requireAuth, validateBody(subscribeSchema), async (req
       await user.save();
     }
 
-    // Create Stripe Checkout Session for subscription
+    // Resolve Stripe Price by lookup_key for subscription (Creator / Pro monthly plans)
+    const lookupKey = LICENSE_LOOKUP_KEYS[licenseType];
+    if (!lookupKey) {
+      return res.status(400).json({
+        error: 'No Stripe Price configured for this subscription type. Configure a Price with the correct lookup_key in Stripe.',
+        details: { licenseType, expectedLookupKey: lookupKey }
+      });
+    }
+
+    const prices = await stripe.prices.list({
+      lookup_keys: [lookupKey],
+      active: true,
+      limit: 1,
+    });
+    if (!prices.data || prices.data.length === 0) {
+      return res.status(400).json({
+        error: `Stripe Price not found or inactive for lookup_key: ${lookupKey}.`,
+        details: { licenseType, lookupKey },
+      });
+    }
+    const price = prices.data[0];
+    if (!price.recurring) {
+      return res.status(400).json({
+        error: 'Stripe Price is not a recurring subscription price.',
+        details: { lookupKey, priceId: price.id },
+      });
+    }
+
+    // Check if user already has an active subscription - if so, try to switch plan (e.g. Pro ↔ Creator)
+    const existingSubscriptionId = user.stripeSubscriptionId;
+    if (existingSubscriptionId) {
+      try {
+        const existingSubscription = await stripe.subscriptions.retrieve(existingSubscriptionId);
+        if (existingSubscription.status === 'active' || existingSubscription.status === 'trialing') {
+          const currentItem = existingSubscription.items?.data?.[0];
+          const currentPriceId = currentItem?.price?.id;
+
+          // If already on this price, nothing to change
+          if (currentPriceId === price.id) {
+            return res.status(400).json({
+              error: 'You already have this subscription plan',
+              details: { subscriptionId: existingSubscriptionId, priceId: price.id, lookupKey },
+            });
+          }
+
+          // Update subscription to new price (plan change, including downgrade from Pro to Creator)
+          const updatedSubscription = await stripe.subscriptions.update(existingSubscriptionId, {
+            items: currentItem
+              ? [{ id: currentItem.id, price: price.id }]
+              : [{ price: price.id }],
+            proration_behavior: 'always_invoice',
+            metadata: {
+              ...(existingSubscription.metadata || {}),
+              licenseType,
+              lookup_key: lookupKey,
+            },
+          });
+
+          // Update local license info to reflect new plan (expiry will keep being extended by invoices)
+          const expiryResult = resolveLicenseExpiry({ licenseType });
+          user.licenseType = licenseType;
+          user.licenseExpiresAt = expiryResult.value;
+          await user.save();
+          await syncEntitlementsFromLicense(user.id, user.licenseType, user.licenseExpiresAt);
+
+          logger.info('Subscription plan changed', {
+            userId: user.id,
+            subscriptionId: updatedSubscription.id,
+            oldPriceId: currentPriceId,
+            newPriceId: price.id,
+            licenseType,
+            lookupKey,
+          });
+
+          return res.json({
+            type: 'subscription-update',
+            subscriptionId: updatedSubscription.id,
+            status: updatedSubscription.status,
+          });
+        }
+      } catch (err) {
+        // Subscription doesn't exist or is invalid, continue with new checkout session
+        logger.debug('Existing subscription invalid or not active, creating new one', {
+          userId: user.id,
+          error: err.message
+        });
+      }
+    }
+
+    // Create Stripe Checkout Session for new subscription
     logger.debug('Creating Stripe checkout session', {
       userId: user.id,
       licenseType,
       customerId,
-      planAmount: plan.amount,
-      planCurrency: plan.currency
+      lookupKey,
+      priceId: price.id
     });
     
     // Build session config - only include customer_email if we don't have a customer ID
@@ -895,18 +963,7 @@ router.post('/subscribe', requireAuth, validateBody(subscribeSchema), async (req
       payment_method_types: ['card'],
       line_items: [
         {
-          price_data: {
-            currency: plan.currency.toLowerCase(),
-            product_data: {
-              name: `Subscription - ${licenseType.charAt(0).toUpperCase() + licenseType.slice(1)}`,
-              description: `Recurring ${plan.durationDays}-day license subscription`,
-            },
-            unit_amount: Math.round(plan.amount * 100),
-            recurring: {
-              interval: licenseType === LICENSE_TYPES.MONTHLY ? 'month' : 'month',
-              interval_count: licenseType === LICENSE_TYPES.MONTHLY ? 1 : 3,
-            },
-          },
+          price: price.id,
           quantity: 1,
         },
       ],
@@ -918,6 +975,7 @@ router.post('/subscribe', requireAuth, validateBody(subscribeSchema), async (req
       metadata: {
         userId: user.id.toString(),
         licenseType: licenseType,
+        lookup_key: lookupKey,
       },
     };
     
