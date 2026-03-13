@@ -683,6 +683,7 @@ const Dashboard = ({ user, token, ...props }) => {
             user={user}
             token={token}
             hasScheduledContent={contents.length > 0}
+            onFirstStreamCreated={fetchContents}
           />
         )}
 

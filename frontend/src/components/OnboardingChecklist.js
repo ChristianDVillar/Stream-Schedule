@@ -6,13 +6,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, Circle, X, ExternalLink } from 'lucide-react';
-import { getConnectedAccounts } from '../api';
+import { CheckCircle, Circle, X, ExternalLink, Loader2 } from 'lucide-react';
+import { getConnectedAccounts, getOnboardingStatus, autoCreateFirstStream } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
+import toast from 'react-hot-toast';
 
 const STORAGE_KEY = 'streamer_scheduler_onboarding_dismissed';
 
-export default function OnboardingChecklist({ user, token, hasScheduledContent }) {
+export default function OnboardingChecklist({ user, token, hasScheduledContent, onFirstStreamCreated }) {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [dismissed, setDismissed] = useState(() => {
@@ -23,6 +24,8 @@ export default function OnboardingChecklist({ user, token, hasScheduledContent }
     }
   });
   const [connectedAccounts, setConnectedAccounts] = useState(null);
+  const [onboardingStatus, setOnboardingStatus] = useState(null);
+  const [creatingExample, setCreatingExample] = useState(false);
 
   useEffect(() => {
     if (!token || !user || user.isAdmin) return;
@@ -32,6 +35,15 @@ export default function OnboardingChecklist({ user, token, hasScheduledContent }
       .catch(() => { if (!cancelled) setConnectedAccounts(null); });
     return () => { cancelled = true; };
   }, [token, user]);
+
+  useEffect(() => {
+    if (!token || !user || user.isAdmin) return;
+    let cancelled = false;
+    getOnboardingStatus()
+      .then((data) => { if (!cancelled) setOnboardingStatus(data); })
+      .catch(() => { if (!cancelled) setOnboardingStatus(null); });
+    return () => { cancelled = true; };
+  }, [token, user, hasScheduledContent]);
 
   const handleDismiss = () => {
     try {
@@ -59,6 +71,11 @@ export default function OnboardingChecklist({ user, token, hasScheduledContent }
       </button>
       <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 pr-8">
         {t('dashboard.onboardingTitle') || 'Getting started'}
+        {onboardingStatus?.score != null && (
+          <span className="ml-2 text-gray-500 dark:text-gray-400 font-normal">
+            ({onboardingStatus.score}%)
+          </span>
+        )}
       </h3>
       <ul className="space-y-2 text-sm">
         <li className="flex items-center gap-2">
@@ -78,9 +95,34 @@ export default function OnboardingChecklist({ user, token, hasScheduledContent }
             {t('dashboard.onboardingSchedule') || 'Schedule your first stream'}
           </span>
           {!scheduleOk && (
-            <button type="button" onClick={() => navigate('/schedule')} className="text-accent hover:underline ml-1">
-              {t('dashboard.schedule') || 'Schedule'} →
-            </button>
+            <span className="flex items-center gap-1 ml-1">
+              <button type="button" onClick={() => navigate('/schedule')} className="text-accent hover:underline">
+                {t('dashboard.schedule') || 'Schedule'} →
+              </button>
+              {twitchOk && typeof onFirstStreamCreated === 'function' && (
+                <button
+                  type="button"
+                  disabled={creatingExample}
+                  onClick={async () => {
+                    setCreatingExample(true);
+                    try {
+                      await autoCreateFirstStream();
+                      toast.success(t('dashboard.firstStreamCreated') || 'Example stream created!');
+                      onFirstStreamCreated();
+                    } catch (err) {
+                      const msg = err.response?.data?.error || err.message;
+                      toast.error(msg || 'Could not create example stream');
+                    } finally {
+                      setCreatingExample(false);
+                    }
+                  }}
+                  className="text-accent hover:underline ml-1 flex items-center gap-0.5"
+                >
+                  {creatingExample ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                  {creatingExample ? (t('dashboard.creating') || 'Creating...') : (t('dashboard.createExampleStream') || 'Create example stream')}
+                </button>
+              )}
+            </span>
           )}
         </li>
         <li className="flex items-center gap-2">

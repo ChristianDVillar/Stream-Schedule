@@ -377,7 +377,7 @@ setupSwagger(app);
 app.get('/', (req, res) => {
   res.json({ 
     message: 'Streamer Scheduler API',
-    version: '2.2.0',
+    version: '2.3.0',
     status: 'running',
     endpoints: {
       health: '/api/health',
@@ -482,11 +482,17 @@ async function initServer() {
       logger.warn('Production mode - ensure SSL is enabled for database connections');
     }
 
+    // Recordatorios de streams:
+    // - Recomendado: usar el proceso de scheduler/worker (schedulerServer.js) o un cron externo que llame a /api/cron/send-stream-reminders.
+    // - Este cron in-process puede activarse en entornos pequeños con ENABLE_STREAM_REMINDER_CRON=true, pero no es la opción recomendada para escalar.
     if (process.env.ENABLE_STREAM_REMINDER_CRON === 'true') {
-      const run = () => runStreamReminders().catch((e) => logger.error('Stream reminders job error', { error: e.message }));
+      const run = () =>
+        runStreamReminders().catch((e) =>
+          logger.error('Stream reminders job error (in-process cron)', { error: e.message })
+        );
       setTimeout(run, 30 * 1000);
       setInterval(run, 15 * 60 * 1000);
-      logger.info('Stream reminder cron enabled (every 15 min)');
+      logger.info('Stream reminder cron enabled in API process (every 15 min) — prefer schedulerServer or external cron in production');
     }
   });
 

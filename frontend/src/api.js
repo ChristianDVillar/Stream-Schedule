@@ -245,6 +245,18 @@ export async function getConnectedAccounts() {
   return res.data;
 }
 
+/** GET /user/onboarding-status — progress for onboarding wizard (steps, score). */
+export async function getOnboardingStatus() {
+  const res = await apiClient.get('/user/onboarding-status');
+  return res.data;
+}
+
+/** POST /user/auto-create-first-stream — create one example stream if user has Twitch and none yet. */
+export async function autoCreateFirstStream() {
+  const res = await apiClient.post('/user/auto-create-first-stream');
+  return res.data;
+}
+
 /** GET /user/nightbot-key — get current Nightbot API key (or null). */
 export async function getNightbotKey() {
   const res = await apiClient.get('/user/nightbot-key');
