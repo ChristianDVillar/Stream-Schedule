@@ -21,6 +21,8 @@ import crypto from 'crypto';
 import { generateAuthData, buildUserResponse, createLinkState, verifyLinkState, createTwitterOAuth2State, verifyTwitterOAuth2State } from '../utils/authUtils.js';
 import { supabase as supabaseAdmin } from '../utils/supabaseClient.js';
 import { validateBody } from '../middleware/validate.js';
+import { contentService } from '../services/contentService.js';
+import { CONTENT_STATUS } from '../constants/contentStatus.js';
 import {
   registerSchema,
   loginSchema,
@@ -1615,6 +1617,93 @@ export async function connectedAccountsHandler(req, res) {
   }
 }
 
+/** GET /onboarding-status - progress for onboarding wizard (Twitch, first stream, Discord, overlay). */
+export async function onboardingStatusHandler(req, res) {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'twitchId', 'discordId', 'oauthProvider', 'oauthId', 'discordAccessToken', 'discordRefreshToken', 'nightbotApiKey'],
+    });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const u = user.get ? user.get({ plain: true }) : user;
+    const twitchConnected = !!(u.twitchId || (u.oauthProvider === 'twitch' && u.oauthId));
+    const discordConnected = !!(u.discordId && (u.discordAccessToken || u.discordRefreshToken));
+    const overlayActivated = !!(u.nightbotApiKey && String(u.nightbotApiKey).length > 0);
+    const streamCount = await Content.count({
+      where: { userId, contentType: 'stream' },
+    });
+    const firstStreamCreated = streamCount > 0;
+    const steps = [
+      { id: 'twitch', label: 'Connect Twitch', done: twitchConnected },
+      { id: 'first_stream', label: 'Schedule first stream', done: firstStreamCreated },
+      { id: 'discord', label: 'Connect Discord', done: discordConnected },
+      { id: 'overlay', label: 'Enable overlay (API key)', done: overlayActivated },
+    ];
+    const doneCount = steps.filter((s) => s.done).length;
+    const score = steps.length ? Math.round((doneCount / steps.length) * 100) : 0;
+    res.json({
+      twitchConnected,
+      firstStreamCreated,
+      discordConnected,
+      overlayActivated,
+      steps,
+      score,
+      completed: doneCount === steps.length,
+    });
+  } catch (err) {
+    logger.error('Onboarding status error', { error: err.message, userId });
+    res.status(500).json({ error: 'Server error' });
+  }
+}
+
+/** POST /auto-create-first-stream - create one example stream (e.g. Friday 20:00) if user has Twitch and no streams yet. */
+export async function autoCreateFirstStreamHandler(req, res) {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'twitchId', 'oauthProvider', 'oauthId'],
+    });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const u = user.get ? user.get({ plain: true }) : user;
+    const twitchConnected = !!(u.twitchId || (u.oauthProvider === 'twitch' && u.oauthId));
+    if (!twitchConnected) {
+      return res.status(400).json({ error: 'Connect Twitch first to create your first stream' });
+    }
+    const streamCount = await Content.count({
+      where: { userId, contentType: 'stream' },
+    });
+    if (streamCount > 0) {
+      return res.status(400).json({ error: 'You already have stream(s) scheduled', alreadyHasStreams: true });
+    }
+    const now = new Date();
+    let nextFriday = new Date(now);
+    const day = nextFriday.getUTCDay();
+    const daysUntilFriday = day <= 5 ? (5 - day) : (5 - day + 7);
+    nextFriday.setUTCDate(nextFriday.getUTCDate() + daysUntilFriday);
+    nextFriday.setUTCHours(20, 0, 0, 0);
+    if (nextFriday <= now) nextFriday.setUTCDate(nextFriday.getUTCDate() + 7);
+    const payload = {
+      title: 'Just Chatting',
+      content: 'Going live! Come hang out.',
+      contentType: 'stream',
+      scheduledFor: nextFriday.toISOString(),
+      platforms: ['twitch'],
+      status: CONTENT_STATUS.DRAFT,
+    };
+    const created = await contentService.createContent(userId, payload);
+    const item = Array.isArray(created) ? created[0] : created;
+    logger.info('Auto-created first stream for user', { userId, contentId: item?.id });
+    res.status(201).json({ created: item, message: 'First stream created. Edit it in Schedule.' });
+  } catch (err) {
+    logger.error('Auto-create first stream error', { error: err.message, userId });
+    res.status(500).json({ error: err.message || 'Server error' });
+  }
+}
+
+router.get('/onboarding-status', requireAuth, onboardingStatusHandler);
+router.post('/auto-create-first-stream', requireAuth, autoCreateFirstStreamHandler);
 router.get('/connected-accounts', requireAuth, connectedAccountsHandler);
 
 /** Ensure user has at least one login method (password or any OAuth). */

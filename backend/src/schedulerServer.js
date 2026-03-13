@@ -8,6 +8,7 @@ import { startSchedulerProducer } from './services/schedulerProducer.js';
 import { runReconciliation } from './services/discordSyncService.js';
 import { notifyDbSlow, notifyQueueProblems, checkRedisRecovery } from './services/alertService.js';
 import { getQueueStats } from './services/publicationQueueService.js';
+import { enqueueStreamReminderJobs, runStreamReminders } from './routes/cron.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -40,6 +41,31 @@ async function startSchedulerProcess() {
   // Legacy scheduler opcional (conservado por compatibilidad)
   if (process.env.ENABLE_LEGACY_SCHEDULER !== 'false') {
     startScheduler();
+  }
+
+  // Stream reminders: producer encola jobs en Redis (workers en workerServer envían emails).
+  // Si Redis no está disponible, fallback a ejecución directa runStreamReminders().
+  // Desactivar con ENABLE_STREAM_REMINDER_WORKER=false.
+  if (process.env.ENABLE_STREAM_REMINDER_WORKER !== 'false') {
+    const REMINDERS_INTERVAL_MS = 15 * 60 * 1000;
+    const runReminderProducer = async () => {
+      try {
+        const result = await enqueueStreamReminderJobs();
+        if (!result.queueAvailable) {
+          await runStreamReminders();
+        }
+      } catch (err) {
+        logger.error('Stream reminders producer error (scheduler)', { error: err.message });
+        try {
+          await runStreamReminders();
+        } catch (e) {
+          logger.error('Stream reminders fallback error', { error: e.message });
+        }
+      }
+    };
+    setTimeout(runReminderProducer, 30 * 1000);
+    setInterval(runReminderProducer, REMINDERS_INTERVAL_MS);
+    logger.info('Stream reminder producer enabled (every 15 min from schedulerServer; workers in workerServer)');
   }
 
   // Reconciliación diaria de eventos de Discord

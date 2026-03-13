@@ -9,6 +9,7 @@
 import express from 'express';
 import { sequelize } from '../models/index.js';
 import { getQueueStats } from '../services/publicationQueueService.js';
+import { getReminderQueueStats } from '../services/reminderQueueService.js';
 import { Content, ContentPlatform } from '../models/index.js';
 import { CONTENT_STATUS } from '../constants/contentStatus.js';
 import { CONTENT_PLATFORM_STATUS } from '../models/ContentPlatform.js';
@@ -141,14 +142,18 @@ router.get('/', async (req, res) => {
     }
     health.db = dbStatus;
 
-    // Queue (cached to reduce Redis requests)
+    // Queues (cached to reduce Redis requests)
     let queueStatus = 'unavailable';
     try {
-      const queueStats = await getQueueStatsCached();
+      const [queueStats, reminderQueueStats] = await Promise.all([
+        getQueueStatsCached(),
+        getReminderQueueStats(),
+      ]);
       health.queue = queueStats;
+      health.reminderQueue = reminderQueueStats;
       if (queueStats.enabled) queueStatus = queueStats.error ? 'degraded' : 'healthy';
     } catch (error) {
-      health.queue = { error: error.message };
+      health.queue = health.queue || { error: error.message };
     }
     health.queueStatus = queueStatus;
 

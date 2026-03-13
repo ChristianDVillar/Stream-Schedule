@@ -6,6 +6,8 @@ import { sequelize } from './models/index.js';
 import { startWorker } from './services/publicationWorker.js';
 import { startDiscordSyncWorker } from './services/discordQueueService.js';
 import { startDiscordGateway } from './services/discordGatewayService.js';
+import { startReminderWorker } from './services/reminderQueueService.js';
+import { handleReminderJob } from './services/reminderWorker.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -46,6 +48,13 @@ async function startWorkerProcess() {
   startDiscordGateway().catch((err) =>
     logger.debug('Discord Gateway not started', { error: err.message })
   );
+
+  // Stream reminders: procesa jobs de la cola stream-reminders (envío de emails)
+  if (process.env.ENABLE_REMINDER_WORKER !== 'false') {
+    startReminderWorker(handleReminderJob).catch((err) =>
+      logger.debug('Reminder worker not started', { error: err.message })
+    );
+  }
 
   logger.info('Worker server started', { environment: nodeEnv });
 }
