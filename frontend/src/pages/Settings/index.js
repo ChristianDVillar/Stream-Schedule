@@ -621,7 +621,12 @@ export default function Settings({ user, token, setUser }) {
       } else {
         response = await createCheckout({ licenseType, token });
       }
-      if (response.data.url) {
+      if (response.data.type === 'test-upgrade') {
+        toast.success(t('settings.subscriptionActivated'));
+        await fetchLicenseStatus();
+        await fetchSubscriptionStatus();
+        await fetchPaymentHistory();
+      } else if (response.data.url) {
         if (!useSubscription && response.data.warning) {
           toast.success(t('settings.redirectingToPayment'), { duration: 3000, icon: '⚠️' });
           setTimeout(() => {
