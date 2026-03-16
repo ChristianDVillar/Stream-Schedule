@@ -28,6 +28,7 @@ import TwitchBitEvent from './TwitchBitEvent.js';
 import TwitchEventSubSubscription from './TwitchEventSubSubscription.js';
 import PublicationMetric from './PublicationMetric.js';
 import Todo from './Todo.js';
+import StripeWebhookEvent from './StripeWebhookEvent.js';
 import StreamReminder from './StreamReminder.js';
 import StreamItem from './StreamItem.js';
 import StreamSuggestion from './StreamSuggestion.js';
@@ -639,4 +640,5 @@ export {
   StreamSuggestion,
   StreamTimelineEvent,
   ReminderSent,
+  StripeWebhookEvent,
 };

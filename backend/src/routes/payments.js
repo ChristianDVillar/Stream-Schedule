@@ -1,7 +1,7 @@
 import express from 'express';
 import Stripe from 'stripe';
 import { Op } from 'sequelize';
-import { Payment, User } from '../models/index.js';
+import { Payment, User, StripeWebhookEvent } from '../models/index.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { resolveLicenseExpiry } from '../utils/licenseUtils.js';
 import { LICENSE_TYPES } from '../constants/licenseTypes.js';
@@ -476,7 +476,36 @@ export async function handleStripeWebhook(req, res) {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Handle different event types
+  // Idempotency: Stripe may deliver the same event multiple times (retries, timeouts, etc.).
+  // We persist each event.id and short‑circuit if we've already processed it.
+  try {
+    const existing = await StripeWebhookEvent.findOne({
+      where: { stripeEventId: event.id },
+    });
+    if (existing) {
+      logger.info('Stripe webhook event already processed, skipping', {
+        stripeEventId: event.id,
+        type: event.type,
+      });
+      return res.json({ received: true, duplicate: true });
+    }
+
+    await StripeWebhookEvent.create({
+      stripeEventId: event.id,
+      type: event.type,
+      payload: event,
+    });
+  } catch (err) {
+    // If idempotency storage fails, we still try to process once and log the issue;
+    // Stripe will retry on 5xx, so avoid throwing here.
+    logger.error('Failed to persist Stripe webhook event for idempotency', {
+      error: err.message,
+      stripeEventId: event.id,
+      type: event.type,
+    });
+  }
+
+  // Handle different event types (must match the events configured in Stripe Dashboard).
   try {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
@@ -594,6 +623,46 @@ export async function handleStripeWebhook(req, res) {
             error: error.message
           });
         }
+      }
+
+      res.json({ received: true });
+    }
+    else if (event.type === 'customer.subscription.created') {
+      // A subscription was created (usually as part of Checkout or an admin action in Stripe).
+      // We persist the subscription on the user but do not assign/extend licenses here;
+      // license activation is driven by checkout.session.completed / invoice.paid.
+      const subscription = event.data.object;
+      const stripeSubscriptionId = subscription.id;
+      const stripeCustomerId = subscription.customer;
+      const metadataUserId = subscription.metadata?.userId
+        ? parseInt(subscription.metadata.userId, 10)
+        : null;
+
+      let user = null;
+      if (metadataUserId) {
+        user = await User.findByPk(metadataUserId);
+      }
+
+      if (!user && stripeCustomerId) {
+        user = await User.findOne({ where: { stripeCustomerId } });
+      }
+
+      if (user) {
+        user.stripeSubscriptionId = stripeSubscriptionId;
+        user.subscriptionStatus = subscription.status;
+        await user.save();
+
+        logger.info('Subscription created (customer.subscription.created)', {
+          userId: user.id,
+          subscriptionId: stripeSubscriptionId,
+          status: subscription.status
+        });
+      } else {
+        logger.warn('customer.subscription.created received but user not found', {
+          stripeSubscriptionId,
+          stripeCustomerId,
+          metadataUserId
+        });
       }
 
       res.json({ received: true });

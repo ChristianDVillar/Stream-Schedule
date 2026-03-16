@@ -10,22 +10,23 @@ import logger from '../utils/logger.js';
 
 const CONFIG_KEY = 'enabled_platforms';
 
+/** Platforms enabled by default when no config exists. Instagram excluded until OAuth + publish are implemented. */
+const DEFAULT_ENABLED_PLATFORMS = PLATFORM_VALUES.filter((p) => p !== 'instagram');
+
 /**
- * Get enabled platforms (default: all platforms enabled)
+ * Get enabled platforms (default: all except Instagram until implementation is ready)
  */
 export async function getEnabledPlatforms() {
   try {
     const config = await SystemConfig.findByPk(CONFIG_KEY);
     if (config && Array.isArray(config.value)) {
       // Validate that all platforms in config are valid
-      return config.value.filter(p => PLATFORM_VALUES.includes(p));
+      return config.value.filter((p) => PLATFORM_VALUES.includes(p));
     }
-    // Default: all platforms enabled
-    return PLATFORM_VALUES;
+    return DEFAULT_ENABLED_PLATFORMS;
   } catch (error) {
     logger.error('Error getting enabled platforms', { error: error.message });
-    // Fail open: return all platforms if error
-    return PLATFORM_VALUES;
+    return DEFAULT_ENABLED_PLATFORMS;
   }
 }
 
