@@ -25,6 +25,8 @@ import {
   getUserByApiKey,
 } from './shared.js';
 import { announceStreamStarted } from '../../utils/discordAnnounce.js';
+import rouletteService from '../../services/rouletteService.js';
+import { emitRouletteToUser } from '../../services/websocketService.js';
 
 const router = express.Router();
 
@@ -1016,6 +1018,52 @@ router.post('/timeline', async (req, res) => {
   } catch (err) {
     logger.error('Webhook timeline error', { error: err.message });
     res.status(500).json({ error: 'Could not add timeline event.' });
+  }
+});
+
+/**
+ * POST /api/webhooks/roulette/join — add viewer to wheel (bot: when user types !join)
+ * Body: { user: "twitch_username" } or query: user=...
+ */
+router.post('/roulette/join', async (req, res) => {
+  try {
+    const streamer = await getUserByApiKey(req);
+    if (!streamer) {
+      return res.status(401).json({ error: 'Invalid or missing API key.' });
+    }
+    const username = (req.body?.user ?? req.body?.username ?? req.query?.user ?? req.query?.username ?? '').trim();
+    if (!username) {
+      return res.status(400).json({ error: 'Missing user. Send { "user": "twitch_username" }.' });
+    }
+    const { added, players } = rouletteService.join(streamer.id, username);
+    emitRouletteToUser(streamer.id, 'roulette_players', { players });
+    res.json({ ok: true, added, players });
+  } catch (err) {
+    logger.error('Webhook roulette join error', { error: err.message });
+    res.status(500).json({ error: 'Could not add to roulette.' });
+  }
+});
+
+/**
+ * POST /api/webhooks/roulette/leave — remove viewer from wheel (bot: !leave)
+ * Body: { user: "twitch_username" }
+ */
+router.post('/roulette/leave', async (req, res) => {
+  try {
+    const streamer = await getUserByApiKey(req);
+    if (!streamer) {
+      return res.status(401).json({ error: 'Invalid or missing API key.' });
+    }
+    const username = (req.body?.user ?? req.body?.username ?? req.query?.user ?? '').trim();
+    if (!username) {
+      return res.status(400).json({ error: 'Missing user. Send { "user": "twitch_username" }.' });
+    }
+    const { removed, players } = rouletteService.leave(streamer.id, username);
+    emitRouletteToUser(streamer.id, 'roulette_players', { players });
+    res.json({ ok: true, removed, players });
+  } catch (err) {
+    logger.error('Webhook roulette leave error', { error: err.message });
+    res.status(500).json({ error: 'Could not remove from roulette.' });
   }
 });
 

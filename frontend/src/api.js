@@ -387,6 +387,28 @@ export async function getTimeline(hours = 24) {
   return res.data;
 }
 
+/** Roulette (spin wheel) — state and controls */
+export async function getRouletteState(token) {
+  const res = await apiClient.get('/roulette/state', { headers: { Authorization: `Bearer ${token}` } });
+  return res.data;
+}
+export async function rouletteJoin({ username, token }) {
+  const res = await apiClient.post('/roulette/join', { username }, { headers: { Authorization: `Bearer ${token}` } });
+  return res.data;
+}
+export async function rouletteLeave({ username, token }) {
+  const res = await apiClient.post('/roulette/leave', { username }, { headers: { Authorization: `Bearer ${token}` } });
+  return res.data;
+}
+export async function rouletteReset(token) {
+  const res = await apiClient.post('/roulette/reset', {}, { headers: { Authorization: `Bearer ${token}` } });
+  return res.data;
+}
+export async function rouletteSpin(token) {
+  const res = await apiClient.post('/roulette/spin', {}, { headers: { Authorization: `Bearer ${token}` } });
+  return res.data;
+}
+
 /** Start Discord link flow (add Discord to current account). Pass token; redirects to backend. */
 export function startDiscordLink(token) {
   const base = apiClient.defaults.baseURL;

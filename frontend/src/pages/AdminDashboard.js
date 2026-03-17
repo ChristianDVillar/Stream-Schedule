@@ -9,6 +9,7 @@ import { formatDateUTC } from '../utils/dateUtils';
 import { maskEmail } from '../utils/emailUtils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { buildPaymentsInvoicePdf } from '../utils/paymentInvoicePdf';
+import { PLATFORM_IDS } from '../constants/platforms.js';
 
 export default function AdminDashboard({ token, user, onLogout }) {
   const { t } = useLanguage();
@@ -413,7 +414,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
       let logoDataUrl = null;
       try {
         const base = window.location.origin + (process.env.PUBLIC_URL || '');
-        const logoUrl = `${base}/ScheduleLogo.png`;
+        const logoUrl = `${base}/blacklogo.png`;
         logoDataUrl = await new Promise((resolve) => {
           const img = new Image();
           img.onload = () => {
@@ -1835,48 +1836,51 @@ export default function AdminDashboard({ token, user, onLogout }) {
         ) : (
           <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {Object.entries(platformConfig).map(([platform, config]) => (
-                <div
-                  key={platform}
-                  className={`p-4 border-2 rounded-lg transition-all ${
-                    config.enabled
-                      ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
-                      : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-3 h-3 rounded-full ${
-                        config.enabled ? 'bg-green-500' : 'bg-gray-400'
-                      }`}></div>
-                      <div>
-                        <h4 className="font-semibold text-gray-900 dark:text-gray-100 capitalize">
-                          {config.label || platform}
-                        </h4>
-                        <p className={`text-sm ${
-                          config.enabled
-                            ? 'text-green-700 dark:text-green-300'
-                            : 'text-gray-500 dark:text-gray-400'
-                        }`}>
-                          {config.enabled ? t('admin.platformActive') : t('admin.platformInactive')}
-                        </p>
+              {PLATFORM_IDS.map((platform) => {
+                const config = platformConfig[platform] ?? { enabled: false, label: platform.charAt(0).toUpperCase() + platform.slice(1) };
+                return (
+                  <div
+                    key={platform}
+                    className={`p-4 border-2 rounded-lg transition-all ${
+                      config.enabled
+                        ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                        : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-3 h-3 rounded-full ${
+                          config.enabled ? 'bg-green-500' : 'bg-gray-400'
+                        }`}></div>
+                        <div>
+                          <h4 className="font-semibold text-gray-900 dark:text-gray-100 capitalize">
+                            {config.label || platform}
+                          </h4>
+                          <p className={`text-sm ${
+                            config.enabled
+                              ? 'text-green-700 dark:text-green-300'
+                              : 'text-gray-500 dark:text-gray-400'
+                          }`}>
+                            {config.enabled ? t('admin.platformActive') : t('admin.platformInactive')}
+                          </p>
+                        </div>
                       </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={config.enabled || false}
+                          onChange={(e) => setPlatformConfig(prev => ({
+                            ...prev,
+                            [platform]: { ...(prev[platform] ?? {}), enabled: e.target.checked, label: config.label }
+                          }))}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                      </label>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={config.enabled || false}
-                        onChange={(e) => setPlatformConfig(prev => ({
-                          ...prev,
-                          [platform]: { ...prev[platform], enabled: e.target.checked }
-                        }))}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
-                    </label>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
               <button

@@ -11,9 +11,10 @@ Documentación de **Streamer Scheduler** (protección, licencia, scripts).
 - **[FAQ_ES.md](FAQ_ES.md)** – Preguntas frecuentes en español.
 - **[FAQ_EN.md](FAQ_EN.md)** – Frequently asked questions in English.
 
-## Producto y crecimiento
+## Sistema y producto
 
-- **[ROADMAP_MERCADO.md](ROADMAP_MERCADO.md)** – Roadmap público (producto actual, próximas funcionalidades, visión, precios).
+- **[FUNCIONALIDAD_Y_ESTRUCTURA.md](FUNCIONALIDAD_Y_ESTRUCTURA.md)** – Funcionalidad actual, estructura del proyecto (backend/frontend), landing y pricing, flujo de checkout (Stripe).
+- **[PASOS_SIGUIENTES.md](PASOS_SIGUIENTES.md)** – Roadmap, prioridades, integraciones pendientes y próximos pasos.
 
 ## Integraciones
 

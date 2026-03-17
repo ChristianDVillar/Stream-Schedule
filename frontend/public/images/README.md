@@ -14,7 +14,7 @@ frontend/public/
 │   ├── logo-light.png
 │   ├── logo-dark.png
 │   └── README.md
-├── Bot.png          ← Logo principal / favicon
+├── blacklogo.png    ← Logo principal (tema claro) / favicon
 ├── logo192.png      ← Icono PWA (192x192)
 ├── logo512.png      ← Icono PWA (512x512)
 └── favicon.ico      ← Favicon del navegador
@@ -128,15 +128,16 @@ Puedes pasar cualquier prop estándar de `<img>`:
 
 ## 🖼️ Otras Imágenes del Proyecto
 
-### Logo Principal (`/Bot.png`)
+### Logo Principal (`/blacklogo.png`)
 
-- **Ubicación:** `frontend/public/Bot.png`
+- **Ubicación:** `frontend/public/blacklogo.png` (tema claro). `whitelogo.png` para tema oscuro (header en App.js).
 - **Uso:** Logo principal, favicon, icono de la aplicación
 - **Tamaño recomendado:** 512x512px
 - **Referencias:**
   - `frontend/public/index.html` (favicon)
   - `frontend/public/manifest.json` (PWA icon)
-  - `frontend/src/App.js` (logo en header)
+  - `frontend/src/App.js` (logo en header: blacklogo / whitelogo según tema)
+  - `frontend/src/pages/AdminDashboard.js` (logo en PDF de exportación)
 
 ### Iconos PWA
 

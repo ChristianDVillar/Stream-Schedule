@@ -39,11 +39,14 @@ export async function setEnabledPlatforms(platforms) {
     if (!Array.isArray(platforms)) {
       throw new Error('Platforms must be an array');
     }
-    
+
+    // Normalize to lowercase to match PLATFORM_VALUES (e.g. 'Slack' -> 'slack')
+    const normalized = platforms.map(p => (typeof p === 'string' ? p.toLowerCase() : p));
+
     // Validate each platform
-    const validPlatforms = platforms.filter(p => PLATFORM_VALUES.includes(p));
-    if (validPlatforms.length !== platforms.length) {
-      const invalid = platforms.filter(p => !PLATFORM_VALUES.includes(p));
+    const validPlatforms = normalized.filter(p => PLATFORM_VALUES.includes(p));
+    if (validPlatforms.length !== normalized.length) {
+      const invalid = normalized.filter(p => !PLATFORM_VALUES.includes(p));
       throw new Error(`Invalid platforms: ${invalid.join(', ')}`);
     }
 

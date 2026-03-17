@@ -30,6 +30,7 @@ import { PrivateRoute, AdminRoute, UserRoute } from './routeGuards';
 
 // Generic overlay: single lazy-loaded component for all overlay types (nextstream, goal, week, quote, suggestions)
 const Overlay = lazy(() => import('../pages/Overlay'));
+const OverlayRoulette = lazy(() => import('../pages/OverlayRoulette'));
 
 export function AppRoutes({ user, token, setAuth, setUser, clearAuth }) {
   return (
@@ -43,6 +44,8 @@ export function AppRoutes({ user, token, setAuth, setUser, clearAuth }) {
       <Route path="/faq" element={<FAQ />} />
       <Route path="/streamer/:username" element={<PublicStreamPage />} />
       <Route path="/embed/streamer/:username" element={<PublicStreamEmbed />} />
+      {/* Roulette wheel overlay: /overlay/roulette?key=API_KEY — viewers !join, streamer !spin or dashboard */}
+      <Route path="/overlay/roulette" element={<Suspense fallback={null}><OverlayRoulette /></Suspense>} />
       {/* Public overlays for OBS/Streamlabs: /overlay/:type?key=API_KEY (nextstream, goal, week, quote, suggestions) */}
       <Route path="/overlay/:type" element={<Suspense fallback={null}><Overlay /></Suspense>} />
       <Route

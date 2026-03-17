@@ -36,7 +36,7 @@ const ContentPlatform = sequelize.define('ContentPlatform', {
     validate: {
       isIn: [PLATFORM_VALUES]
     },
-    comment: 'Platform name: discord, twitter, twitch, youtube, instagram'
+    comment: 'Platform name: discord, twitter, twitch, youtube, instagram, slack'
   },
   status: {
     type: DataTypes.STRING,
