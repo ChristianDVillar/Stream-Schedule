@@ -135,20 +135,32 @@ export async function publishToPlatform(content, platform, user) {
       if (contentType === 'event') {
         // Create schedule segment (adds event to Twitch calendar)
         if (!content.twitchSegmentId) {
+          // Start time: prefer eventDates (real event schedule); fallback to scheduledFor
+          let startTime = content.scheduledFor;
+          if (content.eventDates && Array.isArray(content.eventDates) && content.eventDates.length > 0) {
+            const first = content.eventDates[0];
+            const dateStr = first.date.includes('T') ? first.date.split('T')[0] : first.date;
+            const timeStr = first.time.includes('T') ? first.time.split('T')[1] : first.time;
+            const dt = new Date(`${dateStr}T${timeStr}`);
+            if (!isNaN(dt.getTime())) {
+              startTime = dt.toISOString();
+            }
+          }
+
+          // Duration: from explicit end time or eventDates; fallback to 120 minutes
           let duration = 120;
-          const startTime = content.scheduledFor;
           if (content.eventEndTime) {
-            const start = new Date(startTime).getTime();
-            const end = new Date(content.eventEndTime).getTime();
-            duration = Math.max(60, Math.round((end - start) / 60000));
+            const startMs = new Date(startTime).getTime();
+            const endMs = new Date(content.eventEndTime).getTime();
+            duration = Math.max(60, Math.round((endMs - startMs) / 60000));
           } else if (content.eventDates?.length > 0) {
             const first = content.eventDates[0];
             const last = content.eventDates[content.eventDates.length - 1];
-            const start = new Date(`${first.date}T${first.time}`).getTime();
-            const end = (last.endDate && last.endTime)
+            const startMs = new Date(`${first.date}T${first.time}`).getTime();
+            const endMs = (last.endDate && last.endTime)
               ? new Date(`${last.endDate}T${last.endTime}`).getTime()
-              : start + 120 * 60000;
-            duration = Math.max(60, Math.round((end - start) / 60000));
+              : startMs + 120 * 60000;
+            duration = Math.max(60, Math.round((endMs - startMs) / 60000));
           }
           const categoryId = content.twitchCategoryId
             || await twitchService.getGameId(accessToken, 'Just Chatting');
