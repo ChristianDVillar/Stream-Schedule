@@ -389,6 +389,47 @@ export default function SettingsBotsTab({ user, token, t }) {
         </details>
       </div>
 
+      {/* 4. Roulette (spin wheel) – recommended integration */}
+      <div className="rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/60 dark:bg-purple-900/20 p-5 sm:p-6">
+        <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">
+          {t('bots.rouletteTitle') || 'Spin wheel (viewers !join, you !spin)'}
+        </h4>
+        <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+          {t('bots.rouletteIntro') || 'Recommended: your bot calls /api/roulette/spin and then runs the command you want with the winner username (points, VIP, etc.).'}
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-lg bg-white dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 p-3 text-xs">
+            <p className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
+              1) HTTP request from your bot
+            </p>
+            <pre className="bg-gray-100 dark:bg-gray-800 rounded p-2 overflow-x-auto">
+{`POST ${API_BASE}/api/roulette/spin
+Authorization: Bearer <STREAMER_JWT_TOKEN>`}</pre>
+            <p className="mt-2 text-gray-700 dark:text-gray-300">
+              {t('bots.rouletteResponseHint') || 'Response includes winner and all players:'}
+            </p>
+            <pre className="bg-gray-100 dark:bg-gray-800 rounded p-2 overflow-x-auto">
+{`{ "winner": "usuarioGanador", "players": ["user1","user2","..."] }`}
+            </pre>
+          </div>
+          <div className="rounded-lg bg-white dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 p-3 text-xs space-y-2">
+            <p className="font-semibold text-gray-900 dark:text-gray-100">
+              2) Command template in your bot
+            </p>
+            <p className="text-gray-700 dark:text-gray-300">
+              {t('bots.rouletteTemplateHint') || 'Use the winner username in your own command:'}
+            </p>
+            <ul className="list-disc list-inside space-y-1 text-gray-700 dark:text-gray-300">
+              <li>Nightbot / StreamElements: <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">!points add &lt;winner&gt; 100</code></li>
+              <li>Streamer.bot: <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">/me 🎉 Winner: @&lt;winner&gt; – +100 points</code></li>
+            </ul>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+              {t('bots.rouletteNote') || 'Your bot already knows how to give points or roles. Streamer Scheduler only chooses the winner and shows it in the overlay.'}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Chat commands (GET) — quick table + detailed cards */}
       <div id="bots-chat-commands" className="rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/30 p-5 sm:p-6 scroll-mt-4">
         <h4 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-2">
