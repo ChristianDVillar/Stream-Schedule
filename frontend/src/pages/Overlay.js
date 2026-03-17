@@ -2,9 +2,12 @@
  * Generic public overlay for OBS/Streamlabs Browser Source.
  * Single component driven by URL: /overlay/:type?key=API_KEY
  * Types: nextstream, goal, week, quote, suggestions
+ * Uses backend API URL when REACT_APP_API_URL is set so OBS (loading from frontend origin) gets data from the API server.
  */
 import React, { useEffect, useState } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
+
+const OVERLAY_API_BASE = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
 const OVERLAY_CONFIG = {
   nextstream: {
@@ -80,13 +83,31 @@ export default function Overlay() {
     let popTimeoutId = null;
     const { endpoints, interval, layout, popDuration } = config;
 
+    function fallbackFor(type, key) {
+      if (key === 'sub') return '';
+      switch (type) {
+        case 'nextstream': return 'No stream scheduled.';
+        case 'goal': return '—';
+        case 'week': return 'No schedule.';
+        case 'quote': return 'No quotes yet.';
+        case 'suggestions': return '—';
+        default: return '—';
+      }
+    }
+
     async function load() {
       try {
-        const base = '/api/webhooks';
+        const base = OVERLAY_API_BASE ? `${OVERLAY_API_BASE}/api/webhooks` : '/api/webhooks';
         const results = {};
         for (const { path, key: k } of endpoints) {
           const res = await fetch(`${base}/${path}?key=${encodeURIComponent(key)}`);
-          results[k] = (await res.text()).trim();
+          const text = await res.text().then((t) => t.trim());
+          const isHtml = text.length > 10 && text.toLowerCase().startsWith('<!') && text.toLowerCase().includes('doctype');
+          if (!res.ok || isHtml) {
+            results[k] = fallbackFor(type, k);
+          } else {
+            results[k] = text;
+          }
         }
         if (cancelled) return;
         setData(results);

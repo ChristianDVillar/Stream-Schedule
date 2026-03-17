@@ -38,7 +38,7 @@ export function initWebSocket(server) {
         });
       });
 
-      // Roulette overlay: connect with ?key=API_KEY; server joins socket to user room
+      // Roulette overlay: connect with ?key=API_KEY; server joins socket to user room and sends initial state
       rouletteNs = io.of('/roulette');
       rouletteNs.on('connection', async (socket) => {
         const key = (socket.handshake.query?.key || socket.handshake.auth?.key || '').trim();
@@ -58,7 +58,10 @@ export function initWebSocket(server) {
           }
           socket.join(`user:${user.id}`);
           socket.userId = user.id;
-          logger.debug('Roulette overlay joined room', { userId: user.id, socketId: socket.id });
+          const rouletteService = (await import('./rouletteService.js')).default;
+          const players = rouletteService.getState(user.id);
+          socket.emit('roulette_players', { players });
+          logger.debug('Roulette overlay joined room', { userId: user.id, socketId: socket.id, playersCount: players.length });
         } catch (err) {
           logger.warn('Roulette overlay auth failed', { error: err.message });
           socket.disconnect(true);
