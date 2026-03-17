@@ -119,10 +119,25 @@ export default function OverlayRoulette() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !players.length) return;
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    drawWheel(ctx, players, rotation);
-  }, [players, rotation]);
+    ctx.clearRect(0, 0, WHEEL_SIZE, WHEEL_SIZE);
+    if (players.length > 0) {
+      drawWheel(ctx, players, rotation);
+    } else {
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.beginPath();
+      ctx.arc(CENTER, CENTER, RADIUS, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 18px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(connected ? 'No players yet — use !join in chat' : 'Connecting…', CENTER, CENTER + 6);
+    }
+  }, [players, rotation, connected]);
 
   if (!key) {
     return (
