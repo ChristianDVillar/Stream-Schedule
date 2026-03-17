@@ -375,21 +375,13 @@ const Schedule = ({ user, token }) => {
     setLoading(true);
 
     try {
-      // For events with multiple dates, send all dates in a single payload
-      // For other content types or single date events, use the standard flow
+      // For events with multiple dates, the actual event times live in eventDates.
+      // scheduledFor/scheduledTime controls WHEN the content is created/published (Discord notifications, queue).
       let scheduledDateTime;
       const hasDate = !!formData.scheduledFor?.trim();
       const hasTime = !!formData.scheduledTime?.trim();
       
-      if (formData.contentType === 'event' && formData.eventDates.length > 0) {
-        // When to create: use explicit scheduledFor/scheduledTime (create/publish time)
-        if (hasDate && hasTime) {
-          scheduledDateTime = new Date(`${formData.scheduledFor}T${formData.scheduledTime}`);
-        } else {
-          const firstDate = formData.eventDates[0];
-          scheduledDateTime = new Date(`${firstDate.date}T${firstDate.time}`);
-        }
-      } else if (hasDate && hasTime) {
+      if (hasDate && hasTime) {
         scheduledDateTime = new Date(`${formData.scheduledFor}T${formData.scheduledTime}`);
       } else {
         const nextMinute = new Date(Date.now() + 60 * 1000);
