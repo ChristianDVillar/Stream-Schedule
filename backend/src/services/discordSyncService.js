@@ -23,7 +23,8 @@ function buildEventTimesAndDescription(content) {
   let eventEndTime = content.eventEndTime || null;
   let eventDescription = content.content || '';
 
-  if (content.eventDates && Array.isArray(content.eventDates) && content.eventDates.length > 1) {
+  // If eventDates is provided (one or more entries), use them as the real event schedule
+  if (content.eventDates && Array.isArray(content.eventDates) && content.eventDates.length > 0) {
     const sortedDates = content.eventDates
       .filter((ed) => ed.date && ed.time)
       .map((ed) => {
