@@ -124,6 +124,7 @@ export default function SettingsBotsTab({ user, token, t }) {
     { id: 'week', path: 'week', label: t('bots.overlayWeek') || 'Weekly schedule', size: '420 × 220' },
     { id: 'quote', path: 'quote', label: t('bots.overlayQuote') || 'Random quote', size: '400 × 120' },
     { id: 'suggestions', path: 'suggestions', label: t('bots.overlaySuggestions') || 'Chat ideas (when someone uses !idea)', size: '450 × 120' },
+    { id: 'roulette', path: 'roulette', label: t('bots.overlayRoulette') || 'Spin wheel (viewers !join, you !spin)', size: '600 × 600' },
   ];
   const getOverlayUrl = (path) => !streamMode && key && FRONTEND_ORIGIN ? `${FRONTEND_ORIGIN}/overlay/${path}?key=${encodeURIComponent(key)}` : '';
 

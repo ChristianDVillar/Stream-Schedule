@@ -1,22 +1,23 @@
 /**
  * WebSocket Service (Socket.IO)
- * Real-time notifications for content publishing
+ * Real-time notifications for content publishing + roulette overlay
  * Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.
- * 
+ *
  * Note: Requires socket.io. Install: npm install socket.io
  */
 
 import logger from '../utils/logger.js';
+import { User } from '../models/index.js';
 
 let io = null;
+let rouletteNs = null;
 let wsAvailable = false;
 
 /**
- * Initialize WebSocket server
+ * Initialize WebSocket server (main app + roulette namespace for overlay)
  */
 export function initWebSocket(server) {
   try {
-    // Dynamic import to avoid errors if not installed
     import('socket.io').then((socketModule) => {
       const { Server } = socketModule;
       io = new Server(server, {
@@ -25,30 +26,69 @@ export function initWebSocket(server) {
           methods: ['GET', 'POST'],
         },
       });
-      
+
       io.on('connection', (socket) => {
         logger.info('WebSocket client connected', { socketId: socket.id });
-        
-        // Join user room
         socket.on('join', (userId) => {
           socket.join(`user:${userId}`);
           logger.debug('User joined room', { userId, socketId: socket.id });
         });
-        
         socket.on('disconnect', () => {
           logger.info('WebSocket client disconnected', { socketId: socket.id });
         });
       });
-      
-      wsAvailable = true;
-      logger.info('WebSocket service initialized');
-    }).catch((error) => {
-      logger.warn('WebSocket not available (socket.io not installed)', {
-        error: error.message,
+
+      // Roulette overlay: connect with ?key=API_KEY; server joins socket to user room
+      rouletteNs = io.of('/roulette');
+      rouletteNs.on('connection', async (socket) => {
+        const key = (socket.handshake.query?.key || socket.handshake.auth?.key || '').trim();
+        if (!key) {
+          logger.debug('Roulette overlay connection without key');
+          socket.disconnect(true);
+          return;
+        }
+        try {
+          const user = await User.findOne({
+            where: { nightbotApiKey: key },
+            attributes: ['id'],
+          });
+          if (!user) {
+            socket.disconnect(true);
+            return;
+          }
+          socket.join(`user:${user.id}`);
+          socket.userId = user.id;
+          logger.debug('Roulette overlay joined room', { userId: user.id, socketId: socket.id });
+        } catch (err) {
+          logger.warn('Roulette overlay auth failed', { error: err.message });
+          socket.disconnect(true);
+        }
+        socket.on('disconnect', () => {});
       });
+
+      wsAvailable = true;
+      logger.info('WebSocket service initialized (main + roulette)');
+    }).catch((error) => {
+      logger.warn('WebSocket not available (socket.io not installed)', { error: error.message });
     });
   } catch (error) {
     logger.warn('WebSocket initialization failed', { error: error.message });
+  }
+}
+
+/**
+ * Emit to roulette overlay clients for a given user (room user:userId in /roulette namespace)
+ */
+export function emitRouletteToUser(userId, event, data) {
+  if (!wsAvailable || !rouletteNs) {
+    logger.debug('Roulette WebSocket not available', { userId, event });
+    return;
+  }
+  try {
+    rouletteNs.to(`user:${userId}`).emit(event, data);
+    logger.debug('Roulette event emitted', { userId, event });
+  } catch (error) {
+    logger.warn('Roulette emit error', { userId, event, error: error.message });
   }
 }
 

@@ -40,7 +40,7 @@
 - Calendario visual (vista semana/día) con arrastrar y soltar.
 - Contenido por tipo: stream, post, event, reel.
 - Estados: draft, scheduled, queued, publishing, published, failed, canceled.
-- Plataformas por publicación: Twitch, Discord, X, Instagram, YouTube.
+- Plataformas por publicación: Twitch, Discord, X, Instagram, YouTube. **Instagram** está deshabilitado por defecto hasta que se implemente OAuth y publicación (ver sección integraciones en `docs/PASOS_SIGUIENTES.md`).
 - Filtros: estado, plataforma, rango de fechas, búsqueda.
 - Duplicar contenido, cancelar publicación, exportar datos.
 - Plantillas de contenido reutilizables.
@@ -57,7 +57,8 @@
 
 - Inscripción por email en la página pública.
 - Job de envío: streams que empiezan en ~1 hora → email a suscritos.
-- **Cron:** variable `ENABLE_STREAM_REMINDER_CRON=true` ejecuta el job cada 15 min en proceso; o `GET /api/cron/send-stream-reminders?secret=CRON_SECRET` desde un cron externo.
+- **Cola Redis/BullMQ (recomendado):** cola `stream-reminders`. El **schedulerServer** (o cron externo) llama a `enqueueStreamReminderJobs()` cada 15 min y encola un job por cada (contentId, streamReminderId); el **workerServer** procesa los jobs (envío de email y registro en ReminderSent). Variables: `REDIS_URL` (o `REDIS_HOST`/`REDIS_PORT`), `ENABLE_STREAM_REMINDER_WORKER` (producer en scheduler, por defecto true), `ENABLE_REMINDER_WORKER` (consumer en worker, por defecto true).
+- **Fallback:** `ENABLE_STREAM_REMINDER_CRON=true` ejecuta el job cada 15 min en el proceso API; o `GET /api/cron/send-stream-reminders?secret=CRON_SECRET` (si Redis no está disponible, ejecuta en proceso; si está, solo encola jobs).
 
 ### 2.5 Bots e integraciones (webhooks)
 
@@ -96,6 +97,7 @@
 - Bloque “This week's schedule” con texto generado (día, hora, título).
 - Acciones: **Copiar**, **Tweet** (intent de Twitter), **Descargar imagen** (PNG vía html2canvas).
 - **Checklist de onboarding:** card "Getting started" con pasos (Conectar Twitch, Programar primer stream, Conectar Discord, Compartir página). Descartable (estado en `localStorage`); no bloquea ninguna funcionalidad. Enlaces a Settings y Schedule.
+- **API de onboarding:** `GET /api/user/onboarding-status` devuelve progreso (twitchConnected, firstStreamCreated, discordConnected, overlayActivated, steps, score 0–100). `POST /api/user/auto-create-first-stream` crea un stream de ejemplo (p. ej. viernes 20:00, “Just Chatting”) si el usuario tiene Twitch conectado y aún no tiene streams; el checklist muestra botón “Create example stream” y porcentaje de progreso.
 
 ### 2.8 Todos, medios, mensajes
 
@@ -171,7 +173,7 @@ backend/
 
 | Prefijo | Descripción |
 |--------|-------------|
-| `/api/user` | Login, perfil, OAuth (Google, Twitch, Discord, X, Slack link), connected-accounts, disconnect-*, Slack setup-workspace, admin |
+| `/api/user` | Login, perfil, OAuth (Google, Twitch, Discord, X, Slack link), connected-accounts, onboarding-status, auto-create-first-stream, disconnect-*, Slack setup-workspace, admin |
 | `/api/content` | CRUD contenido programado |
 | `/api/streamer` | Página pública: events, remind, suggest |
 | `/api/webhooks` | Bots: todo, events, stream/start; idea/note/quote/clipidea (+ idea/add, note/add, quote/add, clipidea/add GET/POST); voteidea, remindme, challenge (GET+POST); timeline; nextstream, countdown, week, schedule, nextgame, when, calendar, goal, myschedule, streamstats, streamcount, laststream, streak, uptimeweek, quote/random, idea/random, idea/latest, clipidea/random, contentwheel, voteidea/top, nextcollab, raidnext, commands |
@@ -246,9 +248,8 @@ frontend/
 
 ```
 docs/
-├── ROADMAP_MERCADO.md           # Roadmap y posicionamiento
-├── FUNCIONALIDAD_Y_ESTRUCTURA.md # Este documento
-├── PITCH_VENTA_INVERSION.md     # Guion para pitch de venta o inversión
+├── PASOS_SIGUIENTES.md    # Roadmap, prioridades, integraciones pendientes
+├── FUNCIONALIDAD_Y_ESTRUCTURA.md  # Este documento (funcionalidad, estructura, landing/pricing, checkout)
 └── ...
 ```
 
@@ -256,7 +257,7 @@ docs/
 
 ## 4. Variables de entorno relevantes
 
-- **Backend:** `DATABASE_URL`, `FRONTEND_URL`, `BACKEND_URL`, `JWT_SECRET`, `CRON_SECRET` (o `INTERNAL_CRON_SECRET`), `ENABLE_STREAM_REMINDER_CRON` (cron in-process), `EMAIL_ENABLED`, `STRIPE_*`, OAuth para Twitch/Discord/X/Google, etc.
+- **Backend:** `DATABASE_URL`, `FRONTEND_URL`, `BACKEND_URL`, `JWT_SECRET`, `CRON_SECRET` (o `INTERNAL_CRON_SECRET`), `REDIS_URL` (o `REDIS_HOST`/`REDIS_PORT`) para colas BullMQ, `ENABLE_STREAM_REMINDER_CRON` (cron in-process, fallback), `ENABLE_STREAM_REMINDER_WORKER` (producer en scheduler), `ENABLE_REMINDER_WORKER` (consumer en worker), `EMAIL_ENABLED`, `STRIPE_*`, OAuth para Twitch/Discord/X/Google, etc.
 - **Slack:** `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` (obligatorios para conectar Slack). Opcionales: `SLACK_SIGNING_SECRET`, `SLACK_VERIFICATION_TOKEN` (para Events API / slash en el futuro). Redirect URL en la app de Slack: `BACKEND_URL/api/user/auth/slack/link/callback`.
 - **Frontend:** `REACT_APP_API_URL` (base URL del API).
 - **Supabase (RLS):** Si usas PostgreSQL en Supabase, el dashboard puede mostrar *"RLS Disabled in Public"*. Para corregirlo, ejecuta una vez en **Supabase → SQL Editor** el script **`SUPABASE_RLS_ALL_TABLES.sql`** (raíz del repo). Habilita RLS en todas las tablas públicas; el backend sigue usando `service_role` o `DATABASE_URL` y no se ve afectado.
@@ -282,14 +283,62 @@ docs/
 
 ---
 
-*Para el roadmap de producto y próximas funcionalidades, ver `ROADMAP_MERCADO.md`.*
+*Para roadmap, prioridades, integraciones pendientes y próximos pasos, ver `PASOS_SIGUIENTES.md`.*
 
 ---
 
 ## 6. Recomendaciones antes de escalar
 
-- **Cron de recordatorios:** En producción es preferible usar un **cron externo** (Render Cron, Vercel Cron, Railway, etc.) que llame a `GET /api/cron/send-stream-reminders?secret=CRON_SECRET` cada 10–15 min, en lugar de depender solo de `ENABLE_STREAM_REMINDER_CRON` en proceso (si el servidor reinicia, se puede perder una ejecución).
+- **Recordatorios:** Con **Redis/BullMQ** (recomendado): ejecutar **schedulerServer** (producer cada 15 min) y **workerServer** (consumer); el endpoint `GET /api/cron/send-stream-reminders?secret=CRON_SECRET` puede usarse como cron externo y solo encola jobs. Sin Redis: cron externo que llame a ese endpoint (ejecuta en proceso) o `ENABLE_STREAM_REMINDER_CRON=true` en el API.
 - **Documentación API:** Usar `/api-docs` (Swagger) para integrar bots y terceros; ampliar con más endpoints según necesidad.
 - **Mensaje de producto:** Comunicar el producto como *programar streams + anuncios automáticos*; el resto de funciones (timeline, ideas, sugerencias, etc.) como extras.
 - **Onboarding:** El checklist visual en Dashboard (Getting started) refuerza el flujo: Conectar Twitch → Programar primer stream → Conectar Discord → Compartir página. Aumenta conversión.
 - **Analytics para el streamer:** Métricas como streams este mes, duración media, mejor día para streamear pueden enganchar más a los creadores (futuro).
+
+---
+
+## 7. Landing y Pricing
+
+### 7.1 Landing page (`/`)
+
+- **Objetivo:** Presentar el producto como automatización para streamers (calendario + anuncios + overlays), llevar a Sign up / Get started.
+- **Estructura:** Hero con título tipo “Automate your streams…”, barra de logos (Twitch, YouTube, Discord, Instagram, X), sección Product motion (pasos animados), previews (Dashboard, página pública, overlays, extras stream), “Built for streamers”, integraciones, CTA final.
+- **UX:** Colores alineados con Dashboard (`text-accent`, `bg-accent`, `bg-gray-50`/`bg-gray-100`), scroll vertical, mocks que comunican horario semanal, página pública + “Notify me”, overlays “Powered by Streamer Scheduler”.
+
+### 7.2 Pricing page (`/pricing`)
+
+- **Objetivo:** Explicar planes y valor (qué gano pagando; qué pasa si soy streamer pequeño).
+- **Estructura:** Hero de precios, tarjetas de planes (nombre, precio, descripción, lista de características: calendario multi-plataforma, página pública + “Notify me”, bots/webhooks/overlays, Slack workspace, Stream Ideas/sugerencias/timeline/todos/medios), sección de valor para streamers pequeños, opcionalmente FAQ y contacto.
+- **UX:** Misma paleta que landing y dashboard; botón por tarjeta → checkout (Stripe) o signup; explicación de checkout (suscripción, renovación, cancelación en Settings → Billing).
+
+### 7.3 Relación con el resto de la app
+
+- Landing y Pricing son públicas; no requieren autenticación. Todo lo mostrado está respaldado por la funcionalidad descrita en las secciones 2 y 3 (calendario, página pública, webhooks, overlays, integraciones, ideas/sugerencias/timeline/todos, pagos).
+
+---
+
+## 8. Checkout (Stripe)
+
+### 8.1 Backend (`backend/src/routes/payments.js`)
+
+| Ruta | Descripción |
+|------|-------------|
+| `POST /payments/create-checkout-session` | Sesión por **lookup_key** (Stripe Price). Auth: requireAuth. Body: createCheckoutSessionSchema. Respuesta: `{ sessionId, url, mode }`. |
+| `POST /payments/checkout` | Sesión por **licenseType** (planes de la app → lookup_key). Body: `{ licenseType }`. Crea Payment (PENDING), sesión Stripe, guarda `stripeSessionId`. Respuesta: `{ sessionId, url, paymentId, ... }`. |
+| `POST /payments/verify-session` | Verifica pago tras redirect (Body: `{ sessionId }`). Comprueba metadata.userId y devuelve estado (p. ej. `paid`). |
+| `POST /payments/customer-portal` | Sesión del Stripe Customer Portal (gestión suscripción, método de pago, facturas). Requiere usuario con `stripeCustomerId`. |
+
+- **Tax:** Si `STRIPE_TAX_ENABLED` no es `false`, sesiones usan `billing_address_collection: 'auto'` y `customer_update: { address: 'auto' }` para evitar `customer_tax_location_invalid`.
+- **Cliente Stripe:** En pago único se usa `getOrCreateCustomer(user)`; en webhook `checkout.session.completed` se guarda `session.customer` en User si no tenía `stripeCustomerId`.
+
+### 8.2 Validadores (`backend/src/validators/paymentSchemas.js`)
+
+- **checkoutSchema:** `licenseType` (monthly, quarterly, creator, pro_monthly, lifetime, temporary).
+- **createCheckoutSessionSchema:** `lookup_key` (required), `success_url`, `cancel_url` (opcionales).
+- **verifySessionSchema:** `sessionId` (required).
+
+### 8.3 Frontend (API y Settings)
+
+- **API (`frontend/src/api.js`):** `createCheckout({ licenseType, token })`, `createCheckoutSession(...)`, `verifyPaymentSession({ sessionId, token })`, `createCustomerPortal(token)`.
+- **Settings:** Compra vía `createCheckout` o `createSubscription`; si hay `url` se redirige a Stripe. Tras volver, query `payment=success`/`subscription=success` y `session_id` → `verifyPaymentSession` → si `paid`, actualizar estado y limpiar URL. “Manage Billing” abre Customer Portal (requiere `stripeCustomerId`).
+- **Redirects:** Success: `${frontendUrl}/settings?payment=success&session_id={CHECKOUT_SESSION_ID}` (o `subscription=success`). Cancel: `...?payment=cancelled` (o `subscription=cancelled`).

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiClient, getTwitchDashboardStats, getTwitchSubs, getTwitchBits, getTwitchDonations, getDiscordDashboardStats, cancelContent } from '../api';
+import { apiClient, getTwitchDashboardStats, getTwitchSubs, getTwitchBits, getTwitchDonations, getDiscordDashboardStats, cancelContent, getRouletteState, rouletteSpin, rouletteReset } from '../api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
@@ -35,7 +35,9 @@ import {
   Image as ImageIcon,
   Video,
   Paperclip,
-  ExternalLink
+  ExternalLink,
+  CircleDot,
+  RotateCw
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { DISCORD_ICON_URL } from '../constants/platforms';
@@ -59,6 +61,9 @@ const Dashboard = ({ user, token, ...props }) => {
   const [discordStats, setDiscordStats] = useState(null);
   const [discordStatsLoading, setDiscordStatsLoading] = useState(false);
   const [bitsFormat, setBitsFormat] = useState('chronological'); // 'chronological' o 'total'
+  const [roulettePlayers, setRoulettePlayers] = useState([]);
+  const [rouletteLoading, setRouletteLoading] = useState(false);
+  const [rouletteSpinLoading, setRouletteSpinLoading] = useState(false);
   const [calendarView, setCalendarView] = useState(() =>
     typeof window !== 'undefined' && window.innerWidth < 640 ? 'day' : 'week'
   );
@@ -155,6 +160,54 @@ const Dashboard = ({ user, token, ...props }) => {
       });
     return () => { cancelled = true; };
   }, [user]);
+
+  const fetchRoulette = useCallback(async () => {
+    if (!token || !user || user.isAdmin) return;
+    setRouletteLoading(true);
+    try {
+      const data = await getRouletteState(token);
+      setRoulettePlayers(data.players || []);
+    } catch {
+      setRoulettePlayers([]);
+    } finally {
+      setRouletteLoading(false);
+    }
+  }, [token, user]);
+
+  useEffect(() => {
+    if (!token || !user || user.isAdmin) return;
+    fetchRoulette();
+    const id = setInterval(fetchRoulette, 10000);
+    return () => clearInterval(id);
+  }, [token, user, fetchRoulette]);
+
+  const handleRouletteSpin = async () => {
+    if (!token || rouletteSpinLoading || roulettePlayers.length === 0) return;
+    setRouletteSpinLoading(true);
+    try {
+      await rouletteSpin(token);
+      toast.success(t('dashboard.rouletteSpun') || 'Wheel spun!');
+      fetchRoulette();
+    } catch (e) {
+      toast.error(e.response?.data?.error || (t('dashboard.rouletteSpinFailed') || 'Failed to spin'));
+    } finally {
+      setRouletteSpinLoading(false);
+    }
+  };
+
+  const handleRouletteReset = async () => {
+    if (!token || rouletteLoading) return;
+    setRouletteLoading(true);
+    try {
+      await rouletteReset(token);
+      setRoulettePlayers([]);
+      toast.success(t('dashboard.rouletteReset') || 'Wheel reset');
+    } catch {
+      toast.error(t('dashboard.rouletteResetFailed') || 'Failed to reset');
+    } finally {
+      setRouletteLoading(false);
+    }
+  };
 
   const getPlatformIcon = (platform, size = 'w-5 h-5') => {
     const className = `${size}`;
@@ -855,6 +908,54 @@ const Dashboard = ({ user, token, ...props }) => {
                   className="text-sm text-accent hover:underline"
                 >
                   {t('dashboard.discordManageSettings') || 'Gestionar en Ajustes'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Roulette (spin wheel) — viewers !join, streamer Spin/Reset */}
+        {user && !user.isAdmin && (
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border-t-4 border-purple-500 mb-6 sm:mb-8">
+            <h3 className="text-base sm:text-lg font-bold text-purple-600 dark:text-purple-400 mb-4 flex items-center">
+              <CircleDot className="w-5 h-5 mr-2" />
+              {t('dashboard.rouletteTitle') || 'Spin wheel'}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              {t('dashboard.rouletteHint') || 'Viewers type !join in chat to enter. Add overlay in OBS from Settings → Bots. Then spin or reset here.'}
+            </p>
+            {rouletteLoading && !roulettePlayers.length ? (
+              <p className="text-sm text-gray-500">{t('common.loading') || 'Loading...'}</p>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="rounded-lg bg-gray-200 dark:bg-gray-700 px-4 py-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-300">{t('dashboard.roulettePlayers') || 'Players'}: </span>
+                  <span className="font-bold text-gray-900 dark:text-gray-100">{roulettePlayers.length}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRouletteSpin}
+                  disabled={rouletteSpinLoading || roulettePlayers.length === 0}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
+                >
+                  <RotateCw className={`w-4 h-4 ${rouletteSpinLoading ? 'animate-spin' : ''}`} />
+                  {rouletteSpinLoading ? (t('dashboard.rouletteSpinning') || 'Spinning...') : (t('dashboard.rouletteSpinBtn') || 'Spin')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRouletteReset}
+                  disabled={rouletteLoading}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {t('dashboard.rouletteResetBtn') || 'Reset'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/settings?tab=bots')}
+                  className="text-sm text-purple-600 dark:text-purple-400 hover:underline"
+                >
+                  {t('dashboard.rouletteOverlayUrl') || 'Overlay URL (Settings → Bots)'}
                 </button>
               </div>
             )}
