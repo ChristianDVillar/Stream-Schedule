@@ -8,17 +8,22 @@ This directory contains static images used in the application, especially those 
 
 ## 📁 Estructura de Directorios / Directory Structure
 
+Estado actual del repositorio (no enlaces rotos en la documentación):
+
 ```
 frontend/public/
-├── images/          ← Este directorio (imágenes con tema)
-│   ├── logo-light.png
-│   ├── logo-dark.png
+├── images/          ← Este directorio: añade aquí PNG/SVG con variantes light/dark si las usas
 │   └── README.md
-├── blacklogo.png    ← Logo principal (tema claro) / favicon
-├── logo192.png      ← Icono PWA (192x192)
-├── logo512.png      ← Icono PWA (512x512)
-└── favicon.ico      ← Favicon del navegador
+├── blacklogo.png    ← Logo principal (tema claro); también usado en manifest PWA
+├── whitelogo.png    ← Logo header modo oscuro
+├── logo512.png
+├── Bot.png
+├── dashboard-preview.png
+├── index.html
+└── manifest.json
 ```
+
+Si añades `logo-light.png` y `logo-dark.png` bajo `images/`, los ejemplos de `ThemeImage` más abajo aplican tal cual.
 
 ---
 
@@ -139,16 +144,13 @@ Puedes pasar cualquier prop estándar de `<img>`:
   - `frontend/src/App.js` (logo en header: blacklogo / whitelogo según tema)
   - `frontend/src/pages/AdminDashboard.js` (logo en PDF de exportación)
 
-### Iconos PWA
+### PWA / manifest
 
-- **`logo192.png`:** 192x192px para PWA
-- **`logo512.png`:** 512x512px para PWA
-- **Ubicación:** `frontend/public/`
+- **`logo512.png`:** presente en `frontend/public/` (el `manifest.json` puede referenciar `blacklogo.png` como icono; revisa el manifest actual).
 
 ### Favicon
 
-- **`favicon.ico`:** Icono del navegador
-- **Ubicación:** `frontend/public/favicon.ico`
+- En **`index.html`** el favicon es **`/blacklogo.png`** (no hay `favicon.ico` en el repo).
 
 ---
 

@@ -1,8 +1,8 @@
 # Índice de documentación
 
-Este archivo es el **índice de la carpeta docs/** (no el README del proyecto; el README principal está en la raíz: [README.md](../README.md)).
+Este archivo es el **índice de la carpeta docs/** (no el README del proyecto). En la raíz: [README.md](../README.md) (ES) · [README.en.md](../README.en.md) (EN).
 
-Documentación de **Streamer Scheduler** (protección, licencia, scripts).
+Documentación de **Streamer Scheduler** (guías, protección, licencia, scripts).
 
 ## Información para usuarios
 
@@ -13,8 +13,8 @@ Documentación de **Streamer Scheduler** (protección, licencia, scripts).
 
 ## Sistema y producto
 
-- **[FUNCIONALIDAD_Y_ESTRUCTURA.md](FUNCIONALIDAD_Y_ESTRUCTURA.md)** – Funcionalidad actual, estructura del proyecto (backend/frontend), landing y pricing, flujo de checkout (Stripe).
-- **[PASOS_SIGUIENTES.md](PASOS_SIGUIENTES.md)** – Roadmap, prioridades, integraciones pendientes y próximos pasos.
+- **Estructura del código:** carpetas `backend/` y `frontend/` en la raíz del repositorio; flujo de checkout (Stripe) y pantallas principales descritas en las guías de usuario enlazadas arriba.
+- **Roadmap / próximos pasos:** sección *Características planificadas* en el [README principal](../README.md).
 
 ## Integraciones
 

@@ -385,6 +385,8 @@ router.get('/streamstats', async (req, res) => {
 
 /** GET /api/webhooks/quote/random — random quote for !quote (efficient: count + offset, no ORDER BY RANDOM()) */
 router.get('/quote/random', async (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
   try {
     const user = await getUserByApiKey(req);
     if (!user) {

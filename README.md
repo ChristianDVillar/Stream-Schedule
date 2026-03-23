@@ -99,7 +99,7 @@ Streamer Scheduler es una plataforma de gestión de contenido que permite a crea
 ```bash
 cd backend
 npm install
-cp env.example .env
+cp .env.example .env
 # Edita .env con tu configuración
 npm start
 ```
@@ -120,9 +120,9 @@ npm start
 
 ### Backend
 
-Ver `backend/env.example` para todas las variables requeridas.
+Plantilla de ejemplo del backend: [`backend/.env.example`](backend/.env.example) (incluye comentarios para Slack e Instagram; el resto de variables las defines en tu `.env` según despliegue: DB, Stripe, OAuth, Redis, etc.).
 
-**Stripe webhook:** Usa únicamente `POST /api/payments/webhook`. En Stripe Dashboard → Webhooks, configura la URL `https://tu-dominio.com/api/payments/webhook` (o `http://localhost:5000/api/payments/webhook` en desarrollo). Ver [docs/README.md](docs/README.md) para más documentación.
+**Stripe webhook:** Usa únicamente `POST /api/payments/webhook`. En Stripe Dashboard → Webhooks, configura la URL `https://tu-dominio.com/api/payments/webhook` (o `http://localhost:5000/api/payments/webhook` en desarrollo).
 
 ### Frontend
 
@@ -139,8 +139,6 @@ Si ves **redirect_uri de OAuth2 no válido**, el URI de redirección no coincide
   `http://localhost:5000/api/user/auth/discord/callback` y  
   `http://localhost:5000/api/user/auth/discord/link/callback`  
   (y las equivalentes con tu `BACKEND_URL` en producción).
-
-Lista completa de redirect URIs por proveedor: ver comentarios en **`backend/env.example`** (sección "OAUTH2 REDIRECT URIs").
 
 **Nota:** Los mensajes que aparecen en la consola al abrir la página de Discord (p. ej. "AnalyticsTrackImpressionContext", "¡Espera! Si alguien te dijo...") son de **discord.com**, no de esta aplicación; no se pueden eliminar desde aquí.
 
@@ -208,28 +206,13 @@ Copyright © 2024-2026 Christian David Villar Colodro. Todos los derechos reserv
 
 Este software es propietario y confidencial. La copia, distribución o modificación no autorizada está prohibida.
 
-Ver archivo `LICENSE` para más detalles.
+Ver **[LICENSE](LICENSE)** para más detalles.
 
 ---
 
 ## Documentación
 
-Índice completo: **[docs/README.md](docs/README.md)** (protección legal, términos y scripts SQL).
-
-Documentación en la raíz del repo:
-
-| Archivo | Descripción |
-|--------|-------------|
-| [COPYRIGHT_NOTICE.md](COPYRIGHT_NOTICE.md) | Aviso de copyright y contacto. |
-| [TERMS_OF_SERVICE.md](TERMS_OF_SERVICE.md) | Términos de servicio (EN/ES). |
-| [LEGAL_PROTECTION.md](LEGAL_PROTECTION.md) | Guía de protección legal. |
-| [PROTECTION_SUMMARY.md](PROTECTION_SUMMARY.md) | Resumen de protecciones implementadas. |
-| [PROTECTION_CHECKLIST.md](PROTECTION_CHECKLIST.md) | Checklist pre-despliegue. |
-
-Scripts SQL para Supabase (ejecutar en el SQL Editor del proyecto):
-
-- `SUPABASE_RLS_ALL_TABLES.sql` – Habilitar RLS en tablas públicas.
-- `SUPABASE_STORAGE_POLICIES.sql` – Políticas del bucket de almacenamiento.
+Todo el índice (guías ES/EN, FAQ, Discord, legal, scripts SQL, monitor/Redis) está en **[docs/README.md](docs/README.md)**. El README en inglés del proyecto es [README.en.md](README.en.md).
 
 ---
 
