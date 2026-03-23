@@ -31,6 +31,7 @@ import paymentsRoutes, { handleStripeWebhook } from './routes/payments.js';
 import uploadsRoutes from './routes/uploads.js';
 import discordRoutes from './routes/discord.js';
 import youtubeRoutes from './routes/youtube.js';
+import instagramRoutes from './routes/instagram.js';
 import healthRoutes from './routes/health.js';
 import templatesRoutes from './routes/templates.js';
 import todosRoutes from './routes/todos.js';
@@ -337,6 +338,7 @@ app.post('/api/user/admin/alert-config/test', requireAdmin, postAlertConfigTestH
 app.use('/api/user', userRoutes);
 app.use('/api/discord', discordRoutes);
 app.use('/api/youtube', youtubeRoutes);
+app.use('/api/instagram', instagramRoutes);
 // CSRF disabled for content until frontend sends X-CSRF-Token (GET /api/csrf-token)
 app.use('/api/content', contentRoutes);
 app.use('/api/platforms', platformsRoutes);
@@ -475,7 +477,7 @@ async function initServer() {
     // Initialize WebSocket if available
     try {
       const { initWebSocket } = await import('./services/websocketService.js');
-      initWebSocket(server);
+      await initWebSocket(server);
     } catch (error) {
       logger.debug('WebSocket not initialized', { error: error.message });
     }

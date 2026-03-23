@@ -99,7 +99,7 @@ Streamer Scheduler is a content management platform that allows content creators
 ```bash
 cd backend
 npm install
-cp env.example .env
+cp .env.example .env
 # Edit .env with your configuration
 npm start
 ```
@@ -120,7 +120,7 @@ npm start
 
 ### Backend
 
-See `backend/env.example` for all required variables.
+Backend sample template: [`backend/.env.example`](backend/.env.example) (Slack and Instagram comments included; set other variables in your `.env` as needed: database, Stripe, OAuth, Redis, etc.).
 
 ### Frontend
 
@@ -137,8 +137,6 @@ If you see **redirect_uri de OAuth2 no válido** (or "redirect_uri invalid"), th
   `http://localhost:5000/api/user/auth/discord/callback` and  
   `http://localhost:5000/api/user/auth/discord/link/callback`  
   (and the same with your `BACKEND_URL` in production).
-
-Full list of redirect URIs per provider: see comments in **`backend/env.example`** (section "OAUTH2 REDIRECT URIs").
 
 **Note:** Console messages when opening Discord's page (e.g. "AnalyticsTrackImpressionContext", "Wait! If someone told you...") come from **discord.com**, not from this app; they cannot be removed from here.
 
@@ -168,28 +166,13 @@ Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.
 
 This software is proprietary and confidential. Unauthorized copying, distribution, or modification is strictly prohibited.
 
-See `LICENSE` file for details.
+See **[LICENSE](LICENSE)** for details.
 
 ---
 
 ## Documentation
 
-Full index: **[docs/README.md](docs/README.md)** (legal protection, terms, and SQL scripts).
-
-Documentation in the repo root:
-
-| File | Description |
-|------|-------------|
-| [COPYRIGHT_NOTICE.md](COPYRIGHT_NOTICE.md) | Copyright notice and contact. |
-| [TERMS_OF_SERVICE.md](TERMS_OF_SERVICE.md) | Terms of service (EN/ES). |
-| [LEGAL_PROTECTION.md](LEGAL_PROTECTION.md) | Legal protection guide. |
-| [PROTECTION_SUMMARY.md](PROTECTION_SUMMARY.md) | Summary of protections implemented. |
-| [PROTECTION_CHECKLIST.md](PROTECTION_CHECKLIST.md) | Pre-deployment checklist. |
-
-SQL scripts for Supabase (run in the project SQL Editor):
-
-- `SUPABASE_RLS_ALL_TABLES.sql` – Enable RLS on public tables.
-- `SUPABASE_STORAGE_POLICIES.sql` – Storage bucket policies.
+The full index (user guides, FAQ, Discord bot, legal docs, SQL scripts, monitoring/Redis) is in **[docs/README.md](docs/README.md)**. The Spanish project README is [README.md](README.md).
 
 ---
 

@@ -14,68 +14,65 @@ let rouletteNs = null;
 let wsAvailable = false;
 
 /**
- * Initialize WebSocket server (main app + roulette namespace for overlay)
+ * Initialize WebSocket server (main app + roulette namespace for overlay).
+ * Must await this before handling traffic: emits are no-ops until setup completes (was previously racy via .then()).
  */
-export function initWebSocket(server) {
+export async function initWebSocket(server) {
   try {
-    import('socket.io').then((socketModule) => {
-      const { Server } = socketModule;
-      io = new Server(server, {
-        cors: {
-          origin: process.env.FRONTEND_URL || '*',
-          methods: ['GET', 'POST'],
-        },
-      });
+    const { Server } = await import('socket.io');
+    io = new Server(server, {
+      cors: {
+        origin: process.env.FRONTEND_URL || '*',
+        methods: ['GET', 'POST'],
+      },
+    });
 
-      io.on('connection', (socket) => {
-        logger.info('WebSocket client connected', { socketId: socket.id });
-        socket.on('join', (userId) => {
-          socket.join(`user:${userId}`);
-          logger.debug('User joined room', { userId, socketId: socket.id });
-        });
-        socket.on('disconnect', () => {
-          logger.info('WebSocket client disconnected', { socketId: socket.id });
-        });
+    io.on('connection', (socket) => {
+      logger.info('WebSocket client connected', { socketId: socket.id });
+      socket.on('join', (userId) => {
+        socket.join(`user:${userId}`);
+        logger.debug('User joined room', { userId, socketId: socket.id });
       });
+      socket.on('disconnect', () => {
+        logger.info('WebSocket client disconnected', { socketId: socket.id });
+      });
+    });
 
-      // Roulette overlay: connect with ?key=API_KEY; server joins socket to user room and sends initial state
-      rouletteNs = io.of('/roulette');
-      rouletteNs.on('connection', async (socket) => {
-        const key = (socket.handshake.query?.key || socket.handshake.auth?.key || '').trim();
-        if (!key) {
-          logger.debug('Roulette overlay connection without key');
+    // Roulette overlay: connect with ?key=API_KEY; server joins socket to user room and sends initial state
+    rouletteNs = io.of('/roulette');
+    rouletteNs.on('connection', async (socket) => {
+      const key = (socket.handshake.query?.key || socket.handshake.auth?.key || '').trim();
+      if (!key) {
+        logger.debug('Roulette overlay connection without key');
+        socket.disconnect(true);
+        return;
+      }
+      try {
+        const user = await User.findOne({
+          where: { nightbotApiKey: key },
+          attributes: ['id'],
+        });
+        if (!user) {
           socket.disconnect(true);
           return;
         }
-        try {
-          const user = await User.findOne({
-            where: { nightbotApiKey: key },
-            attributes: ['id'],
-          });
-          if (!user) {
-            socket.disconnect(true);
-            return;
-          }
-          socket.join(`user:${user.id}`);
-          socket.userId = user.id;
-          const rouletteService = (await import('./rouletteService.js')).default;
-          const players = rouletteService.getState(user.id);
-          socket.emit('roulette_players', { players });
-          logger.debug('Roulette overlay joined room', { userId: user.id, socketId: socket.id, playersCount: players.length });
-        } catch (err) {
-          logger.warn('Roulette overlay auth failed', { error: err.message });
-          socket.disconnect(true);
-        }
-        socket.on('disconnect', () => {});
-      });
-
-      wsAvailable = true;
-      logger.info('WebSocket service initialized (main + roulette)');
-    }).catch((error) => {
-      logger.warn('WebSocket not available (socket.io not installed)', { error: error.message });
+        socket.join(`user:${user.id}`);
+        socket.userId = user.id;
+        const rouletteService = (await import('./rouletteService.js')).default;
+        const players = rouletteService.getState(user.id);
+        socket.emit('roulette_players', { players });
+        logger.debug('Roulette overlay joined room', { userId: user.id, socketId: socket.id, playersCount: players.length });
+      } catch (err) {
+        logger.warn('Roulette overlay auth failed', { error: err.message });
+        socket.disconnect(true);
+      }
+      socket.on('disconnect', () => {});
     });
+
+    wsAvailable = true;
+    logger.info('WebSocket service initialized (main + roulette)');
   } catch (error) {
-    logger.warn('WebSocket initialization failed', { error: error.message });
+    logger.warn('WebSocket not available (socket.io not installed)', { error: error.message });
   }
 }
 

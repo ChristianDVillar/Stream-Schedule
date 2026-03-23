@@ -4,7 +4,7 @@
  * Types: nextstream, goal, week, quote, suggestions
  * Uses backend API URL when REACT_APP_API_URL is set so OBS (loading from frontend origin) gets data from the API server.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 
 const OVERLAY_API_BASE = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
@@ -40,11 +40,12 @@ const OVERLAY_CONFIG = {
   },
   quote: {
     endpoints: [{ path: 'quote/random', key: 'main' }],
-    interval: 90_000,
+    interval: 45_000,
     title: 'Quote',
     gradient: 'linear-gradient(135deg, rgba(15,23,42,0.9), rgba(147,51,234,0.9))',
     border: '1px solid rgba(192,132,252,0.6)',
     layout: 'card',
+    transparentCard: true,
   },
   suggestions: {
     endpoints: [{ path: 'idea/latest', key: 'main' }],
@@ -70,7 +71,7 @@ export default function Overlay() {
 
   const [data, setData] = useState({ main: 'Loading...', sub: '' });
   const [visible, setVisible] = useState(type !== 'suggestions');
-  const [lastMain, setLastMain] = useState('');
+  const lastMainRef = useRef('');
 
   useEffect(() => {
     if (!config || !key) {
@@ -78,6 +79,8 @@ export default function Overlay() {
       if (type === 'suggestions') setVisible(true);
       return;
     }
+
+    lastMainRef.current = '';
 
     let cancelled = false;
     let popTimeoutId = null;
@@ -100,7 +103,10 @@ export default function Overlay() {
         const base = OVERLAY_API_BASE ? `${OVERLAY_API_BASE}/api/webhooks` : '/api/webhooks';
         const results = {};
         for (const { path, key: k } of endpoints) {
-          const res = await fetch(`${base}/${path}?key=${encodeURIComponent(key)}`);
+          const bust = `_=${Date.now()}`;
+          const res = await fetch(`${base}/${path}?key=${encodeURIComponent(key)}&${bust}`, {
+            cache: 'no-store',
+          });
           const text = await res.text().then((t) => t.trim());
           const isHtml = text.length > 10 && text.toLowerCase().startsWith('<!') && text.toLowerCase().includes('doctype');
           if (!res.ok || isHtml) {
@@ -111,8 +117,8 @@ export default function Overlay() {
         }
         if (cancelled) return;
         setData(results);
-        if (layout === 'pop' && results.main && results.main !== lastMain) {
-          setLastMain(results.main);
+        if (layout === 'pop' && results.main && results.main !== lastMainRef.current) {
+          lastMainRef.current = results.main;
           setVisible(true);
           popTimeoutId = setTimeout(() => {
             if (!cancelled) setVisible(false);
@@ -130,7 +136,7 @@ export default function Overlay() {
       clearInterval(id);
       if (popTimeoutId) clearTimeout(popTimeoutId);
     };
-  }, [key, type, lastMain]);
+  }, [key, type]);
 
   if (!config) {
     return (
@@ -142,7 +148,7 @@ export default function Overlay() {
     );
   }
 
-  const { title, gradient, border, layout, multiline } = config;
+  const { title, gradient, border, layout, multiline, transparentCard } = config;
   const isPop = layout === 'pop';
 
   if (isPop) {
@@ -169,21 +175,56 @@ export default function Overlay() {
   const mainText = data.main || (type === 'nextstream' ? 'No stream scheduled.' : '—');
   const [headline, ...restLines] = multiline ? mainText.split('\n') : [mainText];
 
+  const textShadowOverlay = '0 0 12px rgba(0,0,0,0.95), 0 2px 4px rgba(0,0,0,0.9)';
+  const cardStyle = transparentCard
+    ? {
+        background: 'transparent',
+        border: 'none',
+        boxShadow: 'none',
+        color: '#fff',
+      }
+    : { background: gradient, border };
+
   return (
     <div style={{ backgroundColor: 'transparent' }} className="w-full h-full flex items-center justify-center">
       <div
-        className="rounded-2xl px-6 py-4 text-white shadow-2xl min-w-[280px] max-w-xl"
-        style={{ background: gradient, border }}
+        className={`rounded-2xl px-6 py-4 min-w-[280px] max-w-xl ${transparentCard ? '' : 'text-white shadow-2xl'}`}
+        style={cardStyle}
       >
-        <div className="text-xs font-semibold tracking-[0.18em] uppercase text-slate-300">{title}</div>
-        <div className="mt-1 text-lg font-semibold">
+        <div
+          className={`text-xs font-semibold tracking-[0.18em] uppercase ${transparentCard ? 'text-white/90' : 'text-slate-300'}`}
+          style={transparentCard ? { textShadow: textShadowOverlay } : undefined}
+        >
+          {title}
+        </div>
+        <div
+          className="mt-1 text-lg font-semibold"
+          style={transparentCard ? { textShadow: textShadowOverlay } : undefined}
+        >
           {multiline ? headline : mainText}
         </div>
         {multiline && restLines.length > 0 && (
-          <div className="mt-1 text-sm text-slate-200 whitespace-pre-wrap">{restLines.join('\n')}</div>
+          <div
+            className={`mt-1 text-sm whitespace-pre-wrap ${transparentCard ? 'text-white' : 'text-slate-200'}`}
+            style={transparentCard ? { textShadow: textShadowOverlay } : undefined}
+          >
+            {restLines.join('\n')}
+          </div>
         )}
-        {data.sub && <div className="mt-1 text-sm text-slate-200">{data.sub}</div>}
-        <div className="mt-3 text-[10px] text-slate-400">Powered by Streamer Scheduler</div>
+        {data.sub && (
+          <div
+            className={`mt-1 text-sm ${transparentCard ? 'text-white' : 'text-slate-200'}`}
+            style={transparentCard ? { textShadow: textShadowOverlay } : undefined}
+          >
+            {data.sub}
+          </div>
+        )}
+        <div
+          className={`mt-3 text-[10px] ${transparentCard ? 'text-white/60' : 'text-slate-400'}`}
+          style={transparentCard ? { textShadow: textShadowOverlay } : undefined}
+        >
+          Powered by Streamer Scheduler
+        </div>
       </div>
     </div>
   );
