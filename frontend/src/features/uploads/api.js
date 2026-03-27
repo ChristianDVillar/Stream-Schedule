@@ -21,7 +21,20 @@ export async function getVideoSignedUrl(filePath, expiresIn = 3600) {
 }
 
 export async function getUploadStats(userId) {
-  return apiClient.get('/upload/stats', {
-    params: userId ? { user_id: userId } : undefined,
-  });
+  if (!userId) {
+    return apiClient.get('/upload/stats');
+  }
+  const encodedUserId = encodeURIComponent(String(userId));
+  try {
+    // Canonical route in backend: GET /api/upload/stats/:user_id
+    return await apiClient.get(`/upload/stats/${encodedUserId}`);
+  } catch (err) {
+    // Compatibility fallback for older deployments that may still expect query params.
+    if (err?.response?.status === 404) {
+      return apiClient.get('/upload/stats', {
+        params: { user_id: userId },
+      });
+    }
+    throw err;
+  }
 }
