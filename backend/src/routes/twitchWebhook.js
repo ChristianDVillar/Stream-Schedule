@@ -5,7 +5,7 @@
 
 import crypto from 'crypto';
 import logger from '../utils/logger.js';
-import { TwitchBitEvent, TwitchEventSubSubscription } from '../models/index.js';
+import { TwitchBitEvent, TwitchEventSubSubscription } from '../modules/integrations/infrastructure/models.js';
 
 const HMAC_PREFIX = 'sha256=';
 

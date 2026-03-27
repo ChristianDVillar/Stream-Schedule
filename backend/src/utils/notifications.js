@@ -328,7 +328,13 @@ export async function sendStreamReminderEmail(to, streamTitle, scheduledFor, str
         <p><strong>${streamerUsername}</strong> is going live in about 1 hour.</p>
         <p><strong>${streamTitle}</strong></p>
         <p>Time: ${timeStr}</p>
-        <p><a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/streamer/${encodeURIComponent(streamerUsername)}" style="color: #7c3aed;">View schedule</a></p>
+        <p><a href="${
+          (
+            process.env.FRONTEND_URL ||
+            process.env.PUBLIC_FRONTEND_URL ||
+            (process.env.NODE_ENV === 'production' ? 'https://streamautomator.com' : 'http://localhost:3000')
+          )
+        }/streamer/${encodeURIComponent(streamerUsername)}" style="color: #7c3aed;">View schedule</a></p>
       </div>
     </body></html>`;
   const text = `Reminder: ${streamerUsername} streams in ~1 hour — ${streamTitle}. Time: ${timeStr}.`;

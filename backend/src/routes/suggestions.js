@@ -6,19 +6,14 @@
 
 import express from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import { StreamSuggestion } from '../models/index.js';
+import { getSuggestions, deleteSuggestionById } from '../modules/content/application/suggestionsService.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const suggestions = await StreamSuggestion.findAll({
-      where: { userId: req.user.id },
-      order: [['createdAt', 'DESC']],
-      limit: 100,
-      attributes: ['id', 'text', 'suggestedBy', 'createdAt'],
-    });
+    const suggestions = await getSuggestions(req.user.id);
     res.json(suggestions);
   } catch (err) {
     logger.error('Suggestions list error', { error: err.message, userId: req.user?.id });
@@ -28,9 +23,7 @@ router.get('/', requireAuth, async (req, res) => {
 
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
-    const deleted = await StreamSuggestion.destroy({
-      where: { id: req.params.id, userId: req.user.id },
-    });
+    const deleted = await deleteSuggestionById(req.user.id, req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Suggestion not found' });
     res.status(204).end();
   } catch (err) {

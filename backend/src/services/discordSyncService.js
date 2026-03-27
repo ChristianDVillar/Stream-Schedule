@@ -5,7 +5,7 @@
  */
 
 import crypto from 'crypto';
-import { Content } from '../models/index.js';
+import { Content } from '../modules/content/infrastructure/models.js';
 import { Op } from 'sequelize';
 import { createDiscordScheduledEvent, updateDiscordScheduledEvent, deleteDiscordScheduledEvent, postToDiscordChannel } from '../utils/discordPublish.js';
 import { getDiscordEventLocation } from '../utils/contentFormatter.js';

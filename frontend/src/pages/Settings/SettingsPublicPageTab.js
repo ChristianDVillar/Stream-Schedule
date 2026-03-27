@@ -7,8 +7,9 @@ import { Image, Upload, ExternalLink, Calendar, Trash2 } from 'lucide-react';
 import { getUploadStats } from '../../utils/uploadHelper';
 import { getPublicImageUrl } from '../../utils/supabaseClient';
 import { handleUpload } from '../../utils/uploadHelper';
+import { getPublicFrontendOrigin } from '../../shared/config/publicUrls';
 
-const FRONTEND_ORIGIN = typeof window !== 'undefined' ? window.location.origin.replace(/\/$/, '') : '';
+const FRONTEND_ORIGIN = getPublicFrontendOrigin();
 const BANNER_POSITIONS = [
   { id: 'top', labelKey: 'publicPage.positionTop', descKey: 'publicPage.positionTopDesc' },
   { id: 'above-avatar', labelKey: 'publicPage.positionAboveAvatar', descKey: 'publicPage.positionAboveAvatarDesc' },

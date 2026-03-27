@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, Bell, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { getMyMessages, getNotifications, getNotificationsUnreadCount, markNotificationRead } from '../api';
+import { getMyMessages, getNotifications, getNotificationsUnreadCount, markNotificationRead } from '../features/messaging/api';
 /**
  * Dropdown next to logout: Respuestas (admin replies to user messages) + Notificaciones (admin announcements).
  * Shown only for non-admin users.

@@ -4,7 +4,7 @@
  */
 
 import jwt from 'jsonwebtoken';
-import { User } from '../models/index.js';
+import { User } from '../modules/users/infrastructure/models.js';
 import { normalizeLicenseType, resolveLicenseExpiry } from '../utils/licenseUtils.js';
 import { generateLicenseKey } from '../utils/cryptoUtils.js';
 import logger from '../utils/logger.js';

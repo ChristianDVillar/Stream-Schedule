@@ -5,7 +5,7 @@
 
 import express from 'express';
 import { requireAdmin } from '../../middleware/auth.js';
-import { getAlertConfig, saveAlertConfig, sendAlert } from '../../services/alertService.js';
+import { getAlertConfig, saveAlertConfig, sendAlert } from '../../modules/system/application/alertService.js';
 import logger from '../../utils/logger.js';
 
 const router = express.Router();

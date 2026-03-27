@@ -48,15 +48,16 @@ import notificationsRoutes from './routes/notifications.js';
 import adminPlatformsRoutes from './routes/admin/platforms.js';
 import { exchangeRateUsdEurHandler } from './routes/admin/exchangeRate.js';
 import { getAlertConfigHandler, putAlertConfigHandler, postAlertConfigTestHandler } from './routes/admin/alerts.js';
-import { getCostMetricsForAdmin } from './services/publicationMetricService.js';
-import { sequelize, SystemConfig } from './models/index.js';
+import { getCostMetricsForAdmin } from './modules/system/application/publicationMetricService.js';
+import { sequelize } from './modules/users/infrastructure/models.js';
+import { SystemConfig } from './modules/system/infrastructure/models.js';
 import { authenticateToken, requireAuth, requireAdmin } from './middleware/auth.js';
 import { authLimiter, apiLimiter, uploadLimiter, webhookLimiter } from './middleware/rateLimit.js';
 import { csrfProtection, getCsrfToken } from './middleware/csrf.js';
 import { metricsMiddleware, metrics } from './utils/metrics.js';
 import { setupSwagger } from './app-swagger.js';
 import logger from './utils/logger.js';
-import platformConfigService from './services/platformConfigService.js';
+import platformConfigService from './modules/system/application/platformConfigService.js';
 import { handleTwitchEventSub } from './routes/twitchWebhook.js';
 import { PLATFORM_VALUES } from './constants/platforms.js';
 import path from 'path';
@@ -91,8 +92,8 @@ if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process
 }
 
 // CORS: allow FRONTEND_URL (single) or FRONTEND_URLS (comma-separated). Default localhost for dev.
-// If you use a custom domain (e.g. streamautomator.com), set FRONTEND_URLS to include both:
-//   FRONTEND_URLS=https://stream-schedule-v1.onrender.com,https://streamautomator.com
+// If you use a custom domain (e.g. streamautomator.com), set FRONTEND_URLS to include your domains:
+//   FRONTEND_URLS=https://streamautomator.com,https://stream-schedule-v1.onrender.com
 // so requests from the custom domain are allowed. FRONTEND_URL is still used for OAuth redirects.
 const corsOriginConfig = (() => {
   const urls = process.env.FRONTEND_URLS

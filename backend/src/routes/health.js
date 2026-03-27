@@ -7,12 +7,12 @@
  */
 
 import express from 'express';
-import { sequelize } from '../models/index.js';
+import { sequelize } from '../modules/users/infrastructure/models.js';
 import { getQueueStats } from '../services/publicationQueueService.js';
 import { getReminderQueueStats } from '../services/reminderQueueService.js';
-import { Content, ContentPlatform } from '../models/index.js';
+import { Content, ContentPlatform } from '../modules/content/infrastructure/models.js';
 import { CONTENT_STATUS } from '../constants/contentStatus.js';
-import { CONTENT_PLATFORM_STATUS } from '../models/ContentPlatform.js';
+import { CONTENT_PLATFORM_STATUS } from '../modules/content/infrastructure/ContentPlatform.model.js';
 import logger from '../utils/logger.js';
 import { getRedis, isRedisAvailable } from '../utils/redisConnection.js';
 

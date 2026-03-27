@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, X } from 'lucide-react';
-import { getEnabledPlatforms } from '../api';
+import { getEnabledPlatforms } from '../features/scheduler/api';
 
 const PLATFORM_LABELS = {
   twitch: 'Twitch',

@@ -10,7 +10,7 @@
  * Recommended: Run daily at 9 AM
  */
 
-import { User } from '../models/index.js';
+import { User } from '../modules/users/infrastructure/models.js';
 import { LICENSE_TYPES } from '../constants/licenseTypes.js';
 import { sendLicenseExpirationWarning, sendLicenseExpiredNotification } from '../utils/notifications.js';
 import logger from '../utils/logger.js';

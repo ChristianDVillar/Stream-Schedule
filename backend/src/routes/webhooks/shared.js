@@ -3,13 +3,19 @@
  * Used by webhooks/index.js to keep routes clean.
  */
 
-import { User, Todo, Content, StreamItem, StreamTimelineEvent, Integration, sequelize } from '../../models/index.js';
-import { contentService } from '../../services/contentService.js';
+import { User, sequelize } from '../../modules/users/infrastructure/models.js';
+import { Todo, Content, StreamItem, StreamTimelineEvent } from '../../modules/content/infrastructure/models.js';
+import { Integration } from '../../modules/integrations/infrastructure/models.js';
+import { contentService } from '../../modules/content/application/contentService.js';
 import { CONTENT_STATUS } from '../../constants/contentStatus.js';
 import { Op } from 'sequelize';
 import logger from '../../utils/logger.js';
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const RAW_FRONTEND_URL = process.env.FRONTEND_URL || process.env.PUBLIC_FRONTEND_URL || 'http://localhost:3000';
+const FRONTEND_URL =
+  (process.env.NODE_ENV === 'production' && (!RAW_FRONTEND_URL || RAW_FRONTEND_URL.includes('localhost')))
+    ? 'https://streamautomator.com'
+    : RAW_FRONTEND_URL;
 const UPCOMING_STATUSES = [
   CONTENT_STATUS.SCHEDULED,
   CONTENT_STATUS.QUEUED,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { getDiscordGuilds, getDiscordChannels, getDiscordInviteUrl, postDiscordMessage } from '../api';
+import { getDiscordGuilds, getDiscordChannels, getDiscordInviteUrl, postDiscordMessage } from '../features/discord/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
 import { MessageCircle, Server, Hash, Send, AlertCircle, Loader2 } from 'lucide-react';

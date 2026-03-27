@@ -2,7 +2,7 @@
  * Stream Ideas Board — ideas, notes, quotes, clip ideas from !idea, !note, !quote, !clipidea.
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { getStreamItems, deleteStreamItem } from '../api';
+import { getStreamItems, deleteStreamItem } from '../features/content/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
 import { Lightbulb, FileText, MessageCircle, Film, RefreshCw, Trash2 } from 'lucide-react';

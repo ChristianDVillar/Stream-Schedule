@@ -20,7 +20,8 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "smoke:baseline": "node src/scripts/smokeStructureBaseline.js"
+    "smoke:baseline": "node src/scripts/smokeStructureBaseline.js",
+    "check:architecture": "node src/scripts/check-model-imports.js"
   },
   "dependencies": {
     "@ffmpeg.wasm/core-mt": "^0.13.2",
@@ -57,6 +58,7 @@
     "vitest": "^1.0.0"
   },
   "optionalDependencies": {
+    "@socket.io/redis-adapter": "^8.3.0",
     "bull": "^4.16.5",
     "bullmq": "^5.34.5",
     "discord.js": "^14.16.3",

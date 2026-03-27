@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, MessageSquare } from 'lucide-react';
 import MyMessages from '../components/MyMessages';
-import { getNotifications, markNotificationRead } from '../api';
+import { getNotifications, markNotificationRead } from '../features/messaging/api';
 import { useLanguage } from '../contexts/LanguageContext';
 
 /**

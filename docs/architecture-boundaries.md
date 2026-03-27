@@ -13,6 +13,6 @@
 
 ## Guardrails
 - New business rules should go into services/jobs, not route files.
-- New feature APIs in frontend should avoid importing the global `api.js` directly from route-level pages.
+- Frontend: do not add a global `src/api.js`; use `features/*/api.js` and `shared/api/client.js` (enforced by `npm run check:architecture`).
 - Keep transitional barrels until all consumers are migrated, then remove legacy imports in one cleanup pass.
 

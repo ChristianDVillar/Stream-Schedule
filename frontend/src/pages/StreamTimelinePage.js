@@ -2,7 +2,7 @@
  * Stream Timeline — events logged via POST /webhooks/timeline (stream_start, donation, clip, etc.).
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { getTimeline } from '../api';
+import { getTimeline } from '../features/content/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
 import { Clock, RefreshCw, Radio, Gift, Film, MessageSquare } from 'lucide-react';

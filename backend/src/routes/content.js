@@ -1,16 +1,17 @@
 import express from 'express';
-import { Content, User } from '../models/index.js';
+import { Content } from '../modules/content/infrastructure/models.js';
+import { User } from '../modules/users/infrastructure/models.js';
 import { Op } from 'sequelize';
 import checkLicense from '../middleware/checkLicense.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { contentSchema, updateContentSchema } from '../validators/contentSchemas.js';
 import { TWITTER_MAX_CHARS } from '../constants/platforms.js';
-import { contentService } from '../services/contentService.js';
+import { contentService } from '../modules/content/application/contentService.js';
 import { contentCreationLimiter } from '../middleware/rateLimit.js';
 import { auditLog } from '../middleware/audit.js';
 import { postTweet } from '../utils/twitterPublish.js';
-import platformConfigService from '../services/platformConfigService.js';
+import platformConfigService from '../modules/system/application/platformConfigService.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();

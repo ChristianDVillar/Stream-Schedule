@@ -15,7 +15,7 @@ const QUEUE_NAME = 'publication';
  */
 async function recordJobMetric(contentId, platform, durationMs, attemptsMade, success) {
   try {
-    const { Content } = await import('../models/index.js');
+    const { Content } = await import('../modules/content/infrastructure/models.js');
     const { recordPublicationMetric } = await import('./publicationMetricService.js');
     const content = await Content.findByPk(contentId, { attributes: ['userId'] });
     if (content?.userId) {

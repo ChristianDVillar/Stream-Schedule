@@ -1,5 +1,6 @@
 import logger from './utils/logger.js';
-import { app, initServer } from './app.js';
+import { app } from './app.js';
+import { startApiProcess } from './bootstrap/api.js';
 
 /**
  * API entrypoint.
@@ -9,7 +10,7 @@ import { app, initServer } from './app.js';
 
 async function startApi() {
   try {
-    await initServer();
+    await startApiProcess();
   } catch (err) {
     logger.error('API server failed to start', { error: err.message, stack: err.stack });
     process.exit(1);

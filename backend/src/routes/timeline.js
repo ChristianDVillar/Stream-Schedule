@@ -4,26 +4,14 @@
  */
 import express from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import { StreamTimelineEvent } from '../models/index.js';
-import { Op } from 'sequelize';
+import { getTimelineEvents } from '../modules/content/application/timelineService.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();
 
 async function listTimeline(req, res) {
   try {
-    const hours = Math.min(24 * 7, Math.max(1, parseInt(req.query.hours, 10) || 24));
-    const since = new Date(Date.now() - hours * 60 * 60 * 1000);
-
-    const events = await StreamTimelineEvent.findAll({
-      where: {
-        userId: req.user.id,
-        createdAt: { [Op.gte]: since },
-      },
-      order: [['createdAt', 'DESC']],
-      limit: 200,
-      attributes: ['id', 'type', 'payload', 'createdAt'],
-    });
+    const events = await getTimelineEvents(req.user.id, req.query.hours);
     res.json(events);
   } catch (err) {
     logger.error('Timeline list error', { error: err.message, userId: req.user?.id });

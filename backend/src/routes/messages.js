@@ -6,7 +6,8 @@
 
 import express from 'express';
 import multer from 'multer';
-import { Message, MessageReply, User } from '../models/index.js';
+import { Message, MessageReply } from '../modules/system/infrastructure/models.js';
+import { User } from '../modules/users/infrastructure/models.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { validateBody, validateQuery } from '../middleware/validate.js';
 import {

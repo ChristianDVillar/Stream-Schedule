@@ -4,7 +4,8 @@
  */
 
 import express from 'express';
-import { Notification, NotificationRead, User } from '../models/index.js';
+import { Notification, NotificationRead } from '../modules/system/infrastructure/models.js';
+import { User } from '../modules/users/infrastructure/models.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import logger from '../utils/logger.js';
 import { Op } from 'sequelize';

@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTemplates, createTemplate, updateTemplate, deleteTemplate, createContentFromTemplate } from '../api-templates';
-import { getEnabledPlatforms } from '../api';
+import { getEnabledPlatforms } from '../features/scheduler/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
 import { FileText, Pencil, Trash2, Calendar, X } from 'lucide-react';

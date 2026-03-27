@@ -7,7 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, Circle, X, ExternalLink, Loader2 } from 'lucide-react';
-import { getConnectedAccounts, getOnboardingStatus, autoCreateFirstStream } from '../api';
+import { getConnectedAccounts, getOnboardingStatus, autoCreateFirstStream } from '../features/account/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
 
