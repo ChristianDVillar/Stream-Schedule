@@ -39,11 +39,11 @@ Documentación de **Streamer Scheduler** (guías, protección, licencia, scripts
 
 ## Legal y terminos
 
-- **[COPYRIGHT_NOTICE.md](../COPYRIGHT_NOTICE.md)** – Aviso de copyright y contacto.
-- **[TERMS_OF_SERVICE.md](../TERMS_OF_SERVICE.md)** – Terminos de servicio (EN/ES).
-- **[LEGAL_PROTECTION.md](../LEGAL_PROTECTION.md)** – Guia de proteccion legal.
-- **[PROTECTION_SUMMARY.md](../PROTECTION_SUMMARY.md)** – Resumen de protecciones implementadas.
-- **[PROTECTION_CHECKLIST.md](../PROTECTION_CHECKLIST.md)** – Checklist pre-despliegue.
+- **[COPYRIGHT_NOTICE.md](legal/COPYRIGHT_NOTICE.md)** – Aviso de copyright y contacto.
+- **[TERMS_OF_SERVICE.md](legal/TERMS_OF_SERVICE.md)** – Terminos de servicio (EN/ES).
+- **[LEGAL_PROTECTION.md](legal/LEGAL_PROTECTION.md)** – Guia de proteccion legal.
+- **[PROTECTION_SUMMARY.md](legal/PROTECTION_SUMMARY.md)** – Resumen de protecciones implementadas.
+- **[PROTECTION_CHECKLIST.md](legal/PROTECTION_CHECKLIST.md)** – Checklist pre-despliegue.
 
 ## Scripts SQL (Supabase)
 

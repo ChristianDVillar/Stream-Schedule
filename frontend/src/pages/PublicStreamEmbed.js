@@ -5,16 +5,43 @@
  */
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Clock, Radio } from 'lucide-react';
-import { getPublicStreamerEvents } from '../api';
+import { Clock, Radio, Twitch, Youtube, Instagram, Server } from 'lucide-react';
+import { getPublicStreamerEvents } from '../features/publicStream/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatEventDate, getCountdown } from '../utils/dateUtils';
+import { DISCORD_ICON_URL } from '../constants/platforms';
+import XIcon from '../components/XIcon';
 
 function isLiveNow(scheduledFor, eventEndTime) {
   const now = new Date();
   const start = new Date(scheduledFor);
   const end = eventEndTime ? new Date(eventEndTime) : new Date(start.getTime() + 3 * 60 * 60 * 1000);
   return now >= start && now <= end;
+}
+
+function PlatformIcon({ platform, size = 12 }) {
+  const style = { width: size, height: size };
+  switch (platform) {
+    case 'twitch':
+      return <Twitch style={style} className="flex-shrink-0" />;
+    case 'twitter':
+      return <XIcon style={style} className="flex-shrink-0" />;
+    case 'youtube':
+      return <Youtube style={style} className="flex-shrink-0" />;
+    case 'instagram':
+      return <Instagram style={style} className="flex-shrink-0" />;
+    case 'discord':
+      return (
+        <img
+          src={DISCORD_ICON_URL}
+          alt="Discord"
+          style={{ width: size, height: size }}
+          className="object-contain dark:invert flex-shrink-0"
+        />
+      );
+    default:
+      return <Server style={style} className="flex-shrink-0" />;
+  }
 }
 
 export default function PublicStreamEmbed() {
@@ -148,6 +175,28 @@ export default function PublicStreamEmbed() {
         </div>
       )}
       <div className={`p-3 ${showBgInEmbed ? 'relative z-10' : ''}`}>
+        {Array.isArray(data.socialLinks) && data.socialLinks.length > 0 && (
+          <div className="mb-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">
+              {t('publicStream.socialLinks') || 'Social links'}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {data.socialLinks.slice(0, 5).map((social) => (
+                <a
+                  key={`${social.platform}-${social.url}`}
+                  href={social.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white/90 dark:bg-gray-700/80 text-[11px] font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  title={social.label}
+                >
+                  <PlatformIcon platform={social.platform} size={11} />
+                  <span>{social.label}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
         {data.events.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('publicStream.noUpcoming') || 'No upcoming streams.'}</p>
         ) : (

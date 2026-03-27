@@ -26,7 +26,11 @@ Streamer Scheduler is a content management platform that allows content creators
 - ✅ **Multi-platform scheduling** – Schedule content for Twitch, Twitter/X, Instagram, Discord
 - ✅ **Visual calendar** – Drag and drop, colors by type, platform icons, and live indicator
 - ✅ **Public streamer page** – `/streamer/username` and embed `/embed/streamer/username` for Twitch bio, Discord, or websites
+- ✅ **Social links on public pages** – Public page and embed now show connected platforms (Twitch, X, Discord, YouTube, Instagram)
 - ✅ **Bots (Nightbot)** – `!todo` command from Twitch chat; API key in Settings → Bots
+- ✅ **Bits section in dashboard** – Detailed view redirected to `/bits`, with chronological and per-user total modes
+- ✅ **Real-time overlay improvements** – Better update behavior for roulette and quote overlays in OBS/Streamlabs
+- ✅ **Dynamic landing workflow mocks** – Product flow section with translated mock images
 - ✅ **License system** – Trial, Monthly, Quarterly, and Lifetime plans
 - ✅ **Admin dashboard** – Complete user and license management
 - ✅ **OAuth authentication** – Login with Google and Twitch
@@ -45,6 +49,16 @@ Streamer Scheduler is a content management platform that allows content creators
 - 🔄 **Advanced scheduling** – Recurring posts and bulk operations
 - 🔄 **Content library** – Media library with search and organization
 - 🔄 **API access** – RESTful API for third-party integrations
+
+---
+
+## Recent updates (v2.3.0)
+
+- Deep repository reorganization across frontend and backend, using safe incremental migration.
+- Reminder orchestration extracted to jobs layer (`backend/src/jobs/reminders`), reducing business logic in routes.
+- Feature-first API structure introduced in frontend (`shared/api`, `features/*/api`) to progressively split `frontend/src/api.js`.
+- Structural safety baseline added with startup/route smoke check (`npm run smoke:baseline` in backend).
+- Documentation cleanup and relocation (including legal docs under `docs/legal`) plus technical migration notes for maintainers.
 
 ---
 
@@ -182,5 +196,5 @@ For issues, questions, or support, please contact the development team.
 
 ---
 
-**Version:** 2.1.0  
-**Last updated:** January 2026
+**Version:** 2.3.0  
+**Last updated:** March 2026

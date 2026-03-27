@@ -78,8 +78,15 @@ export default function OverlayRoulette() {
     });
     socketRef.current = socket;
 
-    socket.on('connect', () => setConnected(true));
-    socket.on('connect_error', () => setError('Could not connect. Check API key and backend URL.'));
+    socket.on('connect', () => {
+      setConnected(true);
+      setError('');
+    });
+    socket.on('disconnect', () => setConnected(false));
+    socket.on('connect_error', () => {
+      setConnected(false);
+      setError('Could not connect. Check API key and backend URL.');
+    });
     socket.on('roulette_players', (data) => {
       setPlayers(data.players || []);
       setWinner(null);

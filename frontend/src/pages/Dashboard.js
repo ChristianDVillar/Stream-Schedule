@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiClient, getTwitchDashboardStats, getTwitchSubs, getTwitchBits, getTwitchDonations, getDiscordDashboardStats, cancelContent, getRouletteState, rouletteSpin, rouletteReset } from '../api';
+import { getDiscordDashboardStats, cancelContent, getRouletteState, rouletteSpin, rouletteReset } from '../api';
+import { apiClient } from '../shared/api/client';
+import { getTwitchDashboardStats, getTwitchSubs, getTwitchBits, getTwitchDonations } from '../features/twitchBits/api';
+import { io } from 'socket.io-client';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
@@ -61,6 +64,10 @@ const Dashboard = ({ user, token, ...props }) => {
   const [discordStats, setDiscordStats] = useState(null);
   const [discordStatsLoading, setDiscordStatsLoading] = useState(false);
   const [bitsFormat, setBitsFormat] = useState('chronological'); // 'chronological' o 'total'
+  const [bitsDetailRows, setBitsDetailRows] = useState([]);
+  const [bitsDetailsLoading, setBitsDetailsLoading] = useState(false);
+  const [bitsDetailsError, setBitsDetailsError] = useState('');
+  const [selectedBitsUser, setSelectedBitsUser] = useState('');
   const [roulettePlayers, setRoulettePlayers] = useState([]);
   const [rouletteLoading, setRouletteLoading] = useState(false);
   const [rouletteSpinLoading, setRouletteSpinLoading] = useState(false);
@@ -69,6 +76,10 @@ const Dashboard = ({ user, token, ...props }) => {
   );
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' && window.innerWidth < 640
+  );
+  const API_URL = useMemo(
+    () => (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/$/, ''),
+    []
   );
 
   // Detect mobile and switch to day view when resizing to small screen
@@ -180,6 +191,25 @@ const Dashboard = ({ user, token, ...props }) => {
     const id = setInterval(fetchRoulette, 10000);
     return () => clearInterval(id);
   }, [token, user, fetchRoulette]);
+
+  useEffect(() => {
+    if (!user || user.isAdmin || !user?.nightbotApiKey) return;
+    const socket = io(`${API_URL}/roulette`, {
+      query: { key: user.nightbotApiKey },
+      transports: ['websocket', 'polling'],
+    });
+
+    socket.on('roulette_players', (data) => {
+      setRoulettePlayers(Array.isArray(data?.players) ? data.players : []);
+    });
+    socket.on('roulette_spin', (data) => {
+      setRoulettePlayers(Array.isArray(data?.players) ? data.players : []);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [user, API_URL]);
 
   const handleRouletteSpin = async () => {
     if (!token || rouletteSpinLoading || roulettePlayers.length === 0) return;
@@ -402,52 +432,74 @@ const Dashboard = ({ user, token, ...props }) => {
     }
   }, [t, convertToCSV, downloadCSV]);
 
-  // Descargar lista de bits
-  const handleDownloadBits = useCallback(async () => {
+  const fetchBitsDetails = useCallback(async (format) => {
+    setBitsDetailsLoading(true);
+    setBitsDetailsError('');
     try {
-      const data = await getTwitchBits(bitsFormat);
-      if (!data.bits || data.bits.length === 0) {
-        const message = bitsFormat === 'chronological'
-          ? (t('dashboard.noBitsChronologicalHint') || data.hint)
-          : t('dashboard.noBitsToDownload');
-        toast.error(message);
-        return;
-      }
-      
-      let csvData;
-      if (bitsFormat === 'chronological') {
-        // Orden cronológico: Usuario, Cantidad, Fecha
-        csvData = data.bits.map(bit => ({
-          usuario: bit.user_name || bit.user_login || 'N/A',
-          cantidad: bit.amount || 0,
-          fecha: bit.date || 'N/A'
-        }));
-      } else {
-        // Total por usuario: Usuario, Total
-        const totals = {};
-        data.bits.forEach(bit => {
-          const user = bit.user_name || bit.user_login || 'N/A';
-          totals[user] = (totals[user] || 0) + (bit.amount || 0);
-        });
-        csvData = Object.entries(totals).map(([usuario, total]) => ({
-          usuario,
-          total
-        }));
-      }
-      
-      const headers = bitsFormat === 'chronological'
-        ? ['usuario', 'cantidad', 'fecha']
-        : ['usuario', 'total'];
-      const labels = bitsFormat === 'chronological'
-        ? [t('dashboard.csvUser'), t('dashboard.csvAmount'), t('dashboard.csvDate')]
-        : [t('dashboard.csvUser'), t('dashboard.csvTotal')];
-      const csv = convertToCSV(csvData, headers, labels);
-      downloadCSV(csv, `twitch-bits-${bitsFormat}-${new Date().toISOString().split('T')[0]}.csv`);
-      toast.success((t('dashboard.csvDownloadedRows') || 'Downloaded: {count} rows').replace('{count}', String(csvData.length)));
+      const data = await getTwitchBits(format);
+      const rows = Array.isArray(data?.bits) ? data.bits : [];
+      setBitsDetailRows(rows);
+      setSelectedBitsUser((current) => {
+        if (!current) return rows[0]?.user_name || rows[0]?.user_login || '';
+        const exists = rows.some((row) => (row.user_name || row.user_login || '') === current);
+        return exists ? current : (rows[0]?.user_name || rows[0]?.user_login || '');
+      });
     } catch (error) {
-      toast.error(t('dashboard.errorDownloadingBits'));
+      setBitsDetailRows([]);
+      setBitsDetailsError(error?.response?.data?.error || t('dashboard.errorDownloadingBits') || 'Could not load bits details');
+    } finally {
+      setBitsDetailsLoading(false);
     }
-  }, [bitsFormat, t, convertToCSV, downloadCSV]);
+  }, [t]);
+
+  useEffect(() => {
+    if (!showTwitchOnDashboard || !user?.dashboardShowTwitchBits || !twitchStats?.twitchConnected) return;
+    fetchBitsDetails(bitsFormat);
+  }, [showTwitchOnDashboard, user, twitchStats, bitsFormat, fetchBitsDetails]);
+
+  const bitsByUser = useMemo(() => {
+    const map = new Map();
+    bitsDetailRows.forEach((row) => {
+      const name = row.user_name || row.user_login || 'N/A';
+      const amount = Number(row.amount || 0);
+      const date = row.date ? new Date(row.date) : null;
+      if (!map.has(name)) {
+        map.set(name, { user: name, total: 0, events: [] });
+      }
+      const entry = map.get(name);
+      entry.total += amount;
+      entry.events.push({
+        amount,
+        date,
+      });
+    });
+    return Array.from(map.values())
+      .map((entry) => ({
+        ...entry,
+        events: entry.events.sort((a, b) => (a.date?.getTime?.() || 0) - (b.date?.getTime?.() || 0)),
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [bitsDetailRows]);
+
+  const selectedBitsUserData = useMemo(
+    () => bitsByUser.find((entry) => entry.user === selectedBitsUser) || null,
+    [bitsByUser, selectedBitsUser]
+  );
+
+  const handleCopyBitsList = useCallback(async () => {
+    if (!bitsByUser.length) {
+      toast.error(t('dashboard.noBitsToDownload') || 'No bits to copy');
+      return;
+    }
+    const lines = bitsByUser.map((entry, idx) => `${idx + 1}. ${entry.user}: ${entry.total}`);
+    const text = `${t('dashboard.statsBits') || 'Bits'} (${t(`dashboard.${bitsFormat}`) || bitsFormat})\n\n${lines.join('\n')}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(t('dashboard.copied') || 'Copied to clipboard');
+    } catch {
+      toast.error(t('dashboard.copyFailed') || 'Could not copy to clipboard');
+    }
+  }, [bitsByUser, bitsFormat, t]);
 
   // Descargar lista de donaciones
   const handleDownloadDonations = useCallback(async () => {
@@ -785,7 +837,7 @@ const Dashboard = ({ user, token, ...props }) => {
                 )}
                 {user.dashboardShowTwitchBits && (
                   <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600 overflow-hidden min-w-0">
-                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 min-w-0">
+                    <div className="flex flex-col gap-3 min-w-0">
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           {t('dashboard.statsBits')}
@@ -808,13 +860,88 @@ const Dashboard = ({ user, token, ...props }) => {
                           </button>
                         </div>
                       </div>
-                      <button
-                        onClick={handleDownloadBits}
-                        className="self-start shrink-0 p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                        title={bitsFormat === 'chronological' ? t('dashboard.downloadBitsChronological') : t('dashboard.downloadBitsTotal')}
-                      >
-                        <Download className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/bits?format=${bitsFormat}`)}
+                          className="self-start shrink-0 p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                          title={t('dashboard.viewDetails') || 'View details'}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => fetchBitsDetails(bitsFormat)}
+                          className="self-start shrink-0 p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                          title={t('common.refresh') || 'Refresh'}
+                        >
+                          <RefreshCw className={`w-4 h-4 ${bitsDetailsLoading ? 'animate-spin' : ''}`} />
+                        </button>
+                        <button
+                          onClick={handleCopyBitsList}
+                          className="self-start shrink-0 p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                          title={t('dashboard.copySchedule') || 'Copy'}
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-3 rounded-lg border border-gray-200 dark:border-gray-600 p-3 bg-gray-50 dark:bg-gray-800/60">
+                      {bitsDetailsLoading ? (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{t('common.loading') || 'Loading...'}</p>
+                      ) : bitsDetailsError ? (
+                        <p className="text-xs text-red-600 dark:text-red-400">{bitsDetailsError}</p>
+                      ) : bitsByUser.length === 0 ? (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {bitsFormat === 'chronological'
+                            ? (t('dashboard.noBitsChronologicalHint') || 'No chronological bits yet.')
+                            : (t('dashboard.noBitsToDownload') || 'No bits yet.')}
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                          <div className="max-h-44 overflow-auto pr-1 space-y-1">
+                            {bitsByUser.map((entry) => (
+                              <button
+                                key={entry.user}
+                                type="button"
+                                onClick={() => setSelectedBitsUser(entry.user)}
+                                className={`w-full text-left px-2 py-1.5 rounded text-xs transition-colors ${
+                                  selectedBitsUser === entry.user
+                                    ? 'bg-accent text-white'
+                                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'
+                                }`}
+                              >
+                                <span className="font-semibold">{entry.user}</span>
+                                <span className="ml-2 opacity-90">{entry.total} bits</span>
+                              </button>
+                            ))}
+                          </div>
+                          <div className="rounded-md bg-gray-100 dark:bg-gray-900/40 p-2 min-h-24">
+                            {selectedBitsUserData ? (
+                              <>
+                                <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                                  {selectedBitsUserData.user}: {selectedBitsUserData.total} bits
+                                </p>
+                                {bitsFormat === 'chronological' ? (
+                                  <ul className="space-y-1 max-h-36 overflow-auto text-xs text-gray-600 dark:text-gray-300">
+                                    {selectedBitsUserData.events.map((event, index) => (
+                                      <li key={`${selectedBitsUserData.user}-${index}`} className="flex justify-between">
+                                        <span>+{event.amount}</span>
+                                        <span>{event.date ? event.date.toLocaleString() : '-'}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <p className="text-xs text-gray-600 dark:text-gray-300">
+                                    {t('dashboard.total') || 'Total'}: {selectedBitsUserData.total}
+                                  </p>
+                                )}
+                              </>
+                            ) : (
+                              <p className="text-xs text-gray-500 dark:text-gray-400">{t('dashboard.selectUser') || 'Select a user to see details'}</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
