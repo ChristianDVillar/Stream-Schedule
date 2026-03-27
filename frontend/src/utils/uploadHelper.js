@@ -5,6 +5,7 @@
  */
 
 import { uploadFileThroughBackend } from '../features/uploads/api';
+import { getUploadStats as getUploadStatsApi } from '../features/uploads/api';
 import toast from 'react-hot-toast';
 
 /**
@@ -72,8 +73,7 @@ export async function getUploadStats(userId) {
 
   const promise = (async () => {
     try {
-      const { getUploadStats: getStats } = await import('../api');
-      const response = await getStats(userId);
+      const response = await getUploadStatsApi(userId);
       return response.data || { uploads: [], totalUploads24h: 0, isTrialUser: false };
     } catch (error) {
       return { uploads: [], totalUploads24h: 0, isTrialUser: false, error: error.message };
