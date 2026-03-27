@@ -3,9 +3,10 @@
  * Responsive: horizontal scroll on small screens; compact layout on xs.
  */
 import React from 'react';
-import { Calendar, Twitch, Twitter } from 'lucide-react';
+import { Calendar, Twitch } from 'lucide-react';
 import { DISCORD_ICON_URL } from '../constants/platforms';
 import { DEFAULT_PLATFORM_COLORS } from '../utils/platformColors';
+import XIcon from './XIcon';
 
 const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -29,7 +30,7 @@ function PlatformIcon({ platform, size = 14 }) {
     case 'twitch':
       return <Twitch style={style} className="flex-shrink-0" />;
     case 'twitter':
-      return <Twitter style={style} className="flex-shrink-0" />;
+      return <XIcon style={style} className="flex-shrink-0" />;
     case 'discord':
       return (
         <img

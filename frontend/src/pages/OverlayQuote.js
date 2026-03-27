@@ -14,6 +14,7 @@ export default function OverlayQuote() {
   const query = useQuery();
   const key = query.get('key') || query.get('apiKey') || '';
   const [quote, setQuote] = useState('Loading quote...');
+  const API_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/$/, '');
 
   useEffect(() => {
     if (!key) {
@@ -25,7 +26,10 @@ export default function OverlayQuote() {
 
     async function load() {
       try {
-        const res = await fetch(`/api/webhooks/quote/random?key=${encodeURIComponent(key)}`);
+        const ts = Date.now();
+        const res = await fetch(`${API_URL}/api/webhooks/quote/random?key=${encodeURIComponent(key)}&t=${ts}`, {
+          cache: 'no-store',
+        });
         const body = await res.text();
         if (!cancelled) {
           setQuote(body || 'No quotes yet. Use !quote your funny line to add one.');
@@ -36,12 +40,12 @@ export default function OverlayQuote() {
     }
 
     load();
-    const id = setInterval(load, 90_000);
+    const id = setInterval(load, 25_000);
     return () => {
       cancelled = true;
       clearInterval(id);
     };
-  }, [key]);
+  }, [key, API_URL]);
 
   return (
     <div
@@ -49,11 +53,12 @@ export default function OverlayQuote() {
       className="w-full h-full flex items-center justify-center"
     >
       <div
-        className="rounded-2xl px-6 py-4 text-white shadow-2xl min-w-[280px] max-w-xl"
+        className="rounded-2xl px-6 py-4 text-white shadow-2xl min-w-[280px] max-w-xl border"
         style={{
           background:
-            'linear-gradient(135deg, rgba(15,23,42,0.9), rgba(147,51,234,0.9))',
-          border: '1px solid rgba(216,180,254,0.7)',
+            'linear-gradient(135deg, rgba(15,23,42,0.82), rgba(88,28,135,0.82))',
+          borderColor: 'rgba(216,180,254,0.7)',
+          backdropFilter: 'blur(4px)',
         }}
       >
         <div className="text-xs font-semibold tracking-[0.18em] uppercase text-slate-300">

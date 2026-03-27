@@ -5,13 +5,14 @@
  */
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Calendar, Radio, ExternalLink, Bell } from 'lucide-react';
-import { Twitch, Twitter } from 'lucide-react';
-import { getPublicStreamerEvents, subscribeStreamReminder } from '../api';
+import { Calendar, Radio, ExternalLink, Bell, Youtube, Instagram } from 'lucide-react';
+import { Twitch } from 'lucide-react';
+import { getPublicStreamerEvents, subscribeStreamReminder } from '../features/publicStream/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getCountdown } from '../utils/dateUtils';
 import { DEFAULT_PLATFORM_COLORS } from '../utils/platformColors';
 import { DISCORD_ICON_URL } from '../constants/platforms';
+import XIcon from '../components/XIcon';
 
 /** End color for gradient (slightly darker) per platform */
 const PLATFORM_GRADIENT_END = {
@@ -60,7 +61,7 @@ function PlatformIcon({ platform, size = 14 }) {
     case 'twitch':
       return <Twitch style={style} className="flex-shrink-0" />;
     case 'twitter':
-      return <Twitter style={style} className="flex-shrink-0" />;
+      return <XIcon style={style} className="flex-shrink-0" />;
     case 'discord':
       return (
         <img
@@ -70,6 +71,10 @@ function PlatformIcon({ platform, size = 14 }) {
           className="object-contain dark:invert flex-shrink-0"
         />
       );
+    case 'youtube':
+      return <Youtube style={style} className="flex-shrink-0" />;
+    case 'instagram':
+      return <Instagram style={style} className="flex-shrink-0" />;
     default:
       return null;
   }
@@ -312,6 +317,28 @@ export default function PublicStreamPage() {
             <p className="text-sm text-gray-500 dark:text-gray-400">{t('publicStream.upcomingStreams') || 'Upcoming streams'}</p>
           </div>
         </div>
+        {Array.isArray(data.socialLinks) && data.socialLinks.length > 0 && (
+          <section className="mb-6" aria-label={t('publicStream.socialLinks') || 'Social links'}>
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+              {t('publicStream.findCreatorOn') || 'Find this creator on'}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {data.socialLinks.map((social) => (
+                <a
+                  key={`${social.platform}-${social.url}`}
+                  href={social.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-800/70 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  title={social.label}
+                >
+                  <PlatformIcon platform={social.platform} size={14} />
+                  <span>{social.label}</span>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
         {renderBanner('above-avatar')}
 
         {(showLiveTwitch || showLiveSchedule) && (

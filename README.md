@@ -26,7 +26,11 @@ Streamer Scheduler es una plataforma de gestión de contenido que permite a crea
 - ✅ **Programación multiplataforma** – Programa contenido para Twitch, Twitter/X, Instagram, Discord
 - ✅ **Calendario visual** – Interfaz de arrastrar y soltar, colores por tipo, iconos de plataforma e indicador en directo
 - ✅ **Página pública del streamer** – `/streamer/username` y embed `/embed/streamer/username` para compartir en bio, Discord o web
+- ✅ **Redes sociales en página pública** – La página pública y el embed muestran links de plataformas conectadas (Twitch, X, Discord, YouTube, Instagram)
 - ✅ **Bots (Nightbot)** – Comando `!todo` desde el chat de Twitch; API key en Configuración → Bots
+- ✅ **Panel de Bits en dashboard** – Vista detallada con redirección a `/bits`, modo cronológico y total por usuario
+- ✅ **Overlays en tiempo real** – Mejoras en actualización de ruleta y quote overlay para uso en OBS/Streamlabs
+- ✅ **Landing dinámica con mocks** – Flujo visual con imágenes del producto en sección translatable
 - ✅ **Sistema de licencias** – Planes Trial, Mensual, Trimestral y Permanente
 - ✅ **Panel de administración** – Gestión completa de usuarios y licencias
 - ✅ **Autenticación OAuth** – Inicio de sesión con Google y Twitch
@@ -45,6 +49,16 @@ Streamer Scheduler es una plataforma de gestión de contenido que permite a crea
 - 🔄 **Programación avanzada** – Publicaciones recurrentes y operaciones masivas
 - 🔄 **Biblioteca de contenido** – Biblioteca de medios con búsqueda y organización
 - 🔄 **Acceso API** – API RESTful para integraciones de terceros
+
+---
+
+## Novedades recientes (v2.3.0)
+
+- Reorganización profunda del repositorio por capas y dominios (frontend y backend), con migración incremental segura.
+- Extracción de lógica de recordatorios a capa de jobs (`backend/src/jobs/reminders`) y reducción de lógica de negocio en rutas.
+- Introducción de estructura feature-first en frontend (`shared/api`, `features/*/api`) para desacoplar `frontend/src/api.js`.
+- Baseline de seguridad estructural con smoke check de entrypoints (`npm run smoke:baseline` en backend).
+- Reubicación y orden de documentación (incluyendo legal en `docs/legal`) y notas de migración técnica para mantenedores.
 
 ---
 
@@ -222,5 +236,5 @@ Para incidencias, preguntas o soporte, contacta al equipo de desarrollo.
 
 ---
 
-**Versión:** 2.1.0  
-**Última actualización:** Enero 2026
+**Versión:** 2.3.0  
+**Última actualización:** Marzo 2026

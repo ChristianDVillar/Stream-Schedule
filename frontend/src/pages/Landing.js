@@ -8,7 +8,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import AppFooter from '../components/AppFooter';
-import LandingCalendarPreview from '../components/LandingCalendarPreview';
+import XIcon from '../components/XIcon';
 import {
   Calendar,
   Share2,
@@ -16,7 +16,6 @@ import {
   Zap,
   Bell,
   Twitch,
-  Twitter,
   Server,
   Video,
   Globe,
@@ -24,40 +23,86 @@ import {
   MessageSquare,
   Check,
   X,
-  ArrowDown,
 } from 'lucide-react';
 
-/** Product motion: 3-step flow that cycles to show Create stream → Select platforms → Auto-announce */
-function ProductMotionSteps({ t }) {
+/** Product motion: cycles real product mock images by step */
+function ProductMotionPreview({ t }) {
   const [step, setStep] = useState(0);
-  const steps = [
-    { key: 'motionCreate', label: t('landing.motionCreate') || 'Create stream' },
-    { key: 'motionSelect', label: t('landing.motionSelect') || 'Select Twitch + Discord' },
-    { key: 'motionScheduled', label: t('landing.motionScheduled') || 'Auto-announce scheduled' },
+  const slides = [
+    {
+      number: 1,
+      key: 'motionCreate',
+      label: t('landing.motionCreate') || 'Create stream',
+      title: t('landing.workflowStep1Title') || 'Create Your Content',
+      description: t('landing.workflowStep1Desc') || 'Write your title and description. Add emojis, prizes, and all the details your audience needs to know.',
+      image: '/content-creation-form.png',
+      alt: t('landing.workflowStep1Alt') || 'Content creation form with title and description',
+    },
+    {
+      number: 2,
+      key: 'motionSelect',
+      label: t('landing.motionSelect') || 'Select Twitch + Discord',
+      title: t('landing.workflowStep2Title') || 'Preview Across Platforms',
+      description: t('landing.workflowStep2Desc') || 'See exactly how your post will look on Twitter, Discord, and Twitch. Discord events are automatically scheduled with event details.',
+      image: '/platform-preview.png',
+      alt: t('landing.workflowStep2Alt') || 'Preview of how content appears on X, Discord, and Twitch',
+    },
+    {
+      number: 3,
+      key: 'motionScheduled',
+      label: t('landing.motionScheduled') || 'Auto-announce scheduled',
+      title: t('landing.workflowStep3Title') || 'Set Date & Location',
+      description: t('landing.workflowStep3Desc') || "Define start and end times. Discord shows events in each user's local timezone. Add your Twitch or YouTube link.",
+      image: '/event-date-location.png',
+      alt: t('landing.workflowStep3Alt') || 'Event date, time, and location URL configuration',
+    },
   ];
   useEffect(() => {
-    const id = setInterval(() => setStep((s) => (s + 1) % 3), 2500);
+    const id = setInterval(() => setStep((s) => (s + 1) % slides.length), 2800);
     return () => clearInterval(id);
-  }, []);
+  }, [slides.length]);
+  const active = slides[step];
   return (
-    <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 flex-wrap">
-      {steps.map((s, i) => (
-        <React.Fragment key={s.key}>
+    <div className="mt-8 w-full max-w-xs mx-auto">
+      <article className="bg-gray-50 dark:bg-gray-800 rounded-3xl overflow-hidden shadow-md border border-gray-200 dark:border-gray-700 transition-all duration-500">
+        <div className="relative bg-gray-100 dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-700">
+          <span className="absolute top-4 left-4 z-10 h-10 w-10 rounded-full bg-[#5865F2] text-white font-bold text-lg flex items-center justify-center shadow">
+            {active.number}
+          </span>
           <div
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all duration-500 ${
+            className="w-full relative"
+            style={{ aspectRatio: '305 / 727' }}
+          >
+            <img
+              src={active.image}
+              alt={active.alt}
+              loading="lazy"
+              className="w-full h-full object-contain block"
+            />
+          </div>
+        </div>
+        <div className="p-4">
+          <h3 className="text-base font-bold text-gray-900 dark:text-white">{active.title}</h3>
+          <p className="mt-1.5 text-xs text-gray-600 dark:text-gray-300">{active.description}</p>
+        </div>
+      </article>
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+        {slides.map((s, i) => (
+          <button
+            key={s.key}
+            type="button"
+            onClick={() => setStep(i)}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs transition-colors ${
               step === i
-                ? 'border-accent bg-accent-subtle dark:bg-accent-subtle scale-105'
-                : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50'
+                ? 'border-accent bg-accent-subtle text-gray-900 dark:text-gray-100'
+                : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 text-gray-600 dark:text-gray-300'
             }`}
           >
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{s.label}</span>
+            <span className="font-medium">{s.label}</span>
             {step === i && <Check className="w-4 h-4 text-accent flex-shrink-0" aria-hidden />}
-          </div>
-          {i < steps.length - 1 && (
-            <ArrowDown className="w-4 h-4 text-gray-400 sm:rotate-0 rotate-90 flex-shrink-0" aria-hidden />
-          )}
-        </React.Fragment>
-      ))}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -147,7 +192,7 @@ export default function Landing() {
             <Twitch className="w-8 h-8 text-[#9146FF]" aria-hidden />
             <Video className="w-8 h-8 text-[#FF0000]" aria-hidden />
             <Server className="w-8 h-8 text-[#5865F2]" aria-hidden />
-            <Twitter className="w-8 h-8 text-gray-600 dark:text-gray-400" aria-hidden />
+            <XIcon className="text-gray-600 dark:text-gray-400" size={32} />
           </div>
         </div>
       </section>
@@ -161,11 +206,7 @@ export default function Landing() {
           <p className="mt-4 text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
             {t('landing.productPreviewSubtitle') || 'Plan streams, automate announcements and manage all your platforms from one dashboard.'}
           </p>
-          {/* Product motion — 3-step flow (Create → Select platforms → Auto-announce) */}
-          <ProductMotionSteps t={t} />
-          <div className="mt-6 rounded-xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 min-h-[200px] sm:min-h-[280px] flex items-center justify-center p-2 sm:p-4 w-full max-w-full min-w-0">
-            <LandingCalendarPreview />
-          </div>
+          <ProductMotionPreview t={t} />
         </div>
       </section>
 
@@ -417,7 +458,7 @@ export default function Landing() {
               <span className="text-xs font-medium text-gray-600 dark:text-gray-300">YouTube</span>
             </div>
             <div className="flex flex-col items-center gap-2">
-              <Twitter className="w-10 h-10 text-gray-700 dark:text-gray-300" aria-hidden />
+              <XIcon className="text-gray-700 dark:text-gray-300" size={40} />
               <span className="text-xs font-medium text-gray-600 dark:text-gray-300">X</span>
             </div>
             <span className="text-gray-500 dark:text-gray-400 text-sm">{t('landing.integrationsMore') || '+ more'}</span>

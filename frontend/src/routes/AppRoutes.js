@@ -26,6 +26,7 @@ import Landing from '../pages/Landing';
 import Pricing from '../pages/Pricing';
 import PublicStreamPage from '../pages/PublicStreamPage';
 import PublicStreamEmbed from '../pages/PublicStreamEmbed';
+import TwitchBitsPage from '../features/twitchBits/pages/TwitchBitsPage';
 import { PrivateRoute, AdminRoute, UserRoute } from './routeGuards';
 
 // Generic overlay: single lazy-loaded component for all overlay types (nextstream, goal, week, quote, suggestions)
@@ -53,6 +54,14 @@ export function AppRoutes({ user, token, setAuth, setUser, clearAuth }) {
         element={
           <UserRoute user={user}>
             <Dashboard user={user} token={token} />
+          </UserRoute>
+        }
+      />
+      <Route
+        path="/bits"
+        element={
+          <UserRoute user={user}>
+            <TwitchBitsPage />
           </UserRoute>
         }
       />

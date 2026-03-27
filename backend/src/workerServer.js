@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import logger from './utils/logger.js';
-import { sequelize } from './models/index.js';
+import { sequelize } from './platform/db/index.js';
 import { startWorker } from './services/publicationWorker.js';
 import { startDiscordSyncWorker } from './services/discordQueueService.js';
 import { startDiscordGateway } from './services/discordGatewayService.js';

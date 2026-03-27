@@ -2,13 +2,13 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import logger from './utils/logger.js';
-import { sequelize } from './models/index.js';
+import { sequelize } from './platform/db/index.js';
 import { startScheduler } from './services/scheduler.js';
 import { startSchedulerProducer } from './services/schedulerProducer.js';
 import { runReconciliation } from './services/discordSyncService.js';
 import { notifyDbSlow, notifyQueueProblems, checkRedisRecovery } from './services/alertService.js';
 import { getQueueStats } from './services/publicationQueueService.js';
-import { enqueueStreamReminderJobs, runStreamReminders } from './routes/cron.js';
+import { enqueueStreamReminderJobs, runStreamReminders } from './jobs/reminders/reminderOrchestrator.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

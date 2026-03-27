@@ -6,7 +6,7 @@
  */
 
 import express from 'express';
-import { Content, User, Integration, StreamReminder, StreamSuggestion, sequelize } from '../models/index.js';
+import { Content, User, Integration, StreamReminder, StreamSuggestion, sequelize } from '../modules/streamerPublic/infrastructure/models.js';
 import { Op } from 'sequelize';
 import { CONTENT_STATUS } from '../constants/contentStatus.js';
 import logger from '../utils/logger.js';
@@ -35,7 +35,15 @@ router.get('/:username/events', async (req, res) => {
 
     const user = await User.findOne({
       where: sequelize.where(sequelize.fn('LOWER', sequelize.col('username')), username.toLowerCase()),
-      attributes: ['id', 'username', 'profileImageUrl', 'publicPageBannerUrl', 'publicPageBannerPosition'],
+      attributes: [
+        'id',
+        'username',
+        'profileImageUrl',
+        'publicPageBannerUrl',
+        'publicPageBannerPosition',
+        'twitterId',
+        'discordId',
+      ],
     });
     if (!user) {
       return res.status(404).json({ error: 'Streamer not found' });
@@ -66,22 +74,33 @@ router.get('/:username/events', async (req, res) => {
       };
     });
 
+    const integrations = await Integration.findAll({
+      where: { userId: user.id, status: 'active' },
+      attributes: ['provider', 'providerUserId', 'metadata'],
+    });
+    const integrationsByProvider = integrations.reduce((acc, integration) => {
+      acc[integration.provider] = integration;
+      return acc;
+    }, {});
+
     let liveOnTwitch = false;
     let twitchStreamUrl = null;
     let twitchStreamTitle = null;
+    let twitchProfileUrl = null;
 
     try {
-      const integration = await Integration.findOne({
-        where: { userId: user.id, provider: 'twitch', status: 'active' },
-        attributes: ['providerUserId'],
-      });
+      const integration = integrationsByProvider.twitch;
       if (integration?.providerUserId) {
+        const twitchUser = await twitchService.getUserInfo(integration.providerUserId);
+        if (twitchUser?.login) {
+          twitchProfileUrl = `https://www.twitch.tv/${twitchUser.login}`;
+        }
         const stream = await twitchService.getStreamByUserId(integration.providerUserId);
         if (stream.live) {
           liveOnTwitch = true;
           twitchStreamUrl = stream.user_name
             ? `https://www.twitch.tv/${stream.user_name}`
-            : null;
+            : (twitchProfileUrl || null);
           twitchStreamTitle = stream.title || null;
         }
       }
@@ -90,6 +109,27 @@ router.get('/:username/events', async (req, res) => {
         username,
         error: twitchErr.message,
       });
+    }
+
+    const socialLinks = [];
+    if (twitchProfileUrl) {
+      socialLinks.push({ platform: 'twitch', label: 'Twitch', url: twitchProfileUrl });
+    }
+    if (user.twitterId) {
+      socialLinks.push({ platform: 'twitter', label: 'X', url: `https://x.com/i/user/${user.twitterId}` });
+    }
+    if (user.discordId) {
+      socialLinks.push({ platform: 'discord', label: 'Discord', url: `https://discord.com/users/${user.discordId}` });
+    }
+    const youtubeIntegration = integrationsByProvider.youtube;
+    const youtubeChannelId = youtubeIntegration?.providerUserId || youtubeIntegration?.metadata?.channelId;
+    if (youtubeChannelId) {
+      socialLinks.push({ platform: 'youtube', label: 'YouTube', url: `https://www.youtube.com/channel/${youtubeChannelId}` });
+    }
+    const instagramIntegration = integrationsByProvider.instagram;
+    const instagramUsername = instagramIntegration?.metadata?.username;
+    if (instagramUsername) {
+      socialLinks.push({ platform: 'instagram', label: 'Instagram', url: `https://www.instagram.com/${instagramUsername}` });
     }
 
     res.json({
@@ -101,6 +141,7 @@ router.get('/:username/events', async (req, res) => {
       liveOnTwitch,
       twitchStreamUrl,
       twitchStreamTitle,
+      socialLinks,
     });
   } catch (err) {
     logger.error('Public streamer events error', { error: err.message, username: req.params.username });
