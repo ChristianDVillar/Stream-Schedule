@@ -118,6 +118,8 @@ temp/
 # Upload directories
 uploads/
 public/uploads/
+!frontend/src/features/uploads/
+!frontend/src/features/uploads/api.js
 
 # Database files
 *.db
