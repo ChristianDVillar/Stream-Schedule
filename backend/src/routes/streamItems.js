@@ -6,48 +6,16 @@
 
 import express from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import { StreamItem, sequelize } from '../models/index.js';
+import { getStreamItems, deleteStreamItemById } from '../modules/content/application/streamItemsService.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();
-const TYPES = ['idea', 'note', 'quote', 'clipidea'];
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const type = (req.query.type || '').trim();
-    const sort = (req.query.sort || 'recent').toLowerCase();
-    const where = { userId: req.user.id };
-    if (type && TYPES.includes(type)) where.type = type;
-
-    if (type === 'idea' && sort === 'votes') {
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      const rows = await sequelize.query(
-        `SELECT MAX("id") AS "id", 'idea' AS "type", "text", MAX("createdAt") AS "createdAt", COUNT(*)::int AS "voteCount"
-         FROM "StreamItems"
-         WHERE "userId" = :userId AND "type" = 'idea' AND "createdAt" >= :since
-         GROUP BY "text"
-         ORDER BY "voteCount" DESC, MAX("createdAt") DESC
-         LIMIT 200`,
-        {
-          replacements: { userId: req.user.id, since: sevenDaysAgo },
-          type: sequelize.QueryTypes.SELECT,
-        }
-      );
-      const items = (rows || []).map((r) => ({
-        id: r.id,
-        type: 'idea',
-        text: r.text,
-        createdAt: r.createdAt,
-        voteCount: Number(r.voteCount) || 1,
-      }));
-      return res.json(items);
-    }
-
-    const items = await StreamItem.findAll({
-      where,
-      order: [['createdAt', 'DESC']],
-      limit: 200,
-      attributes: ['id', 'type', 'text', 'createdAt'],
+    const items = await getStreamItems(req.user.id, {
+      type: req.query.type,
+      sort: req.query.sort,
     });
     res.json(items);
   } catch (err) {
@@ -62,13 +30,10 @@ router.get('/', requireAuth, async (req, res) => {
  */
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
-    const item = await StreamItem.findOne({
-      where: { id: req.params.id, userId: req.user.id },
-    });
-    if (!item) {
+    const deleted = await deleteStreamItemById(req.user.id, req.params.id);
+    if (!deleted) {
       return res.status(404).json({ error: 'Item not found or you do not own it.' });
     }
-    await item.destroy();
     res.status(200).json({ ok: true, message: 'Deleted.' });
   } catch (err) {
     logger.error('Stream item delete error', { error: err.message, userId: req.user?.id, id: req.params.id });

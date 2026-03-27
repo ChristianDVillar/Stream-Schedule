@@ -8,7 +8,7 @@ import { useState, useEffect } from 'react';
 import { Image, Video, Check, Trash2 } from 'lucide-react';
 import { supabase, getPublicImageUrl } from '../utils/supabaseClient';
 import { getUploadStats } from '../utils/uploadHelper';
-import { deleteUpload, getVideoSignedUrl } from '../api';
+import { deleteUpload, getVideoSignedUrl } from '../features/uploads/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
 

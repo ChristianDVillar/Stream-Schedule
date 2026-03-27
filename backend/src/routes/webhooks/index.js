@@ -25,7 +25,7 @@ import {
   getUserByApiKey,
 } from './shared.js';
 import { announceStreamStarted } from '../../utils/discordAnnounce.js';
-import rouletteService from '../../services/rouletteService.js';
+import rouletteService from '../../modules/content/application/rouletteService.js';
 import { emitRouletteToUser } from '../../services/websocketService.js';
 
 const router = express.Router();
@@ -983,7 +983,7 @@ router.get('/goal', async (req, res) => {
           where: { userId: user.id, provider: 'twitch', status: 'active' },
         });
         if (integration?.accessToken && integration?.providerUserId) {
-          const { TwitchService } = await import('../services/twitchService.js');
+          const { TwitchService } = await import('../modules/integrations/application/twitchService.js');
           const twitch = new TwitchService();
           const result = await twitch.getChannelFollowers(integration.providerUserId, integration.accessToken);
           current = result?.total ?? null;

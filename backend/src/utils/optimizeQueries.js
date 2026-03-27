@@ -4,7 +4,10 @@
  * Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.
  */
 
-import { User, Content, Platform, Payment } from '../models/index.js';
+import { User } from '../modules/users/infrastructure/models.js';
+import { Content } from '../modules/content/infrastructure/models.js';
+import { Platform } from '../modules/system/infrastructure/models.js';
+import { Payment } from '../modules/payments/infrastructure/models.js';
 
 /**
  * Get content with user information (eager loading)

@@ -4,13 +4,14 @@
  */
 import React, { useState, useEffect } from 'react';
 import { Bot, Copy, RefreshCw, Check, ExternalLink, Key, ListTodo, Calendar, Radio, MessageSquare, Zap, Monitor, ChevronDown, ChevronRight } from 'lucide-react';
-import { getNightbotKey, generateNightbotKey } from '../../api';
+import { getNightbotKey, generateNightbotKey } from '../../features/integrations/api';
 import toast from 'react-hot-toast';
 import { useStreamMode } from '../../contexts/StreamModeContext';
+import { getPublicFrontendOrigin } from '../../shared/config/publicUrls';
 
 const API_BASE = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '') || (typeof window !== 'undefined' ? window.location.origin.replace(/\/$/, '') : '');
 const NIGHTBOT_TODO_URL = API_BASE ? `${API_BASE}/api/nightbot/todo` : '';
-const FRONTEND_ORIGIN = typeof window !== 'undefined' ? window.location.origin.replace(/\/$/, '') : '';
+const FRONTEND_ORIGIN = getPublicFrontendOrigin();
 
 function CopyButton({ text, label, copiedMessage = 'Copied', className = '' }) {
   const [copied, setCopied] = useState(false);

@@ -4,7 +4,7 @@
  * Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.
  */
 
-import AuditLog from '../models/AuditLog.js';
+import AuditLog from '../modules/system/infrastructure/AuditLog.model.js';
 import logger from '../utils/logger.js';
 
 // Ensure AuditLog model is initialized

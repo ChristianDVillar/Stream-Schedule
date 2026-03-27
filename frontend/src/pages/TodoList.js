@@ -2,7 +2,7 @@
  * To-do list page - all authenticated users
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { getTodos, createTodo, updateTodo, deleteTodo } from '../api';
+import { getTodos, createTodo, updateTodo, deleteTodo } from '../features/content/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
 import { CheckSquare, Square, Trash2, Plus, ListTodo } from 'lucide-react';

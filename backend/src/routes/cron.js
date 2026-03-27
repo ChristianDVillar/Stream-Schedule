@@ -6,7 +6,7 @@
 import express from 'express';
 import logger from '../utils/logger.js';
 import { getReminderQueue } from '../services/reminderQueueService.js';
-import { enqueueStreamReminderJobs, runStreamReminders } from '../jobs/reminders/reminderOrchestrator.js';
+import { enqueueStreamReminderJobs, runStreamReminders } from '../modules/reminders/application/jobs/reminderOrchestrator.js';
 
 const router = express.Router();
 const CRON_SECRET = process.env.CRON_SECRET || process.env.INTERNAL_CRON_SECRET || '';

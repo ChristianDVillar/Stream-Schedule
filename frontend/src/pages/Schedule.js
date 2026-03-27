@@ -23,7 +23,9 @@ import {
   Plus,
   Trash2
 } from 'lucide-react';
-import { apiClient, getDiscordGuilds, getDiscordChannels, getDiscordInviteUrl, getEnabledPlatforms } from '../api';
+import { getDiscordGuilds, getDiscordChannels, getDiscordInviteUrl } from '../features/discord/api';
+import { getEnabledPlatforms } from '../features/scheduler/api';
+import { apiClient } from '../shared/api/client';
 import FileUpload from '../components/FileUpload';
 import MediaGallery from '../components/MediaGallery';
 import { useLanguage } from '../contexts/LanguageContext';

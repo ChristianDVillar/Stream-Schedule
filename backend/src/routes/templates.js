@@ -5,11 +5,11 @@
  */
 
 import express from 'express';
-import { templateService } from '../services/templateService.js';
+import { templateService } from '../modules/content/application/templateService.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { auditLog } from '../middleware/audit.js';
-import platformConfigService from '../services/platformConfigService.js';
+import platformConfigService from '../modules/system/application/platformConfigService.js';
 import logger from '../utils/logger.js';
 import Joi from 'joi';
 

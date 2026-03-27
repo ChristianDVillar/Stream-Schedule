@@ -6,7 +6,7 @@
 
 import express from 'express';
 import { google } from 'googleapis';
-import { Integration } from '../models/index.js';
+import { Integration } from '../modules/integrations/infrastructure/models.js';
 import { authenticateToken, requireAuth } from '../middleware/auth.js';
 import logger from '../utils/logger.js';
 

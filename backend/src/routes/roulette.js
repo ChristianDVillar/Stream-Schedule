@@ -5,7 +5,7 @@
 
 import express from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import rouletteService from '../services/rouletteService.js';
+import rouletteService from '../modules/content/application/rouletteService.js';
 import { emitRouletteToUser } from '../services/websocketService.js';
 import logger from '../utils/logger.js';
 

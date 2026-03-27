@@ -4,7 +4,7 @@
  * Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.
  */
 
-import { Content, User, StreamReminder, ReminderSent } from '../models/index.js';
+import { Content, User, StreamReminder, ReminderSent } from '../modules/reminders/infrastructure/models.js';
 import { sendStreamReminderEmail } from '../utils/notifications.js';
 import logger from '../utils/logger.js';
 

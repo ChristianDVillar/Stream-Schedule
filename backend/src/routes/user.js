@@ -7,21 +7,24 @@ import { Op } from 'sequelize';
 
 const require = createRequire(import.meta.url);
 const DiscordStrategy = require('passport-discord').Strategy;
-import { User, Content, ContentPlatform, Media, SystemConfig, Integration, TwitchEventSubSubscription, TwitchBitEvent, sequelize } from '../models/index.js';
+import { User, sequelize } from '../modules/users/infrastructure/models.js';
+import { Content, ContentPlatform, Media } from '../modules/content/infrastructure/models.js';
+import { SystemConfig } from '../modules/system/infrastructure/models.js';
+import { Integration, TwitchEventSubSubscription, TwitchBitEvent } from '../modules/integrations/infrastructure/models.js';
 import checkLicense from '../middleware/checkLicense.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { auditLog } from '../middleware/audit.js';
 import { normalizeLicenseType, resolveLicenseExpiry, buildLicenseSummary } from '../utils/licenseUtils.js';
-import { syncEntitlementsFromLicense } from '../services/entitlementService.js';
-import { refreshIntegrationToken } from '../services/integrationTokenService.js';
-import { setupStreamingWorkspace } from '../services/slackWorkspaceService.js';
+import { syncEntitlementsFromLicense } from '../modules/system/application/entitlementService.js';
+import { refreshIntegrationToken } from '../modules/integrations/application/integrationTokenService.js';
+import { setupStreamingWorkspace } from '../modules/integrations/application/slackWorkspaceService.js';
 import { generateLicenseKey, generateTemporaryPassword, generateUsernameSuffix } from '../utils/cryptoUtils.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { generateAuthData, buildUserResponse, createLinkState, verifyLinkState, createTwitterOAuth2State, verifyTwitterOAuth2State } from '../utils/authUtils.js';
 import { supabase as supabaseAdmin } from '../utils/supabaseClient.js';
 import { validateBody } from '../middleware/validate.js';
-import { contentService } from '../services/contentService.js';
+import { contentService } from '../modules/content/application/contentService.js';
 import { CONTENT_STATUS } from '../constants/contentStatus.js';
 import {
   registerSchema,
@@ -42,13 +45,14 @@ import logger from '../utils/logger.js';
 const router = express.Router();
 
 /** All OAuth/login redirects go here. For custom domain (e.g. streamautomator.com), set FRONTEND_URL to that domain in Render. */
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const RAW_FRONTEND_URL = process.env.FRONTEND_URL || process.env.PUBLIC_FRONTEND_URL || 'http://localhost:3000';
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 /** In production, never redirect users to localhost (avoids bad_oauth_state ending on localhost when FRONTEND_URL is unset on Render). */
 const FRONTEND_URL_SAFE =
-  (process.env.NODE_ENV === 'production' && (!FRONTEND_URL || FRONTEND_URL.includes('localhost')))
-    ? (process.env.FRONTEND_URL || 'https://stream-schedule-v1.onrender.com')
-    : FRONTEND_URL;
+  (process.env.NODE_ENV === 'production' && (!RAW_FRONTEND_URL || RAW_FRONTEND_URL.includes('localhost')))
+    ? 'https://streamautomator.com'
+    : RAW_FRONTEND_URL;
+const FRONTEND_URL = FRONTEND_URL_SAFE;
 /** Base URL for Twitch OAuth redirect_uri (authorize + callback). Use this if BACKEND_URL points elsewhere (e.g. Supabase). */
 const TWITCH_OAUTH_REDIRECT_BASE = (process.env.TWITCH_OAUTH_REDIRECT_BASE_URL || BACKEND_URL).replace(/\/$/, '');
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
@@ -153,7 +157,7 @@ async function ensureTwitchEventSubSubscription(broadcasterUserId) {
   const baseUrl = (process.env.BACKEND_URL || 'http://localhost:5000').replace(/\/$/, '');
   const callbackUrl = `${baseUrl}/api/webhooks/twitch/eventsub`;
   try {
-    const { twitchService } = await import('../services/twitchService.js');
+    const { twitchService } = await import('../modules/integrations/application/twitchService.js');
     const existing = await TwitchEventSubSubscription.findOne({ where: { broadcasterUserId: id } });
     if (existing?.subscriptionId) {
       await twitchService.deleteEventSubSubscription(existing.subscriptionId).catch(() => {});
@@ -1521,7 +1525,7 @@ export async function connectedAccountsHandler(req, res) {
         });
         const broadcasterId = twitchIntegration?.providerUserId || u.twitchId;
         if (broadcasterId && twitchIntegration?.accessToken) {
-          const { TwitchService } = await import('../services/twitchService.js');
+          const { TwitchService } = await import('../modules/integrations/application/twitchService.js');
           const twitchService = new TwitchService();
           const twitchUser = await twitchService.getUserInfo(broadcasterId, twitchIntegration.accessToken);
           const twitchUsername = twitchUser?.display_name || twitchUser?.login || null;
@@ -1799,7 +1803,7 @@ router.post('/disconnect-twitch', requireAuth, async (req, res) => {
     // EventSub: unsubscribe channel.cheer before removing Integration
     if (broadcasterIdForEventSub) {
       try {
-        const { twitchService } = await import('../services/twitchService.js');
+        const { twitchService } = await import('../modules/integrations/application/twitchService.js');
         const subs = await TwitchEventSubSubscription.findAll({ where: { broadcasterUserId: String(broadcasterIdForEventSub) } });
         for (const sub of subs) {
           if (sub.subscriptionId) await twitchService.deleteEventSubSubscription(sub.subscriptionId).catch(() => {});
@@ -2679,7 +2683,7 @@ router.get('/twitch-dashboard-stats', requireAuth, async (req, res) => {
       }
       const tokenToUse = integration.accessToken;
       const fetchStats = async (accessToken) => {
-        const { TwitchService } = await import('../services/twitchService.js');
+        const { TwitchService } = await import('../modules/integrations/application/twitchService.js');
         const twitchService = new TwitchService();
         const broadcasterId = integration.providerUserId || user.twitchId;
         if (!broadcasterId) return;
@@ -2901,7 +2905,7 @@ router.get('/twitch-bits', requireAuth, checkLicense, async (req, res) => {
       return res.json({ format: 'chronological', bits, hint });
     }
 
-    const { TwitchService } = await import('../services/twitchService.js');
+    const { TwitchService } = await import('../modules/integrations/application/twitchService.js');
     const twitchService = new TwitchService();
     const bitsData = await twitchService.getBitsLeaderboard(broadcasterId, integration.accessToken);
     const leaderboard = bitsData.leaderboard || [];

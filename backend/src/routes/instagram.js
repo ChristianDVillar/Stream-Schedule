@@ -11,7 +11,7 @@ import {
   getInstagramRecentMedia,
   getInstagramMediaInsights,
   logInstagramConfigError,
-} from '../services/instagramGraphService.js';
+} from '../modules/integrations/application/instagramGraphService.js';
 
 const router = express.Router();
 

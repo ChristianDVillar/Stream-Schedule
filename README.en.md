@@ -55,8 +55,9 @@ Streamer Scheduler is a content management platform that allows content creators
 ## Recent updates (v2.3.0)
 
 - Deep repository reorganization across frontend and backend, using safe incremental migration.
-- Reminder orchestration extracted to jobs layer (`backend/src/jobs/reminders`), reducing business logic in routes.
-- Feature-first API structure introduced in frontend (`shared/api`, `features/*/api`) to progressively split `frontend/src/api.js`.
+- Reminder orchestration consolidated under `modules/reminders/application/jobs` (`jobs/reminders` kept only as a compatibility bridge), reducing business logic in routes.
+- Feature-first API structure in frontend (`shared/api`, `features/*/api`); the legacy global `frontend/src/api.js` was removed.
+- Realtime scaling path added with optional Redis pub/sub support for Socket.IO (automatic fallback to in-process mode).
 - Structural safety baseline added with startup/route smoke check (`npm run smoke:baseline` in backend).
 - Documentation cleanup and relocation (including legal docs under `docs/legal`) plus technical migration notes for maintainers.
 
@@ -159,8 +160,8 @@ If you see **redirect_uri de OAuth2 no válido** (or "redirect_uri invalid"), th
 To avoid redirecting to localhost after Google or Twitch login:
 
 1. **Supabase Dashboard** → Your project → **Authentication** → **URL Configuration**
-   - Set **Site URL** to your production frontend URL (e.g. `https://stream-schedule-v1.onrender.com`)
-   - Under **Redirect URLs**, add: `https://your-frontend-domain.onrender.com/auth/callback` (and keep `http://localhost:3000/auth/callback` for local dev)
+   - Set **Site URL** to your production frontend URL (e.g. `https://streamautomator.com`)
+   - Under **Redirect URLs**, add: `https://streamautomator.com/auth/callback` (and keep `http://localhost:3000/auth/callback` for local dev)
 2. The app uses the current page origin for the OAuth redirect, so `REACT_APP_FRONTEND_URL` is not required for OAuth when deployed.
 
 **Publishing to Discord (scheduled events and messages):** Connecting Discord in Settings uses OAuth (`DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET`). For the backend to **publish** to your servers (scheduled events, messages, etc.), you also need the **bot token**:

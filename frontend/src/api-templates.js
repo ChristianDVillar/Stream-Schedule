@@ -3,7 +3,7 @@
  * Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.
  */
 
-import { apiClient } from './api';
+import { apiClient } from './shared/api/client';
 
 /**
  * GET /templates - Get user templates

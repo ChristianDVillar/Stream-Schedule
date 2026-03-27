@@ -1,5 +1,5 @@
 import express from 'express';
-import { Platform } from '../models/index.js';
+import { Platform } from '../modules/system/infrastructure/models.js';
 import checkLicense from '../middleware/checkLicense.js';
 
 const router = express.Router();

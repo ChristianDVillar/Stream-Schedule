@@ -6,11 +6,13 @@ import {
   getDiscordGuilds,
   getDiscordChannels,
   getDiscordInviteUrl,
+} from '../../features/discord/api';
+import {
   setupSlackWorkspace,
   getInstagramAccount,
   getInstagramPosts,
   getInstagramPostInsights,
-} from '../../api';
+} from '../../features/integrations/api';
 
 // Platform-specific icons (same style as Login page)
 const GoogleIcon = () => (

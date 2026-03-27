@@ -2,7 +2,7 @@
  * Viewer suggestions — from !suggest in chat. Streamer can review and delete.
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { getSuggestions, deleteSuggestion } from '../api';
+import { getSuggestions, deleteSuggestion } from '../features/content/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
 import { MessageCircle, Trash2, RefreshCw } from 'lucide-react';

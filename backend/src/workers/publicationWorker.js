@@ -8,9 +8,9 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { startWorker } from '../services/publicationWorker.js';
+import { startWorker } from '../modules/integrations/application/publicationWorker.js';
 import logger from '../utils/logger.js';
-import { sequelize } from '../models/index.js';
+import { sequelize } from '../modules/users/infrastructure/models.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env') });
@@ -18,13 +18,13 @@ dotenv.config();
 
 process.on('uncaughtException', async (err) => {
   logger.error('Worker uncaughtException', { error: err.message, stack: err.stack });
-  const { sendAlert } = await import('../services/alertService.js');
+  const { sendAlert } = await import('../modules/system/application/alertService.js');
   await sendAlert(`🚨 Worker crashed (uncaughtException): ${err.message}`, 'dev').catch(() => {});
   process.exit(1);
 });
 process.on('unhandledRejection', async (reason) => {
   logger.error('Worker unhandledRejection', { reason });
-  const { sendAlert } = await import('../services/alertService.js');
+  const { sendAlert } = await import('../modules/system/application/alertService.js');
   await sendAlert(`🚨 Worker unhandledRejection: ${String(reason)}`, 'dev').catch(() => {});
 });
 
@@ -50,7 +50,7 @@ async function main() {
     // Graceful shutdown
     process.on('SIGTERM', async () => {
       logger.info('SIGTERM received, shutting down worker...');
-      const { stopWorker } = await import('../services/publicationWorker.js');
+      const { stopWorker } = await import('../modules/integrations/application/publicationWorker.js');
       await stopWorker();
       await sequelize.close();
       process.exit(0);
@@ -58,7 +58,7 @@ async function main() {
     
     process.on('SIGINT', async () => {
       logger.info('SIGINT received, shutting down worker...');
-      const { stopWorker } = await import('../services/publicationWorker.js');
+      const { stopWorker } = await import('../modules/integrations/application/publicationWorker.js');
       await stopWorker();
       await sequelize.close();
       process.exit(0);

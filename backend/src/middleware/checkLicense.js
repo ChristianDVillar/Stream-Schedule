@@ -1,4 +1,4 @@
-import { User } from '../models/index.js';
+import { User } from '../modules/users/infrastructure/models.js';
 import { LICENSE_TYPES } from '../constants/licenseTypes.js';
 import { normalizeLicenseType, resolveLicenseExpiry } from '../utils/licenseUtils.js';
 import { generateLicenseKey } from '../utils/cryptoUtils.js';

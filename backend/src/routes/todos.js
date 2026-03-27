@@ -5,10 +5,10 @@
 
 import express from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import { Todo } from '../models/index.js';
 import { validateBody } from '../middleware/validate.js';
 import logger from '../utils/logger.js';
 import Joi from 'joi';
+import { createTodo, deleteTodo, getTodos, updateTodo } from '../modules/content/application/todosService.js';
 
 const router = express.Router();
 
@@ -26,15 +26,7 @@ const updateTodoSchema = Joi.object({
 // List todos for current user
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const todos = await Todo.findAll({
-      where: { userId: req.user.id },
-      order: [
-        ['completed', 'ASC'],
-        ['order', 'ASC'],
-        ['createdAt', 'ASC'],
-      ],
-      attributes: ['id', 'title', 'completed', 'order', 'createdAt', 'updatedAt'],
-    });
+    const todos = await getTodos(req.user.id);
     res.json(todos);
   } catch (err) {
     logger.error('Todos list error', { error: err.message, userId: req.user?.id });
@@ -45,12 +37,7 @@ router.get('/', requireAuth, async (req, res) => {
 // Create todo
 router.post('/', requireAuth, validateBody(createTodoSchema), async (req, res) => {
   try {
-    const { title, order } = req.body;
-    const todo = await Todo.create({
-      userId: req.user.id,
-      title: title.trim(),
-      order: order ?? 0,
-    });
+    const todo = await createTodo(req.user.id, req.body);
     res.status(201).json(todo);
   } catch (err) {
     logger.error('Todo create error', { error: err.message, userId: req.user?.id });
@@ -61,15 +48,8 @@ router.post('/', requireAuth, validateBody(createTodoSchema), async (req, res) =
 // Update todo (toggle completed, edit title, reorder)
 router.patch('/:id', requireAuth, validateBody(updateTodoSchema), async (req, res) => {
   try {
-    const todo = await Todo.findOne({
-      where: { id: req.params.id, userId: req.user.id },
-    });
+    const todo = await updateTodo(req.user.id, req.params.id, req.body);
     if (!todo) return res.status(404).json({ error: 'Todo not found' });
-    const { title, completed, order } = req.body;
-    if (title !== undefined) todo.title = String(title).trim();
-    if (completed !== undefined) todo.completed = Boolean(completed);
-    if (order !== undefined) todo.order = Number(order);
-    await todo.save();
     res.json(todo);
   } catch (err) {
     logger.error('Todo update error', { error: err.message, userId: req.user?.id });
@@ -80,9 +60,7 @@ router.patch('/:id', requireAuth, validateBody(updateTodoSchema), async (req, re
 // Delete todo
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
-    const deleted = await Todo.destroy({
-      where: { id: req.params.id, userId: req.user.id },
-    });
+    const deleted = await deleteTodo(req.user.id, req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Todo not found' });
     res.status(204).end();
   } catch (err) {

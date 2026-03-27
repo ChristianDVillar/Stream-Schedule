@@ -3,7 +3,7 @@
  * User settings: discordClipsGuildId, discordClipsChannelId (stored on User).
  */
 
-import { User } from '../models/index.js';
+import { User } from '../modules/users/infrastructure/models.js';
 import { postToDiscordChannel } from '../utils/discordPublish.js';
 import logger from '../utils/logger.js';
 

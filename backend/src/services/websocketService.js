@@ -7,11 +7,40 @@
  */
 
 import logger from '../utils/logger.js';
-import { User } from '../models/index.js';
+import { User } from '../modules/users/infrastructure/models.js';
+import { getRedis } from '../utils/redisConnection.js';
 
 let io = null;
 let rouletteNs = null;
 let wsAvailable = false;
+let wsPubSubEnabled = false;
+
+async function configureRedisPubSubAdapter(socketServer) {
+  if (process.env.WS_REDIS_ADAPTER === 'false') {
+    return false;
+  }
+  try {
+    const redisClient = await getRedis();
+    if (!redisClient || typeof redisClient.duplicate !== 'function') {
+      return false;
+    }
+    const [{ createAdapter }] = await Promise.all([
+      import('@socket.io/redis-adapter'),
+    ]);
+    const pubClient = redisClient.duplicate();
+    const subClient = redisClient.duplicate();
+    await Promise.all([pubClient.connect(), subClient.connect()]);
+    socketServer.adapter(createAdapter(pubClient, subClient));
+    wsPubSubEnabled = true;
+    logger.info('WebSocket Redis pub/sub adapter enabled');
+    return true;
+  } catch (error) {
+    logger.warn('WebSocket Redis pub/sub adapter unavailable, using in-process adapter', {
+      error: error.message,
+    });
+    return false;
+  }
+}
 
 /**
  * Initialize WebSocket server (main app + roulette namespace for overlay).
@@ -26,6 +55,7 @@ export async function initWebSocket(server) {
         methods: ['GET', 'POST'],
       },
     });
+    await configureRedisPubSubAdapter(io);
 
     io.on('connection', (socket) => {
       logger.info('WebSocket client connected', { socketId: socket.id });
@@ -140,4 +170,8 @@ export function notifyContentFailed(userId, content, error) {
  */
 export function isWebSocketAvailable() {
   return wsAvailable;
+}
+
+export function isWebSocketPubSubEnabled() {
+  return wsPubSubEnabled;
 }

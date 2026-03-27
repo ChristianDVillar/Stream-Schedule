@@ -4,7 +4,7 @@
  * Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.
  */
 
-import { uploadFileThroughBackend } from '../api';
+import { uploadFileThroughBackend } from '../features/uploads/api';
 import toast from 'react-hot-toast';
 
 /**

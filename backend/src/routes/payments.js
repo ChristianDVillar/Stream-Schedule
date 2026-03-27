@@ -1,7 +1,8 @@
 import express from 'express';
 import Stripe from 'stripe';
 import { Op } from 'sequelize';
-import { Payment, User, StripeWebhookEvent } from '../models/index.js';
+import { Payment, StripeWebhookEvent } from '../modules/payments/infrastructure/models.js';
+import { User } from '../modules/users/infrastructure/models.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { resolveLicenseExpiry } from '../utils/licenseUtils.js';
 import { LICENSE_TYPES } from '../constants/licenseTypes.js';
@@ -11,7 +12,7 @@ import { validateBody } from '../middleware/validate.js';
 import { checkoutSchema, verifySessionSchema, subscribeSchema, createCheckoutSessionSchema } from '../validators/paymentSchemas.js';
 import logger from '../utils/logger.js';
 import { sendPaymentSuccessNotification, sendPaymentFailedNotification } from '../utils/notifications.js';
-import { syncEntitlementsFromLicense } from '../services/entitlementService.js';
+import { syncEntitlementsFromLicense } from '../modules/system/application/entitlementService.js';
 
 const router = express.Router();
 
@@ -20,7 +21,7 @@ const FRONTEND_URL_DEFAULT = 'http://localhost:3000';
 function getFrontendUrl() {
   const url = process.env.FRONTEND_URL || FRONTEND_URL_DEFAULT;
   if (process.env.NODE_ENV === 'production' && url.includes('localhost')) {
-    logger.warn('FRONTEND_URL is localhost in production. Set FRONTEND_URL in Render to your frontend URL (e.g. https://stream-schedule-v1.onrender.com) so Stripe redirects correctly.');
+    logger.warn('FRONTEND_URL is localhost in production. Set FRONTEND_URL in Render to your frontend URL (e.g. https://streamautomator.com) so Stripe redirects correctly.');
   }
   return url.replace(/\/$/, ''); // strip trailing slash
 }

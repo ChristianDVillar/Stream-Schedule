@@ -15,6 +15,9 @@ Documentación de **Streamer Scheduler** (guías, protección, licencia, scripts
 
 - **Estructura del código:** carpetas `backend/` y `frontend/` en la raíz del repositorio; flujo de checkout (Stripe) y pantallas principales descritas en las guías de usuario enlazadas arriba.
 - **Roadmap / próximos pasos:** sección *Características planificadas* en el [README principal](../README.md).
+- **Migración arquitectónica (estado):**
+  - [CURRENT_FUNCTIONALITY_AND_STRUCTURE.md](CURRENT_FUNCTIONALITY_AND_STRUCTURE.md)
+  - [migration-changelog.md](migration-changelog.md)
 
 ## Integraciones
 

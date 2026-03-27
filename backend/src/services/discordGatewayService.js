@@ -4,7 +4,7 @@
  * When Discord is updated by an admin, we update our DB only (do NOT enqueue sync).
  */
 
-import { Content } from '../models/index.js';
+import { Content } from '../modules/content/infrastructure/models.js';
 import logger from '../utils/logger.js';
 
 let client = null;

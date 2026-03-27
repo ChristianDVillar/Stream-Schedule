@@ -10,7 +10,7 @@ import { Content, User, Integration, StreamReminder, StreamSuggestion, sequelize
 import { Op } from 'sequelize';
 import { CONTENT_STATUS } from '../constants/contentStatus.js';
 import logger from '../utils/logger.js';
-import { TwitchService } from '../services/twitchService.js';
+import { TwitchService } from '../modules/integrations/application/twitchService.js';
 
 const router = express.Router();
 const twitchService = new TwitchService();

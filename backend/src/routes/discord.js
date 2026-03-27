@@ -6,7 +6,7 @@
 
 import express from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import { User } from '../models/index.js';
+import { User } from '../modules/users/infrastructure/models.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();

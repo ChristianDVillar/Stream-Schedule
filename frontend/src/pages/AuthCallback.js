@@ -7,7 +7,7 @@ import {
   linkTwitterWithSupabaseToken,
   getOAuthLinkMode,
   clearOAuthLinkMode,
-} from '../api';
+} from '../features/auth/api';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export default function AuthCallback({ setAuth }) {

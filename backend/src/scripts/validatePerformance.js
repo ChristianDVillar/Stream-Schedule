@@ -3,7 +3,10 @@
  * Tests critical queries to ensure indexes are being used
  */
 
-import { sequelize, User, Content, Payment, Platform, Media } from '../models/index.js';
+import { sequelize, User } from '../modules/users/infrastructure/models.js';
+import { Content, Media } from '../modules/content/infrastructure/models.js';
+import { Payment } from '../modules/payments/infrastructure/models.js';
+import { Platform } from '../modules/system/infrastructure/models.js';
 import { usePostgres } from '../config/database.js';
 import logger from '../utils/logger.js';
 

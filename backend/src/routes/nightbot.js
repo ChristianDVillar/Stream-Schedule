@@ -5,7 +5,8 @@
  */
 
 import express from 'express';
-import { User, Todo } from '../models/index.js';
+import { User } from '../modules/users/infrastructure/models.js';
+import { Todo } from '../modules/content/infrastructure/models.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();

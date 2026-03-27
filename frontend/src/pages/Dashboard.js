@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getDiscordDashboardStats, cancelContent, getRouletteState, rouletteSpin, rouletteReset } from '../api';
+import { getDiscordDashboardStats } from '../features/discord/api';
+import { cancelContent, getRouletteState, rouletteSpin, rouletteReset } from '../features/scheduler/api';
 import { apiClient } from '../shared/api/client';
 import { getTwitchDashboardStats, getTwitchSubs, getTwitchBits, getTwitchDonations } from '../features/twitchBits/api';
 import { io } from 'socket.io-client';

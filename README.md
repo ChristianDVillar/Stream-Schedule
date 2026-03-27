@@ -55,8 +55,9 @@ Streamer Scheduler es una plataforma de gestión de contenido que permite a crea
 ## Novedades recientes (v2.3.0)
 
 - Reorganización profunda del repositorio por capas y dominios (frontend y backend), con migración incremental segura.
-- Extracción de lógica de recordatorios a capa de jobs (`backend/src/jobs/reminders`) y reducción de lógica de negocio en rutas.
-- Introducción de estructura feature-first en frontend (`shared/api`, `features/*/api`) para desacoplar `frontend/src/api.js`.
+- Orquestación de recordatorios consolidada en `modules/reminders/application/jobs` (manteniendo `jobs/reminders` solo como compatibilidad) y reducción de lógica de negocio en rutas.
+- Estructura feature-first en frontend (`shared/api`, `features/*/api`); el antiguo `frontend/src/api.js` global fue eliminado.
+- Escalado realtime preparado con soporte opcional de Redis pub/sub para Socket.IO (fallback automático a modo in-process).
 - Baseline de seguridad estructural con smoke check de entrypoints (`npm run smoke:baseline` en backend).
 - Reubicación y orden de documentación (incluyendo legal en `docs/legal`) y notas de migración técnica para mantenedores.
 
@@ -183,12 +184,12 @@ Si el Client ID en Supabase era de un cliente borrado o de otro proyecto en Goog
 Para que el login con Google o Twitch no redirija a localhost:
 
 1. **Supabase** → Tu proyecto → **Authentication** → **URL Configuration**
-   - **Site URL**: tu URL de producción (ej. `https://stream-schedule-v1.onrender.com`)
-   - **Redirect URLs**: añade `https://tu-dominio.onrender.com/auth/callback` (y mantén `http://localhost:3000/auth/callback` para desarrollo)
+   - **Site URL**: tu URL de producción (ej. `https://streamautomator.com`)
+   - **Redirect URLs**: añade `https://streamautomator.com/auth/callback` (y mantén `http://localhost:3000/auth/callback` para desarrollo)
 2. La app usa el origen actual para la redirección OAuth; no hace falta `REACT_APP_FRONTEND_URL` en producción.
 
 **Conectar Twitch para programar eventos y bits:** el flujo usa el API (no Supabase). En el **servicio API** de Render (Dashboard → tu servicio backend → **Environment**) define:
-- **FRONTEND_URL**: URL del frontend (ej. `https://stream-schedule-v1.onrender.com`). Si no está definida, tras autorizar en Twitch la redirección va a `http://localhost:3000` y verás `bad_oauth_state` en localhost.
+- **FRONTEND_URL**: URL del frontend (ej. `https://streamautomator.com`). Si no está definida, tras autorizar en Twitch la redirección puede apuntar a localhost y provocar `bad_oauth_state`.
 - **BACKEND_URL**: URL pública del API (ej. `https://stream-schedule-api.onrender.com`) para `redirect_uri` y webhooks. Opcional si el API ya conoce su propia URL.
 
 **Conectar X (Twitter) desde producción:** si ves *"X (Twitter) is not configured"* al usar la app en Render:

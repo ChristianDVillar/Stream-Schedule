@@ -10,7 +10,9 @@ import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { StreamModeProvider, useStreamMode } from './contexts/StreamModeContext';
 import { AuthProvider, useAuth } from './store/authStore';
 import { getStoredAccentColor, applyAccentColor, THEME_CHANGE_EVENT } from './utils/themeUtils';
-import { getUnreadMessageCount, getAdminFeatures, apiClient } from './api';
+import { getUnreadMessageCount } from './features/messaging/api';
+import { getAdminFeatures } from './features/admin/api';
+import { apiClient } from './shared/api/client';
 import AppFooter from './components/AppFooter';
 
 const PUBLIC_PAGES_WITH_OWN_FOOTER = ['/', '/pricing', '/privacy', '/terms', '/faq'];

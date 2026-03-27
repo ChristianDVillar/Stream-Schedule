@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { MessageSquare, Send, AlertCircle, Image as ImageIcon, X } from 'lucide-react';
-import { createMessage } from '../api';
+import { createMessage } from '../features/messaging/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
 

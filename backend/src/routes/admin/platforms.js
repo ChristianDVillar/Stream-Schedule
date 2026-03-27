@@ -6,7 +6,7 @@
 
 import express from 'express';
 import { requireAuth, requireAdmin } from '../../middleware/auth.js';
-import platformConfigService from '../../services/platformConfigService.js';
+import platformConfigService from '../../modules/system/application/platformConfigService.js';
 import logger from '../../utils/logger.js';
 
 const router = express.Router();

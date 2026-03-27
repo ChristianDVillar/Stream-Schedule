@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Save, User, Bell, Globe, Shield, Palette, Key, MessageSquare, Download, Bot, Layout } from 'lucide-react';
 import {
-  apiClient,
   createCheckout,
   createCustomerPortal,
   verifyPaymentSession,
@@ -14,6 +13,8 @@ import {
   getSubscriptionStatus,
   cancelSubscription,
   getPaymentHistory,
+} from '../../features/payments/api';
+import {
   getConnectedAccounts,
   startDiscordLink,
   startGoogleLink,
@@ -28,7 +29,8 @@ import {
   disconnectDiscord,
   disconnectYoutube,
   disconnectSlack,
-} from '../../api';
+} from '../../features/account/api';
+import { apiClient } from '../../shared/api/client';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { THEME_CHANGE_EVENT, getCustomColorConfig, setCustomColorConfig, applyCustomColors } from '../../utils/themeUtils';
 import { getPlatformColors } from '../../utils/platformColors';

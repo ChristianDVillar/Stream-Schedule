@@ -51,7 +51,7 @@ export async function getRedis() {
         ? err.errors.map((e) => e?.message || String(e)).join('; ')
         : err?.message;
       logger.warn('Redis connection error', { error: detail || err });
-      import('../services/alertService.js').then((m) => m.notifyRedisError(err)).catch(() => {});
+      import('../modules/system/application/alertService.js').then((m) => m.notifyRedisError(err)).catch(() => {});
     });
     return redis;
   } catch (err) {
