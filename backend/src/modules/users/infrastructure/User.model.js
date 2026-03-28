@@ -180,6 +180,21 @@ const User = sequelize.define('User', {
     allowNull: true,
     comment: 'Discord webhook URL to post "Stream started!" when POST /webhooks/stream/start is called',
   },
+  akoenetWebhookUrl: {
+    type: DataTypes.STRING(2000),
+    allowNull: true,
+    comment: 'AkoeNet POST URL for /integrations/scheduler/webhooks/stream-scheduled (local or public)',
+  },
+  akoenetWebhookSecret: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    comment: 'Shared secret for AkoeNet webhook header; never returned to API clients',
+  },
+  akoenetAnnounceChannelId: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    comment: 'Optional channel id sent as channel_id in AkoeNet payload',
+  },
   streamGoalType: {
     type: DataTypes.STRING,
     allowNull: true,

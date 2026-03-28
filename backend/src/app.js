@@ -36,7 +36,7 @@ import healthRoutes from './routes/health.js';
 import templatesRoutes from './routes/templates.js';
 import todosRoutes from './routes/todos.js';
 import nightbotRoutes from './routes/nightbot.js';
-import streamerRoutes from './routes/streamer.js';
+import streamerRoutes, { publicStreamerUpcomingRouter } from './routes/streamer.js';
 import webhooksRoutes from './routes/webhooks/index.js';
 import rouletteRoutes from './routes/roulette.js';
 import streamItemsRoutes from './routes/streamItems.js';
@@ -91,20 +91,39 @@ if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process
   process.exit(1);
 }
 
-// CORS: allow FRONTEND_URL (single) or FRONTEND_URLS (comma-separated). Default localhost for dev.
+// CORS: allow FRONTEND_URL (single) or FRONTEND_URLS (comma-separated). Default common dev origins.
 // If you use a custom domain (e.g. streamautomator.com), set FRONTEND_URLS to include your domains:
 //   FRONTEND_URLS=https://streamautomator.com,https://stream-schedule-v1.onrender.com
 // so requests from the custom domain are allowed. FRONTEND_URL is still used for OAuth redirects.
+function isLocalDevBrowserOrigin(origin) {
+  try {
+    const u = new URL(origin);
+    const h = u.hostname.toLowerCase();
+    if (h !== 'localhost' && h !== '127.0.0.1') return false;
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 const corsOriginConfig = (() => {
   const urls = process.env.FRONTEND_URLS
     ? process.env.FRONTEND_URLS.split(',').map((u) => u.trim()).filter(Boolean)
     : process.env.FRONTEND_URL
       ? [process.env.FRONTEND_URL.trim()]
-      : ['http://localhost:3000'];
+      : [
+          'http://localhost:3000',
+          'http://localhost:5173',
+          'http://127.0.0.1:3000',
+          'http://127.0.0.1:5173',
+        ];
   const isProduction = process.env.NODE_ENV === 'production';
   return (origin, cb) => {
+    // Same-origin navigation, curl, Postman: often no Origin header
     if (!origin) return cb(null, true);
     if (urls.includes(origin)) return cb(null, origin);
+    // Dev: any localhost / 127.0.0.1 port (CRA, Vite, alternate ports) so ACAO is always set when Origin is local
+    if (!isProduction && isLocalDevBrowserOrigin(origin)) return cb(null, origin);
     // Production fallback: allow Render frontends when env not set
     if (isProduction && (origin === 'https://stream-schedule-v1.onrender.com' || /^https:\/\/[\w-]+\.onrender\.com$/.test(origin))) {
       return cb(null, origin);
@@ -354,6 +373,7 @@ app.use('/api/templates', templatesRoutes);
 app.use('/api/todos', todosRoutes);
 app.use('/api/nightbot', nightbotRoutes);
 app.use('/api/streamer', streamerRoutes);
+app.use('/api/public/streamer', publicStreamerUpcomingRouter);
 app.use('/api/webhooks', webhookLimiter, webhooksRoutes);
 app.use('/api/roulette', rouletteRoutes);
 app.use('/api/stream-items', streamItemsRoutes);

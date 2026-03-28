@@ -3,11 +3,14 @@
  * Streamer-friendly layout: quick setup, command table, copy-paste ready docs.
  */
 import React, { useState, useEffect } from 'react';
-import { Bot, Copy, RefreshCw, Check, ExternalLink, Key, ListTodo, Calendar, Radio, MessageSquare, Zap, Monitor, ChevronDown, ChevronRight } from 'lucide-react';
+import { Bot, Copy, RefreshCw, Check, ExternalLink, Key, ListTodo, Calendar, Radio, MessageSquare, Zap, Monitor, ChevronDown, ChevronRight, Link2 } from 'lucide-react';
 import { getNightbotKey, generateNightbotKey } from '../../features/integrations/api';
 import toast from 'react-hot-toast';
 import { useStreamMode } from '../../contexts/StreamModeContext';
 import { getPublicFrontendOrigin } from '../../shared/config/publicUrls';
+import { apiClient } from '../../shared/api/client';
+
+const MASK = '••••••••••••••••';
 
 const API_BASE = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '') || (typeof window !== 'undefined' ? window.location.origin.replace(/\/$/, '') : '');
 const NIGHTBOT_TODO_URL = API_BASE ? `${API_BASE}/api/nightbot/todo` : '';
@@ -36,12 +39,16 @@ function CopyButton({ text, label, copiedMessage = 'Copied', className = '' }) {
   );
 }
 
-export default function SettingsBotsTab({ user, token, t }) {
+export default function SettingsBotsTab({ user, token, t, setUser }) {
   const { streamMode } = useStreamMode();
   const [key, setKey] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [copiedNightbot, setCopiedNightbot] = useState(false);
+  const [akoenetUrl, setAkoenetUrl] = useState('');
+  const [akoenetSecret, setAkoenetSecret] = useState('');
+  const [akoenetChannelId, setAkoenetChannelId] = useState('');
+  const [akoenetSaving, setAkoenetSaving] = useState(false);
 
   const fetchKey = async () => {
     if (!token) return;
@@ -60,6 +67,46 @@ export default function SettingsBotsTab({ user, token, t }) {
     fetchKey();
   // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchKey on mount and when token changes
   }, [token]);
+
+  useEffect(() => {
+    setAkoenetUrl(user?.akoenetWebhookUrl || '');
+    setAkoenetChannelId(user?.akoenetAnnounceChannelId || '');
+    setAkoenetSecret('');
+  }, [user?.akoenetWebhookUrl, user?.akoenetAnnounceChannelId, user?.id]);
+
+  const handleSaveAkoeNet = async (clearSecret = false) => {
+    if (!token) return;
+    setAkoenetSaving(true);
+    try {
+      const payload = {
+        akoenetWebhookUrl: akoenetUrl.trim() || null,
+        akoenetAnnounceChannelId: akoenetChannelId.trim() || null,
+      };
+      if (clearSecret) {
+        payload.akoenetWebhookSecret = null;
+      } else if (akoenetSecret.trim()) {
+        payload.akoenetWebhookSecret = akoenetSecret.trim();
+      }
+      const response = await apiClient.put('/user/profile', payload, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true,
+      });
+      if (setUser && response.data?.user) {
+        const updatedUser = { ...user, ...response.data.user };
+        setUser(updatedUser);
+        localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+      }
+      setAkoenetSecret('');
+      toast.success(t('bots.akoenetSaved') || 'AkoeNet settings saved.');
+    } catch (err) {
+      const msg = err.response?.data?.details
+        ? (Array.isArray(err.response.data.details) ? err.response.data.details.map((d) => d.message).join('. ') : err.response.data.details)
+        : err.response?.data?.error || err.message || t('settings.profileUpdateFailed');
+      toast.error(msg);
+    } finally {
+      setAkoenetSaving(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (key && !window.confirm(t('bots.regenerateConfirm') || 'This will invalidate your current API key. Bots using the old key will stop working. Continue?')) {
@@ -154,6 +201,9 @@ export default function SettingsBotsTab({ user, token, t }) {
           <button type="button" onClick={() => scrollToId('bots-api-key')} className="text-xs px-3 py-1.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">
             {t('bots.navApiKey') || 'API key'}
           </button>
+          <button type="button" onClick={() => scrollToId('bots-akoenet')} className="text-xs px-3 py-1.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-200 hover:bg-violet-200 dark:hover:bg-violet-800/50 transition-colors">
+            {t('bots.navAkoeNet') || 'AkoeNet'}
+          </button>
           <button type="button" onClick={() => scrollToId('bots-overlays')} className="text-xs px-3 py-1.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800/50 transition-colors">
             {t('bots.navOverlays') || 'Overlays (OBS)'}
           </button>
@@ -210,6 +260,91 @@ export default function SettingsBotsTab({ user, token, t }) {
             {generating ? (t('bots.generating') || 'Generating...') : (t('bots.generateKey') || 'Generate API key')}
           </button>
         )}
+      </div>
+
+      {/* AkoeNet — local/private URL supported */}
+      <div id="bots-akoenet" className="rounded-xl border border-violet-200 dark:border-violet-800 bg-gradient-to-br from-violet-50/90 to-white dark:from-violet-950/30 dark:to-gray-800/50 p-5 sm:p-6 scroll-mt-4">
+        <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100 font-medium mb-1">
+          <Link2 className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+          {t('bots.akoenetTitle') || 'AkoeNet'}
+        </div>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 max-w-2xl">
+          {t('bots.akoenetDescription') || 'Announce scheduled streams in your AkoeNet community. In dev, AkoeNet often runs on Vite at http://localhost:5173 — use the URL that reaches your AkoeNet API (with proxy: same host/port + path /integrations/scheduler/webhooks/stream-scheduled; without proxy: your backend port). LAN, ngrok, or Cloudflare Tunnel also work.'}
+        </p>
+        <div className="space-y-4 max-w-xl">
+          <div>
+            <label htmlFor="akoenetWebhookUrl" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {t('bots.akoenetWebhookUrl') || 'Webhook URL'}
+            </label>
+            <input
+              id="akoenetWebhookUrl"
+              type="url"
+              autoComplete="off"
+              value={streamMode && akoenetUrl ? MASK : akoenetUrl}
+              onChange={(e) => !streamMode && setAkoenetUrl(e.target.value)}
+              readOnly={streamMode}
+              className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+              placeholder="http://localhost:5173/integrations/scheduler/webhooks/stream-scheduled"
+            />
+          </div>
+          <div>
+            <label htmlFor="akoenetWebhookSecret" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {t('bots.akoenetSecret') || 'Shared secret'}
+            </label>
+            <input
+              id="akoenetWebhookSecret"
+              type="password"
+              autoComplete="new-password"
+              value={streamMode ? '' : akoenetSecret}
+              onChange={(e) => !streamMode && setAkoenetSecret(e.target.value)}
+              readOnly={streamMode}
+              className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+              placeholder={user?.akoenetWebhookSecretSet ? (t('bots.akoenetSecretPlaceholder') || 'Leave blank to keep current secret') : (t('bots.akoenetSecretPlaceholderNew') || 'Same value as SCHEDULER_WEBHOOK_SECRET on AkoeNet')}
+            />
+            {user?.akoenetWebhookSecretSet && !streamMode && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {t('bots.akoenetSecretStored') || 'A secret is already saved. Enter a new one to replace it, or clear it below.'}
+              </p>
+            )}
+          </div>
+          <div>
+            <label htmlFor="akoenetAnnounceChannelId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {t('bots.akoenetChannelId') || 'Channel ID (optional)'}
+            </label>
+            <input
+              id="akoenetAnnounceChannelId"
+              type="text"
+              autoComplete="off"
+              value={akoenetChannelId}
+              onChange={(e) => setAkoenetChannelId(e.target.value)}
+              className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+              placeholder={t('bots.akoenetChannelIdPlaceholder') || 'Override announce channel in payload (optional)'}
+            />
+          </div>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <button
+              type="button"
+              disabled={akoenetSaving || streamMode}
+              onClick={() => handleSaveAkoeNet(false)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium disabled:opacity-50 transition-colors"
+            >
+              {akoenetSaving ? (t('common.saving') || 'Saving…') : (t('bots.akoenetSave') || 'Save AkoeNet')}
+            </button>
+            {user?.akoenetWebhookSecretSet && !streamMode && (
+              <button
+                type="button"
+                disabled={akoenetSaving}
+                onClick={() => {
+                  if (!window.confirm(t('bots.akoenetClearSecretConfirm') || 'Remove the stored webhook secret?')) return;
+                  handleSaveAkoeNet(true);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                {t('bots.akoenetClearSecret') || 'Clear secret'}
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Overlays for OBS — prominent, step-by-step */}

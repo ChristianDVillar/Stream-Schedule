@@ -2958,7 +2958,7 @@ router.get('/license', requireAuth, async (req, res) => {
 
 // Update user profile
 router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog('profile_updated', 'User'), async (req, res) => {
-  const { username, email, merchandisingLink, merchandisingButtonPosition, profileImageUrl, dashboardShowTwitchSubs, dashboardShowTwitchBits, dashboardShowTwitchDonations, discordClipsGuildId, discordClipsChannelId, streamGoalType, streamGoalTarget, discordAnnounceWebhookUrl, publicPageBannerUrl, publicPageBannerPosition } = req.body;
+  const { username, email, merchandisingLink, merchandisingButtonPosition, profileImageUrl, dashboardShowTwitchSubs, dashboardShowTwitchBits, dashboardShowTwitchDonations, discordClipsGuildId, discordClipsChannelId, streamGoalType, streamGoalTarget, discordAnnounceWebhookUrl, publicPageBannerUrl, publicPageBannerPosition, akoenetWebhookUrl, akoenetAnnounceChannelId, akoenetWebhookSecret } = req.body;
   try {
     const user = await User.findByPk(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -3004,6 +3004,24 @@ router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog(
     if (streamGoalType !== undefined) user.streamGoalType = streamGoalType === 'followers' || streamGoalType === 'subs' ? streamGoalType : null;
     if (streamGoalTarget !== undefined) user.streamGoalTarget = streamGoalTarget != null && Number.isInteger(Number(streamGoalTarget)) && Number(streamGoalTarget) >= 1 ? Number(streamGoalTarget) : null;
     if (discordAnnounceWebhookUrl !== undefined) user.discordAnnounceWebhookUrl = discordAnnounceWebhookUrl && String(discordAnnounceWebhookUrl).trim() ? String(discordAnnounceWebhookUrl).trim() : null;
+    if (akoenetWebhookUrl !== undefined) {
+      const u = akoenetWebhookUrl && String(akoenetWebhookUrl).trim() ? String(akoenetWebhookUrl).trim() : null;
+      user.akoenetWebhookUrl = u;
+      if (!u) user.akoenetWebhookSecret = null;
+    }
+    if (akoenetAnnounceChannelId !== undefined) {
+      user.akoenetAnnounceChannelId = akoenetAnnounceChannelId && String(akoenetAnnounceChannelId).trim()
+        ? String(akoenetAnnounceChannelId).trim()
+        : null;
+    }
+    if (akoenetWebhookSecret !== undefined) {
+      if (akoenetWebhookSecret === null || (typeof akoenetWebhookSecret === 'string' && !akoenetWebhookSecret.trim())) {
+        user.akoenetWebhookSecret = null;
+      } else {
+        user.akoenetWebhookSecret = String(akoenetWebhookSecret).trim();
+      }
+    }
+    if (!user.akoenetWebhookUrl) user.akoenetWebhookSecret = null;
     if (publicPageBannerUrl !== undefined) user.publicPageBannerUrl = publicPageBannerUrl && String(publicPageBannerUrl).trim() ? String(publicPageBannerUrl).trim() : null;
     if (publicPageBannerPosition !== undefined) user.publicPageBannerPosition = ['top', 'above-avatar', 'above-schedule', 'center', 'bottom', 'background'].includes(publicPageBannerPosition) ? publicPageBannerPosition : 'top';
 
@@ -3034,7 +3052,10 @@ router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog(
         streamGoalTarget: plain.streamGoalTarget ?? null,
         discordAnnounceWebhookUrl: plain.discordAnnounceWebhookUrl || null,
         publicPageBannerUrl: plain.publicPageBannerUrl || null,
-        publicPageBannerPosition: plain.publicPageBannerPosition || 'top'
+        publicPageBannerPosition: plain.publicPageBannerPosition || 'top',
+        akoenetWebhookUrl: plain.akoenetWebhookUrl || null,
+        akoenetAnnounceChannelId: plain.akoenetAnnounceChannelId || null,
+        akoenetWebhookSecretSet: !!(plain.akoenetWebhookSecret && String(plain.akoenetWebhookSecret).trim()),
       }
     });
   } catch (err) {

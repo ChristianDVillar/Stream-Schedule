@@ -118,7 +118,10 @@ export function buildUserResponse(user) {
     discordClipsGuildId: userPlain.discordClipsGuildId || null,
     discordClipsChannelId: userPlain.discordClipsChannelId || null,
     publicPageBannerUrl: userPlain.publicPageBannerUrl || null,
-    publicPageBannerPosition: userPlain.publicPageBannerPosition || 'top'
+    publicPageBannerPosition: userPlain.publicPageBannerPosition || 'top',
+    akoenetWebhookUrl: userPlain.akoenetWebhookUrl || null,
+    akoenetAnnounceChannelId: userPlain.akoenetAnnounceChannelId || null,
+    akoenetWebhookSecretSet: !!(userPlain.akoenetWebhookSecret && String(userPlain.akoenetWebhookSecret).trim()),
   };
 }
 

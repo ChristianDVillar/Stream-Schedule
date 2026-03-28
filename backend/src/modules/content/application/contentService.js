@@ -8,6 +8,7 @@ import { CONTENT_STATUS } from '../../../constants/contentStatus.js';
 import logger from '../../../utils/logger.js';
 import { parsePagination, formatPaginatedResponse } from '../../../utils/pagination.js';
 import { enqueueDiscordSync } from '../../../services/discordQueueService.js';
+import { enqueueAkoeNetStreamScheduled } from '../../../services/akoeNetWebhookService.js';
 
 function isDiscordEventContent(content) {
   const platforms = Array.isArray(content.platforms) ? content.platforms : [];
@@ -62,6 +63,7 @@ export class ContentService {
           logger.warn('Enqueue Discord sync after create failed', { contentId: c.id, error: err.message })
         );
       }
+      enqueueAkoeNetStreamScheduled(userId, c);
     }
 
     return created;
@@ -147,6 +149,7 @@ export class ContentService {
         logger.warn('Enqueue Discord sync after update failed', { contentId, error: err.message })
       );
     }
+    enqueueAkoeNetStreamScheduled(userId, content);
 
     return content;
   }
