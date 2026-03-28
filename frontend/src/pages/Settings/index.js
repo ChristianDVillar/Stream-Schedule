@@ -771,6 +771,7 @@ export default function Settings({ user, token, setUser }) {
           <SettingsBotsTab
             user={user}
             token={token}
+            setUser={setUser}
             t={t}
           />
         );

@@ -127,6 +127,10 @@ export const updateProfileSchema = Joi.object({
   streamGoalType: Joi.string().valid('followers', 'subs').allow(null).optional(),
   streamGoalTarget: Joi.number().integer().min(1).allow(null).optional(),
   discordAnnounceWebhookUrl: Joi.string().uri().allow('', null).optional(),
+  akoenetWebhookUrl: Joi.string().uri().max(2000).allow('', null).optional(),
+  akoenetAnnounceChannelId: Joi.string().max(100).allow('', null).optional(),
+  /** Omit to leave unchanged; empty string or null clears stored secret */
+  akoenetWebhookSecret: Joi.string().max(2000).allow(null, '').optional(),
   publicPageBannerUrl: Joi.string().uri().max(2000).allow('', null).optional().messages({
     'string.uri': 'Banner image must be a valid URL'
   }),

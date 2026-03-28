@@ -1,8 +1,12 @@
 /**
  * Public streamer page API — no auth.
- * GET /api/streamer/:username/events — upcoming streams for a user (by username).
+ * GET /api/streamer/:username/events — upcoming streams (same JSON as /upcoming).
+ * GET /api/streamer/:username/upcoming — alias for integrations (e.g. AkoeNet).
+ * GET /api/public/streamer/:username/upcoming — legacy path some .env templates use.
  * POST /api/streamer/:username/remind — subscribe to stream reminders (email).
  * Used by /streamer/:username and /embed/streamer/:username.
+ *
+ * Response includes both `events` and `upcoming` (same array) for compatibility.
  */
 
 import express from 'express';
@@ -23,10 +27,9 @@ const UPCOMING_STATUSES = [
 ];
 
 /**
- * GET /api/streamer/:username/events
- * Returns streamer profile, upcoming events, and live Twitch status (liveOnTwitch, twitchStreamUrl, twitchStreamTitle).
+ * Shared handler: GET .../events and .../upcoming (public).
  */
-router.get('/:username/events', async (req, res) => {
+async function handlePublicStreamerEvents(req, res) {
   try {
     const username = (req.params.username || '').trim();
     if (!username) {
@@ -138,6 +141,7 @@ router.get('/:username/events', async (req, res) => {
       publicPageBannerUrl: user.publicPageBannerUrl || null,
       publicPageBannerPosition: user.publicPageBannerPosition || 'top',
       events: eventsJson,
+      upcoming: eventsJson,
       liveOnTwitch,
       twitchStreamUrl,
       twitchStreamTitle,
@@ -147,7 +151,14 @@ router.get('/:username/events', async (req, res) => {
     logger.error('Public streamer events error', { error: err.message, username: req.params.username });
     res.status(500).json({ error: 'Failed to load schedule' });
   }
-});
+}
+
+router.get('/:username/events', handlePublicStreamerEvents);
+router.get('/:username/upcoming', handlePublicStreamerEvents);
+
+/** Same handler mounted at /api/public/streamer for legacy integrator URLs. */
+export const publicStreamerUpcomingRouter = express.Router();
+publicStreamerUpcomingRouter.get('/:username/upcoming', handlePublicStreamerEvents);
 
 /**
  * POST /api/streamer/:username/remind
