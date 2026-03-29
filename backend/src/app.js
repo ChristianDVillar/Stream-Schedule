@@ -33,6 +33,7 @@ import discordRoutes from './routes/discord.js';
 import youtubeRoutes from './routes/youtube.js';
 import instagramRoutes from './routes/instagram.js';
 import healthRoutes from './routes/health.js';
+import integrationPublicRoutes from './routes/integrationPublic.js';
 import templatesRoutes from './routes/templates.js';
 import todosRoutes from './routes/todos.js';
 import nightbotRoutes from './routes/nightbot.js';
@@ -106,6 +107,11 @@ function isLocalDevBrowserOrigin(origin) {
   }
 }
 
+const integrationCorsOrigins = (process.env.INTEGRATION_CORS_ORIGINS || '')
+  .split(',')
+  .map((u) => u.trim())
+  .filter(Boolean);
+
 const corsOriginConfig = (() => {
   const urls = process.env.FRONTEND_URLS
     ? process.env.FRONTEND_URLS.split(',').map((u) => u.trim()).filter(Boolean)
@@ -121,6 +127,7 @@ const corsOriginConfig = (() => {
   return (origin, cb) => {
     // Same-origin navigation, curl, Postman: often no Origin header
     if (!origin) return cb(null, true);
+    if (integrationCorsOrigins.includes(origin)) return cb(null, origin);
     if (urls.includes(origin)) return cb(null, origin);
     // Dev: any localhost / 127.0.0.1 port (CRA, Vite, alternate ports) so ACAO is always set when Origin is local
     if (!isProduction && isLocalDevBrowserOrigin(origin)) return cb(null, origin);
@@ -174,6 +181,9 @@ app.use(metricsMiddleware);
 
 // CSRF token endpoint (before auth, public)
 app.get('/api/csrf-token', getCsrfToken);
+
+// AkoeNet / integrators: discovery (no auth). Mount before heavy routes.
+app.use('/api/integration', integrationPublicRoutes);
 
 // OAuth routes: register before authenticateToken so login/link callbacks work without JWT
 // (callbacks are GET redirects from the provider and do not send Authorization header).
@@ -406,6 +416,7 @@ app.get('/', (req, res) => {
     status: 'running',
     endpoints: {
       health: '/api/health',
+      integration: '/api/integration/akoenet',
       user: '/api/user',
       content: '/api/content',
       platforms: '/api/platforms',

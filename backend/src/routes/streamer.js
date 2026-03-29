@@ -2,6 +2,7 @@
  * Public streamer page API — no auth.
  * GET /api/streamer/:username/events — upcoming streams (same JSON as /upcoming).
  * GET /api/streamer/:username/upcoming — alias for integrations (e.g. AkoeNet).
+ * :username may be the public Scheduler slug (Users.username) or the Twitch login if TWITCH_CLIENT_* is set and the user has twitchId linked.
  * GET /api/public/streamer/:username/upcoming — legacy path some .env templates use.
  * POST /api/streamer/:username/remind — subscribe to stream reminders (email).
  * Used by /streamer/:username and /embed/streamer/:username.
@@ -27,6 +28,39 @@ const UPCOMING_STATUSES = [
 ];
 
 /**
+ * Public slug is Users.username. Integrations (e.g. AkoeNet) often pass Twitch login instead;
+ * resolve via Helix + Users.twitchId when the slug does not match.
+ */
+async function resolvePublicStreamerUser(usernameRaw, attributes) {
+  const username = (usernameRaw || '').trim();
+  if (!username) return null;
+
+  let user = await User.findOne({
+    where: sequelize.where(sequelize.fn('LOWER', sequelize.col('username')), username.toLowerCase()),
+    attributes,
+  });
+  if (user) return user;
+
+  const twitchHelixUser = await twitchService.getUserByLogin(username);
+  if (!twitchHelixUser?.id) return null;
+
+  return User.findOne({
+    where: { twitchId: String(twitchHelixUser.id) },
+    attributes,
+  });
+}
+
+const PUBLIC_STREAMER_USER_ATTRS = [
+  'id',
+  'username',
+  'profileImageUrl',
+  'publicPageBannerUrl',
+  'publicPageBannerPosition',
+  'twitterId',
+  'discordId',
+];
+
+/**
  * Shared handler: GET .../events and .../upcoming (public).
  */
 async function handlePublicStreamerEvents(req, res) {
@@ -36,18 +70,7 @@ async function handlePublicStreamerEvents(req, res) {
       return res.status(400).json({ error: 'Username required' });
     }
 
-    const user = await User.findOne({
-      where: sequelize.where(sequelize.fn('LOWER', sequelize.col('username')), username.toLowerCase()),
-      attributes: [
-        'id',
-        'username',
-        'profileImageUrl',
-        'publicPageBannerUrl',
-        'publicPageBannerPosition',
-        'twitterId',
-        'discordId',
-      ],
-    });
+    const user = await resolvePublicStreamerUser(username, PUBLIC_STREAMER_USER_ATTRS);
     if (!user) {
       return res.status(404).json({ error: 'Streamer not found' });
     }
@@ -176,10 +199,7 @@ router.post('/:username/remind', async (req, res) => {
       return res.status(400).json({ error: 'Valid email required' });
     }
 
-    const user = await User.findOne({
-      where: sequelize.where(sequelize.fn('LOWER', sequelize.col('username')), username.toLowerCase()),
-      attributes: ['id'],
-    });
+    const user = await resolvePublicStreamerUser(username, ['id']);
     if (!user) {
       return res.status(404).json({ error: 'Streamer not found' });
     }
@@ -221,10 +241,7 @@ router.post('/:username/suggest', async (req, res) => {
       return res.status(400).json({ error: 'Suggestion text required (max 500 chars).' });
     }
 
-    const user = await User.findOne({
-      where: sequelize.where(sequelize.fn('LOWER', sequelize.col('username')), username.toLowerCase()),
-      attributes: ['id'],
-    });
+    const user = await resolvePublicStreamerUser(username, ['id']);
     if (!user) {
       return res.status(404).json({ error: 'Streamer not found' });
     }

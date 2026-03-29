@@ -3,7 +3,8 @@
  * Uses per-user URL + secret from Settings when set; otherwise env AKOENET_SCHEDULER_WEBHOOK_URL + SCHEDULER_WEBHOOK_SECRET.
  */
 
-import { User, Integration } from '../models/index.js';
+import { User } from '../modules/users/infrastructure/models.js';
+import { Integration } from '../modules/integrations/infrastructure/models.js';
 import { twitchService } from '../modules/integrations/application/twitchService.js';
 import logger from '../utils/logger.js';
 
@@ -104,13 +105,19 @@ export async function notifyAkoeNetStreamScheduled(userId, content) {
     return;
   }
 
+  const slug = user.username;
   const payload = {
-    streamer: user.username,
+    streamer: slug,
+    /** Explicit public slug (same as streamer); helps AkoeNet map without ambiguity. */
+    scheduler_slug: slug,
     title: (content.title || 'Scheduled stream').slice(0, 500),
     starts_at: scheduled.toISOString(),
     url: streamUrl,
     platform,
   };
+  if (twitchLogin) {
+    payload.twitch_login = twitchLogin;
+  }
 
   const channelId = parseAnnounceChannelIdFromUser(user) ?? parseAnnounceChannelIdFromEnv();
   if (channelId !== undefined) {

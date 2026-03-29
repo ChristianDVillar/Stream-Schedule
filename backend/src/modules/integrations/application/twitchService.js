@@ -244,6 +244,19 @@ export class TwitchService {
     }
   }
 
+  /** App access token. Used so public /api/streamer/:login can resolve Twitch login → linked User. */
+  async getUserByLogin(login) {
+    const l = (login || '').trim().toLowerCase();
+    if (!l) return null;
+    try {
+      const data = await this.makeRequest(`/users?login=${encodeURIComponent(l)}`);
+      return data.data?.[0] || null;
+    } catch (error) {
+      logger.warn('Twitch getUserByLogin failed', { login: l, error: error.message });
+      return null;
+    }
+  }
+
   async getChannelFollowers(broadcasterId, userAccessToken) {
     try {
       const data = await this.makeRequest(
