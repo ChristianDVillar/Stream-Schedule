@@ -104,13 +104,19 @@ export async function notifyAkoeNetStreamScheduled(userId, content) {
     return;
   }
 
+  const slug = user.username;
   const payload = {
-    streamer: user.username,
+    streamer: slug,
+    /** Explicit public slug (same as streamer); helps AkoeNet map without ambiguity. */
+    scheduler_slug: slug,
     title: (content.title || 'Scheduled stream').slice(0, 500),
     starts_at: scheduled.toISOString(),
     url: streamUrl,
     platform,
   };
+  if (twitchLogin) {
+    payload.twitch_login = twitchLogin;
+  }
 
   const channelId = parseAnnounceChannelIdFromUser(user) ?? parseAnnounceChannelIdFromEnv();
   if (channelId !== undefined) {
