@@ -3,7 +3,8 @@
  * Uses per-user URL + secret from Settings when set; otherwise env AKOENET_SCHEDULER_WEBHOOK_URL + SCHEDULER_WEBHOOK_SECRET.
  */
 
-import { User, Integration } from '../models/index.js';
+import { User } from '../modules/users/infrastructure/models.js';
+import { Integration } from '../modules/integrations/infrastructure/models.js';
 import { twitchService } from '../modules/integrations/application/twitchService.js';
 import logger from '../utils/logger.js';
 
