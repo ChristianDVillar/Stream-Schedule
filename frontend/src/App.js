@@ -134,7 +134,7 @@ function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInst
   );
 }
 
-function Sidebar({ user, open, onClose, adminUnreadMessageCount = 0, adminFinance = true }) {
+function Sidebar({ user, open, onClose, adminUnreadMessageCount = 0, adminFinance = true, akoenetModules = false }) {
   const { t } = useLanguage();
   const location = useLocation();
   const supportCount = adminUnreadMessageCount ?? 0;
@@ -143,8 +143,15 @@ function Sidebar({ user, open, onClose, adminUnreadMessageCount = 0, adminFinanc
   const isActive = (path) => {
     if (path.includes('?')) {
       const [basePath, query] = path.split('?');
-      const [queryKey] = query.split('=');
-      return location.pathname === basePath && location.search.includes(`${queryKey}=`);
+      if (location.pathname !== basePath) return false;
+      const want = new URLSearchParams(query);
+      const have = new URLSearchParams(
+        location.search.startsWith('?') ? location.search.slice(1) : location.search
+      );
+      for (const key of want.keys()) {
+        if (want.get(key) !== have.get(key)) return false;
+      }
+      return true;
     }
     return location.pathname === path;
   };
@@ -198,6 +205,25 @@ function Sidebar({ user, open, onClose, adminUnreadMessageCount = 0, adminFinanc
             </Link>
             <Link to="/admin?section=notifications" className={getLinkClasses("/admin?section=notifications") + " pl-6 text-sm"}>{t('admin.menuNotifications')}</Link>
             <Link to="/admin?section=platforms" className={getLinkClasses("/admin?section=platforms") + " pl-6 text-sm"}>{t('admin.menuPlatforms')}</Link>
+            {akoenetModules && (
+              <>
+                <div className="px-3 py-1.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  {t('admin.menuAkoenetGroup') || 'AkoeNet'}
+                </div>
+                <Link to="/admin?section=akoenet-health" className={getLinkClasses("/admin?section=akoenet-health") + " pl-6 text-sm"}>
+                  {t('admin.menuAkoenetHealth') || 'AkoeNet health'}
+                </Link>
+                <Link to="/admin?section=akoenet-metrics" className={getLinkClasses("/admin?section=akoenet-metrics") + " pl-6 text-sm"}>
+                  {t('admin.menuAkoenetMetrics') || 'AkoeNet metrics'}
+                </Link>
+                <Link to="/admin?section=akoenet-audit" className={getLinkClasses("/admin?section=akoenet-audit") + " pl-6 text-sm"}>
+                  {t('admin.menuAkoenetAudit') || 'AkoeNet audit'}
+                </Link>
+                <Link to="/admin?section=akoenet-reports" className={getLinkClasses("/admin?section=akoenet-reports") + " pl-6 text-sm"}>
+                  {t('admin.menuAkoenetReports') || 'AkoeNet reports'}
+                </Link>
+              </>
+            )}
             <Link to="/admin?section=payments" className={getLinkClasses("/admin?section=payments") + " pl-6 text-sm"}>{t('admin.menuPayments')}</Link>
             {adminFinance && <Link to="/admin?section=alerts" className={getLinkClasses("/admin?section=alerts") + " pl-6 text-sm"}>{t('admin.menuAlerts')}</Link>}
           </>
@@ -335,19 +361,27 @@ function AppContent() {
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
   const [adminUnreadMessageCount, setAdminUnreadMessageCount] = useState(0);
   const [adminFinance, setAdminFinance] = useState(true);
+  const [akoenetModules, setAkoenetModules] = useState(false);
   // Admin: fetch unread support message count and feature flags for sidebar
   useEffect(() => {
     if (!user?.isAdmin || !token) {
       setAdminUnreadMessageCount(0);
       setAdminFinance(true);
+      setAkoenetModules(false);
       return;
     }
     getUnreadMessageCount(token)
       .then((r) => setAdminUnreadMessageCount(r.data?.unreadCount ?? 0))
       .catch(() => setAdminUnreadMessageCount(0));
     getAdminFeatures(token)
-      .then((f) => setAdminFinance(f.adminFinance))
-      .catch(() => setAdminFinance(false));
+      .then((f) => {
+        setAdminFinance(f.adminFinance !== false);
+        setAkoenetModules(!!f.akoenetModules);
+      })
+      .catch(() => {
+        setAdminFinance(false);
+        setAkoenetModules(false);
+      });
   }, [user?.isAdmin, token, location.pathname]);
 
   // Close sidebar on mobile/tablet when route changes (e.g. after tapping Dashboard, Profile, Settings)
@@ -413,7 +447,16 @@ function AppContent() {
       <Toaster position="top-right" />
       <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 min-w-0">
         <div className="flex flex-1 min-w-0">
-          {user && <Sidebar user={user} open={sidebarOpen} onClose={() => setSidebarOpen(false)} adminUnreadMessageCount={adminUnreadMessageCount} adminFinance={adminFinance} />}
+          {user && (
+            <Sidebar
+              user={user}
+              open={sidebarOpen}
+              onClose={() => setSidebarOpen(false)}
+              adminUnreadMessageCount={adminUnreadMessageCount}
+              adminFinance={adminFinance}
+              akoenetModules={akoenetModules}
+            />
+          )}
           <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden">
             <Header user={user} token={token} onLogout={clearAuth} onMenuClick={() => setSidebarOpen(true)} installPromptEvent={deferredInstallPrompt} onInstallApp={handleInstallClick} />
             <main className="flex-1 min-h-0 overflow-y-auto">
