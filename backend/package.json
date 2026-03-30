@@ -21,6 +21,7 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "smoke:baseline": "node src/scripts/smokeStructureBaseline.js",
+    "smoke:akoenet-admin": "node scripts/smoke-akoenet-admin-proxy.mjs",
     "check:architecture": "node src/scripts/check-model-imports.js"
   },
   "dependencies": {

@@ -13,14 +13,16 @@ Documentación de **Streamer Scheduler** (guías, protección, licencia, scripts
 
 ## Sistema y producto
 
-- **Estructura del código:** carpetas `backend/` y `frontend/` en la raíz del repositorio; flujo de checkout (Stripe) y pantallas principales descritas en las guías de usuario enlazadas arriba.
+- **Documento canónico (comportamiento, arquitectura en runtime, layout del repo, variables de entorno con placeholders seguros, panel de administración):** [CURRENT_FUNCTIONALITY_AND_STRUCTURE.md](CURRENT_FUNCTIONALITY_AND_STRUCTURE.md) (inglés).
+- **Estructura del código:** carpetas `backend/` y `frontend/` en la raíz; Stripe y pantallas principales también en las guías de usuario.
 - **Roadmap / próximos pasos:** sección *Características planificadas* en el [README principal](../README.md).
-- **Migración arquitectónica (estado):**
-  - [CURRENT_FUNCTIONALITY_AND_STRUCTURE.md](CURRENT_FUNCTIONALITY_AND_STRUCTURE.md)
-  - [migration-changelog.md](migration-changelog.md)
+- **Historial de migración arquitectónica:** [migration-changelog.md](migration-changelog.md) (y notas en `architecture-boundaries.md`, `migration-notes-deep-reorg.md`).
 
 ## Integraciones
 
+- **[AKOENET_CONNECTION.md](AKOENET_CONNECTION.md)** – Resumen de la conexión Scheduler ↔ AkoeNet (calendario público, webhook, CORS, proxy admin).
+- **[AKOENET_SCHEDULER_INTEGRATION.md](AKOENET_SCHEDULER_INTEGRATION.md)** – Guía detallada y diagnóstico.
+- **[AKOENET_CONTRACT.md](AKOENET_CONTRACT.md)** – Contrato técnico compartido (payloads, variables).
 - **[DISCORD-BOT-PERMISSIONS.md](DISCORD-BOT-PERMISSIONS.md)** – Permisos del bot de Discord para publicar en canales y eventos.
 - **Bots (Nightbot):** En la app, Configuración → Bots: cómo conectar Nightbot para el comando `!todo` y enlace a la página pública del streamer (`/streamer/username`, `/embed/streamer/username`).
 
