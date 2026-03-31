@@ -328,8 +328,10 @@ Discovery (no auth): `GET /api/integration/akoenet` — see `docs/AKOENET_CONTRA
 ### Backend — email, logging, ops
 
 ```env
+# Resend (https://resend.com) — set RESEND_API_KEY when EMAIL_ENABLED=true
 EMAIL_ENABLED=false
-EMAIL_FROM=noreply@example.com
+RESEND_API_KEY=re_xxxxxxxx
+EMAIL_FROM=StreamAutomator <no-reply@streamautomator.com>
 ENABLE_LOGGING=true
 LOG_LEVEL=info
 ENABLE_FILE_LOGGING=true
