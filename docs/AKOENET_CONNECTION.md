@@ -31,6 +31,7 @@ Resumen de cómo **Streamer Scheduler** (este repositorio) se conecta con **Akoe
 ### 3. Descubrimiento (sin credenciales)
 
 - `GET /api/integration/akoenet` (o `/api/integration`) devuelve metadatos del servicio y rutas útiles para integradores.
+- El JSON incluye **`admin_dashboard_url`**: URL completa del panel admin (SPA en el **frontend**, p. ej. `https://streamautomator.com/admin`). **No** enlaces a `https://api.../admin` salvo que quieras confiar en la redirección 302 del API (requiere `FRONTEND_URL` / `PUBLIC_FRONTEND_URL` en el backend del Scheduler).
 
 ### 4. CORS (solo si hace falta)
 
