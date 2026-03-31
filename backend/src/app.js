@@ -59,6 +59,7 @@ import { csrfProtection, getCsrfToken } from './middleware/csrf.js';
 import { metricsMiddleware, metrics } from './utils/metrics.js';
 import { setupSwagger } from './app-swagger.js';
 import logger from './utils/logger.js';
+import { getPublicAdminDashboardUrl } from './utils/publicFrontendUrl.js';
 import platformConfigService from './modules/system/application/platformConfigService.js';
 import { handleTwitchEventSub } from './routes/twitchWebhook.js';
 import { PLATFORM_VALUES } from './constants/platforms.js';
@@ -211,6 +212,23 @@ app.get('/api/platforms/enabled', async (req, res) => {
     res.json({ platforms: PLATFORM_VALUES });
   }
 });
+
+// Admin UI is the React SPA (e.g. streamautomator.com/admin), not this API. If someone opens api.../admin, redirect.
+function redirectApiAdminToSpa(req, res) {
+  const target = getPublicAdminDashboardUrl();
+  if (!target) {
+    return res.status(404).json({
+      error: 'Endpoint not found',
+      message:
+        'The admin dashboard runs on the Streamer Scheduler frontend (React), not on the API host. Use https://your-app-domain/admin — the same origin as users use for the app. Set FRONTEND_URL (or PUBLIC_FRONTEND_URL) on this server to enable an automatic redirect from /admin.',
+      path: req.path,
+    });
+  }
+  const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect(302, `${target}${q}`);
+}
+app.get('/admin', redirectApiAdminToSpa);
+app.get('/admin/', redirectApiAdminToSpa);
 
 // JWT authentication middleware - attaches user to req.user if token is valid
 app.use(authenticateToken);
