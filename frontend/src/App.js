@@ -15,7 +15,7 @@ import { getAdminFeatures } from './features/admin/api';
 import { apiClient } from './shared/api/client';
 import AppFooter from './components/AppFooter';
 
-const PUBLIC_PAGES_WITH_OWN_FOOTER = ['/', '/pricing', '/privacy', '/terms', '/faq'];
+const PUBLIC_PAGES_WITH_OWN_FOOTER = ['/', '/pricing', '/privacy', '/terms', '/legal-notice', '/aviso-legal', '/faq'];
 
 function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInstallApp }) {
   const navigate = useNavigate();

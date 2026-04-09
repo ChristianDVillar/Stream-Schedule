@@ -1194,7 +1194,8 @@
   },
   "footer": {
     "privacy": "Privacy",
-    "terms": "Terms"
+    "terms": "Terms",
+    "legalNotice": "Legal notice"
   },
   "faq": {
     "title": "Frequently asked questions",
@@ -1233,8 +1234,13 @@
   },
   "terms": {
     "backToApp": "Back to app",
-    "title": "Terms of Service",
+    "title": "Terms and Conditions",
     "lastUpdated": "Last updated: January 2026"
+  },
+  "legalNotice": {
+    "backToApp": "Back to app",
+    "title": "Legal notice",
+    "lastUpdated": "Last updated: April 2026"
   },
   "messagesPage": {
     "title": "Messages and notifications",

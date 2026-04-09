@@ -20,6 +20,7 @@ export default function AppFooter({ className = '' }) {
           <Link to="/faq" className="hover:text-accent underline">{t('faq.menuTitle') || 'FAQ'}</Link>
           <Link to="/privacy" className="hover:text-accent underline">{t('footer.privacy') || 'Privacy'}</Link>
           <Link to="/terms" className="hover:text-accent underline">{t('footer.terms') || 'Terms'}</Link>
+          <Link to="/aviso-legal" className="hover:text-accent underline">{t('footer.legalNotice') || 'Legal notice'}</Link>
         </div>
       </div>
     </footer>

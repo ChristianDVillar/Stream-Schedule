@@ -81,6 +81,7 @@ ALTER TABLE public."StreamSuggestions" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."StreamTimelineEvents" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."ReminderSents" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."TwitchEventSubSubscriptions" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."StripeWebhookEvents" ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
 -- uploads (Supabase storage metadata / custom table; name often lowercase)

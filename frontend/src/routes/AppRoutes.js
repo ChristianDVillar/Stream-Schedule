@@ -21,6 +21,7 @@ import SuggestionsPage from '../features/app/pages/SuggestionsPage';
 import StreamTimelinePage from '../features/app/pages/StreamTimelinePage';
 import Privacy from '../features/legal/pages/PrivacyPage';
 import Terms from '../features/legal/pages/TermsPage';
+import LegalNotice from '../features/legal/pages/LegalNoticePage';
 import FAQ from '../features/legal/pages/FAQPage';
 import Landing from '../features/marketing/pages/LandingPage';
 import Pricing from '../features/marketing/pages/PricingPage';
@@ -42,6 +43,8 @@ export function AppRoutes({ user, token, setAuth, setUser, clearAuth }) {
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/terms" element={<Terms />} />
+      <Route path="/legal-notice" element={<LegalNotice />} />
+      <Route path="/aviso-legal" element={<LegalNotice />} />
       <Route path="/faq" element={<FAQ />} />
       <Route path="/streamer/:username" element={<PublicStreamPage />} />
       <Route path="/embed/streamer/:username" element={<PublicStreamEmbed />} />
