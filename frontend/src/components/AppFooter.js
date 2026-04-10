@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const CURRENT_YEAR = 2026;
+const DAKINIS_SYSTEMS_URL = 'https://dakinissystems.onrender.com/';
 
 export default function AppFooter({ className = '' }) {
   const { t } = useLanguage();
@@ -14,13 +15,32 @@ export default function AppFooter({ className = '' }) {
   return (
     <footer className={className || baseClass}>
       <div className="flex flex-col items-center gap-2">
-        <img
-          src="/Logo Grande.jpeg"
-          alt="Dakinis Systems"
-          className="h-10 sm:h-12 lg:h-16 w-auto object-contain"
-          loading="lazy"
-        />
-        <span>{t('footer.copyright', { year: CURRENT_YEAR }) || `© ${CURRENT_YEAR} Dakinis Systems. All rights reserved.`}</span>
+        <a
+          href={DAKINIS_SYSTEMS_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+          aria-label={t('footer.brandName') || 'Dakinis Systems'}
+        >
+          <img
+            src="/Logo Grande.jpeg"
+            alt=""
+            className="h-10 sm:h-12 lg:h-16 w-auto object-contain"
+            loading="lazy"
+          />
+        </a>
+        <span>
+          {t('footer.copyrightPrefix', { year: CURRENT_YEAR }) || `© ${CURRENT_YEAR} `}
+          <a
+            href={DAKINIS_SYSTEMS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-gray-700 dark:text-gray-300 hover:text-accent underline underline-offset-2"
+          >
+            {t('footer.brandName') || 'Dakinis Systems'}
+          </a>
+          {t('footer.copyrightSuffix') || ' (trading name of Christian Villar). All rights reserved.'}
+        </span>
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
           <Link to="/faq" className="hover:text-accent underline">{t('faq.menuTitle') || 'FAQ'}</Link>
           <Link to="/privacy" className="hover:text-accent underline">{t('footer.privacy') || 'Privacy'}</Link>

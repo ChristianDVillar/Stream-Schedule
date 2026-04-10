@@ -7,7 +7,7 @@ import { Bot, Copy, RefreshCw, Check, ExternalLink, Key, ListTodo, Calendar, Rad
 import { getNightbotKey, generateNightbotKey } from '../../features/integrations/api';
 import toast from 'react-hot-toast';
 import { useStreamMode } from '../../contexts/StreamModeContext';
-import { getPublicFrontendOrigin } from '../../shared/config/publicUrls';
+import { getPublicFrontendOrigin, getPublicStreamerShareUrl, getPublicEmbedStreamerShareUrl } from '../../shared/config/publicUrls';
 import { apiClient } from '../../shared/api/client';
 
 const MASK = '••••••••••••••••';
@@ -140,18 +140,20 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
   const copyLabel = t('bots.copy') || 'Copy';
   const copiedMessage = t('bots.copied') || 'Copied';
 
+  const shareUrlExample = getPublicStreamerShareUrl('username') || `${FRONTEND_ORIGIN}/streamer/username?ref=streamautomator`;
+
   const CHAT_COMMANDS = [
     { cmd: '!nextstream', path: 'nextstream', desc: t('bots.cmdNextstream') || 'Shows next scheduled stream', example: 'Next stream: Friday 20:00 — Minecraft Hardcore' },
     { cmd: '!countdown', path: 'countdown', desc: t('bots.cmdCountdown') || 'Time until next stream', example: 'Next stream in: 3h 12m' },
     { cmd: '!schedule / !week', path: 'schedule', pathAlt: 'week', desc: t('bots.cmdSchedule') || 'Weekly schedule', example: "This week's streams:\nFriday — Minecraft\nSunday — Just Chatting" },
     { cmd: '!nextgame', path: 'nextgame', desc: t('bots.cmdNextgame') || 'Next planned game/title', example: 'Next planned game: Friday 20:00 — Elden Ring' },
     { cmd: '!when <game>', path: 'when', desc: t('bots.cmdWhen') || 'Next stream for a specific game', example: 'Next Valorant stream: Thursday 19:00 — Valorant Ranked' },
-    { cmd: '!calendar', path: 'calendar', desc: t('bots.cmdCalendar') || 'Public schedule link (friendly alias)', example: 'Full stream schedule:\nhttps://yoursite.com/streamer/username' },
+    { cmd: '!calendar', path: 'calendar', desc: t('bots.cmdCalendar') || 'Public schedule link (friendly alias)', example: `Full stream schedule:\n${shareUrlExample}` },
     { cmd: '!goal', path: 'goal', desc: t('bots.cmdGoal') || 'Follower/sub goal', example: 'Follower goal: 500. Current: 421' },
     { cmd: '!streamcount', path: 'streamcount', desc: t('bots.cmdStreamcount') || 'Streams this month', example: 'Streams this month: 14.' },
     { cmd: '!laststream', path: 'laststream', desc: t('bots.cmdLaststream') || 'Last stream info', example: 'Last stream: Saturday — 21:00 — Just Chatting' },
     { cmd: '!streak', path: 'streak', desc: t('bots.cmdStreak') || 'Streaming streak in days', example: 'Streaming streak: 5 days in a row.' },
-    { cmd: '!myschedule', path: 'myschedule', desc: t('bots.cmdMyschedule') || 'Public schedule link', example: '📅 My stream schedule: https://yoursite.com/streamer/username' },
+    { cmd: '!myschedule', path: 'myschedule', desc: t('bots.cmdMyschedule') || 'Public schedule link', example: `📅 My stream schedule: ${shareUrlExample}` },
     { cmd: '!streamstats', path: 'streamstats', desc: t('bots.cmdStreamstats') || 'Stream statistics', example: 'Streams this week: 3. Next stream: Friday 20:00' },
     { cmd: '!quote random', path: 'quote/random', desc: t('bots.cmdQuote') || 'Random saved quote', example: '"I screamed like a potato"' },
     { cmd: '!randomidea', path: 'idea/random', desc: t('bots.cmdRandomidea') || 'Random stream idea', example: 'Play a horror game challenge' },
@@ -748,23 +750,23 @@ Authorization: Bearer <STREAMER_JWT_TOKEN>`}</pre>
               <>
                 <div className="flex flex-wrap items-center gap-2">
                   <a
-                    href={`${FRONTEND_ORIGIN}/streamer/${encodeURIComponent(user.username)}`}
+                    href={getPublicStreamerShareUrl(user.username)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline break-all"
                   >
-                    {FRONTEND_ORIGIN}/streamer/{user.username}
+                    {getPublicStreamerShareUrl(user.username)}
                   </a>
                   <CopyButton
-                    text={`${FRONTEND_ORIGIN}/streamer/${user.username}`}
+                    text={getPublicStreamerShareUrl(user.username)}
                     label={copyLabel}
                     copiedMessage={copiedMessage}
                   />
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs text-gray-500 dark:text-gray-400">{t('bots.embedHint') || 'Embed (iframe):'}</span>
-                  <code className="text-xs break-all text-gray-700 dark:text-gray-300">{FRONTEND_ORIGIN}/embed/streamer/{user.username}</code>
-                  <CopyButton text={`${FRONTEND_ORIGIN}/embed/streamer/${user.username}`} label={copyLabel} copiedMessage={copiedMessage} />
+                  <code className="text-xs break-all text-gray-700 dark:text-gray-300">{getPublicEmbedStreamerShareUrl(user.username)}</code>
+                  <CopyButton text={getPublicEmbedStreamerShareUrl(user.username)} label={copyLabel} copiedMessage={copiedMessage} />
                 </div>
               </>
             )}

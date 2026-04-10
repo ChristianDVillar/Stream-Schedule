@@ -7,6 +7,7 @@ import { User } from '../modules/users/infrastructure/models.js';
 import { Integration } from '../modules/integrations/infrastructure/models.js';
 import { twitchService } from '../modules/integrations/application/twitchService.js';
 import logger from '../utils/logger.js';
+import { buildPublicStreamerShareUrl } from '../utils/publicStreamerShareUrl.js';
 
 function isEventContent(content) {
   return (content?.contentType || '').toLowerCase() === 'event';
@@ -57,9 +58,9 @@ function buildStreamUrl({ user, content, platform, twitchLogin }) {
     return `https://www.twitch.tv/${twitchLogin}`;
   }
   if (platform === 'youtube') {
-    return loc || `${base}/streamer/${encodeURIComponent(user.username)}`;
+    return loc || buildPublicStreamerShareUrl(base, user.username);
   }
-  return `${base}/streamer/${encodeURIComponent(user.username)}`;
+  return buildPublicStreamerShareUrl(base, user.username);
 }
 
 /**

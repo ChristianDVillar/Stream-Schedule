@@ -41,3 +41,34 @@ export function getPublicFrontendOrigin() {
   return '';
 }
 
+/** Default query for shared public schedule links (brand attribution). Override with REACT_APP_PUBLIC_SHARE_LINK_QUERY (e.g. ref=mybrand). */
+const DEFAULT_PUBLIC_SHARE_LINK_QUERY = 'ref=streamautomator';
+
+/**
+ * Query string (without leading ?) appended to shared /streamer/ and /embed/streamer/ URLs.
+ */
+export function getPublicShareLinkQueryString() {
+  const raw = (process.env.REACT_APP_PUBLIC_SHARE_LINK_QUERY || DEFAULT_PUBLIC_SHARE_LINK_QUERY).trim();
+  return raw.replace(/^\?/, '');
+}
+
+/**
+ * Full URL to the public schedule page as users copy/share it (includes brand query).
+ */
+export function getPublicStreamerShareUrl(username) {
+  const origin = getPublicFrontendOrigin();
+  if (!origin || username == null || username === '') return '';
+  const q = getPublicShareLinkQueryString();
+  return `${origin}/streamer/${encodeURIComponent(String(username))}?${q}`;
+}
+
+/**
+ * Full embed URL for panels/iframes (includes same brand query as the main share link).
+ */
+export function getPublicEmbedStreamerShareUrl(username) {
+  const origin = getPublicFrontendOrigin();
+  if (!origin || username == null || username === '') return '';
+  const q = getPublicShareLinkQueryString();
+  return `${origin}/embed/streamer/${encodeURIComponent(String(username))}?${q}`;
+}
+

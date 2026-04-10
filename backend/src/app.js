@@ -31,7 +31,8 @@ import paymentsRoutes, { handleStripeWebhook } from './routes/payments.js';
 import uploadsRoutes from './routes/uploads.js';
 import discordRoutes from './routes/discord.js';
 import youtubeRoutes from './routes/youtube.js';
-import instagramRoutes from './routes/instagram.js';
+// Instagram Graph API routes — re-enable with app.use('/api/instagram', instagramRoutes) when product is ready.
+// import instagramRoutes from './routes/instagram.js';
 import healthRoutes from './routes/health.js';
 import integrationPublicRoutes from './routes/integrationPublic.js';
 import templatesRoutes from './routes/templates.js';
@@ -389,7 +390,7 @@ app.post('/api/user/admin/alert-config/test', requireAdmin, postAlertConfigTestH
 app.use('/api/user', userRoutes);
 app.use('/api/discord', discordRoutes);
 app.use('/api/youtube', youtubeRoutes);
-app.use('/api/instagram', instagramRoutes);
+// app.use('/api/instagram', instagramRoutes);
 // CSRF disabled for content until frontend sends X-CSRF-Token (GET /api/csrf-token)
 app.use('/api/content', contentRoutes);
 app.use('/api/platforms', platformsRoutes);

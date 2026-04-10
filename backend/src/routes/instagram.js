@@ -1,5 +1,6 @@
 /**
  * Instagram Business (Graph API) — token stays on server.
+ * NOTE: Router is not mounted in app.js until the product flow is ready; uncomment `app.use('/api/instagram', …)` there to enable.
  * Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.
  */
 

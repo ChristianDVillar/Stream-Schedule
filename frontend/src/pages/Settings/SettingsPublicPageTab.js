@@ -7,9 +7,7 @@ import { Image, Upload, ExternalLink, Calendar, Trash2 } from 'lucide-react';
 import { getUploadStats } from '../../utils/uploadHelper';
 import { getPublicImageUrl } from '../../utils/supabaseClient';
 import { handleUpload } from '../../utils/uploadHelper';
-import { getPublicFrontendOrigin } from '../../shared/config/publicUrls';
-
-const FRONTEND_ORIGIN = getPublicFrontendOrigin();
+import { getPublicStreamerShareUrl, getPublicShareLinkQueryString } from '../../shared/config/publicUrls';
 const BANNER_POSITIONS = [
   { id: 'top', labelKey: 'publicPage.positionTop', descKey: 'publicPage.positionTopDesc' },
   { id: 'above-avatar', labelKey: 'publicPage.positionAboveAvatar', descKey: 'publicPage.positionAboveAvatarDesc' },
@@ -44,7 +42,7 @@ function PublicPagePreview({ bannerUrl, position, username }) {
         </div>
       )}
       <div className={`text-[10px] font-medium text-gray-500 dark:text-gray-400 px-2 py-1 border-b border-gray-300 dark:border-gray-600 ${isBackground ? 'relative z-10 bg-gray-200/80 dark:bg-gray-700/80' : 'bg-gray-200 dark:bg-gray-700'}`}>
-        {username ? `/streamer/${username}` : 'Vista previa'}
+        {username ? `/streamer/${encodeURIComponent(username)}?${getPublicShareLinkQueryString()}` : 'Vista previa'}
       </div>
       <div className={`p-2 space-y-1 min-h-[140px] flex flex-col ${isBackground ? 'relative z-10' : ''}`}>
         {renderBanner('top')}
@@ -161,12 +159,12 @@ export default function SettingsPublicPageTab({
             {t('publicPage.yourPage') || 'Tu página pública'}
           </h4>
           <a
-            href={`${FRONTEND_ORIGIN}/streamer/${encodeURIComponent(user.username)}`}
+            href={getPublicStreamerShareUrl(user.username)}
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-[var(--accent)] hover:underline break-all"
           >
-            {FRONTEND_ORIGIN}/streamer/{user.username}
+            {getPublicStreamerShareUrl(user.username)}
           </a>
         </div>
       )}

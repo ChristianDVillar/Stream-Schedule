@@ -5,6 +5,7 @@
  */
 
 import logger from './logger.js';
+import { buildPublicStreamerShareUrl } from './publicStreamerShareUrl.js';
 
 const EMAIL_ENABLED = process.env.EMAIL_ENABLED === 'true';
 const DEFAULT_FROM = 'StreamAutomator <no-reply@streamautomator.com>';
@@ -357,7 +358,7 @@ If you did not request this password reset, please contact our support team imme
 export async function sendStreamReminderEmail(to, streamTitle, scheduledFor, streamerUsername) {
   const timeStr = typeof scheduledFor === 'string' ? new Date(scheduledFor).toLocaleString() : scheduledFor.toLocaleString();
   const subject = `StreamAutomator: ${streamerUsername} goes live in ~1 hour — ${streamTitle}`;
-  const streamUrl = `${baseFrontendUrl()}/streamer/${encodeURIComponent(streamerUsername)}`;
+  const streamUrl = buildPublicStreamerShareUrl(baseFrontendUrl(), streamerUsername);
   const html = `
           <h2 style="margin:0 0 16px;color:#7c3aed;font-size:20px;">Stream starting soon</h2>
           <p>You asked us to remind you before <strong>${streamerUsername}</strong> goes live on StreamAutomator.</p>

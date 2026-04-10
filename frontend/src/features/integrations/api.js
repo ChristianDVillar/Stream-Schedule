@@ -5,20 +5,21 @@ export async function setupSlackWorkspace() {
   return res.data;
 }
 
-export async function getInstagramAccount() {
-  const res = await apiClient.get('/instagram/account');
-  return res.data;
-}
-
-export async function getInstagramPosts(limit = 5) {
-  const res = await apiClient.get('/instagram/posts', { params: { limit } });
-  return res.data;
-}
-
-export async function getInstagramPostInsights(mediaId) {
-  const res = await apiClient.get(`/instagram/posts/${encodeURIComponent(mediaId)}/insights`);
-  return res.data;
-}
+// Instagram Graph (Settings → Platforms): disabled until Meta app + tokens are wired; restore with SettingsPlatformsTab UI.
+// export async function getInstagramAccount() {
+//   const res = await apiClient.get('/instagram/account');
+//   return res.data;
+// }
+//
+// export async function getInstagramPosts(limit = 5) {
+//   const res = await apiClient.get('/instagram/posts', { params: { limit } });
+//   return res.data;
+// }
+//
+// export async function getInstagramPostInsights(mediaId) {
+//   const res = await apiClient.get(`/instagram/posts/${encodeURIComponent(mediaId)}/insights`);
+//   return res.data;
+// }
 
 export async function getNightbotKey() {
   const res = await apiClient.get('/user/nightbot-key');
