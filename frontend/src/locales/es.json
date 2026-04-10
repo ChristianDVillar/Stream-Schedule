@@ -1184,6 +1184,7 @@
     "errorDelete": "Error al eliminar"
   },
   "footer": {
+    "copyright": "© {{year}} Dakinis Systems (marca comercial de Christian Villar). Todos los derechos reservados.",
     "privacy": "Privacidad",
     "terms": "Términos",
     "legalNotice": "Aviso legal"

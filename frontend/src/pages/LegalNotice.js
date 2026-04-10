@@ -39,6 +39,11 @@ export default function LegalNotice() {
               El presente aviso legal regula el acceso, navegación y uso de la plataforma Streamer Scheduler, así como
               las responsabilidades derivadas del uso de sus contenidos y servicios.
             </p>
+            <p>
+              La funcionalidad actual del Servicio incluye, entre otras: planificación y programación de contenido,
+              publicación en plataformas conectadas, gestión de medios, integraciones mediante OAuth, herramientas para
+              stream y paneles de administración/configuración.
+            </p>
           </section>
 
           <section>
