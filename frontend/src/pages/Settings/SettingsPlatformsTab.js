@@ -1,18 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { Twitch, Save, Server, AlertCircle, Instagram, RefreshCw, BarChart2, ExternalLink } from 'lucide-react';
+import { Twitch, Save, Server, AlertCircle } from 'lucide-react';
 import { DISCORD_ICON_URL } from '../../constants/platforms';
 import {
   getDiscordGuilds,
   getDiscordChannels,
   getDiscordInviteUrl,
 } from '../../features/discord/api';
-import {
-  setupSlackWorkspace,
-  getInstagramAccount,
-  getInstagramPosts,
-  getInstagramPostInsights,
-} from '../../features/integrations/api';
+import { setupSlackWorkspace } from '../../features/integrations/api';
 
 // Platform-specific icons (same style as Login page)
 const GoogleIcon = () => (
@@ -103,6 +98,7 @@ export default function SettingsPlatformsTab({
   const [clipsGuildsError, setClipsGuildsError] = useState(null);
   const [setupSlackLoading, setSetupSlackLoading] = useState(false);
 
+  /* --- Instagram Graph (Meta): commented out until backend + tokens are production-ready. Restore api imports, state, loadInstagram, and block below. ---
   const [igAccount, setIgAccount] = useState(null);
   const [igPosts, setIgPosts] = useState([]);
   const [igLoading, setIgLoading] = useState(false);
@@ -152,6 +148,7 @@ export default function SettingsPlatformsTab({
     }
     loadInstagram();
   }, [token, loadInstagram]);
+  */
 
   useEffect(() => {
     setClipsGuildId(user?.discordClipsGuildId || '');
@@ -234,21 +231,6 @@ export default function SettingsPlatformsTab({
       await onSaveClipsChannel(clipsGuildId || null, clipsChannelId || null);
     } finally {
       setSavingClipsChannel(false);
-    }
-  };
-
-  const handleInstagramInsights = async (mediaId) => {
-    setInsightsLoadingId(mediaId);
-    try {
-      const data = await getInstagramPostInsights(mediaId);
-      setInsightsById((prev) => ({ ...prev, [mediaId]: { ok: true, payload: data } }));
-    } catch (err) {
-      setInsightsById((prev) => ({
-        ...prev,
-        [mediaId]: { ok: false, error: err.response?.data?.error || err.message },
-      }));
-    } finally {
-      setInsightsLoadingId(null);
     }
   };
 
@@ -386,135 +368,7 @@ export default function SettingsPlatformsTab({
         <p className="text-sm text-gray-500">{t('settings.couldNotLoadAccounts') || 'Could not load connected accounts.'}</p>
       )}
 
-      {token && (
-        <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-3 border border-gray-200 dark:border-gray-700">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <Instagram className="w-5 h-5 text-pink-600 flex-shrink-0" aria-hidden />
-              <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                {t('settings.instagramGraphTitle')}
-              </h4>
-            </div>
-            <button
-              type="button"
-              onClick={() => loadInstagram()}
-              disabled={igLoading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-60"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${igLoading ? 'animate-spin' : ''}`} aria-hidden />
-              {t('settings.instagramGraphRefresh')}
-            </button>
-          </div>
-          <p className="text-xs text-gray-600 dark:text-gray-400">{t('settings.instagramGraphDescription')}</p>
-          {igLoading && !igAccount && !igNotConfigured && !igError && (
-            <p className="text-sm text-gray-500">{t('common.loading')}</p>
-          )}
-          {igNotConfigured && (
-            <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-100 space-y-1">
-              <p className="font-medium">{t('settings.instagramNotConfiguredTitle')}</p>
-              <p className="text-amber-800 dark:text-amber-200">{t('settings.instagramNotConfiguredBody')}</p>
-            </div>
-          )}
-          {igError && (
-            <p className="text-sm text-red-600 dark:text-red-400">{igError}</p>
-          )}
-          {igAccount && (
-            <div className="space-y-3">
-              <div className="flex flex-wrap gap-4 text-sm text-gray-800 dark:text-gray-200">
-                <span>
-                  <span className="text-gray-500 dark:text-gray-400">{t('settings.instagramUsername')}</span>{' '}
-                  @{igAccount.username || '—'}
-                </span>
-                <span>
-                  <span className="text-gray-500 dark:text-gray-400">{t('settings.instagramFollowers')}</span>{' '}
-                  {igAccount.followers_count ?? '—'}
-                </span>
-                <span>
-                  <span className="text-gray-500 dark:text-gray-400">{t('settings.instagramMediaCount')}</span>{' '}
-                  {igAccount.media_count ?? '—'}
-                </span>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">{t('settings.instagramRecentMedia')}</p>
-                {igPostsLoading ? (
-                  <p className="text-sm text-gray-500">{t('common.loading')}</p>
-                ) : igPosts.length === 0 ? (
-                  <p className="text-xs text-gray-500">{t('settings.instagramNoPosts')}</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {igPosts.map((post) => {
-                      const insight = insightsById[post.id];
-                      const captionPreview = (post.caption || '').replace(/\s+/g, ' ').trim().slice(0, 80);
-                      const when = post.timestamp
-                        ? new Date(post.timestamp).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
-                        : '';
-                      return (
-                        <li
-                          key={post.id}
-                          className="p-2 rounded-md bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-600 text-xs space-y-2"
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-gray-800 dark:text-gray-200 break-words">
-                                {captionPreview || t('settings.instagramNoCaption')}
-                                {post.caption && post.caption.length > 80 ? '…' : ''}
-                              </p>
-                              <p className="text-gray-500 dark:text-gray-400 mt-0.5">
-                                {post.media_type}
-                                {when ? ` · ${when}` : ''}
-                              </p>
-                            </div>
-                            <div className="flex flex-wrap gap-1.5 flex-shrink-0">
-                              {post.permalink && (
-                                <a
-                                  href={post.permalink}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded bg-pink-600 text-white hover:bg-pink-700"
-                                >
-                                  <ExternalLink className="w-3 h-3" aria-hidden />
-                                  {t('settings.instagramOpenPost')}
-                                </a>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => handleInstagramInsights(post.id)}
-                                disabled={insightsLoadingId === post.id}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-300 dark:border-gray-500 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-60"
-                              >
-                                <BarChart2 className="w-3 h-3" aria-hidden />
-                                {insightsLoadingId === post.id ? t('common.loading') : t('settings.instagramLoadInsights')}
-                              </button>
-                            </div>
-                          </div>
-                          {insight?.ok === false && (
-                            <p className="text-red-600 dark:text-red-400">{insight.error}</p>
-                          )}
-                          {insight?.ok && insight.payload?.data?.length > 0 && (
-                            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-gray-700 dark:text-gray-300">
-                              {insight.payload.data.map((row) => (
-                                <li key={row.name || row.id}>
-                                  <span className="font-medium">{row.title || row.name}</span>
-                                  {Array.isArray(row.values) && row.values[0]?.value != null && (
-                                    <span>: {row.values[0].value}</span>
-                                  )}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                          {insight?.ok && (!insight.payload?.data || insight.payload.data.length === 0) && (
-                            <p className="text-gray-500">{t('settings.instagramInsightsEmpty')}</p>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Instagram Graph UI: see block comment above (state + loadInstagram) and integrations/api.js */}
 
       {discordConnected && onSaveClipsChannel && (
         <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-4">

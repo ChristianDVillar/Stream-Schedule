@@ -1193,7 +1193,9 @@
     "errorDelete": "Failed to delete"
   },
   "footer": {
-    "copyright": "© {{year}} Dakinis Systems (trading name of Christian Villar). All rights reserved.",
+    "copyrightPrefix": "© {{year}} ",
+    "brandName": "Dakinis Systems",
+    "copyrightSuffix": " (trading name of Christian Villar). All rights reserved.",
     "privacy": "Privacy",
     "terms": "Terms",
     "legalNotice": "Legal notice"

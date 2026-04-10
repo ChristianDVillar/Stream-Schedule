@@ -27,6 +27,7 @@ import {
 import { announceStreamStarted } from '../../utils/discordAnnounce.js';
 import rouletteService from '../../modules/content/application/rouletteService.js';
 import { emitRouletteToUser } from '../../services/websocketService.js';
+import { buildPublicStreamerShareUrl } from '../../utils/publicStreamerShareUrl.js';
 
 const router = express.Router();
 
@@ -343,8 +344,7 @@ router.get('/myschedule', async (req, res) => {
       sendText(res, 'Add your API key in Settings → Bots to use !myschedule.');
       return;
     }
-    const base = FRONTEND_URL.replace(/\/$/, '');
-    sendText(res, `📅 My stream schedule: ${base}/streamer/${encodeURIComponent(user.username)}`);
+    sendText(res, `📅 My stream schedule: ${buildPublicStreamerShareUrl(FRONTEND_URL, user.username)}`);
   } catch (err) {
     logger.error('Webhook myschedule error', { error: err.message });
     sendText(res, 'Error.');
@@ -585,8 +585,7 @@ router.get('/calendar', async (req, res) => {
       sendText(res, 'Add your API key in Settings → Bots to use !calendar.');
       return;
     }
-    const base = FRONTEND_URL.replace(/\/$/, '');
-    sendText(res, `Full stream schedule: ${base}/streamer/${encodeURIComponent(user.username)}`);
+    sendText(res, `Full stream schedule: ${buildPublicStreamerShareUrl(FRONTEND_URL, user.username)}`);
   } catch (err) {
     logger.error('Webhook calendar error', { error: err.message });
     sendText(res, 'Error.');

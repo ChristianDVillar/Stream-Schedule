@@ -10,6 +10,7 @@ import { CheckCircle, Circle, X, ExternalLink, Loader2 } from 'lucide-react';
 import { getConnectedAccounts, getOnboardingStatus, autoCreateFirstStream } from '../features/account/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
+import { getPublicShareLinkQueryString } from '../shared/config/publicUrls';
 
 const STORAGE_KEY = 'streamer_scheduler_onboarding_dismissed';
 
@@ -143,7 +144,7 @@ export default function OnboardingChecklist({ user, token, hasScheduledContent, 
           </span>
           <button
             type="button"
-            onClick={() => navigate(`/streamer/${user?.username || 'me'}`)}
+            onClick={() => navigate({ pathname: `/streamer/${user?.username || 'me'}`, search: `?${getPublicShareLinkQueryString()}` })}
             className="text-accent hover:underline ml-1 flex items-center gap-0.5"
           >
             /streamer/{user?.username || 'you'}
