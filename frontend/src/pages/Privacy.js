@@ -27,72 +27,81 @@ export default function Privacy() {
 
         <div className="prose prose-gray dark:prose-invert max-w-none space-y-6 text-gray-700 dark:text-gray-300">
           <section>
-            <h2 className="text-xl font-semibold mt-6 mb-2">1. Introduction</h2>
+            <h2 className="text-xl font-semibold mt-6 mb-2">1. Responsable del tratamiento</h2>
             <p>
-              Stream Schedule (&quot;we&quot;, &quot;our&quot;, or &quot;the Service&quot;) is a scheduling and publishing tool for content creators.
-              This Privacy Policy describes how we collect, use, and protect your information when you use our Service.
+              Christian David Villar Colodro es responsable del tratamiento de los datos personales recabados a través de
+              Streamer Scheduler (&quot;el Servicio&quot;). Esta Política de privacidad describe qué datos tratamos, con qué
+              finalidad y cuáles son tus derechos.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mt-6 mb-2">2. Information We Collect</h2>
-            <p>We may collect:</p>
+            <h2 className="text-xl font-semibold mt-6 mb-2">2. Datos que recopilamos</h2>
+            <p>Podemos tratar las siguientes categorías de datos:</p>
             <ul className="list-disc pl-6 my-2 space-y-1">
-              <li><strong>Account data:</strong> username, email, and profile information you provide or that we receive when you sign in (e.g. via Google, Twitch, Discord, or X).</li>
-              <li><strong>OAuth data:</strong> when you connect platforms (Google, Twitch, Discord, YouTube, X), we store access tokens and related identifiers necessary to publish content on your behalf. We do not use this data for advertising or sell it to third parties.</li>
-              <li><strong>Content you create:</strong> scheduled posts, events, and media you upload to schedule or publish.</li>
-              <li><strong>Usage data:</strong> how you use the Service (e.g. pages visited, actions taken) to improve the product and fix issues.</li>
+              <li><strong>Datos de cuenta:</strong> nombre de usuario, correo electrónico e información de perfil.</li>
+              <li><strong>Datos OAuth:</strong> tokens de acceso e identificadores técnicos de plataformas conectadas (Google, Twitch, Discord, YouTube, X), necesarios para prestar funcionalidades de publicación.</li>
+              <li><strong>Contenido generado:</strong> publicaciones programadas, eventos y archivos multimedia que subes al Servicio.</li>
+              <li><strong>Datos de uso y diagnóstico:</strong> interacciones, registros técnicos y métricas para mejorar estabilidad, seguridad y rendimiento.</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mt-6 mb-2">3. How We Use Your Information</h2>
-            <p>We use your information to:</p>
+            <h2 className="text-xl font-semibold mt-6 mb-2">3. Finalidades y base jurídica</h2>
+            <p>Tratamos tus datos para:</p>
             <ul className="list-disc pl-6 my-2 space-y-1">
-              <li>Provide, maintain, and improve the Service.</li>
-              <li>Publish or schedule content on the platforms you connect (e.g. Twitch, Discord, YouTube, X) according to your settings.</li>
-              <li>Authenticate you and manage your account and licenses.</li>
-              <li>Send you important notices (e.g. security or service changes) and, if you have agreed, product-related communications.</li>
-              <li>Comply with applicable law and protect our rights and users.</li>
+              <li>Prestar y ejecutar el contrato de uso del Servicio (gestión de cuenta, autenticación y licencias).</li>
+              <li>Publicar o programar contenido en plataformas vinculadas según tu configuración.</li>
+              <li>Garantizar seguridad, prevenir fraude y resolver incidencias técnicas (interés legítimo).</li>
+              <li>Cumplir obligaciones legales aplicables.</li>
+              <li>Enviar comunicaciones esenciales sobre el servicio; las comerciales, solo cuando exista consentimiento o habilitación legal.</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mt-6 mb-2">4. Google User Data</h2>
+            <h2 className="text-xl font-semibold mt-6 mb-2">4. Datos de Google y otras plataformas</h2>
             <p>
-              If you connect Google (e.g. for sign-in or YouTube), we use Google APIs in accordance with the{' '}
+              Si conectas Google (por ejemplo, para inicio de sesión o YouTube), usamos sus APIs conforme a la{' '}
               <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" className="text-primary-600 dark:text-primary-400 underline">
-                Google API Services User Data Policy
+                Política de datos de usuario de Google API Services
               </a>
-              . We request only the scopes needed to provide the Service (e.g. profile, email, YouTube upload/read). We do not use Google user data for advertising or share it with third parties for marketing.
+              . Solicitamos únicamente los permisos necesarios para prestar funcionalidades concretas del Servicio. No
+              vendemos datos personales ni utilizamos datos de Google para publicidad comportamental.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mt-6 mb-2">5. Data Sharing</h2>
+            <h2 className="text-xl font-semibold mt-6 mb-2">5. Cesiones y encargados de tratamiento</h2>
             <p>
-              We do not sell your personal data. We may share data with service providers that help us operate the Service (e.g. hosting, databases, authentication) under strict confidentiality. We may disclose data when required by law or to protect our or users&apos; rights and safety.
+              No vendemos tus datos personales. Podemos compartir información con proveedores que actúan como encargados
+              del tratamiento (por ejemplo, infraestructura, base de datos, autenticación o envío de comunicaciones),
+              siempre bajo acuerdos de confidencialidad y solo para finalidades propias del Servicio. También podremos
+              revelar datos cuando exista obligación legal o requerimiento válido de autoridad competente.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mt-6 mb-2">6. Security and Retention</h2>
+            <h2 className="text-xl font-semibold mt-6 mb-2">6. Conservación y seguridad</h2>
             <p>
-              We use industry-standard measures to protect your data. We retain your information for as long as your account is active or as needed to provide the Service and comply with legal obligations.
+              Aplicamos medidas técnicas y organizativas razonables para proteger los datos frente a accesos no
+              autorizados, alteración o pérdida. Conservaremos la información mientras tu cuenta permanezca activa o
+              durante el tiempo necesario para cumplir obligaciones legales y atender posibles responsabilidades.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mt-6 mb-2">7. Your Rights</h2>
+            <h2 className="text-xl font-semibold mt-6 mb-2">7. Derechos de las personas usuarias</h2>
             <p>
-              Depending on your location, you may have rights to access, correct, delete, or port your data, or to object to or restrict certain processing. You can manage your account and connected platforms in Settings. For requests or questions, contact us at the email below.
+              Puedes ejercer, cuando resulte aplicable, los derechos de acceso, rectificación, supresión, oposición,
+              limitación del tratamiento y portabilidad. También puedes retirar el consentimiento otorgado para
+              finalidades concretas. Para ejercer estos derechos, contacta mediante el correo indicado más abajo.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mt-6 mb-2">8. Contact</h2>
+            <h2 className="text-xl font-semibold mt-6 mb-2">8. Contacto</h2>
             <p>
-              For questions about this Privacy Policy or your data: <a href="mailto:christiandvillar@gmail.com" className="text-primary-600 dark:text-primary-400 underline">christiandvillar@gmail.com</a>.
+              Para consultas sobre esta Política de privacidad o sobre el tratamiento de tus datos: <a href="mailto:christiandvillar@gmail.com" className="text-primary-600 dark:text-primary-400 underline">christiandvillar@gmail.com</a>.
             </p>
           </section>
         </div>

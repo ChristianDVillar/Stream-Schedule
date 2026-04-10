@@ -27,75 +27,86 @@ export default function Terms() {
 
         <div className="prose prose-gray dark:prose-invert max-w-none space-y-6 text-gray-700 dark:text-gray-300">
           <section>
-            <h2 className="text-xl font-semibold mt-6 mb-2">1. Acceptance of Terms</h2>
+            <h2 className="text-xl font-semibold mt-6 mb-2">1. Aceptación de los términos</h2>
             <p>
-              By accessing and using Streamer Scheduler (&quot;the Service&quot;), you accept and agree to be bound by the terms and provisions of this agreement. If you do not agree to abide by the above, please do not use this service.
+              Al acceder y utilizar Streamer Scheduler (&quot;el Servicio&quot;), aceptas quedar vinculado por los presentes
+              Términos y condiciones. Si no estás de acuerdo con cualquiera de sus disposiciones, debes abstenerte de
+              utilizar el Servicio.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mt-6 mb-2">2. Intellectual Property Rights</h2>
+            <h2 className="text-xl font-semibold mt-6 mb-2">2. Propiedad intelectual e industrial</h2>
             <p>
-              All content, features, and functionality of the Service, including but not limited to text, graphics, logos, icons, images, audio clips, digital downloads, data compilations, and software, are the exclusive property of Christian David Villar Colodro and are protected by international copyright, trademark, patent, trade secret, and other intellectual property laws.
+              Todos los contenidos, funcionalidades y elementos del Servicio, incluyendo de forma enunciativa y no
+              limitativa textos, diseños, código, logotipos, imágenes, bases de datos y software, son titularidad
+              exclusiva de Christian David Villar Colodro o de terceros autorizantes, y están protegidos por la normativa
+              aplicable en materia de propiedad intelectual e industrial.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mt-6 mb-2">3. Prohibited Uses</h2>
-            <p>You may not:</p>
+            <h2 className="text-xl font-semibold mt-6 mb-2">3. Usos prohibidos</h2>
+            <p>Queda prohibido, entre otros supuestos:</p>
             <ul className="list-disc pl-6 my-2 space-y-1">
-              <li>Copy, reproduce, or duplicate any part of the Service</li>
-              <li>Modify, adapt, or create derivative works</li>
-              <li>Reverse engineer, decompile, or disassemble the Service</li>
-              <li>Remove any copyright, trademark, or other proprietary notices</li>
-              <li>Use the Service for any illegal or unauthorized purpose</li>
-              <li>Attempt to gain unauthorized access to any portion of the Service</li>
+              <li>Copiar, reproducir, distribuir o comunicar públicamente el Servicio sin autorización.</li>
+              <li>Modificar, adaptar o crear obras derivadas sin autorización expresa.</li>
+              <li>Descompilar, realizar ingeniería inversa o intentar acceder al código fuente.</li>
+              <li>Suprimir avisos de propiedad intelectual, marcas o derechos de autor.</li>
+              <li>Usar el Servicio para fines ilícitos, fraudulentos o no autorizados.</li>
+              <li>Intentar acceder sin autorización a sistemas, cuentas o datos de terceros.</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mt-6 mb-2">4. User Accounts</h2>
+            <h2 className="text-xl font-semibold mt-6 mb-2">4. Cuentas de usuario</h2>
             <ul className="list-disc pl-6 my-2 space-y-1">
-              <li>You are responsible for maintaining the confidentiality of your account</li>
-              <li>You are responsible for all activities that occur under your account</li>
-              <li>You must immediately notify us of any unauthorized use of your account</li>
+              <li>Eres responsable de mantener la confidencialidad de tus credenciales de acceso.</li>
+              <li>Asumes la responsabilidad por toda actividad realizada desde tu cuenta.</li>
+              <li>Debes notificar de inmediato cualquier acceso no autorizado o incidente de seguridad.</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mt-6 mb-2">5. License Usage</h2>
+            <h2 className="text-xl font-semibold mt-6 mb-2">5. Licencias y suscripciones</h2>
             <ul className="list-disc pl-6 my-2 space-y-1">
-              <li>Licenses are non-transferable and non-refundable</li>
-              <li>Each license is valid for one user account only</li>
-              <li>Sharing or reselling licenses is strictly prohibited</li>
+              <li>Las licencias son personales e intransferibles, salvo pacto expreso en contrario.</li>
+              <li>Cada licencia habilita su uso para una única cuenta de usuario.</li>
+              <li>Se prohíbe expresamente compartir, ceder o revender licencias sin autorización.</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mt-6 mb-2">6. Termination</h2>
+            <h2 className="text-xl font-semibold mt-6 mb-2">6. Suspensión y terminación</h2>
             <p>
-              We reserve the right to terminate or suspend your account and access to the Service immediately, without prior notice, for conduct that we believe violates these Terms of Service or is harmful to other users, us, or third parties.
+              Nos reservamos el derecho a suspender o cancelar, temporal o definitivamente, el acceso al Servicio cuando
+              se detecte incumplimiento de estos términos, uso abusivo o conductas que puedan perjudicar a otros usuarios,
+              al titular o a terceros.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mt-6 mb-2">7. Disclaimer of Warranties</h2>
+            <h2 className="text-xl font-semibold mt-6 mb-2">7. Exclusión de garantías</h2>
             <p>
-              THE SERVICE IS PROVIDED &quot;AS IS&quot; AND &quot;AS AVAILABLE&quot; WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+              El Servicio se presta &quot;tal cual&quot; y &quot;según disponibilidad&quot;, sin garantías de ningún tipo, expresas o
+              implícitas, incluyendo disponibilidad continua, adecuación a un fin concreto o ausencia total de errores.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mt-6 mb-2">8. Limitation of Liability</h2>
+            <h2 className="text-xl font-semibold mt-6 mb-2">8. Limitación de responsabilidad</h2>
             <p>
-              IN NO EVENT SHALL CHRISTIAN DAVID VILLAR COLODRO BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES.
+              En la máxima medida permitida por la ley, Christian David Villar Colodro no será responsable por daños
+              indirectos, incidentales, especiales, consecuenciales, lucro cesante o pérdida de datos derivados del uso o
+              imposibilidad de uso del Servicio.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mt-6 mb-2">9. Contact Information</h2>
+            <h2 className="text-xl font-semibold mt-6 mb-2">9. Modificaciones y contacto</h2>
             <p>
-              For questions about these Terms of Service, please contact:{' '}
+              Nos reservamos el derecho a actualizar estos Términos y condiciones en cualquier momento. Para consultas
+              legales o contractuales, puedes contactar en:{' '}
               <a href="mailto:christiandvillar@gmail.com" className="text-primary-600 dark:text-primary-400 underline">christiandvillar@gmail.com</a>
             </p>
           </section>

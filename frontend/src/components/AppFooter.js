@@ -1,11 +1,10 @@
 /**
- * Shared footer: © 2026 Christian · Develop · v2.2.0 + FAQ, Privacy, Terms.
+ * Shared footer with legal links and localized copyright.
  * Used on all pages (app layout and public pages).
  */
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
-import { APP_VERSION } from '../version';
 
 const CURRENT_YEAR = 2026;
 
@@ -15,11 +14,18 @@ export default function AppFooter({ className = '' }) {
   return (
     <footer className={className || baseClass}>
       <div className="flex flex-col items-center gap-2">
-        <span>© {CURRENT_YEAR} Christian · Develop · v{APP_VERSION}</span>
+        <img
+          src="/Logo Grande.jpeg"
+          alt="Dakinis Systems"
+          className="h-10 sm:h-12 lg:h-16 w-auto object-contain"
+          loading="lazy"
+        />
+        <span>{t('footer.copyright', { year: CURRENT_YEAR }) || `© ${CURRENT_YEAR} Dakinis Systems. All rights reserved.`}</span>
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
           <Link to="/faq" className="hover:text-accent underline">{t('faq.menuTitle') || 'FAQ'}</Link>
           <Link to="/privacy" className="hover:text-accent underline">{t('footer.privacy') || 'Privacy'}</Link>
           <Link to="/terms" className="hover:text-accent underline">{t('footer.terms') || 'Terms'}</Link>
+          <Link to="/aviso-legal" className="hover:text-accent underline">{t('footer.legalNotice') || 'Legal notice'}</Link>
         </div>
       </div>
     </footer>

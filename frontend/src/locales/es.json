@@ -1184,8 +1184,10 @@
     "errorDelete": "Error al eliminar"
   },
   "footer": {
+    "copyright": "© {{year}} Dakinis Systems (marca comercial de Christian Villar). Todos los derechos reservados.",
     "privacy": "Privacidad",
-    "terms": "Términos"
+    "terms": "Términos",
+    "legalNotice": "Aviso legal"
   },
   "faq": {
     "title": "Preguntas frecuentes",
@@ -1224,8 +1226,13 @@
   },
   "terms": {
     "backToApp": "Volver a la app",
-    "title": "Términos de Servicio",
+    "title": "Términos y condiciones",
     "lastUpdated": "Última actualización: enero 2026"
+  },
+  "legalNotice": {
+    "backToApp": "Volver a la app",
+    "title": "Aviso legal",
+    "lastUpdated": "Última actualización: abril 2026"
   },
   "messagesPage": {
     "title": "Mensajes y notificaciones",
