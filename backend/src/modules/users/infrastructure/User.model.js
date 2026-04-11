@@ -195,6 +195,11 @@ const User = sequelize.define('User', {
     allowNull: true,
     comment: 'Optional channel id sent as channel_id in AkoeNet payload',
   },
+  akoenetServerId: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    comment: 'AkoeNet server id selected in Settings (loads channel list)',
+  },
   akoenetSendClips: {
     type: DataTypes.BOOLEAN,
     allowNull: false,

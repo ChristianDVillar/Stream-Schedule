@@ -2958,7 +2958,7 @@ router.get('/license', requireAuth, async (req, res) => {
 
 // Update user profile
 router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog('profile_updated', 'User'), async (req, res) => {
-  const { username, email, merchandisingLink, merchandisingButtonPosition, profileImageUrl, dashboardShowTwitchSubs, dashboardShowTwitchBits, dashboardShowTwitchDonations, discordClipsGuildId, discordClipsChannelId, streamGoalType, streamGoalTarget, discordAnnounceWebhookUrl, publicPageBannerUrl, publicPageBannerPosition, akoenetWebhookUrl, akoenetAnnounceChannelId, akoenetWebhookSecret, akoenetSendClips } = req.body;
+  const { username, email, merchandisingLink, merchandisingButtonPosition, profileImageUrl, dashboardShowTwitchSubs, dashboardShowTwitchBits, dashboardShowTwitchDonations, discordClipsGuildId, discordClipsChannelId, streamGoalType, streamGoalTarget, discordAnnounceWebhookUrl, publicPageBannerUrl, publicPageBannerPosition, akoenetWebhookUrl, akoenetAnnounceChannelId, akoenetServerId, akoenetWebhookSecret, akoenetSendClips } = req.body;
   try {
     const user = await User.findByPk(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -3007,11 +3007,19 @@ router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog(
     if (akoenetWebhookUrl !== undefined) {
       const u = akoenetWebhookUrl && String(akoenetWebhookUrl).trim() ? String(akoenetWebhookUrl).trim() : null;
       user.akoenetWebhookUrl = u;
-      if (!u) user.akoenetWebhookSecret = null;
+      if (!u) {
+        user.akoenetWebhookSecret = null;
+        user.akoenetServerId = null;
+      }
     }
     if (akoenetAnnounceChannelId !== undefined) {
       user.akoenetAnnounceChannelId = akoenetAnnounceChannelId && String(akoenetAnnounceChannelId).trim()
         ? String(akoenetAnnounceChannelId).trim()
+        : null;
+    }
+    if (akoenetServerId !== undefined) {
+      user.akoenetServerId = akoenetServerId && String(akoenetServerId).trim()
+        ? String(akoenetServerId).trim()
         : null;
     }
     if (akoenetWebhookSecret !== undefined) {
@@ -3056,6 +3064,7 @@ router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog(
         publicPageBannerPosition: plain.publicPageBannerPosition || 'top',
         akoenetWebhookUrl: plain.akoenetWebhookUrl || null,
         akoenetAnnounceChannelId: plain.akoenetAnnounceChannelId || null,
+        akoenetServerId: plain.akoenetServerId || null,
         akoenetWebhookSecretSet: !!(plain.akoenetWebhookSecret && String(plain.akoenetWebhookSecret).trim()),
         akoenetSendClips: plain.akoenetSendClips === true,
       }

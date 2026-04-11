@@ -3,8 +3,9 @@
  * Streamer-friendly layout: quick setup, command table, copy-paste ready docs.
  */
 import React, { useState, useEffect } from 'react';
-import { Bot, Copy, RefreshCw, Check, ExternalLink, Key, ListTodo, Calendar, Radio, MessageSquare, Zap, Monitor, ChevronDown, ChevronRight, Link2 } from 'lucide-react';
+import { Bot, Copy, RefreshCw, Check, ExternalLink, Key, ListTodo, Calendar, Radio, MessageSquare, Zap, Monitor, ChevronDown, ChevronRight, Link2, Server, Hash, AlertCircle } from 'lucide-react';
 import { getNightbotKey, generateNightbotKey } from '../../features/integrations/api';
+import { getAkoenetGuilds, getAkoenetChannels } from '../../features/akoenet/api';
 import toast from 'react-hot-toast';
 import { useStreamMode } from '../../contexts/StreamModeContext';
 import { getPublicFrontendOrigin, getPublicStreamerShareUrl, getPublicEmbedStreamerShareUrl } from '../../shared/config/publicUrls';
@@ -50,6 +51,14 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
   const [akoenetChannelId, setAkoenetChannelId] = useState('');
   const [akoenetSendClips, setAkoenetSendClips] = useState(false);
   const [akoenetSaving, setAkoenetSaving] = useState(false);
+  const [akoenetServerId, setAkoenetServerId] = useState('');
+  const [akoenetGuilds, setAkoenetGuilds] = useState([]);
+  const [akoenetChannels, setAkoenetChannels] = useState([]);
+  const [loadingAkoenetGuilds, setLoadingAkoenetGuilds] = useState(false);
+  const [loadingAkoenetChannels, setLoadingAkoenetChannels] = useState(false);
+  const [akoenetGuildsError, setAkoenetGuildsError] = useState(null);
+  /** AkoeNet returns 503 when GET /servers is not implemented — show manual channel field only */
+  const [akoenetManualTargets, setAkoenetManualTargets] = useState(false);
 
   const fetchKey = async () => {
     if (!token) return;
@@ -72,9 +81,97 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
   useEffect(() => {
     setAkoenetUrl(user?.akoenetWebhookUrl || '');
     setAkoenetChannelId(user?.akoenetAnnounceChannelId || '');
+    setAkoenetServerId(user?.akoenetServerId || '');
     setAkoenetSendClips(user?.akoenetSendClips === true);
     setAkoenetSecret('');
-  }, [user?.akoenetWebhookUrl, user?.akoenetAnnounceChannelId, user?.akoenetSendClips, user?.id]);
+  }, [user?.akoenetWebhookUrl, user?.akoenetAnnounceChannelId, user?.akoenetServerId, user?.akoenetSendClips, user?.id]);
+
+  const akoenetConfigured =
+    !!(user?.akoenetWebhookUrl && String(user.akoenetWebhookUrl).trim() && user?.akoenetWebhookSecretSet);
+
+  useEffect(() => {
+    if (!token || !akoenetConfigured || streamMode) {
+      setAkoenetGuilds([]);
+      setAkoenetChannels([]);
+      setAkoenetGuildsError(null);
+      setAkoenetManualTargets(false);
+      return;
+    }
+    let cancelled = false;
+    setLoadingAkoenetGuilds(true);
+    setAkoenetGuildsError(null);
+    setAkoenetManualTargets(false);
+    getAkoenetGuilds()
+      .then((data) => {
+        if (!cancelled) {
+          setAkoenetGuilds(data.guilds || []);
+          setAkoenetGuildsError(null);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setAkoenetGuilds([]);
+          const code = err.response?.data?.code;
+          const msg = err.response?.data?.details || err.response?.data?.error || err.message;
+          if (code === 'akoenet_discovery_not_implemented') {
+            setAkoenetManualTargets(true);
+            setAkoenetGuildsError(null);
+          } else if (code === 'akoenet_fetch_failed' || code === 'akoenet_error') {
+            setAkoenetManualTargets(false);
+            setAkoenetGuildsError(msg);
+          } else if (code === 'akoenet_not_configured' || code === 'akoenet_invalid_webhook_url') {
+            setAkoenetManualTargets(false);
+            setAkoenetGuildsError(msg);
+          } else {
+            setAkoenetManualTargets(false);
+            setAkoenetGuildsError(msg || 'AkoeNet servers could not be loaded');
+          }
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingAkoenetGuilds(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, akoenetConfigured, streamMode, user?.id, user?.akoenetWebhookUrl]);
+
+  const guildInList = akoenetGuilds.some((g) => g.id === akoenetServerId);
+  useEffect(() => {
+    if (!akoenetServerId || !akoenetConfigured || streamMode || akoenetManualTargets) {
+      setAkoenetChannels([]);
+      return;
+    }
+    if (loadingAkoenetGuilds || akoenetGuildsError) return;
+    if (!guildInList) {
+      setAkoenetChannels([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingAkoenetChannels(true);
+    getAkoenetChannels(akoenetServerId)
+      .then((data) => {
+        if (!cancelled) setAkoenetChannels(data.channels || []);
+      })
+      .catch(() => {
+        if (!cancelled) setAkoenetChannels([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingAkoenetChannels(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    akoenetServerId,
+    akoenetConfigured,
+    streamMode,
+    akoenetManualTargets,
+    loadingAkoenetGuilds,
+    akoenetGuildsError,
+    guildInList,
+    akoenetGuilds,
+  ]);
 
   const handleSaveAkoeNet = async (clearSecret = false) => {
     if (!token) return;
@@ -83,6 +180,7 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
       const payload = {
         akoenetWebhookUrl: akoenetUrl.trim() || null,
         akoenetAnnounceChannelId: akoenetChannelId.trim() || null,
+        akoenetServerId: akoenetServerId.trim() || null,
         akoenetSendClips,
       };
       if (clearSecret) {
@@ -186,6 +284,13 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
   const scrollToId = (id) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+
+  const akoenetGuildsEmpty =
+    akoenetConfigured &&
+    !akoenetManualTargets &&
+    !loadingAkoenetGuilds &&
+    !akoenetGuildsError &&
+    akoenetGuilds.length === 0;
 
   return (
     <div className="space-y-8">
@@ -312,20 +417,106 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
               </p>
             )}
           </div>
-          <div>
-            <label htmlFor="akoenetAnnounceChannelId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('bots.akoenetChannelId') || 'Channel ID (optional)'}
-            </label>
-            <input
-              id="akoenetAnnounceChannelId"
-              type="text"
-              autoComplete="off"
-              value={akoenetChannelId}
-              onChange={(e) => setAkoenetChannelId(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
-              placeholder={t('bots.akoenetChannelIdPlaceholder') || 'Override announce channel in payload (optional)'}
-            />
-          </div>
+          {akoenetGuildsError && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/30 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>{akoenetGuildsError}</span>
+            </div>
+          )}
+
+          {akoenetConfigured && !akoenetManualTargets && !streamMode && !akoenetGuildsEmpty && (
+            <div className="flex flex-wrap gap-3 items-end">
+              <div className="min-w-[180px] flex-1">
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                  <Server className="w-3.5 h-3.5 inline mr-1 align-text-bottom" />
+                  {t('bots.akoenetSelectServer') || 'Servidor AkoeNet'}
+                </label>
+                <select
+                  value={akoenetServerId}
+                  onChange={(e) => {
+                    setAkoenetServerId(e.target.value);
+                    setAkoenetChannelId('');
+                  }}
+                  disabled={loadingAkoenetGuilds || !!akoenetGuildsError}
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm"
+                >
+                  <option value="">
+                    {loadingAkoenetGuilds
+                      ? t('common.loading') || '…'
+                      : t('bots.akoenetChooseServer') || 'Elegir servidor'}
+                  </option>
+                  {akoenetGuilds.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="min-w-[180px] flex-1">
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                  <Hash className="w-3.5 h-3.5 inline mr-1 align-text-bottom" />
+                  {t('bots.akoenetSelectChannel') || 'Canal de anuncios'}
+                </label>
+                <select
+                  value={akoenetChannelId}
+                  onChange={(e) => setAkoenetChannelId(e.target.value)}
+                  disabled={!akoenetServerId || loadingAkoenetChannels || !guildInList}
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm"
+                >
+                  <option value="">
+                    {loadingAkoenetChannels
+                      ? t('common.loading') || '…'
+                      : t('bots.akoenetChooseChannel') || 'Elegir canal'}
+                  </option>
+                  {akoenetChannels.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      #{c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {akoenetManualTargets && akoenetConfigured && !streamMode && (
+            <p className="text-xs text-gray-600 dark:text-gray-400">
+              {t('bots.akoenetManualChannelHint') ||
+                'Tu instancia AkoeNet aún no expone la lista de servidores por API. Usa el ID de canal manualmente o actualiza AkoeNet (GET …/integrations/scheduler/servers).'}
+            </p>
+          )}
+
+          {akoenetGuildsEmpty && akoenetConfigured && !streamMode && (
+            <p className="text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              {t('bots.akoenetNoServersHint') ||
+                'No hay servidores en la respuesta de AkoeNet. Comprueba la API o introduce el ID del canal abajo.'}
+            </p>
+          )}
+
+          {(akoenetManualTargets || !akoenetConfigured || streamMode || akoenetGuildsEmpty) && (
+            <div>
+              <label htmlFor="akoenetAnnounceChannelId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('bots.akoenetChannelId') || 'Channel ID (optional)'}
+              </label>
+              <input
+                id="akoenetAnnounceChannelId"
+                type="text"
+                autoComplete="off"
+                value={akoenetChannelId}
+                onChange={(e) => setAkoenetChannelId(e.target.value)}
+                disabled={streamMode}
+                className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm disabled:opacity-60"
+                placeholder={t('bots.akoenetChannelIdPlaceholder') || 'Override announce channel in payload (optional)'}
+              />
+            </div>
+          )}
+
+          {akoenetConfigured && !akoenetManualTargets && !streamMode && !akoenetGuildsEmpty && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {t('bots.akoenetPickerHint') ||
+                'Elige servidor y canal como en Discord; se guarda el canal en el webhook (channel_id).'}
+            </p>
+          )}
           <label className="flex items-start gap-3 cursor-pointer max-w-xl">
             <input
               type="checkbox"

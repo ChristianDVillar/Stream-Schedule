@@ -557,7 +557,14 @@
     "akoenetSave": "Guardar AkoeNet",
     "akoenetSaved": "Ajustes de AkoeNet guardados.",
     "akoenetClearSecretConfirm": "¿Eliminar el secreto del webhook guardado?",
-    "akoenetClearSecret": "Borrar secreto"
+    "akoenetClearSecret": "Borrar secreto",
+    "akoenetSelectServer": "Servidor AkoeNet",
+    "akoenetChooseServer": "Elegir servidor",
+    "akoenetSelectChannel": "Canal de anuncios",
+    "akoenetChooseChannel": "Elegir canal",
+    "akoenetManualChannelHint": "Tu instancia AkoeNet aún no expone la API de listado de servidores. Introduce el ID de canal a mano o implementa GET /integrations/scheduler/servers en AkoeNet (misma cabecera de secreto que el webhook).",
+    "akoenetPickerHint": "Elige servidor y canal como en Discord; el id del canal se envía como channel_id en los webhooks.",
+    "akoenetNoServersHint": "AkoeNet no devolvió servidores. Revisa la API o introduce el id del canal abajo."
   },
   "publicPage": {
     "title": "Editar página del calendario compartido",

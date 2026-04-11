@@ -121,6 +121,7 @@ export function buildUserResponse(user) {
     publicPageBannerPosition: userPlain.publicPageBannerPosition || 'top',
     akoenetWebhookUrl: userPlain.akoenetWebhookUrl || null,
     akoenetAnnounceChannelId: userPlain.akoenetAnnounceChannelId || null,
+    akoenetServerId: userPlain.akoenetServerId || null,
     akoenetWebhookSecretSet: !!(userPlain.akoenetWebhookSecret && String(userPlain.akoenetWebhookSecret).trim()),
     akoenetSendClips: userPlain.akoenetSendClips === true,
   };
