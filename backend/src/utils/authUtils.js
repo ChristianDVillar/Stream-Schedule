@@ -122,6 +122,7 @@ export function buildUserResponse(user) {
     akoenetWebhookUrl: userPlain.akoenetWebhookUrl || null,
     akoenetAnnounceChannelId: userPlain.akoenetAnnounceChannelId || null,
     akoenetWebhookSecretSet: !!(userPlain.akoenetWebhookSecret && String(userPlain.akoenetWebhookSecret).trim()),
+    akoenetSendClips: userPlain.akoenetSendClips === true,
   };
 }
 

@@ -48,6 +48,7 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
   const [akoenetUrl, setAkoenetUrl] = useState('');
   const [akoenetSecret, setAkoenetSecret] = useState('');
   const [akoenetChannelId, setAkoenetChannelId] = useState('');
+  const [akoenetSendClips, setAkoenetSendClips] = useState(false);
   const [akoenetSaving, setAkoenetSaving] = useState(false);
 
   const fetchKey = async () => {
@@ -71,8 +72,9 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
   useEffect(() => {
     setAkoenetUrl(user?.akoenetWebhookUrl || '');
     setAkoenetChannelId(user?.akoenetAnnounceChannelId || '');
+    setAkoenetSendClips(user?.akoenetSendClips === true);
     setAkoenetSecret('');
-  }, [user?.akoenetWebhookUrl, user?.akoenetAnnounceChannelId, user?.id]);
+  }, [user?.akoenetWebhookUrl, user?.akoenetAnnounceChannelId, user?.akoenetSendClips, user?.id]);
 
   const handleSaveAkoeNet = async (clearSecret = false) => {
     if (!token) return;
@@ -81,6 +83,7 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
       const payload = {
         akoenetWebhookUrl: akoenetUrl.trim() || null,
         akoenetAnnounceChannelId: akoenetChannelId.trim() || null,
+        akoenetSendClips,
       };
       if (clearSecret) {
         payload.akoenetWebhookSecret = null;
@@ -271,7 +274,7 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
           {t('bots.akoenetTitle') || 'AkoeNet'}
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 max-w-2xl">
-          {t('bots.akoenetDescription') || 'Announce scheduled streams in your AkoeNet community. In dev, AkoeNet often runs on Vite at http://localhost:5173 — use the URL that reaches your AkoeNet API (with proxy: same host/port + path /integrations/scheduler/webhooks/stream-scheduled; without proxy: your backend port). LAN, ngrok, or Cloudflare Tunnel also work.'}
+          {t('bots.akoenetDescription')}
         </p>
         <div className="space-y-4 max-w-xl">
           <div>
@@ -323,6 +326,19 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
               placeholder={t('bots.akoenetChannelIdPlaceholder') || 'Override announce channel in payload (optional)'}
             />
           </div>
+          <label className="flex items-start gap-3 cursor-pointer max-w-xl">
+            <input
+              type="checkbox"
+              checked={akoenetSendClips}
+              onChange={(e) => setAkoenetSendClips(e.target.checked)}
+              disabled={streamMode}
+              className="mt-1 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+            />
+            <span>
+              <span className="block text-sm font-medium text-gray-800 dark:text-gray-200">{t('bots.akoenetSendClipsLabel')}</span>
+              <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('bots.akoenetSendClipsHint')}</span>
+            </span>
+          </label>
           <div className="flex flex-wrap gap-2 pt-1">
             <button
               type="button"

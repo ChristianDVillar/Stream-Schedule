@@ -48,7 +48,6 @@ import timelineRoutes from './routes/timeline.js';
 import messagesRoutes from './routes/messages.js';
 import notificationsRoutes from './routes/notifications.js';
 import adminPlatformsRoutes from './routes/admin/platforms.js';
-import akoenetProxyRouter, { akoenetProxyEnabled } from './routes/admin/akoenetProxy.js';
 import { exchangeRateUsdEurHandler } from './routes/admin/exchangeRate.js';
 import { getAlertConfigHandler, putAlertConfigHandler, postAlertConfigTestHandler } from './routes/admin/alerts.js';
 import { getCostMetricsForAdmin } from './modules/system/application/publicationMetricService.js';
@@ -243,8 +242,6 @@ app.get('/api/admin/features', requireAdmin, (req, res) => {
   res.json({
     adminFinance: ENABLE_ADMIN_FINANCE,
     prometheusMetrics: ENABLE_PROMETHEUS_METRICS,
-    /** AkoeNet admin sections: enabled when AKOENET_API_URL + AKOENET_ADMIN_BEARER are set (see akoenetProxy). */
-    akoenetModules: akoenetProxyEnabled(),
   });
 });
 
@@ -415,7 +412,6 @@ app.use('/api/timeline', timelineRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/admin/platforms', adminPlatformsRoutes);
-app.use('/api/admin/akoenet', requireAuth, requireAdmin, akoenetProxyRouter);
 
 // Enhanced health check endpoint
 app.use('/api/health', healthRoutes);

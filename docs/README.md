@@ -20,7 +20,7 @@ Documentación de **Streamer Scheduler** (guías, protección, licencia, scripts
 
 ## Integraciones
 
-- **[AKOENET_CONNECTION.md](AKOENET_CONNECTION.md)** – Resumen de la conexión Scheduler ↔ AkoeNet (calendario público, webhook, CORS, proxy admin).
+- **[AKOENET_CONNECTION.md](AKOENET_CONNECTION.md)** – Resumen de la conexión Scheduler ↔ AkoeNet (calendario público, webhook, CORS).
 - **[AKOENET_SCHEDULER_INTEGRATION.md](AKOENET_SCHEDULER_INTEGRATION.md)** – Guía detallada y diagnóstico.
 - **[AKOENET_CONTRACT.md](AKOENET_CONTRACT.md)** – Contrato técnico compartido (payloads, variables).
 - **[DISCORD-BOT-PERMISSIONS.md](DISCORD-BOT-PERMISSIONS.md)** – Permisos del bot de Discord para publicar en canales y eventos.

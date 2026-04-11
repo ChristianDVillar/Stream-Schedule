@@ -2958,7 +2958,7 @@ router.get('/license', requireAuth, async (req, res) => {
 
 // Update user profile
 router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog('profile_updated', 'User'), async (req, res) => {
-  const { username, email, merchandisingLink, merchandisingButtonPosition, profileImageUrl, dashboardShowTwitchSubs, dashboardShowTwitchBits, dashboardShowTwitchDonations, discordClipsGuildId, discordClipsChannelId, streamGoalType, streamGoalTarget, discordAnnounceWebhookUrl, publicPageBannerUrl, publicPageBannerPosition, akoenetWebhookUrl, akoenetAnnounceChannelId, akoenetWebhookSecret } = req.body;
+  const { username, email, merchandisingLink, merchandisingButtonPosition, profileImageUrl, dashboardShowTwitchSubs, dashboardShowTwitchBits, dashboardShowTwitchDonations, discordClipsGuildId, discordClipsChannelId, streamGoalType, streamGoalTarget, discordAnnounceWebhookUrl, publicPageBannerUrl, publicPageBannerPosition, akoenetWebhookUrl, akoenetAnnounceChannelId, akoenetWebhookSecret, akoenetSendClips } = req.body;
   try {
     const user = await User.findByPk(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -3022,6 +3022,7 @@ router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog(
       }
     }
     if (!user.akoenetWebhookUrl) user.akoenetWebhookSecret = null;
+    if (akoenetSendClips !== undefined) user.akoenetSendClips = akoenetSendClips === true;
     if (publicPageBannerUrl !== undefined) user.publicPageBannerUrl = publicPageBannerUrl && String(publicPageBannerUrl).trim() ? String(publicPageBannerUrl).trim() : null;
     if (publicPageBannerPosition !== undefined) user.publicPageBannerPosition = ['top', 'above-avatar', 'above-schedule', 'center', 'bottom', 'background'].includes(publicPageBannerPosition) ? publicPageBannerPosition : 'top';
 
@@ -3056,6 +3057,7 @@ router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog(
         akoenetWebhookUrl: plain.akoenetWebhookUrl || null,
         akoenetAnnounceChannelId: plain.akoenetAnnounceChannelId || null,
         akoenetWebhookSecretSet: !!(plain.akoenetWebhookSecret && String(plain.akoenetWebhookSecret).trim()),
+        akoenetSendClips: plain.akoenetSendClips === true,
       }
     });
   } catch (err) {

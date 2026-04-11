@@ -134,7 +134,7 @@ function Header({ user, token, onLogout, onMenuClick, installPromptEvent, onInst
   );
 }
 
-function Sidebar({ user, open, onClose, adminUnreadMessageCount = 0, adminFinance = true, akoenetModules = false }) {
+function Sidebar({ user, open, onClose, adminUnreadMessageCount = 0, adminFinance = true }) {
   const { t } = useLanguage();
   const location = useLocation();
   const supportCount = adminUnreadMessageCount ?? 0;
@@ -205,25 +205,6 @@ function Sidebar({ user, open, onClose, adminUnreadMessageCount = 0, adminFinanc
             </Link>
             <Link to="/admin?section=notifications" className={getLinkClasses("/admin?section=notifications") + " pl-6 text-sm"}>{t('admin.menuNotifications')}</Link>
             <Link to="/admin?section=platforms" className={getLinkClasses("/admin?section=platforms") + " pl-6 text-sm"}>{t('admin.menuPlatforms')}</Link>
-            {akoenetModules && (
-              <>
-                <div className="px-3 py-1.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  {t('admin.menuAkoenetGroup') || 'AkoeNet'}
-                </div>
-                <Link to="/admin?section=akoenet-health" className={getLinkClasses("/admin?section=akoenet-health") + " pl-6 text-sm"}>
-                  {t('admin.menuAkoenetHealth') || 'AkoeNet health'}
-                </Link>
-                <Link to="/admin?section=akoenet-metrics" className={getLinkClasses("/admin?section=akoenet-metrics") + " pl-6 text-sm"}>
-                  {t('admin.menuAkoenetMetrics') || 'AkoeNet metrics'}
-                </Link>
-                <Link to="/admin?section=akoenet-audit" className={getLinkClasses("/admin?section=akoenet-audit") + " pl-6 text-sm"}>
-                  {t('admin.menuAkoenetAudit') || 'AkoeNet audit'}
-                </Link>
-                <Link to="/admin?section=akoenet-reports" className={getLinkClasses("/admin?section=akoenet-reports") + " pl-6 text-sm"}>
-                  {t('admin.menuAkoenetReports') || 'AkoeNet reports'}
-                </Link>
-              </>
-            )}
             <Link to="/admin?section=payments" className={getLinkClasses("/admin?section=payments") + " pl-6 text-sm"}>{t('admin.menuPayments')}</Link>
             {adminFinance && <Link to="/admin?section=alerts" className={getLinkClasses("/admin?section=alerts") + " pl-6 text-sm"}>{t('admin.menuAlerts')}</Link>}
           </>
@@ -361,13 +342,11 @@ function AppContent() {
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
   const [adminUnreadMessageCount, setAdminUnreadMessageCount] = useState(0);
   const [adminFinance, setAdminFinance] = useState(true);
-  const [akoenetModules, setAkoenetModules] = useState(false);
   // Admin: fetch unread support message count and feature flags for sidebar
   useEffect(() => {
     if (!user?.isAdmin || !token) {
       setAdminUnreadMessageCount(0);
       setAdminFinance(true);
-      setAkoenetModules(false);
       return;
     }
     getUnreadMessageCount(token)
@@ -376,11 +355,9 @@ function AppContent() {
     getAdminFeatures(token)
       .then((f) => {
         setAdminFinance(f.adminFinance !== false);
-        setAkoenetModules(!!f.akoenetModules);
       })
       .catch(() => {
         setAdminFinance(false);
-        setAkoenetModules(false);
       });
   }, [user?.isAdmin, token, location.pathname]);
 
@@ -454,7 +431,6 @@ function AppContent() {
               onClose={() => setSidebarOpen(false)}
               adminUnreadMessageCount={adminUnreadMessageCount}
               adminFinance={adminFinance}
-              akoenetModules={akoenetModules}
             />
           )}
           <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden">
