@@ -111,10 +111,6 @@ Default section is **`overview`** when the query param is omitted.
 | `platforms` | Global enable/disable of publishing platforms (`PUT` platform config) |
 | `payments` | Revenue charts, monthly table, paginated payments + export; with finance: fixed costs, USD→EUR for PDF invoices |
 | `alerts` | Discord webhook URLs, alert toggle, queue/DB thresholds, test sends (menu item only if finance enabled) |
-| `akoenet-health` | AkoeNet dependency health (via Scheduler proxy) |
-| `akoenet-metrics` | AkoeNet process metrics (proxy) |
-| `akoenet-audit` | AkoeNet moderation audit (proxy) |
-| `akoenet-reports` | AkoeNet content reports (proxy) |
 
 ### Feature flags: `GET /api/admin/features`
 
@@ -122,15 +118,10 @@ Authenticated admins call **`GET /api/admin/features`** (`backend/src/app.js`). 
 
 - **`adminFinance`**: mirrors **`ENABLE_ADMIN_FINANCE`** (default on; set `false` to disable fixed costs, discount codes UI, cost metrics, alerts UI/payments finance blocks).
 - **`prometheusMetrics`**: mirrors **`ENABLE_PROMETHEUS_METRICS`** (returned for future use; no dedicated admin UI yet).
-- **`akoenetModules`**: `true` when **`AKOENET_API_URL`** and **`AKOENET_ADMIN_BEARER`** are set so the Scheduler can proxy admin routes to AkoeNet.
 
-On fetch failure the UI assumes finance and AkoeNet modules off to avoid broken panels.
+On fetch failure the UI assumes finance off to avoid broken panels.
 
-### AkoeNet panels (optional)
-
-When `akoenetModules` is true, the Scheduler backend (`backend/src/routes/admin/akoenetProxy.js`) forwards selected **`/api/admin/akoenet/*`** requests to AkoeNet using the **server-side** `AKOENET_ADMIN_BEARER` (an AkoeNet admin JWT — not the Scheduler user token). Frontend: `frontend/src/features/admin/AkoenetAdminPanel.js`, `akoenetApi.js`.
-
-Smoke checks: `backend/tests/akoenetProxy.test.js`; optional `npm run smoke:akoenet-admin` with a Scheduler admin JWT (`SCHEDULER_ADMIN_TOKEN`) against `SCHEDULER_URL`.
+**AkoeNet:** el Scheduler no incluye paneles de administración de AkoeNet. La integración es webhooks salientes y API pública; la configuración por usuario está en **Ajustes → Bots → AkoeNet**.
 
 ### User administration (summary)
 
@@ -140,15 +131,6 @@ Per-user actions include: assign trial, generate licenses (monthly / quarterly /
 
 - Do not paste real **Discord webhook URLs**, **Stripe keys**, **JWTs**, or **database passwords** into documentation or commits.
 - Webhook URLs embed secrets in the path; treat them like passwords.
-
-### Environment (AkoeNet admin proxy)
-
-Add to backend `.env` only when using embedded AkoeNet admin sections (see also [AkoeNet integration docs](./AKOENET_SCHEDULER_INTEGRATION.md)):
-
-```env
-# AKOENET_API_URL=https://your-akoenet-api.example.com
-# AKOENET_ADMIN_BEARER=<JWT from AkoeNet admin login — server only, rotate on expiry>
-```
 
 ---
 

@@ -131,6 +131,7 @@ export const updateProfileSchema = Joi.object({
   akoenetAnnounceChannelId: Joi.string().max(100).allow('', null).optional(),
   /** Omit to leave unchanged; empty string or null clears stored secret */
   akoenetWebhookSecret: Joi.string().max(2000).allow(null, '').optional(),
+  akoenetSendClips: Joi.boolean().optional(),
   publicPageBannerUrl: Joi.string().uri().max(2000).allow('', null).optional().messages({
     'string.uri': 'Banner image must be a valid URL'
   }),

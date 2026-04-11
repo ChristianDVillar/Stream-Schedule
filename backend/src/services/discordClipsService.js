@@ -6,6 +6,7 @@
 import { User } from '../modules/users/infrastructure/models.js';
 import { postToDiscordChannel } from '../utils/discordPublish.js';
 import logger from '../utils/logger.js';
+import { enqueueAkoeNetClip } from './akoeNetWebhookService.js';
 
 /**
  * Publish a Twitch clip to the Discord channel configured by the user.
@@ -52,6 +53,12 @@ export async function publishTwitchClipToDiscord(userId, clip) {
       channelId,
       messageId: message?.id,
       clipTitle: title,
+    });
+    enqueueAkoeNetClip(userId, {
+      title,
+      url,
+      thumbnailUrl,
+      creatorName,
     });
     return { success: true, messageId: message?.id };
   } catch (err) {

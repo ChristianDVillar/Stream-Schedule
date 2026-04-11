@@ -4,7 +4,6 @@ import toast from 'react-hot-toast';
 import { X } from 'lucide-react';
 // Admin: usuarios, licencias, pagos (listado/export), modal detalle, mensajes
 import { getAllUsers, adminGenerateLicense, adminChangeEmail, adminResetPassword, adminCreateUser, adminUpdateLicense, adminAssignTrial, adminDeleteUser, adminSetUserDisabled, getPaymentStats, getLicenseConfig, updateLicenseConfig, getPasswordReminder, adminExtendTrial, getAdminMessages, getUnreadMessageCount, getAdminMessage, updateMessageStatus, replyToMessage, deleteMessage, resolveMessage, reopenMessage, getAdminPaymentsList, getAdminPaymentsExportBlob, sendNotification, getPlatformConfig, updatePlatformConfig, getFixedCosts, updateFixedCosts, getUsdToEurRate, getAlertConfig, updateAlertConfig, testAlertConfig, getCostMetrics, getTrialExtensionConfig, updateTrialExtensionConfig, getAdminFeatures, getDiscountCodes, updateDiscountCodes } from '../features/admin/api';
-import AkoenetAdminPanel, { AkoenetOverviewStrip } from '../features/admin/AkoenetAdminPanel';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatDateUTC } from '../utils/dateUtils';
 import { maskEmail } from '../utils/emailUtils';
@@ -89,7 +88,6 @@ export default function AdminDashboard({ token, user, onLogout }) {
   const [adminFeatures, setAdminFeatures] = useState({
     adminFinance: true,
     prometheusMetrics: false,
-    akoenetModules: false,
   });
   const [discountCodes, setDiscountCodes] = useState([]);
   const [discountCodesLoading, setDiscountCodesLoading] = useState(false);
@@ -124,11 +122,10 @@ export default function AdminDashboard({ token, user, onLogout }) {
           setAdminFeatures({
             adminFinance: f.adminFinance !== false,
             prometheusMetrics: !!f.prometheusMetrics,
-            akoenetModules: !!f.akoenetModules,
           })
         )
         .catch(() =>
-          setAdminFeatures({ adminFinance: false, prometheusMetrics: false, akoenetModules: false })
+          setAdminFeatures({ adminFinance: false, prometheusMetrics: false })
         );
     }
     // eslint-disable-next-line
@@ -902,8 +899,6 @@ export default function AdminDashboard({ token, user, onLogout }) {
           </p>
         </div>
       </div>
-
-      {adminFeatures.akoenetModules && <AkoenetOverviewStrip />}
 
       {/* Cost metrics: who costs money (ENABLE_ADMIN_FINANCE) */}
       {adminFeatures.adminFinance && (
@@ -2296,26 +2291,6 @@ export default function AdminDashboard({ token, user, onLogout }) {
           </>
         )}
       </div>
-            </>
-          )}
-
-          {['akoenet-health', 'akoenet-metrics', 'akoenet-audit', 'akoenet-reports'].includes(section) && (
-            <>
-              {adminFeatures.akoenetModules ? (
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-t-4 border-violet-500">
-                  <AkoenetAdminPanel section={section} />
-                </div>
-              ) : (
-                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-6">
-                  <p className="text-amber-900 dark:text-amber-100 font-medium">
-                    {t('admin.akoenetNotConfiguredTitle') || 'AkoeNet admin (proxy) not configured'}
-                  </p>
-                  <p className="text-sm text-amber-800 dark:text-amber-200 mt-2">
-                    {t('admin.akoenetNotConfiguredBody') ||
-                      'Set AKOENET_API_URL and AKOENET_ADMIN_BEARER in the Scheduler backend .env and restart the API. The bearer must be a JWT from an AkoeNet admin account.'}
-                  </p>
-                </div>
-              )}
             </>
           )}
 

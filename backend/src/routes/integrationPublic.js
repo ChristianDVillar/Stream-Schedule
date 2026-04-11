@@ -40,6 +40,8 @@ const INTEGRATION_BODY = () => ({
     path_on_akoenet_example: '/integrations/scheduler/webhooks/stream-scheduled',
     header: 'x-scheduler-webhook-secret',
     payload_fields: [
+      'webhook_event',
+      'scheduler_content_type',
       'streamer',
       'scheduler_slug',
       'twitch_login',
@@ -48,7 +50,13 @@ const INTEGRATION_BODY = () => ({
       'url',
       'platform',
       'channel_id',
+      'thumbnail_url',
+      'creator_name',
     ],
+    webhook_event_values: {
+      schedule: 'Streams/events from the calendar (starts_at, title, url, platform, scheduler_content_type event|stream)',
+      twitch_clip: 'After a clip is posted to Discord (url, title, optional thumbnail_url, creator_name) if user enables akoenetSendClips',
+    },
   },
   health: {
     live: '/api/health/live',

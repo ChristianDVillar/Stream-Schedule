@@ -195,6 +195,12 @@ const User = sequelize.define('User', {
     allowNull: true,
     comment: 'Optional channel id sent as channel_id in AkoeNet payload',
   },
+  akoenetSendClips: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    comment: 'POST twitch_clip webhook to same AkoeNet URL when clips are published to Discord',
+  },
   streamGoalType: {
     type: DataTypes.STRING,
     allowNull: true,
