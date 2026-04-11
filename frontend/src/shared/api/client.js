@@ -16,7 +16,8 @@ function shouldSkipLogoutOn401(config) {
   if (method === 'POST' && url.includes('/upload/file')) return true;
   if (method === 'POST' && url.includes('/content') && !url.match(/\/content\/\d+/)) return true;
   if (method === 'GET' && url.includes('/upload/stats')) return true;
-  if (method === 'GET' && (url.includes('/discord/guilds') || url.includes('/discord/invite-url'))) return true;
+    if (method === 'GET' && (url.includes('/discord/guilds') || url.includes('/discord/invite-url'))) return true;
+    if (method === 'GET' && url.includes('/akoenet/guilds')) return true;
   if (method === 'GET' && url.includes('/instagram/')) return true;
   if (method === 'GET' && url.includes('/user/connected-accounts')) return true;
   return false;

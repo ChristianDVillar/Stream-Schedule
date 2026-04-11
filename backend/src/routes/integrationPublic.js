@@ -39,6 +39,11 @@ const INTEGRATION_BODY = () => ({
     method: 'POST',
     path_on_akoenet_example: '/integrations/scheduler/webhooks/stream-scheduled',
     header: 'x-scheduler-webhook-secret',
+    discovery_on_akoenet_optional: {
+      list_servers: 'GET {origin}/integrations/scheduler/servers (same header)',
+      list_channels: 'GET {origin}/integrations/scheduler/servers/{serverId}/channels (same header)',
+      note: 'Implemented by AkoeNet; Scheduler proxies via GET /api/akoenet/guilds and /api/akoenet/guilds/:id/channels',
+    },
     payload_fields: [
       'webhook_event',
       'scheduler_content_type',

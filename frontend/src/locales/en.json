@@ -556,7 +556,14 @@
     "akoenetSave": "Save AkoeNet",
     "akoenetSaved": "AkoeNet settings saved.",
     "akoenetClearSecretConfirm": "Remove the stored webhook secret?",
-    "akoenetClearSecret": "Clear secret"
+    "akoenetClearSecret": "Clear secret",
+    "akoenetSelectServer": "AkoeNet server",
+    "akoenetChooseServer": "Choose server",
+    "akoenetSelectChannel": "Announce channel",
+    "akoenetChooseChannel": "Choose channel",
+    "akoenetManualChannelHint": "Your AkoeNet instance does not expose the server list API yet. Enter the channel ID manually, or add GET /integrations/scheduler/servers on AkoeNet (same shared secret header as the webhook).",
+    "akoenetPickerHint": "Pick server and channel like Discord; the channel id is sent as channel_id in webhooks.",
+    "akoenetNoServersHint": "AkoeNet returned no servers. Check your API or enter the channel id below."
   },
   "publicPage": {
     "title": "Edit shared calendar page",
