@@ -52,7 +52,14 @@ Streamer Scheduler is a content management platform that allows content creators
 
 ---
 
-## Recent updates (v2.3.0)
+## Recent updates (v2.3.1)
+
+- **Routing & API:** `GET /api/content/export` and `/debug-scheduled` registered before `/:id`; export requires auth; notifications list pagination and SQL unread count; optional limits on `GET /my-messages`.
+- **CI & quality:** GitHub Actions runs frontend production build + tests and backend Vitest; frontend Prettier aligned with backend.
+- **Logging:** Winston for production fatals and user-route errors; Discord scheduled-event body only in dev debug; frontend `devCatchLog` / `devCatchLogThrottled` for non-fatal catches.
+- **Legal / branding:** Central `dakinisCopyrightNotice` with year cache on copyright headers and health JSON.
+
+### Earlier in v2.3.0
 
 - Deep repository reorganization across frontend and backend, using safe incremental migration.
 - Reminder orchestration consolidated under `modules/reminders/application/jobs` (`jobs/reminders` kept only as a compatibility bridge), reducing business logic in routes.
@@ -197,5 +204,5 @@ For issues, questions, or support, please contact the development team.
 
 ---
 
-**Version:** 2.3.0  
-**Last updated:** March 2026
+**Version:** 2.3.1  
+**Last updated:** April 2026

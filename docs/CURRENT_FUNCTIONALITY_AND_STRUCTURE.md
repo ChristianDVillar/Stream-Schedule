@@ -8,7 +8,7 @@ This document is the **single technical reference** for **Streamer Scheduler** i
 
 | Item | Value |
 |------|--------|
-| Package version | `2.3.0` (frontend and backend `package.json`) |
+| Package version | `2.3.1` (frontend and backend `package.json`) |
 | Layout | Monorepo: `frontend/` (React), `backend/` (Node/Express), `docs/` |
 | Databases | **PostgreSQL** when `DATABASE_URL` is set (e.g. Supabase); otherwise **SQLite** (`backend/database.sqlite`) |
 
@@ -428,4 +428,4 @@ Prior roadmap items (splitting APIs, module barrels, bootstrap entrypoints, CI a
 
 ---
 
-*Last updated: March 2026 — aligns with Streamer Scheduler ~v2.3.0. Admin dashboard documentation lives in this file (unified with the former `ADMIN_DASHBOARD.md`).*
+*Last updated: April 2026 — aligns with Streamer Scheduler ~v2.3.1. Admin dashboard documentation lives in this file (unified with the former `ADMIN_DASHBOARD.md`).*
