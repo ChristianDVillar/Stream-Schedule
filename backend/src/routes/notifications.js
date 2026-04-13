@@ -8,9 +8,22 @@ import { Notification, NotificationRead } from '../modules/system/infrastructure
 import { User } from '../modules/users/infrastructure/models.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import logger from '../utils/logger.js';
-import { Op } from 'sequelize';
+import { Op, QueryTypes } from 'sequelize';
+import { sequelize } from '../config/database.js';
 
 const router = express.Router();
+
+const NOTIFICATION_LIST_DEFAULT = 100;
+const NOTIFICATION_LIST_MAX = 200;
+
+function parseNotificationListPaging(query) {
+  let limit = parseInt(String(query?.limit ?? ''), 10);
+  if (Number.isNaN(limit) || limit < 1) limit = NOTIFICATION_LIST_DEFAULT;
+  limit = Math.min(NOTIFICATION_LIST_MAX, limit);
+  let offset = parseInt(String(query?.offset ?? ''), 10);
+  if (Number.isNaN(offset) || offset < 0) offset = 0;
+  return { limit, offset };
+}
 
 // Create notification (admin only)
 router.post('/', requireAdmin, async (req, res) => {
@@ -45,27 +58,30 @@ router.post('/', requireAdmin, async (req, res) => {
 // List notifications for current user (broadcast + targeted to this user)
 router.get('/', requireAuth, async (req, res) => {
   try {
+    const { limit, offset } = parseNotificationListPaging(req.query);
     const notifications = await Notification.findAll({
       where: {
-        [Op.or]: [
-          { userId: null },
-          { userId: req.user.id }
-        ]
+        [Op.or]: [{ userId: null }, { userId: req.user.id }],
       },
       order: [['createdAt', 'DESC']],
-      include: [
-        { model: User, as: 'creator', attributes: ['id', 'username'], required: false }
-      ]
+      limit,
+      offset,
+      include: [{ model: User, as: 'creator', attributes: ['id', 'username'], required: false }],
     });
-    const readIds = await NotificationRead.findAll({
-      where: { userId: req.user.id },
-      attributes: ['notificationId']
-    }).then(rows => rows.map(r => r.notificationId));
-    const list = notifications.map(n => ({
+    const ids = notifications.map((n) => n.id);
+    const readRows =
+      ids.length === 0
+        ? []
+        : await NotificationRead.findAll({
+            where: { userId: req.user.id, notificationId: { [Op.in]: ids } },
+            attributes: ['notificationId'],
+          });
+    const readSet = new Set(readRows.map((r) => r.notificationId));
+    const list = notifications.map((n) => ({
       ...n.toJSON(),
-      read: readIds.includes(n.id)
+      read: readSet.has(n.id),
     }));
-    res.json({ notifications: list });
+    res.json({ notifications: list, limit, offset });
   } catch (error) {
     logger.error('Error fetching notifications', { error: error.message, userId: req.user?.id });
     res.status(500).json({ error: 'Failed to fetch notifications' });
@@ -75,20 +91,17 @@ router.get('/', requireAuth, async (req, res) => {
 // Unread count for current user
 router.get('/unread-count', requireAuth, async (req, res) => {
   try {
-    const all = await Notification.findAll({
-      where: {
-        [Op.or]: [
-          { userId: null },
-          { userId: req.user.id }
-        ]
-      },
-      attributes: ['id']
-    });
-    const readIds = await NotificationRead.findAll({
-      where: { userId: req.user.id },
-      attributes: ['notificationId']
-    }).then(rows => rows.map(r => r.notificationId));
-    const unreadCount = all.filter(n => !readIds.includes(n.id)).length;
+    const uid = req.user.id;
+    const [row] = await sequelize.query(
+      `SELECT CAST(COUNT(*) AS INTEGER) AS "count" FROM "Notifications" AS n
+       WHERE (n."userId" IS NULL OR n."userId" = :uid)
+       AND NOT EXISTS (
+         SELECT 1 FROM "NotificationReads" AS r
+         WHERE r."notificationId" = n.id AND r."userId" = :uid
+       )`,
+      { replacements: { uid }, type: QueryTypes.SELECT }
+    );
+    const unreadCount = Number(row?.count ?? 0) || 0;
     res.json({ unreadCount });
   } catch (error) {
     logger.error('Error fetching unread count', { error: error.message, userId: req.user?.id });

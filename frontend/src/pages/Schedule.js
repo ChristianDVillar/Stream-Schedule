@@ -32,6 +32,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { getPlatformColors } from '../utils/platformColors';
 import { parsePastedPost } from '../utils/copyPastePost';
 import { TWITTER_MAX_CHARS, DISCORD_ICON_URL } from '../constants/platforms';
+import { devCatchLog } from '../utils/devCatchLog';
 
 // Content types available per platform (platform-first UX)
 const PLATFORM_CONTENT_TYPES = {
@@ -446,7 +447,8 @@ const Schedule = ({ user, token }) => {
             try {
               const testDate = new Date(`${eventDate.date}T${eventDate.time}`);
               return !isNaN(testDate.getTime());
-            } catch {
+            } catch (e) {
+              devCatchLog('Schedule.eventDate.parse', e);
               return false;
             }
           })

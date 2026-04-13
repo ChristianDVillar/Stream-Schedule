@@ -5,12 +5,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
+import { COPYRIGHT_BRAND_NAME, getCopyrightYearEnd } from '../constants/copyright';
 
-const CURRENT_YEAR = 2026;
 const DAKINIS_SYSTEMS_URL = 'https://dakinissystems.onrender.com/';
 
 export default function AppFooter({ className = '' }) {
   const { t } = useLanguage();
+  const displayYear = getCopyrightYearEnd();
   const baseClass = 'text-center text-gray-600 dark:text-gray-400 py-3 sm:py-4 px-4 text-sm border-t border-accent-light dark:border-gray-700 bg-accent-subtle dark:bg-gray-800';
   return (
     <footer className={className || baseClass}>
@@ -20,7 +21,7 @@ export default function AppFooter({ className = '' }) {
           target="_blank"
           rel="noopener noreferrer"
           className="inline-block focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
-          aria-label={t('footer.brandName') || 'Dakinis Systems'}
+          aria-label={t('footer.brandName') || COPYRIGHT_BRAND_NAME}
         >
           <img
             src="/Logo Grande.jpeg"
@@ -30,14 +31,14 @@ export default function AppFooter({ className = '' }) {
           />
         </a>
         <span>
-          {t('footer.copyrightPrefix', { year: CURRENT_YEAR }) || `© ${CURRENT_YEAR} `}
+          {t('footer.copyrightPrefix', { year: displayYear }) || `© ${displayYear} `}
           <a
             href={DAKINIS_SYSTEMS_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="font-medium text-gray-700 dark:text-gray-300 hover:text-accent underline underline-offset-2"
           >
-            {t('footer.brandName') || 'Dakinis Systems'}
+            {t('footer.brandName') || COPYRIGHT_BRAND_NAME}
           </a>
           {t('footer.copyrightSuffix') || ' (trading name of Christian Villar). All rights reserved.'}
         </span>

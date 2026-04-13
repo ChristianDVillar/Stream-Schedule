@@ -4,6 +4,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { devCatchLog } from '../utils/devCatchLog';
 
 function useQuery() {
   const { search } = useLocation();
@@ -30,7 +31,8 @@ export default function OverlayGoal() {
         if (!cancelled) {
           setText(body || 'No goal set. Set a follower or sub goal in Streamer Scheduler → Settings.');
         }
-      } catch {
+      } catch (e) {
+        devCatchLog('OverlayGoal.load', e);
         if (!cancelled) setText('Could not load goal.');
       }
     }

@@ -15,6 +15,7 @@ import { CONTENT_STATUS } from '../constants/contentStatus.js';
 import { CONTENT_PLATFORM_STATUS } from '../modules/content/infrastructure/ContentPlatform.model.js';
 import logger from '../utils/logger.js';
 import { getRedis, isRedisAvailable } from '../utils/redisConnection.js';
+import { COPYRIGHT_BRAND_NAME, dakinisCopyrightNotice } from '../constants/copyright.js';
 
 const router = express.Router();
 
@@ -93,6 +94,8 @@ router.get('/', async (req, res) => {
       uptimeSeconds: Math.round(process.uptime()),
       environment: process.env.NODE_ENV || 'development',
       memoryUsageMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
+      copyright: dakinisCopyrightNotice(),
+      copyrightBrand: COPYRIGHT_BRAND_NAME,
     };
 
     // Redis

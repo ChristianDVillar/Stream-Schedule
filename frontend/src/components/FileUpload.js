@@ -10,6 +10,7 @@ import { handleUpload, getUploadStats } from '../utils/uploadHelper';
 import { formatDateTime } from '../utils/dateUtils';
 import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
+import { devCatchLog } from '../utils/devCatchLog';
 
 export default function FileUpload({ user, onUploadComplete }) {
   const { t } = useLanguage();
@@ -101,6 +102,7 @@ export default function FileUpload({ user, onUploadComplete }) {
           const stats = await getUploadStats(userId);
           setUploadStats(stats);
         } catch (error) {
+          devCatchLog('FileUpload.refreshStatsAfterUpload', error);
         }
       }
 

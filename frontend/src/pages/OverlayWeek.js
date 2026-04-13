@@ -4,6 +4,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { devCatchLog } from '../utils/devCatchLog';
 
 function useQuery() {
   const { search } = useLocation();
@@ -30,7 +31,8 @@ export default function OverlayWeek() {
         if (!cancelled) {
           setText(body || 'No streams scheduled this week.');
         }
-      } catch {
+      } catch (e) {
+        devCatchLog('OverlayWeek.load', e);
         if (!cancelled) setText('Could not load schedule.');
       }
     }

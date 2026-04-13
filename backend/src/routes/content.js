@@ -88,6 +88,105 @@ router.get('/', requireAuth, async (req, res) => {
   }
 });
 
+// Static paths must be registered before `/:id` or Express matches "export" / "debug-scheduled" as ids.
+
+router.get('/export', requireAuth, async (req, res) => {
+  try {
+    const contents = await Content.findAll({
+      where: { userId: req.user.id },
+      order: [['scheduledFor', 'DESC']],
+    });
+
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      userId: req.user.id,
+      totalItems: contents.length,
+      contents: contents.map((c) => ({
+        id: c.id,
+        title: c.title,
+        content: c.content,
+        contentType: c.contentType,
+        scheduledFor: c.scheduledFor,
+        status: c.status,
+        platforms: c.platforms,
+        hashtags: c.hashtags,
+        mentions: c.mentions,
+        timezone: c.timezone,
+        recurrence: c.recurrence,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+      })),
+    };
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="content-export-${new Date().toISOString().split('T')[0]}.json"`
+    );
+    res.json(exportData);
+  } catch (err) {
+    logger.error('Content export failed', { error: err.message, userId: req.user?.id });
+    res.status(500).json({ error: 'Export failed', details: err.message });
+  }
+});
+
+router.get('/debug-scheduled', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const now = new Date();
+
+    const scheduled = await Content.findAll({
+      where: {
+        userId,
+        status: 'scheduled',
+      },
+      order: [['scheduledFor', 'ASC']],
+      limit: 10,
+    });
+
+    const due = await Content.findAll({
+      where: {
+        userId,
+        status: 'scheduled',
+        scheduledFor: { [Op.lte]: now },
+      },
+      order: [['scheduledFor', 'ASC']],
+      limit: 10,
+    });
+
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'twitterId', 'twitterAccessToken', 'twitterRefreshToken'],
+    });
+
+    res.json({
+      now: now.toISOString(),
+      scheduledCount: scheduled.length,
+      dueCount: due.length,
+      scheduled: scheduled.map((c) => ({
+        id: c.id,
+        platforms: c.platforms,
+        hasTwitter: Array.isArray(c.platforms) && c.platforms.includes('twitter'),
+        scheduledFor: c.scheduledFor,
+        isDue: new Date(c.scheduledFor) <= now,
+      })),
+      due: due.map((c) => ({
+        id: c.id,
+        platforms: c.platforms,
+        hasTwitter: Array.isArray(c.platforms) && c.platforms.includes('twitter'),
+        scheduledFor: c.scheduledFor,
+      })),
+      twitterStatus: {
+        hasTwitterId: !!user?.twitterId,
+        hasAccessToken: !!user?.twitterAccessToken,
+        accessTokenLength: user?.twitterAccessToken?.length || 0,
+      },
+    });
+  } catch (err) {
+    logger.error('Debug scheduled content error', { error: err.message, userId: req.user?.id });
+    res.status(500).json({ error: 'Server error', message: err.message });
+  }
+});
+
 // Get content by id - allowed without license (read-only)
 router.get('/:id', requireAuth, async (req, res) => {
   try {
@@ -163,101 +262,6 @@ router.delete('/:id', requireAuth, checkLicense, auditLog('content_deleted', 'Co
       contentId: req.params.id,
     });
     res.status(500).json({ error: 'Failed to delete content', details: err.message });
-  }
-});
-
-// Export content
-router.get('/export', async (req, res) => {
-  try {
-    const contents = await Content.findAll({ 
-      where: { userId: req.user.id },
-      order: [['scheduledFor', 'DESC']]
-    });
-    
-    const exportData = {
-      exportedAt: new Date().toISOString(),
-      userId: req.user.id,
-      totalItems: contents.length,
-      contents: contents.map(c => ({
-        id: c.id,
-        title: c.title,
-        content: c.content,
-        contentType: c.contentType,
-        scheduledFor: c.scheduledFor,
-        status: c.status,
-        platforms: c.platforms,
-        hashtags: c.hashtags,
-        mentions: c.mentions,
-        timezone: c.timezone,
-        recurrence: c.recurrence,
-        createdAt: c.createdAt,
-        updatedAt: c.updatedAt
-      }))
-    };
-    
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename="content-export-${new Date().toISOString().split('T')[0]}.json"`);
-    res.json(exportData);
-  } catch (err) {
-    res.status(500).json({ error: 'Export failed', details: err.message });
-  }
-});
-
-// Debug endpoint: Check scheduled content and Twitter status
-router.get('/debug-scheduled', requireAuth, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const now = new Date();
-    
-    const scheduled = await Content.findAll({
-      where: {
-        userId,
-        status: 'scheduled',
-      },
-      order: [['scheduledFor', 'ASC']],
-      limit: 10,
-    });
-    
-    const due = await Content.findAll({
-      where: {
-        userId,
-        status: 'scheduled',
-        scheduledFor: { [Op.lte]: now },
-      },
-      order: [['scheduledFor', 'ASC']],
-      limit: 10,
-    });
-    
-    const user = await User.findByPk(userId, {
-      attributes: ['id', 'twitterId', 'twitterAccessToken', 'twitterRefreshToken'],
-    });
-    
-    res.json({
-      now: now.toISOString(),
-      scheduledCount: scheduled.length,
-      dueCount: due.length,
-      scheduled: scheduled.map((c) => ({
-        id: c.id,
-        platforms: c.platforms,
-        hasTwitter: Array.isArray(c.platforms) && c.platforms.includes('twitter'),
-        scheduledFor: c.scheduledFor,
-        isDue: new Date(c.scheduledFor) <= now,
-      })),
-      due: due.map((c) => ({
-        id: c.id,
-        platforms: c.platforms,
-        hasTwitter: Array.isArray(c.platforms) && c.platforms.includes('twitter'),
-        scheduledFor: c.scheduledFor,
-      })),
-      twitterStatus: {
-        hasTwitterId: !!user?.twitterId,
-        hasAccessToken: !!user?.twitterAccessToken,
-        accessTokenLength: user?.twitterAccessToken?.length || 0,
-      },
-    });
-  } catch (err) {
-    logger.error('Debug scheduled content error', { error: err.message, userId: req.user?.id });
-    res.status(500).json({ error: 'Server error', message: err.message });
   }
 });
 

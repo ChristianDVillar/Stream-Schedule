@@ -1,3 +1,5 @@
+import { devCatchLog } from './devCatchLog';
+
 /**
  * Platform display colors. User can override in Settings (stored in localStorage).
  * Defaults: Discord violet, Instagram black, Twitter light blue.
@@ -28,7 +30,8 @@ function parseStored() {
       }
     });
     return Object.keys(result).length ? result : null;
-  } catch {
+  } catch (e) {
+    devCatchLog('platformColors.parseStored', e);
     return null;
   }
 }
@@ -57,7 +60,7 @@ export function setPlatformColors(colors) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   } catch (e) {
-    // ignore
+    devCatchLog('platformColors.setPlatformColors', e);
   }
   return next;
 }
@@ -69,7 +72,7 @@ export function resetPlatformColors() {
   try {
     localStorage.removeItem(STORAGE_KEY);
   } catch (e) {
-    // ignore
+    devCatchLog('platformColors.resetPlatformColors', e);
   }
   return { ...DEFAULT_PLATFORM_COLORS };
 }

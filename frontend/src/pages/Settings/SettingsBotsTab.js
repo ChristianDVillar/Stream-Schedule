@@ -6,6 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { Bot, Copy, RefreshCw, Check, ExternalLink, Key, ListTodo, Calendar, Radio, MessageSquare, Zap, Monitor, ChevronDown, ChevronRight, Link2, Server, Hash, AlertCircle } from 'lucide-react';
 import { getNightbotKey, generateNightbotKey } from '../../features/integrations/api';
 import { getAkoenetGuilds, getAkoenetChannels } from '../../features/akoenet/api';
+import { devCatchLog } from '../../utils/devCatchLog';
 import toast from 'react-hot-toast';
 import { useStreamMode } from '../../contexts/StreamModeContext';
 import { getPublicFrontendOrigin, getPublicStreamerShareUrl, getPublicEmbedStreamerShareUrl } from '../../shared/config/publicUrls';
@@ -66,7 +67,8 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
     try {
       const k = await getNightbotKey();
       setKey(k);
-    } catch {
+    } catch (e) {
+      devCatchLog('SettingsBotsTab.fetchNightbotKey', e);
       setKey(null);
     } finally {
       setLoading(false);
@@ -153,7 +155,8 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
       .then((data) => {
         if (!cancelled) setAkoenetChannels(data.channels || []);
       })
-      .catch(() => {
+      .catch((e) => {
+        devCatchLog('SettingsBotsTab.getAkoenetChannels', e);
         if (!cancelled) setAkoenetChannels([]);
       })
       .finally(() => {

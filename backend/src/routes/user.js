@@ -1607,16 +1607,15 @@ export async function connectedAccountsHandler(req, res) {
     
     res.json(result);
   } catch (err) {
-    logger.error('Connected accounts error', { 
+    logger.error('Connected accounts error', {
       error: err.message,
       stack: err.stack,
       userId,
       name: err.name,
       code: err.code,
       sqlState: err.sqlState,
-      sqlMessage: err.sqlMessage
+      sqlMessage: err.sqlMessage,
     });
-    console.error('Connected accounts - Full error details:', err);
     res.status(500).json({ error: 'Server error' });
   }
 }
@@ -1745,16 +1744,15 @@ router.post('/disconnect-google', requireAuth, async (req, res) => {
     logger.info('Google disconnected successfully', { userId });
     res.json({ message: 'Google disconnected' });
   } catch (err) {
-    logger.error('Disconnect Google error', { 
+    logger.error('Disconnect Google error', {
       error: err.message,
       stack: err.stack,
       userId,
       name: err.name,
       code: err.code,
       sqlState: err.sqlState,
-      sqlMessage: err.sqlMessage
+      sqlMessage: err.sqlMessage,
     });
-    console.error('Disconnect Google - Full error details:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -1851,9 +1849,8 @@ router.post('/disconnect-twitch', requireAuth, async (req, res) => {
       name: err.name,
       code: err.code,
       sqlState: err.sqlState,
-      sqlMessage: err.sqlMessage
+      sqlMessage: err.sqlMessage,
     });
-    console.error('Disconnect Twitch - Full error details:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -2054,16 +2051,15 @@ router.post('/disconnect-discord', requireAuth, async (req, res) => {
     logger.info('Discord disconnected successfully', { userId });
     res.json({ message: 'Discord disconnected' });
   } catch (err) {
-    logger.error('Disconnect Discord error', { 
+    logger.error('Disconnect Discord error', {
       error: err.message,
       stack: err.stack,
       userId,
       name: err.name,
       code: err.code,
       sqlState: err.sqlState,
-      sqlMessage: err.sqlMessage
+      sqlMessage: err.sqlMessage,
     });
-    console.error('Disconnect Discord - Full error details:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

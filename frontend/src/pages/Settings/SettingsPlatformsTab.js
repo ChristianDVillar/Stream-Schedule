@@ -8,6 +8,7 @@ import {
   getDiscordInviteUrl,
 } from '../../features/discord/api';
 import { setupSlackWorkspace } from '../../features/integrations/api';
+import { devCatchLog } from '../../utils/devCatchLog';
 
 // Platform-specific icons (same style as Login page)
 const GoogleIcon = () => (
@@ -122,7 +123,8 @@ export default function SettingsPlatformsTab({
       try {
         const postsRes = await getInstagramPosts(5);
         setIgPosts(postsRes?.data || []);
-      } catch {
+      } catch (e) {
+        devCatchLog('SettingsPlatformsTab.getInstagramPosts', e);
         setIgPosts([]);
       }
     } catch (err) {
@@ -399,8 +401,8 @@ export default function SettingsPlatformsTab({
                     try {
                       const { inviteUrl } = await getDiscordInviteUrl();
                       if (inviteUrl) window.open(inviteUrl, '_blank', 'noopener,noreferrer');
-                    } catch {
-                      // Silently fail - user will see no action
+                    } catch (e) {
+                      devCatchLog('SettingsPlatformsTab.getDiscordInviteUrl', e);
                     }
                   }}
                   className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#5865F2] text-white rounded-lg hover:bg-[#4752C4]"

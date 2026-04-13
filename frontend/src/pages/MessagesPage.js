@@ -3,6 +3,7 @@ import { Bell, MessageSquare } from 'lucide-react';
 import MyMessages from '../components/MyMessages';
 import { getNotifications, markNotificationRead } from '../features/messaging/api';
 import { useLanguage } from '../contexts/LanguageContext';
+import { devCatchLog } from '../utils/devCatchLog';
 
 /**
  * Centro de mensajes: conversaciones con soporte (MyMessages) + notificaciones del admin.
@@ -14,8 +15,11 @@ export default function MessagesPage({ token }) {
   useEffect(() => {
     if (!token) return;
     getNotifications(token)
-      .then(r => setNotifications(r.data.notifications || []))
-      .catch(() => setNotifications([]));
+      .then((r) => setNotifications(r.data.notifications || []))
+      .catch((e) => {
+        devCatchLog('MessagesPage.getNotifications', e);
+        setNotifications([]);
+      });
   }, [token]);
 
   const handleMarkRead = async (id) => {
@@ -23,7 +27,9 @@ export default function MessagesPage({ token }) {
     try {
       await markNotificationRead(id, token);
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-    } catch (_) {}
+    } catch (e) {
+      devCatchLog('MessagesPage.markNotificationRead', e);
+    }
   };
 
   const formatDate = (d) => (d ? new Date(d).toLocaleString() : '');

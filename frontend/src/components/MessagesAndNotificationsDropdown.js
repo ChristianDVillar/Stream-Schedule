@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, Bell, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getMyMessages, getNotifications, getNotificationsUnreadCount, markNotificationRead } from '../features/messaging/api';
+import { devCatchLog } from '../utils/devCatchLog';
 /**
  * Dropdown next to logout: Respuestas (admin replies to user messages) + Notificaciones (admin announcements).
  * Shown only for non-admin users.
@@ -20,9 +21,24 @@ export default function MessagesAndNotificationsDropdown({ token }) {
     if (!open || !token) return;
     setLoading(true);
     Promise.all([
-      getMyMessages(token).then(r => r.data.messages || []).catch(() => []),
-      getNotifications(token).then(r => r.data.notifications || []).catch(() => []),
-      getNotificationsUnreadCount(token).then(r => r.data.unreadCount ?? 0).catch(() => 0)
+      getMyMessages(token)
+        .then((r) => r.data.messages || [])
+        .catch((e) => {
+          devCatchLog('MessagesDropdown.getMyMessages', e);
+          return [];
+        }),
+      getNotifications(token)
+        .then((r) => r.data.notifications || [])
+        .catch((e) => {
+          devCatchLog('MessagesDropdown.getNotifications', e);
+          return [];
+        }),
+      getNotificationsUnreadCount(token)
+        .then((r) => r.data.unreadCount ?? 0)
+        .catch((e) => {
+          devCatchLog('MessagesDropdown.getUnreadCount', e);
+          return 0;
+        }),
     ]).then(([msgs, notifs, count]) => {
       setMessages(msgs);
       setNotifications(notifs);
@@ -57,7 +73,9 @@ export default function MessagesAndNotificationsDropdown({ token }) {
       await markNotificationRead(id, token);
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
       setUnreadNotifCount(prev => Math.max(0, prev - 1));
-    } catch (_) {}
+    } catch (e) {
+      devCatchLog('MessagesDropdown.markNotificationRead', e);
+    }
   };
 
   return (

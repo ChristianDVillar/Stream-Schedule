@@ -6,6 +6,7 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
+import { devCatchLog } from '../utils/devCatchLog';
 
 const OVERLAY_API_BASE = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 
@@ -124,7 +125,8 @@ export default function Overlay() {
             if (!cancelled) setVisible(false);
           }, popDuration);
         }
-      } catch {
+      } catch (e) {
+        devCatchLog('Overlay.load', e);
         if (!cancelled) setData({ main: 'Could not load.', sub: '' });
       }
     }

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../shared/api/client';
 import toast from 'react-hot-toast';
 import { useLanguage } from '../contexts/LanguageContext';
+import { devCatchLog } from '../utils/devCatchLog';
 import { 
   User, 
   Calendar, 
@@ -55,7 +56,8 @@ const Profile = ({ user, token }) => {
           withCredentials: true
         });
         setPostPerformance(perfResponse.data);
-      } catch {
+      } catch (e) {
+        devCatchLog('Profile.postPerformance', e);
         setPostPerformance({ byPlatform: [], totalPublished: 0, totalFailed: 0, totalAttempts: 0 });
       }
 

@@ -5,6 +5,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { devCatchLog } from '../utils/devCatchLog';
 
 function useQuery() {
   const { search } = useLocation();
@@ -40,6 +41,7 @@ export default function OverlayNextStream() {
         setStreamText(nextText || 'No stream scheduled.');
         setCountdownText(countdown || '');
       } catch (e) {
+        devCatchLog('OverlayNextStream.load', e);
         if (!cancelled) {
           setStreamText('Could not load schedule.');
           setCountdownText('');

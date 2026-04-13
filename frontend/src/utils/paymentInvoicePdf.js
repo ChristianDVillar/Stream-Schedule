@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { devCatchLog } from './devCatchLog';
 
 /**
  * Builds a single PDF for subscription revenue: header (logo, issuer data), table of payments, totals.
@@ -96,7 +97,9 @@ export function buildPaymentsInvoicePdf(payments, options = {}) {
       const logoX = (pageW - 20) / 2;
       const format = logoDataUrl.indexOf('image/jpeg') !== -1 ? 'JPEG' : 'PNG';
       doc.addImage(logoDataUrl, format, logoX, 4, 20, 20);
-    } catch (e) {}
+    } catch (e) {
+      devCatchLog('paymentInvoicePdf.headerLogo', e);
+    }
   }
   y = headerStripHeight + 6;
 

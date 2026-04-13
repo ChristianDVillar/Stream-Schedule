@@ -8,6 +8,13 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { dakinisCopyrightNotice } from './constants/copyright';
+
+if (typeof document !== 'undefined') {
+  const meta = document.querySelector('meta[name="copyright"]');
+  const notice = dakinisCopyrightNotice();
+  if (meta) meta.setAttribute('content', notice);
+}
 
 // Rewrite any fetch to Supabase base URL (no path) to /auth/v1/settings so SDK doesn't get 404
 const supabaseBase = (process.env.REACT_APP_SUPABASE_URL || '').replace(/\/$/, '');

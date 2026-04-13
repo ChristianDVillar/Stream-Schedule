@@ -1,4 +1,5 @@
 import React from 'react';
+import { devCatchLog } from './devCatchLog';
 
 /**
  * Accent color values (hex) for CSS variables.
@@ -19,7 +20,8 @@ export function getStoredAccentColor() {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     return ACCENT_COLORS[stored] ? stored : 'blue';
-  } catch {
+  } catch (e) {
+    devCatchLog('themeUtils.getStoredAccentColor', e);
     return 'blue';
   }
 }
@@ -46,7 +48,7 @@ export function applyAccentColor(id) {
   try {
     localStorage.setItem(STORAGE_KEY, id);
   } catch (e) {
-    // ignore
+    devCatchLog('themeUtils.applyAccentColor', e);
   }
 }
 
@@ -95,7 +97,8 @@ export function getCustomColorConfig() {
       swatches: Array.isArray(parsed.swatches) ? parsed.swatches : [],
       assignments: { ...DEFAULT_ASSIGNMENTS, ...(parsed.assignments || {}) },
     };
-  } catch {
+  } catch (e) {
+    devCatchLog('themeUtils.getCustomColorConfig', e);
     return { swatches: [], assignments: { ...DEFAULT_ASSIGNMENTS } };
   }
 }
@@ -104,7 +107,7 @@ export function setCustomColorConfig(config) {
   try {
     localStorage.setItem(CUSTOM_COLORS_STORAGE_KEY, JSON.stringify(config));
   } catch (e) {
-    // ignore
+    devCatchLog('themeUtils.setCustomColorConfig', e);
   }
 }
 

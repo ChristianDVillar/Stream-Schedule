@@ -9,6 +9,7 @@ import { formatDateUTC } from '../utils/dateUtils';
 import { maskEmail } from '../utils/emailUtils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { buildPaymentsInvoicePdf } from '../utils/paymentInvoicePdf';
+import { devCatchLog } from '../utils/devCatchLog';
 import { PLATFORM_IDS } from '../constants/platforms.js';
 
 export default function AdminDashboard({ token, user, onLogout }) {
@@ -124,9 +125,10 @@ export default function AdminDashboard({ token, user, onLogout }) {
             prometheusMetrics: !!f.prometheusMetrics,
           })
         )
-        .catch(() =>
-          setAdminFeatures({ adminFinance: false, prometheusMetrics: false })
-        );
+        .catch((e) => {
+          devCatchLog('AdminDashboard.getAdminFeatures', e);
+          setAdminFeatures({ adminFinance: false, prometheusMetrics: false });
+        });
     }
     // eslint-disable-next-line
   }, []);
@@ -448,8 +450,8 @@ export default function AdminDashboard({ token, user, onLogout }) {
           img.onerror = () => resolve(null);
           img.src = logoUrl;
         });
-      } catch (_) {
-        // omit logo if load fails
+      } catch (e) {
+        devCatchLog('AdminDashboard.invoiceLogo', e);
       }
       const pdfBlob = buildPaymentsInvoicePdf(data, {
         logoDataUrl,

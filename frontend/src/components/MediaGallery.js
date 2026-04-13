@@ -11,6 +11,7 @@ import { getUploadStats } from '../utils/uploadHelper';
 import { deleteUpload, getVideoSignedUrl } from '../features/uploads/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
+import { devCatchLog } from '../utils/devCatchLog';
 
 /** Never use Supabase base URL as img/video src (causes GET base 404). Return undefined so we don't trigger request. */
 function safeMediaSrc(url) {
@@ -77,7 +78,9 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
                   }
                   if (status === 404 && isOurApi404) {
                     if (upload.id) {
-                      deleteUpload(upload.id).catch(() => {});
+                      deleteUpload(upload.id).catch((e) => {
+                        devCatchLog('MediaGallery.deleteUpload.orphan404', e);
+                      });
                     }
                     return null;
                   }
@@ -89,7 +92,9 @@ export default function MediaGallery({ user, onSelect, selectedUrls = [], showDe
                     const isObjectNotFound = /object not found|not found|404/i.test(msg);
                     if (isObjectNotFound) {
                       if (upload.id) {
-                        deleteUpload(upload.id).catch(() => {});
+                        deleteUpload(upload.id).catch((e) => {
+                          devCatchLog('MediaGallery.deleteUpload.orphan404', e);
+                        });
                       }
                       return null;
                     }

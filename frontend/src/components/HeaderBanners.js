@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { devCatchLog } from '../utils/devCatchLog';
 
 const STORAGE_KEY = 'header_banners_dismissed';
 export const BANNER_CONFIG_KEY = 'header_banners_config';
@@ -16,7 +17,8 @@ export function getBannersFromEnv() {
     if (!raw || typeof raw !== 'string') return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
-  } catch (_) {
+  } catch (e) {
+    devCatchLog('HeaderBanners.getBannersFromEnv', e);
     return [];
   }
 }
@@ -28,7 +30,9 @@ function getBannersConfig() {
       const parsed = JSON.parse(fromStorage);
       if (Array.isArray(parsed)) return parsed;
     }
-  } catch (_) {}
+  } catch (e) {
+    devCatchLog('HeaderBanners.getBannersConfig', e);
+  }
   return getBannersFromEnv();
 }
 
@@ -96,7 +100,8 @@ export default function HeaderBanners() {
     try {
       const s = sessionStorage.getItem(STORAGE_KEY);
       return s ? JSON.parse(s) : [];
-    } catch (_) {
+    } catch (e) {
+      devCatchLog('HeaderBanners.dismissed.init', e);
       return [];
     }
   });
@@ -117,7 +122,9 @@ export default function HeaderBanners() {
     setDismissed(next);
     try {
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch (_) {}
+    } catch (e) {
+      devCatchLog('HeaderBanners.persistDismissed', e);
+    }
   };
 
   const handleDismiss = (id) => {
