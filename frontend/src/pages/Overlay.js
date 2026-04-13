@@ -138,7 +138,7 @@ export default function Overlay() {
       clearInterval(id);
       if (popTimeoutId) clearTimeout(popTimeoutId);
     };
-  }, [key, type]);
+  }, [key, type, config]);
 
   if (!config) {
     return (
