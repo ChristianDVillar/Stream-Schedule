@@ -5,6 +5,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { devCatchLog } from '../utils/devCatchLog';
 
 function useQuery() {
   const { search } = useLocation();
@@ -40,8 +41,8 @@ export default function OverlaySuggestions() {
             if (!cancelled) setVisible(false);
           }, 6000);
         }
-      } catch {
-        // ignore for overlays
+      } catch (e) {
+        devCatchLog('OverlaySuggestions.check', e);
       }
     }
 

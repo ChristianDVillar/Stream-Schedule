@@ -176,9 +176,17 @@ router.post('/', requireAuth, upload.array('attachments', 5), async (req, res) =
 // Get user's own messages
 router.get('/my-messages', requireAuth, async (req, res) => {
   try {
+    let limit = parseInt(String(req.query?.limit ?? ''), 10);
+    if (Number.isNaN(limit) || limit < 1) limit = 100;
+    limit = Math.min(200, limit);
+    let offset = parseInt(String(req.query?.offset ?? ''), 10);
+    if (Number.isNaN(offset) || offset < 0) offset = 0;
+
     const messages = await Message.findAll({
       where: { userId: req.user.id },
       order: [['createdAt', 'DESC']],
+      limit,
+      offset,
       include: [
         {
           model: User,
@@ -212,7 +220,7 @@ router.get('/my-messages', requireAuth, async (req, res) => {
       ]
     });
 
-    res.json({ messages });
+    res.json({ messages, limit, offset });
   } catch (error) {
     logger.error('Error fetching user messages', {
       error: error.message,

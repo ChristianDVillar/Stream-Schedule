@@ -4,6 +4,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { devCatchLog } from '../utils/devCatchLog';
 
 function useQuery() {
   const { search } = useLocation();
@@ -34,7 +35,8 @@ export default function OverlayQuote() {
         if (!cancelled) {
           setQuote(body || 'No quotes yet. Use !quote your funny line to add one.');
         }
-      } catch {
+      } catch (e) {
+        devCatchLog('OverlayQuote.load', e);
         if (!cancelled) setQuote('Could not load quote.');
       }
     }

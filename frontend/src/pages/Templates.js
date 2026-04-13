@@ -9,6 +9,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
 import { FileText, Pencil, Trash2, Calendar, X } from 'lucide-react';
 import { getPlatformColor } from '../utils/platformColors';
+import { devCatchLog } from '../utils/devCatchLog';
 
 const CONTENT_TYPES = [
   { id: 'post', name: 'Post' },
@@ -27,6 +28,7 @@ function getLocalTemplates() {
     const stored = localStorage.getItem(LOCAL_TEMPLATES_KEY);
     return stored ? JSON.parse(stored) : [];
   } catch (e) {
+    devCatchLog('Templates.getLocalTemplates', e);
     return [];
   }
 }
@@ -68,7 +70,10 @@ export default function Templates({ user, token }) {
   const loadTemplates = useCallback(async () => {
     setLoading(true);
     try {
-      const apiList = await getTemplates().catch(() => []);
+      const apiList = await getTemplates().catch((e) => {
+        devCatchLog('Templates.getTemplates', e);
+        return [];
+      });
       const apiTemplates = Array.isArray(apiList) ? apiList : [];
       const localTemplates = getLocalTemplates();
       const fromApi = apiTemplates.map((t) => ({ ...t, _source: 'api' }));

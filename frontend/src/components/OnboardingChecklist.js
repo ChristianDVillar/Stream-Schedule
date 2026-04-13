@@ -11,6 +11,7 @@ import { getConnectedAccounts, getOnboardingStatus, autoCreateFirstStream } from
 import { useLanguage } from '../contexts/LanguageContext';
 import toast from 'react-hot-toast';
 import { getPublicShareLinkQueryString } from '../shared/config/publicUrls';
+import { devCatchLog } from '../utils/devCatchLog';
 
 const STORAGE_KEY = 'streamer_scheduler_onboarding_dismissed';
 
@@ -20,7 +21,8 @@ export default function OnboardingChecklist({ user, token, hasScheduledContent, 
   const [dismissed, setDismissed] = useState(() => {
     try {
       return localStorage.getItem(STORAGE_KEY) === 'true';
-    } catch {
+    } catch (e) {
+      devCatchLog('OnboardingChecklist.dismissed.init', e);
       return false;
     }
   });
@@ -33,7 +35,10 @@ export default function OnboardingChecklist({ user, token, hasScheduledContent, 
     let cancelled = false;
     getConnectedAccounts()
       .then((data) => { if (!cancelled) setConnectedAccounts(data); })
-      .catch(() => { if (!cancelled) setConnectedAccounts(null); });
+      .catch((e) => {
+        devCatchLog('OnboardingChecklist.getConnectedAccounts', e);
+        if (!cancelled) setConnectedAccounts(null);
+      });
     return () => { cancelled = true; };
   }, [token, user]);
 
@@ -42,7 +47,10 @@ export default function OnboardingChecklist({ user, token, hasScheduledContent, 
     let cancelled = false;
     getOnboardingStatus()
       .then((data) => { if (!cancelled) setOnboardingStatus(data); })
-      .catch(() => { if (!cancelled) setOnboardingStatus(null); });
+      .catch((e) => {
+        devCatchLog('OnboardingChecklist.getOnboardingStatus', e);
+        if (!cancelled) setOnboardingStatus(null);
+      });
     return () => { cancelled = true; };
   }, [token, user, hasScheduledContent]);
 
@@ -50,7 +58,9 @@ export default function OnboardingChecklist({ user, token, hasScheduledContent, 
     try {
       localStorage.setItem(STORAGE_KEY, 'true');
       setDismissed(true);
-    } catch {}
+    } catch (e) {
+      devCatchLog('OnboardingChecklist.handleDismiss', e);
+    }
   };
 
   if (!user || user.isAdmin || dismissed) return null;

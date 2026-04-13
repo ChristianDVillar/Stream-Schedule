@@ -10,6 +10,7 @@ import FileUpload from '../components/FileUpload';
 import MediaGallery from '../components/MediaGallery';
 import { getUploadStats } from '../utils/uploadHelper';
 import { Image, Video, Upload, BarChart3 } from 'lucide-react';
+import { devCatchLog } from '../utils/devCatchLog';
 
 export default function MediaUpload({ user, token }) {
   const { t } = useLanguage();
@@ -23,6 +24,7 @@ export default function MediaUpload({ user, token }) {
           const stats = await getUploadStats(user.id.toString());
           setUploadStats(stats);
         } catch (error) {
+          devCatchLog('MediaUpload.loadStats', error);
         }
       }
     };
@@ -31,7 +33,11 @@ export default function MediaUpload({ user, token }) {
 
   const reloadStats = useCallback(() => {
     if (user?.id) {
-      getUploadStats(user.id.toString()).then(setUploadStats).catch(() => {});
+      getUploadStats(user.id.toString())
+        .then(setUploadStats)
+        .catch((e) => {
+          devCatchLog('MediaUpload.reloadStats', e);
+        });
     }
   }, [user?.id]);
 

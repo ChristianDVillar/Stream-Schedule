@@ -13,6 +13,7 @@ import { getStoredAccentColor, applyAccentColor, THEME_CHANGE_EVENT } from './ut
 import { getUnreadMessageCount } from './features/messaging/api';
 import { getAdminFeatures } from './features/admin/api';
 import { apiClient } from './shared/api/client';
+import { devCatchLog } from './utils/devCatchLog';
 import AppFooter from './components/AppFooter';
 
 const PUBLIC_PAGES_WITH_OWN_FOOTER = ['/', '/pricing', '/privacy', '/terms', '/legal-notice', '/aviso-legal', '/faq'];
@@ -227,7 +228,9 @@ function parseMerchandisingPosition(pos) {
       if (parsed && typeof parsed.x === 'number' && typeof parsed.y === 'number') {
         return { x: Math.max(0, Math.min(100, parsed.x)), y: Math.max(0, Math.min(100, parsed.y)) };
       }
-    } catch (_) {}
+    } catch (e) {
+      devCatchLog('App.parseMerchandisingPosition', e);
+    }
     const preset = { 'bottom-right': { x: 92, y: 92 }, 'bottom-left': { x: 8, y: 92 }, 'top-right': { x: 92, y: 8 }, 'top-left': { x: 8, y: 8 } };
     return preset[pos] || preset['bottom-right'];
   }
@@ -254,7 +257,9 @@ function DraggableMerchandisingButton({ link, position, token, setUser, user, t 
       if (response.data?.user) {
         setUser({ ...user, ...response.data.user });
       }
-    } catch (_) {}
+    } catch (e) {
+      devCatchLog('App.saveMerchandisingPosition', e);
+    }
   }, [token, setUser, user]);
 
   const handlePointerDown = (e) => {
@@ -351,12 +356,16 @@ function AppContent() {
     }
     getUnreadMessageCount(token)
       .then((r) => setAdminUnreadMessageCount(r.data?.unreadCount ?? 0))
-      .catch(() => setAdminUnreadMessageCount(0));
+      .catch((e) => {
+        devCatchLog('App.getUnreadMessageCount', e);
+        setAdminUnreadMessageCount(0);
+      });
     getAdminFeatures(token)
       .then((f) => {
         setAdminFinance(f.adminFinance !== false);
       })
-      .catch(() => {
+      .catch((e) => {
+        devCatchLog('App.getAdminFeatures', e);
         setAdminFinance(false);
       });
   }, [user?.isAdmin, token, location.pathname]);

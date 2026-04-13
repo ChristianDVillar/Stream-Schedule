@@ -1,3 +1,5 @@
+import { devCatchLog } from './devCatchLog';
+
 /**
  * Copy / paste post format for Schedule.
  * When user copies a post in Dashboard, we write this format to clipboard.
@@ -41,7 +43,8 @@ export function parsePastedPost(text) {
       platforms: Array.isArray(data.platforms) ? data.platforms : [],
       contentType: typeof data.contentType === 'string' ? data.contentType : 'post',
     };
-  } catch {
+  } catch (e) {
+    devCatchLog('copyPastePost.parsePastedPost', e);
     return null;
   }
 }

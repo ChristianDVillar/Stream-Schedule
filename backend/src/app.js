@@ -64,6 +64,7 @@ import { getPublicAdminDashboardUrl } from './utils/publicFrontendUrl.js';
 import platformConfigService from './modules/system/application/platformConfigService.js';
 import { handleTwitchEventSub } from './routes/twitchWebhook.js';
 import { PLATFORM_VALUES } from './constants/platforms.js';
+import { dakinisCopyrightNotice } from './constants/copyright.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -83,15 +84,15 @@ const nodeEnv = process.env.NODE_ENV || 'development';
 // Trust proxy when behind reverse proxy (Render, Nginx, etc.) so rate-limit and IP work correctly
 app.set('trust proxy', 1);
 
-// Copyright and Legal Protection Headers
+// Copyright and Legal Protection Headers (includes commercial brand Dakinis Systems)
 app.use((req, res, next) => {
-  res.setHeader('X-Copyright', 'Copyright © 2024-2026 Christian David Villar Colodro. All rights reserved.');
+  res.setHeader('X-Copyright', dakinisCopyrightNotice());
   res.setHeader('X-Proprietary', 'Proprietary Software - Unauthorized use prohibited.');
   next();
 });
 const jwtSecret = process.env.JWT_SECRET || 'dev-jwt-secret';
 if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'dev-jwt-secret')) {
-  console.error('Fatal: set JWT_SECRET in production (Render Environment).');
+  logger.error('Fatal: set JWT_SECRET in production (Render Environment).');
   process.exit(1);
 }
 

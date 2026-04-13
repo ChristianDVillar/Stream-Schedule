@@ -7,6 +7,7 @@ import { Image, Upload, ExternalLink, Calendar, Trash2 } from 'lucide-react';
 import { getUploadStats } from '../../utils/uploadHelper';
 import { getPublicImageUrl } from '../../utils/supabaseClient';
 import { handleUpload } from '../../utils/uploadHelper';
+import { devCatchLog } from '../../utils/devCatchLog';
 import { getPublicStreamerShareUrl, getPublicShareLinkQueryString } from '../../shared/config/publicUrls';
 const BANNER_POSITIONS = [
   { id: 'top', labelKey: 'publicPage.positionTop', descKey: 'publicPage.positionTopDesc' },
@@ -110,10 +111,13 @@ export default function SettingsPublicPageTab({
           try {
             const url = getPublicImageUrl(upload.file_path);
             if (url) list.push({ url, file_path: upload.file_path });
-          } catch (_) {}
+          } catch (e) {
+            devCatchLog('SettingsPublicPageTab.getPublicImageUrl', e);
+          }
         }
         if (!cancelled) setMediaList(list);
-      } catch (_) {
+      } catch (e) {
+        devCatchLog('SettingsPublicPageTab.uploadStats', e);
         if (!cancelled) setMediaList([]);
       }
     })();

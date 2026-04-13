@@ -37,6 +37,7 @@ import { getPlatformColors } from '../../utils/platformColors';
 import { BANNER_CONFIG_KEY, getBannersFromEnv } from '../../components/HeaderBanners';
 import { handleUpload, getUploadStats } from '../../utils/uploadHelper';
 import { getPublicImageUrl } from '../../utils/supabaseClient';
+import { devCatchLog } from '../../utils/devCatchLog';
 
 import SettingsProfileTab from './SettingsProfileTab';
 import SettingsNotificationsTab from './SettingsNotificationsTab';
@@ -128,7 +129,9 @@ export default function Settings({ user, token, setUser }) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) return parsed;
       }
-    } catch (_) {}
+    } catch (e) {
+      devCatchLog('Settings.bannerConfig.init', e);
+    }
     return getBannersFromEnv().length ? getBannersFromEnv() : [];
   });
   const [bannerMediaPickerFor, setBannerMediaPickerFor] = useState(null);
@@ -142,7 +145,8 @@ export default function Settings({ user, token, setUser }) {
       try {
         const stored = localStorage.getItem('accentColor');
         return ['blue', 'purple', 'green', 'red', 'orange'].includes(stored) ? stored : 'blue';
-      } catch {
+      } catch (e) {
+        devCatchLog('Settings.theme.accentColor.init', e);
         return 'blue';
       }
     })(),
@@ -177,10 +181,13 @@ export default function Settings({ user, token, setUser }) {
           try {
             const url = getPublicImageUrl(upload.file_path);
             if (url) list.push({ url, file_path: upload.file_path });
-          } catch (_) {}
+          } catch (e) {
+            devCatchLog('Settings.bannerMedia.getPublicImageUrl', e);
+          }
         }
         if (!cancelled) setBannerMediaList(list);
-      } catch (_) {
+      } catch (e) {
+        devCatchLog('Settings.bannerMedia.uploadStats', e);
         if (!cancelled) setBannerMediaList([]);
       }
     })();
@@ -332,7 +339,8 @@ export default function Settings({ user, token, setUser }) {
     try {
       const res = await getPaymentConfigStatus();
       setPaymentConfig(res.data);
-    } catch {
+    } catch (err) {
+      devCatchLog('Settings.fetchPaymentConfig', err);
       setPaymentConfig({ paymentEnabled: false, automaticProcessingEnabled: false, manualVerificationRequired: false });
     }
   };
@@ -341,14 +349,17 @@ export default function Settings({ user, token, setUser }) {
     try {
       const res = await getAvailableLicenses();
       setAvailableLicenses(res.data.availableLicenseTypes || { monthly: true, quarterly: false, lifetime: false, temporary: false });
-    } catch (_) {}
+    } catch (e) {
+      devCatchLog('Settings.fetchAvailableLicenses', e);
+    }
   };
 
   const fetchLicenseStatus = async () => {
     try {
       const res = await getLicenseStatus(token);
       setLicenseInfo(res.data);
-    } catch {
+    } catch (err) {
+      devCatchLog('Settings.fetchLicenseStatus', err);
       setLicenseInfo(null);
     }
   };
@@ -357,7 +368,8 @@ export default function Settings({ user, token, setUser }) {
     try {
       const res = await getSubscriptionStatus(token);
       setSubscriptionStatus(res.data);
-    } catch {
+    } catch (err) {
+      devCatchLog('Settings.fetchSubscriptionStatus', err);
       setSubscriptionStatus(null);
     }
   };
@@ -366,7 +378,8 @@ export default function Settings({ user, token, setUser }) {
     try {
       const res = await getPaymentHistory(token);
       setPaymentHistory(res.data.payments || []);
-    } catch {
+    } catch (e) {
+      devCatchLog('Settings.fetchPaymentHistory', e);
       setPaymentHistory([]);
     }
   };
@@ -529,7 +542,8 @@ export default function Settings({ user, token, setUser }) {
         withCredentials: true,
       });
       toast.success(t('settings.notificationsSaved'));
-    } catch {
+    } catch (e) {
+      devCatchLog('Settings.handleNotificationSave', e);
       toast.error(t('settings.notificationsSaveFailed'));
     } finally {
       setLoading(false);
@@ -588,7 +602,8 @@ export default function Settings({ user, token, setUser }) {
       link.click();
       link.remove();
       toast.success(t('settings.dataExported'));
-    } catch {
+    } catch (e) {
+      devCatchLog('Settings.handleDataExport', e);
       toast.error(t('settings.dataExportFailed'));
     } finally {
       setLoading(false);
@@ -605,7 +620,8 @@ export default function Settings({ user, token, setUser }) {
         });
         toast.success(t('settings.accountDeleted'));
         navigate('/login');
-      } catch {
+      } catch (e) {
+        devCatchLog('Settings.handleAccountDeletion', e);
         toast.error(t('settings.accountDeleteFailed'));
       } finally {
         setLoading(false);
@@ -676,7 +692,8 @@ export default function Settings({ user, token, setUser }) {
             await fetchPaymentHistory();
             window.history.replaceState({}, document.title, '/settings');
           }
-        } catch {
+        } catch (e) {
+          devCatchLog('Settings.verifyPaymentSession', e);
           toast.error(t('settings.verifyPaymentFailed'));
         }
       } else if (paymentStatus === 'cancelled' || subscriptionStatusParam === 'cancelled') {
@@ -710,7 +727,8 @@ export default function Settings({ user, token, setUser }) {
       }
       setProfileData((prev) => ({ ...prev, profileImageUrl: url }));
       toast.success(t('settings.profilePhotoUpdated'));
-    } catch (_) {
+    } catch (e) {
+      devCatchLog('Settings.handleProfilePhotoSelect', e);
       toast.error(t('settings.profileUpdateFailed'));
     } finally {
       setProfilePhotoUploading(false);
@@ -730,7 +748,8 @@ export default function Settings({ user, token, setUser }) {
       }
       setProfileData((prev) => ({ ...prev, profileImageUrl: '' }));
       toast.success(t('settings.profilePhotoRemoved'));
-    } catch (_) {
+    } catch (e) {
+      devCatchLog('Settings.handleProfilePhotoRemove', e);
       toast.error(t('settings.profileUpdateFailed'));
     }
   };

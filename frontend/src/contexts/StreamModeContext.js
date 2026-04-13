@@ -2,6 +2,7 @@
  * Stream mode: when ON, hides sensitive data (username, API keys, etc.) so nothing is shared when streaming.
  */
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { devCatchLog } from '../utils/devCatchLog';
 
 const STORAGE_KEY = 'streamer_scheduler_stream_mode';
 
@@ -11,7 +12,8 @@ export function StreamModeProvider({ children }) {
   const [streamMode, setStreamMode] = useState(() => {
     try {
       return localStorage.getItem(STORAGE_KEY) === 'true';
-    } catch {
+    } catch (e) {
+      devCatchLog('StreamModeProvider.localStorage.get', e);
       return false;
     }
   });
@@ -19,7 +21,9 @@ export function StreamModeProvider({ children }) {
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, streamMode ? 'true' : 'false');
-    } catch (_) {}
+    } catch (e) {
+      devCatchLog('StreamModeProvider.localStorage.set', e);
+    }
   }, [streamMode]);
 
   const toggleStreamMode = () => setStreamMode((prev) => !prev);

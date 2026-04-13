@@ -15,6 +15,7 @@ import toast from 'react-hot-toast';
 import { formatDate, formatDateWithUTC, formatDateWithTimezone, getTimezoneMessage } from '../utils/dateUtils';
 import { getPlatformColor } from '../utils/platformColors';
 import { copyPostToClipboard } from '../utils/copyPastePost';
+import { devCatchLog } from '../utils/devCatchLog';
 import TrialWarning from '../components/TrialWarning';
 import OnboardingChecklist from '../components/OnboardingChecklist';
 import { SearchAdvanced } from '../components/SearchAdvanced';
@@ -147,7 +148,8 @@ const Dashboard = ({ user, token, ...props }) => {
       .then((data) => {
         if (!cancelled) setTwitchStats(data);
       })
-      .catch(() => {
+      .catch((e) => {
+        devCatchLog('Dashboard.getTwitchDashboardStats', e);
         if (!cancelled) setTwitchStats(null);
       })
       .finally(() => {
@@ -164,7 +166,8 @@ const Dashboard = ({ user, token, ...props }) => {
       .then((data) => {
         if (!cancelled) setDiscordStats(data);
       })
-      .catch(() => {
+      .catch((e) => {
+        devCatchLog('Dashboard.getDiscordDashboardStats', e);
         if (!cancelled) setDiscordStats(null);
       })
       .finally(() => {
@@ -179,7 +182,8 @@ const Dashboard = ({ user, token, ...props }) => {
     try {
       const data = await getRouletteState(token);
       setRoulettePlayers(data.players || []);
-    } catch {
+    } catch (e) {
+      devCatchLog('Dashboard.fetchRoulette', e);
       setRoulettePlayers([]);
     } finally {
       setRouletteLoading(false);
@@ -233,7 +237,8 @@ const Dashboard = ({ user, token, ...props }) => {
       await rouletteReset(token);
       setRoulettePlayers([]);
       toast.success(t('dashboard.rouletteReset') || 'Wheel reset');
-    } catch {
+    } catch (e) {
+      devCatchLog('Dashboard.handleRouletteReset', e);
       toast.error(t('dashboard.rouletteResetFailed') || 'Failed to reset');
     } finally {
       setRouletteLoading(false);
@@ -497,7 +502,8 @@ const Dashboard = ({ user, token, ...props }) => {
     try {
       await navigator.clipboard.writeText(text);
       toast.success(t('dashboard.copied') || 'Copied to clipboard');
-    } catch {
+    } catch (e) {
+      devCatchLog('Dashboard.handleCopyBitsList', e);
       toast.error(t('dashboard.copyFailed') || 'Could not copy to clipboard');
     }
   }, [bitsByUser, bitsFormat, t]);

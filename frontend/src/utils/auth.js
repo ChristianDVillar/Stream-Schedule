@@ -1,3 +1,5 @@
+import { devCatchLog, devCatchLogThrottled } from './devCatchLog';
+
 /**
  * Authentication utilities
  * Handles token validation, storage, and refresh logic
@@ -20,6 +22,8 @@ export function isTokenExpired(token) {
     const now = Math.floor(Date.now() / 1000);
     return exp < (now + 60);
   } catch (error) {
+    // Malformed / non-JWT: treat as expired. Throttled log (this runs on many renders).
+    devCatchLogThrottled('auth.isTokenExpired', error, 60_000);
     return true;
   }
 }
@@ -43,6 +47,7 @@ export function getStoredAuth() {
     const user = userStr ? JSON.parse(userStr) : null;
     return { token, user };
   } catch (error) {
+    devCatchLog('auth.getStoredAuth', error);
     return { token: null, user: null };
   }
 }

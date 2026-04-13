@@ -396,25 +396,22 @@ export async function createDiscordScheduledEvent(guildId, name, scheduledStartT
     body.image = image;
   }
 
-  // VERSION CHECK: This log confirms we're running the updated code
-  logger.info('VERSION 19-02-2026 FIX APPLIED - privacy_level included');
-
   logger.info('Creating Discord scheduled event', {
     guildId,
     name,
     scheduledStartTime: startTimeISO,
     scheduledEndTime: endTimeISO,
     entityType,
-    privacyLevel: body.privacy_level
+    privacyLevel: body.privacy_level,
   });
 
-  // Log the complete body to verify privacy_level is included
-  logger.info('DISCORD EVENT FINAL PAYLOAD', {
-    body: body,
-    bodyStringified: JSON.stringify(body),
-    hasPrivacyLevel: 'privacy_level' in body,
-    privacyLevelValue: body.privacy_level
-  });
+  if (process.env.NODE_ENV === 'development') {
+    const preview = JSON.stringify(body).slice(0, 800);
+    logger.debug('Discord scheduled event body (dev preview)', {
+      preview,
+      hasPrivacyLevel: Object.prototype.hasOwnProperty.call(body, 'privacy_level'),
+    });
+  }
 
   let res;
   let data;
