@@ -40,7 +40,6 @@ function getNextSevenDays() {
   const days = [];
   const d = new Date();
   d.setHours(0, 0, 0, 0);
-  const todayKey = d.toISOString().slice(0, 10);
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   for (let i = 0; i < 7; i++) {
     const key = d.toISOString().slice(0, 10);
