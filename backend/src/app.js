@@ -434,7 +434,7 @@ setupSwagger(app);
 app.get('/', (req, res) => {
   res.json({ 
     message: 'Streamer Scheduler API',
-    version: '2.3.0',
+    version: '2.3.1',
     status: 'running',
     endpoints: {
       health: '/api/health',
