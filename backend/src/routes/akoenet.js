@@ -14,19 +14,12 @@ import {
   fetchAkoenetServers,
   fetchAkoenetChannels,
 } from '../services/akoenetDiscoveryService.js';
+import { resolveAkoenetWebhookAndSecret } from '../utils/akoenetWebhookResolve.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
 const WEBHOOK_PATH = '/integrations/scheduler/webhooks/stream-scheduled';
 const SETUP_TOKEN_TTL_SECONDS = 5 * 60;
-
-function resolveWebhookAndSecret(user) {
-  const url =
-    (user?.akoenetWebhookUrl || '').trim() || (process.env.AKOENET_SCHEDULER_WEBHOOK_URL || '').trim();
-  const secret =
-    (user?.akoenetWebhookSecret || '').trim() || (process.env.SCHEDULER_WEBHOOK_SECRET || '').trim();
-  return { url, secret };
-}
 
 function isValidWebhookUrl(url) {
   return !!deriveAkoenetSchedulerBaseUrl(url);
@@ -205,7 +198,7 @@ router.get('/guilds', requireAuth, async (req, res) => {
     const user = await User.findByPk(req.user.id, {
       attributes: ['id', 'akoenetWebhookUrl', 'akoenetWebhookSecret'],
     });
-    const { url, secret } = resolveWebhookAndSecret(user);
+    const { url, secret } = resolveAkoenetWebhookAndSecret(user);
     if (!url || !secret) {
       return res.status(400).json({
         code: 'akoenet_not_configured',
@@ -279,7 +272,7 @@ router.get('/guilds/:guildId/channels', requireAuth, async (req, res) => {
     const user = await User.findByPk(req.user.id, {
       attributes: ['id', 'akoenetWebhookUrl', 'akoenetWebhookSecret'],
     });
-    const { url, secret } = resolveWebhookAndSecret(user);
+    const { url, secret } = resolveAkoenetWebhookAndSecret(user);
     if (!url || !secret) {
       return res.status(400).json({
         code: 'akoenet_not_configured',
