@@ -38,6 +38,11 @@ export default async function checkLicense(req, res, next) {
     }
 
     const licenseType = (req.user.licenseType || '').toLowerCase();
+
+    // Lifetime never expires; ignore stale licenseExpiresAt in DB (same as buildLicenseSummary).
+    if (licenseType === LICENSE_TYPES.LIFETIME) {
+      return next();
+    }
     const rawExpiry = req.user.licenseExpiresAt;
     const hasValidExpiry = rawExpiry != null && (() => {
       const expiresAt = new Date(rawExpiry);

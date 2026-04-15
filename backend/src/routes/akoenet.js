@@ -44,6 +44,24 @@ function normalizeWebhookUrlFromBase(baseUrl) {
   }
 }
 
+/** True when AkoeNet rejected the shared secret or auth (do not echo raw upstream text to clients). */
+function isAkoenetDiscoveryAuthFailure(httpStatus, errorMessage) {
+  const msg = String(errorMessage || '');
+  return (
+    httpStatus === 401 ||
+    httpStatus === 403 ||
+    /invalid.*secret|scheduler webhook secret|unauthorized|forbidden/i.test(msg)
+  );
+}
+
+function safeAkoenetUpstreamDetail(httpStatus, errorMessage, authFailed) {
+  if (authFailed) return undefined;
+  const msg = String(errorMessage || '').trim();
+  if (!msg) return `HTTP ${httpStatus || 'error'}`;
+  if (msg.length > 240 || /<html[\s>]/i.test(msg)) return 'AkoeNet returned an error.';
+  return msg;
+}
+
 function buildAkoenetAutoConnectUrl(setupToken) {
   const base = (process.env.AKOENET_AUTO_CONNECT_URL || '').trim();
   if (!base) return null;
@@ -214,10 +232,24 @@ router.get('/guilds', requireAuth, async (req, res) => {
       });
     }
     if (httpStatus >= 400 || (guilds.length === 0 && errorMessage)) {
+      const authFailed = isAkoenetDiscoveryAuthFailure(httpStatus, errorMessage);
+      if (authFailed) {
+        logger.warn('AkoeNet discovery auth failed (check SCHEDULER_WEBHOOK_SECRET alignment)', {
+          userId: req.user?.id,
+          httpStatus,
+        });
+      } else if (httpStatus >= 400) {
+        logger.warn('AkoeNet discovery upstream error', {
+          userId: req.user?.id,
+          httpStatus,
+          preview: String(errorMessage || '').slice(0, 120),
+        });
+      }
       return res.status(503).json({
         code: 'akoenet_fetch_failed',
+        reason: authFailed ? 'secret_mismatch' : 'upstream_error',
         error: 'Could not load AkoeNet servers',
-        details: errorMessage || `HTTP ${httpStatus || 'error'}`,
+        details: safeAkoenetUpstreamDetail(httpStatus, errorMessage, authFailed),
       });
     }
 
@@ -227,8 +259,9 @@ router.get('/guilds', requireAuth, async (req, res) => {
     const aborted = err.name === 'AbortError';
     res.status(503).json({
       code: 'akoenet_error',
+      reason: 'network_or_server',
       error: 'Failed to list AkoeNet servers',
-      details: aborted ? 'Request timed out' : err.message,
+      details: aborted ? 'Request timed out' : undefined,
     });
   }
 });
@@ -271,10 +304,18 @@ router.get('/guilds/:guildId/channels', requireAuth, async (req, res) => {
       });
     }
     if (httpStatus >= 400 || (channels.length === 0 && errorMessage)) {
+      const authFailed = isAkoenetDiscoveryAuthFailure(httpStatus, errorMessage);
+      if (authFailed) {
+        logger.warn('AkoeNet channels discovery auth failed (check SCHEDULER_WEBHOOK_SECRET alignment)', {
+          userId: req.user?.id,
+          httpStatus,
+        });
+      }
       return res.status(503).json({
         code: 'akoenet_fetch_failed',
+        reason: authFailed ? 'secret_mismatch' : 'upstream_error',
         error: 'Could not load AkoeNet channels',
-        details: errorMessage || `HTTP ${httpStatus || 'error'}`,
+        details: safeAkoenetUpstreamDetail(httpStatus, errorMessage, authFailed),
       });
     }
 
@@ -284,8 +325,9 @@ router.get('/guilds/:guildId/channels', requireAuth, async (req, res) => {
     const aborted = err.name === 'AbortError';
     res.status(503).json({
       code: 'akoenet_error',
+      reason: 'network_or_server',
       error: 'Failed to list AkoeNet channels',
-      details: aborted ? 'Request timed out' : err.message,
+      details: aborted ? 'Request timed out' : undefined,
     });
   }
 });

@@ -14,6 +14,21 @@ import { apiClient } from '../../shared/api/client';
 
 const MASK = '••••••••••••••••';
 
+/** User-facing copy only — never show raw AkoeNet "Invalid scheduler webhook secret" in the UI. */
+function mapAkoenetGuildsLoadError(err, t) {
+  const data = err.response?.data;
+  const code = data?.code;
+  if (code === 'akoenet_discovery_not_implemented') return null;
+  if (data?.reason === 'secret_mismatch') return t('bots.akoenetIntegrationAuthFailed');
+  const raw = String(data?.details || data?.error || '');
+  if (/invalid.*secret|scheduler webhook secret/i.test(raw)) return t('bots.akoenetIntegrationAuthFailed');
+  if (code === 'akoenet_not_configured' || code === 'akoenet_invalid_webhook_url') {
+    return data?.details || data?.error || t('bots.akoenetServersUnavailable');
+  }
+  if (err.response?.status === 503) return t('bots.akoenetServersUnavailable');
+  return t('bots.akoenetServersUnavailable');
+}
+
 const API_BASE = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '') || (typeof window !== 'undefined' ? window.location.origin.replace(/\/$/, '') : '');
 const NIGHTBOT_TODO_URL = API_BASE ? `${API_BASE}/api/nightbot/todo` : '';
 const FRONTEND_ORIGIN = getPublicFrontendOrigin();
@@ -117,19 +132,12 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
         if (!cancelled) {
           setAkoenetGuilds([]);
           const code = err.response?.data?.code;
-          const msg = err.response?.data?.details || err.response?.data?.error || err.message;
           if (code === 'akoenet_discovery_not_implemented') {
             setAkoenetManualTargets(true);
             setAkoenetGuildsError(null);
-          } else if (code === 'akoenet_fetch_failed' || code === 'akoenet_error') {
-            setAkoenetManualTargets(false);
-            setAkoenetGuildsError(msg);
-          } else if (code === 'akoenet_not_configured' || code === 'akoenet_invalid_webhook_url') {
-            setAkoenetManualTargets(false);
-            setAkoenetGuildsError(msg);
           } else {
             setAkoenetManualTargets(false);
-            setAkoenetGuildsError(msg || 'AkoeNet servers could not be loaded');
+            setAkoenetGuildsError(mapAkoenetGuildsLoadError(err, t));
           }
         }
       })
@@ -139,7 +147,7 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
     return () => {
       cancelled = true;
     };
-  }, [token, akoenetConfigured, streamMode, user?.id, user?.akoenetWebhookUrl]);
+  }, [token, akoenetConfigured, streamMode, user?.id, user?.akoenetWebhookUrl, t]);
 
   const guildInList = akoenetGuilds.some((g) => g.id === akoenetServerId);
   useEffect(() => {
