@@ -641,6 +641,8 @@
     "twitchPublishConnected": "Conectado para programar y ver bits.",
     "youtubeConnected": "YouTube conectado. Puedes programar subidas de vídeo.",
     "youtubePublishConnected": "Conectado para subir vídeos.",
+    "akoenetConfigured": "Configurado. Puedes ajustar webhook y canal en Ajustes > Bots > AkoeNet.",
+    "akoenetNotConfigured": "Aún no configurado. Ve a Ajustes > Bots > AkoeNet para conectar webhook y secreto.",
     "discordClipsChannelTitle": "Canal para clips de Twitch",
     "discordClipsChannelDescription": "Los clips de Twitch se publicarán automáticamente en el canal que elijas.",
     "akoenetClipsToggleLabel": "Publicar también los clips en AkoeNet",
