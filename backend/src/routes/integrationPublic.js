@@ -60,7 +60,7 @@ const INTEGRATION_BODY = () => ({
     ],
     webhook_event_values: {
       schedule: 'Streams/events from the calendar (starts_at, title, url, platform, scheduler_content_type event|stream)',
-      twitch_clip: 'After a clip is posted to Discord (url, title, optional thumbnail_url, creator_name) if user enables akoenetSendClips',
+      twitch_clip: 'When a clip is auto-published and user enables akoenetSendClips (url, title, optional thumbnail_url, creator_name)',
     },
   },
   health: {

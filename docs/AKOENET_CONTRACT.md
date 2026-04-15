@@ -60,7 +60,7 @@ SCHEDULER_UPCOMING_PATH=/api/streamer/{username}/events
 
 | Campo | Descripción |
 |-------|-------------|
-| `webhook_event` | `schedule` — calendario (streams/eventos); `twitch_clip` — clip publicado en Discord (si el usuario activa la opción en Ajustes → Bots → AkoeNet). |
+| `webhook_event` | `schedule` — calendario (streams/eventos); `twitch_clip` — clip automático de Twitch (si el usuario activa la opción en Ajustes). |
 | `scheduler_content_type` | Solo si `webhook_event` es `schedule`: `event` o `stream`. |
 | `streamer` | Slug público en Scheduler (`Users.username`). |
 | `scheduler_slug` | Igual que `streamer` (explícito para mapeos). |

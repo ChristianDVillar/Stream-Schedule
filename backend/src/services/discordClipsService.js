@@ -1,6 +1,8 @@
 /**
- * Service to publish Twitch clips to the user's configured Discord channel.
- * User settings: discordClipsGuildId, discordClipsChannelId (stored on User).
+ * Service to publish Twitch clips to user-selected destinations.
+ * Destinations:
+ * - Discord channel configured in Settings > Platforms
+ * - AkoeNet webhook (if enabled in user settings)
  */
 
 import { User } from '../modules/users/infrastructure/models.js';
@@ -9,25 +11,31 @@ import logger from '../utils/logger.js';
 import { enqueueAkoeNetClip } from './akoeNetWebhookService.js';
 
 /**
- * Publish a Twitch clip to the Discord channel configured by the user.
+ * Publish a Twitch clip to the destinations configured by the user.
  * @param {number} userId - User ID
  * @param {object} clip - Clip data
  * @param {string} clip.title - Clip title
  * @param {string} clip.url - Clip URL (e.g. https://clips.twitch.tv/...)
  * @param {string} [clip.thumbnailUrl] - Thumbnail URL for embed
  * @param {string} [clip.creatorName] - Twitch creator/streamer name
- * @returns {Promise<{ success: boolean, messageId?: string, error?: string }>}
+ * @returns {Promise<{ success: boolean, messageId?: string, destinations?: string[], error?: string }>}
  */
-export async function publishTwitchClipToDiscord(userId, clip) {
+export async function publishTwitchClip(userId, clip) {
   const user = await User.findByPk(userId, {
-    attributes: ['id', 'discordClipsChannelId', 'discordClipsGuildId'],
+    attributes: ['id', 'discordClipsChannelId', 'discordClipsGuildId', 'akoenetSendClips'],
   });
   if (!user) {
     return { success: false, error: 'User not found' };
   }
   const channelId = user.discordClipsChannelId && String(user.discordClipsChannelId).trim();
-  if (!channelId) {
-    return { success: false, error: 'No Discord channel configured for clips. Set it in Settings → Platforms.' };
+  const sendToDiscord = !!channelId;
+  const sendToAkoenet = user.akoenetSendClips === true;
+
+  if (!sendToDiscord && !sendToAkoenet) {
+    return {
+      success: false,
+      error: 'No destination configured for clips. Configure Discord channel and/or enable AkoeNet clips in Settings.',
+    };
   }
 
   const title = (clip?.title && String(clip.title).trim()) || 'Twitch clip';
@@ -46,30 +54,55 @@ export async function publishTwitchClipToDiscord(userId, clip) {
 
   const content = url ? `🔗 ${url}` : 'Twitch clip';
 
-  try {
-    const message = await postToDiscordChannel(channelId, content, [embed]);
-    logger.info('Twitch clip published to Discord', {
-      userId,
-      channelId,
-      messageId: message?.id,
-      clipTitle: title,
-    });
+  const destinations = [];
+  let discordMessageId;
+  let discordError = null;
+
+  if (sendToDiscord) {
+    try {
+      const message = await postToDiscordChannel(channelId, content, [embed]);
+      discordMessageId = message?.id;
+      destinations.push('discord');
+      logger.info('Twitch clip published to Discord', {
+        userId,
+        channelId,
+        messageId: message?.id,
+        clipTitle: title,
+      });
+    } catch (err) {
+      discordError = err;
+      logger.error('Failed to publish Twitch clip to Discord', {
+        userId,
+        channelId,
+        error: err.message,
+      });
+    }
+  }
+
+  if (sendToAkoenet) {
     enqueueAkoeNetClip(userId, {
       title,
       url,
       thumbnailUrl,
       creatorName,
     });
-    return { success: true, messageId: message?.id };
-  } catch (err) {
-    logger.error('Failed to publish Twitch clip to Discord', {
-      userId,
-      channelId,
-      error: err.message,
-    });
+    destinations.push('akoenet');
+  }
+
+  if (destinations.length === 0) {
     return {
       success: false,
-      error: err.message || 'Failed to send message to Discord',
+      error: discordError?.message || 'Could not publish clip to selected destinations',
     };
   }
+
+  return {
+    success: true,
+    messageId: discordMessageId,
+    destinations,
+  };
+}
+
+export async function publishTwitchClipToDiscord(userId, clip) {
+  return publishTwitchClip(userId, clip);
 }
