@@ -9,6 +9,36 @@ const translations = {
   en: enTranslations
 };
 
+function lookupTranslation(lang, key) {
+  const keys = key.split('.');
+  let value = translations[lang];
+  for (const k of keys) {
+    value = value?.[k];
+    if (value === undefined) return undefined;
+  }
+  return value;
+}
+
+/** When a key is missing, never show raw "namespace.key" in the UI — use readable words instead. */
+function humanizeMissingKey(key) {
+  const last = key.includes('.') ? key.split('.').pop() : key;
+  if (!last) return '';
+  const spaced = last
+    .replace(/([a-z\d])([A-Z])/g, '$1 $2')
+    .replace(/_/g, ' ')
+    .trim()
+    .toLowerCase();
+  if (!spaced) return last;
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+function applyParams(value, params) {
+  if (typeof value !== 'string' || !params || Object.keys(params).length === 0) return value;
+  return value.replace(/\{(\w+)\}/g, (match, paramKey) => {
+    return params[paramKey] !== undefined ? params[paramKey] : match;
+  });
+}
+
 export function LanguageProvider({ children }) {
   const [language, setLanguage] = useState(() => {
     const saved = localStorage.getItem('app_language');
@@ -20,28 +50,18 @@ export function LanguageProvider({ children }) {
   }, [language]);
 
   const t = (key, params = {}) => {
-    const keys = key.split('.');
-    let value = translations[language];
+    const raw = lookupTranslation(language, key);
+    if (raw === undefined) return humanizeMissingKey(key);
+    if (typeof raw !== 'string') return humanizeMissingKey(key);
 
-    for (const k of keys) {
-      value = value?.[k];
-      if (value === undefined) return key;
-    }
-
-    // Replace placeholders with params (e.g., {count} -> params.count)
-    if (typeof value === 'string' && Object.keys(params).length > 0) {
-      return value.replace(/\{(\w+)\}/g, (match, paramKey) => {
-        return params[paramKey] !== undefined ? params[paramKey] : match;
-      });
-    }
-
-    return value;
+    return applyParams(raw, params);
   };
 
-  /** Like t() but returns fallback when the key is missing (t returns the key string, which breaks `t(k) || fallback`). */
+  /** Returns fallback only when the key is missing from the active locale (works even though t() no longer returns raw keys). */
   const tSafe = (key, fallback) => {
-    const result = t(key);
-    return result === key ? fallback : result;
+    const raw = lookupTranslation(language, key);
+    if (raw === undefined || typeof raw !== 'string') return fallback;
+    return applyParams(raw, {});
   };
 
   const toggleLanguage = () => {

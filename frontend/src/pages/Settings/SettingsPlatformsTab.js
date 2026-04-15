@@ -403,14 +403,14 @@ export default function SettingsPlatformsTab({
         )}
         {key === 'akoenet' && connected && (
           <p className="text-xs text-green-600 dark:text-green-400 pl-8">
-            {t('settings.akoenetConfigured') || 'Configurado. Puedes ajustar webhook y canal en Settings > Bots > AkoeNet.'}
+            {t('settings.akoenetConfigured') || 'Connected. You can change the server, channel, or other options in Settings → Bots → AkoeNet.'}
           </p>
         )}
         {key === 'akoenet' && !connected && (
           <p className="text-xs text-gray-600 dark:text-gray-400 pl-8">
             {tSafe(
               'settings.akoenetNotConfigured',
-              'Not connected yet. Use Connect on AkoeNet above, or Settings → Bots → AkoeNet. If the host set the same SCHEDULER_WEBHOOK_SECRET on Scheduler and AkoeNet, open Bots after signing in to choose server and channel.'
+              'Not connected yet. Use Connect on AkoeNet above, or go to Settings → Bots → AkoeNet and sign in again if your host already set up the link—then pick your server and channel.'
             )}
           </p>
         )}
@@ -467,7 +467,7 @@ export default function SettingsPlatformsTab({
                 {t('settings.akoenetClipsToggleLabel') || 'También publicar clips en AkoeNet'}
               </span>
               <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                {t('settings.akoenetClipsToggleHint') || 'Activa esto para enviar el clip automático a AkoeNet. Requiere webhook AkoeNet configurado.'}
+                {t('settings.akoenetClipsToggleHint') || 'Turn this on to send automatic Twitch clips to AkoeNet too.'}
               </span>
             </span>
           </label>

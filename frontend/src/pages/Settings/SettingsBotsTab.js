@@ -372,7 +372,7 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
             ? (t('bots.akoenetDescriptionHostConfigured') || 'The server already provides the AkoeNet webhook and secret. Pick your server and channel below (same idea as Discord).')
             : akoenetPerUserConfigured && akoenetPickerComplete
               ? (t('bots.akoenetDescriptionConnected') ||
-                  'AkoeNet is linked. Announcements use the server and channel below. Open the section at the bottom to change the webhook URL or shared secret.')
+                  'AkoeNet is linked. Announcements use the server and channel you select below.')
               : t('bots.akoenetDescription')}
         </p>
         <div className="space-y-4 max-w-xl">
@@ -551,12 +551,10 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
               </button>
             )}
           </div>
-          {hideAkoeNetWebhookFieldsInMain && !streamMode && (
+          {hideAkoeNetWebhookFieldsInMain && !streamMode && akoenetHostOnlyMode && (
             <details className="rounded-lg border border-gray-200 dark:border-gray-600 p-3 bg-white/60 dark:bg-gray-800/40">
               <summary className="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300">
-                {akoenetHostOnlyMode
-                  ? (t('bots.akoenetAdvancedWebhook') || 'Advanced: custom webhook URL & secret (per user)')
-                  : (t('bots.akoenetWebhookAdvancedSummary') || 'Webhook URL & shared secret')}
+                {t('bots.akoenetAdvancedWebhook') || 'Advanced: custom webhook URL & secret (per user)'}
               </summary>
               <div className="mt-3 space-y-3">
                 <div>
