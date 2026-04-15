@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { Twitch, Save, Server, AlertCircle } from 'lucide-react';
+import { Twitch, Save, Server, AlertCircle, Link2 } from 'lucide-react';
 import { DISCORD_ICON_URL } from '../../constants/platforms';
 import {
   getDiscordGuilds,
@@ -53,6 +53,10 @@ const MailIcon = () => (
   </svg>
 );
 
+const AkoenetIcon = () => (
+  <Link2 className="w-5 h-5 flex-shrink-0 text-violet-600 dark:text-violet-400" aria-hidden />
+);
+
 const PLATFORM_ICONS = {
   google: GoogleIcon,
   twitch: TwitchIcon,
@@ -61,6 +65,7 @@ const PLATFORM_ICONS = {
   youtube: YouTubeIcon,
   slack: SlackIcon,
   email: MailIcon,
+  akoenet: AkoenetIcon,
 };
 
 const PLATFORMS = [
@@ -70,6 +75,7 @@ const PLATFORMS = [
   { key: 'twitter', label: 'X (Twitter)' },
   { key: 'youtube', label: 'YouTube' },
   { key: 'slack', label: 'Slack' },
+  { key: 'akoenet', label: 'AkoeNet', noConnect: true },
   { key: 'email', labelKey: 'settings.emailPassword', noConnect: true },
 ];
 
@@ -87,6 +93,8 @@ export default function SettingsPlatformsTab({
   fetchConnectedAccounts,
   onTwitchPublishConnect,
   onSaveClipsChannel,
+  onOpenBotsSettings,
+  onOpenAkoenetAutoConnect,
 }) {
   const discordConnected = connectedAccounts?.discord === true;
   const [clipsGuildId, setClipsGuildId] = useState(user?.discordClipsGuildId || '');
@@ -97,7 +105,11 @@ export default function SettingsPlatformsTab({
   const [loadingClipsChannels, setLoadingClipsChannels] = useState(false);
   const [savingClipsChannel, setSavingClipsChannel] = useState(false);
   const [clipsGuildsError, setClipsGuildsError] = useState(null);
+  const [sendClipsToAkoenet, setSendClipsToAkoenet] = useState(user?.akoenetSendClips === true);
   const [setupSlackLoading, setSetupSlackLoading] = useState(false);
+  const akoenetConnected = Boolean(
+    user?.akoenetWebhookUrl && String(user.akoenetWebhookUrl).trim() && user?.akoenetWebhookSecretSet
+  );
 
   /* --- Instagram Graph (Meta): commented out until backend + tokens are production-ready. Restore api imports, state, loadInstagram, and block below. ---
   const [igAccount, setIgAccount] = useState(null);
@@ -155,7 +167,8 @@ export default function SettingsPlatformsTab({
   useEffect(() => {
     setClipsGuildId(user?.discordClipsGuildId || '');
     setClipsChannelId(user?.discordClipsChannelId || '');
-  }, [user?.discordClipsGuildId, user?.discordClipsChannelId]);
+    setSendClipsToAkoenet(user?.akoenetSendClips === true);
+  }, [user?.discordClipsGuildId, user?.discordClipsChannelId, user?.akoenetSendClips]);
 
   useEffect(() => {
     if (!discordConnected || !token || disconnectingKey === 'discord') {
@@ -230,7 +243,7 @@ export default function SettingsPlatformsTab({
     if (typeof onSaveClipsChannel !== 'function') return;
     setSavingClipsChannel(true);
     try {
-      await onSaveClipsChannel(clipsGuildId || null, clipsChannelId || null);
+      await onSaveClipsChannel(clipsGuildId || null, clipsChannelId || null, sendClipsToAkoenet);
     } finally {
       setSavingClipsChannel(false);
     }
@@ -250,7 +263,7 @@ export default function SettingsPlatformsTab({
         <div className="space-y-4">
           {PLATFORMS.map(({ key, label, labelKey, noConnect }) => {
             const labelText = label || t(labelKey);
-            const connected = connectedAccounts[key];
+            const connected = key === 'akoenet' ? akoenetConnected : connectedAccounts[key];
             const username = connectedAccounts.usernames?.[key];
             const connect = noConnect ? null : () => onConnect(key);
             const disconnect = noConnect ? null : () => onDisconnect(key);
@@ -278,6 +291,26 @@ export default function SettingsPlatformsTab({
                       className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-wait flex-shrink-0"
                     >
                       {connectingKey === key ? (t('common.loading') || '...') : (t('settings.connect') || 'Connect')}
+                    </button>
+                  )}
+                  {key === 'akoenet' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (typeof onOpenAkoenetAutoConnect === 'function') {
+                          onOpenAkoenetAutoConnect();
+                          return;
+                        }
+                        if (typeof onOpenBotsSettings === 'function') {
+                          onOpenBotsSettings();
+                        }
+                      }}
+                      disabled={connectingKey === 'akoenet'}
+                      className="px-4 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 flex-shrink-0"
+                    >
+                      {connectingKey === 'akoenet'
+                        ? (t('common.loading') || '...')
+                        : (connected ? (t('settings.manage') || 'Manage') : (t('settings.connect') || 'Connect'))}
                     </button>
                   )}
                   {disconnect && connected && (
@@ -362,6 +395,16 @@ export default function SettingsPlatformsTab({
                     </button>
                   </div>
                 )}
+                {key === 'akoenet' && connected && (
+                  <p className="text-xs text-green-600 dark:text-green-400 pl-8">
+                    {t('settings.akoenetConfigured') || 'Configurado. Puedes ajustar webhook y canal en Settings > Bots > AkoeNet.'}
+                  </p>
+                )}
+                {key === 'akoenet' && !connected && (
+                  <p className="text-xs text-gray-600 dark:text-gray-400 pl-8">
+                    {t('settings.akoenetNotConfigured') || 'No configurado. Ve a Settings > Bots > AkoeNet para conectar webhook y secreto.'}
+                  </p>
+                )}
               </div>
             );
           })}
@@ -380,6 +423,22 @@ export default function SettingsPlatformsTab({
           <p className="text-xs text-gray-600 dark:text-gray-400">
             {t('settings.discordClipsChannelDescription') || 'Los clips de Twitch se publicarán automáticamente en el canal que elijas.'}
           </p>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={sendClipsToAkoenet}
+              onChange={(e) => setSendClipsToAkoenet(e.target.checked)}
+              className="mt-1 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+            />
+            <span>
+              <span className="block text-sm font-medium text-gray-800 dark:text-gray-200">
+                {t('settings.akoenetClipsToggleLabel') || 'También publicar clips en AkoeNet'}
+              </span>
+              <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                {t('settings.akoenetClipsToggleHint') || 'Activa esto para enviar el clip automático a AkoeNet. Requiere webhook AkoeNet configurado.'}
+              </span>
+            </span>
+          </label>
           {clipsGuildsError && (
             <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
               <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />

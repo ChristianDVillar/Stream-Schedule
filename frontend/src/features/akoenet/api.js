@@ -9,3 +9,8 @@ export async function getAkoenetChannels(guildId) {
   const res = await apiClient.get(`/akoenet/guilds/${encodeURIComponent(guildId)}/channels`);
   return res.data;
 }
+
+export async function initAkoenetAutoConnect() {
+  const res = await apiClient.post('/akoenet/connect/init');
+  return res.data;
+}

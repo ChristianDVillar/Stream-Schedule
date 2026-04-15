@@ -204,7 +204,7 @@ const User = sequelize.define('User', {
     type: DataTypes.BOOLEAN,
     allowNull: false,
     defaultValue: false,
-    comment: 'POST twitch_clip webhook to same AkoeNet URL when clips are published to Discord',
+    comment: 'POST twitch_clip webhook to same AkoeNet URL when clip auto-publish runs',
   },
   streamGoalType: {
     type: DataTypes.STRING,

@@ -4,6 +4,8 @@
  */
 
 import express from 'express';
+import jwt from 'jsonwebtoken';
+import { randomBytes } from 'crypto';
 import { requireAuth } from '../middleware/auth.js';
 import { User } from '../modules/users/infrastructure/models.js';
 import logger from '../utils/logger.js';
@@ -14,6 +16,9 @@ import {
 } from '../services/akoenetDiscoveryService.js';
 
 const router = express.Router();
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
+const WEBHOOK_PATH = '/integrations/scheduler/webhooks/stream-scheduled';
+const SETUP_TOKEN_TTL_SECONDS = 5 * 60;
 
 function resolveWebhookAndSecret(user) {
   const url =
@@ -22,6 +27,150 @@ function resolveWebhookAndSecret(user) {
     (user?.akoenetWebhookSecret || '').trim() || (process.env.SCHEDULER_WEBHOOK_SECRET || '').trim();
   return { url, secret };
 }
+
+function isValidWebhookUrl(url) {
+  return !!deriveAkoenetSchedulerBaseUrl(url);
+}
+
+function normalizeWebhookUrlFromBase(baseUrl) {
+  const raw = String(baseUrl || '').trim();
+  if (!raw) return '';
+  try {
+    const u = new URL(raw);
+    const path = u.pathname.replace(/\/$/, '');
+    return `${u.origin}${path}${WEBHOOK_PATH}`;
+  } catch {
+    return '';
+  }
+}
+
+function buildAkoenetAutoConnectUrl(setupToken) {
+  const base = (process.env.AKOENET_AUTO_CONNECT_URL || '').trim();
+  if (!base) return null;
+  try {
+    const url = new URL(base);
+    url.searchParams.set('setup_token', setupToken);
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * POST /akoenet/connect/init
+ * Create short-lived setup token for AkoeNet auto-connect flow.
+ */
+router.post('/connect/init', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const nonce = randomBytes(12).toString('hex');
+    const setupToken = jwt.sign(
+      {
+        purpose: 'akoenet_setup',
+        userId,
+        nonce,
+      },
+      JWT_SECRET,
+      { expiresIn: `${SETUP_TOKEN_TTL_SECONDS}s` }
+    );
+    const connectUrl = buildAkoenetAutoConnectUrl(setupToken);
+    res.json({
+      setupToken,
+      connectUrl,
+      expiresInSeconds: SETUP_TOKEN_TTL_SECONDS,
+    });
+  } catch (err) {
+    logger.error('AkoeNet connect init error', { error: err.message, userId: req.user?.id });
+    res.status(500).json({ error: 'Could not start AkoeNet auto-connect flow' });
+  }
+});
+
+/**
+ * POST /akoenet/connect/complete
+ * Called by AkoeNet backend after validating setup token.
+ * Body:
+ * - setupToken (required)
+ * - webhookUrl (optional if akoenetBaseUrl is provided)
+ * - akoenetBaseUrl (optional, used to build webhookUrl)
+ * - webhookSecret (optional; generated if omitted)
+ * - channelId, serverId, sendClips (optional)
+ */
+router.post('/connect/complete', async (req, res) => {
+  try {
+    const {
+      setupToken,
+      webhookUrl,
+      webhookSecret,
+      channelId,
+      serverId,
+      sendClips,
+      akoenetBaseUrl,
+    } = req.body || {};
+
+    if (!setupToken || typeof setupToken !== 'string') {
+      return res.status(400).json({ error: 'setupToken is required' });
+    }
+
+    let payload;
+    try {
+      payload = jwt.verify(setupToken, JWT_SECRET);
+    } catch {
+      return res.status(401).json({ error: 'Invalid or expired setupToken' });
+    }
+    if (payload?.purpose !== 'akoenet_setup' || !payload?.userId) {
+      return res.status(401).json({ error: 'Invalid setupToken payload' });
+    }
+
+    const user = await User.findByPk(payload.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const finalWebhookUrl =
+      (webhookUrl && String(webhookUrl).trim()) ||
+      normalizeWebhookUrlFromBase(akoenetBaseUrl);
+    if (!finalWebhookUrl || !isValidWebhookUrl(finalWebhookUrl)) {
+      return res.status(400).json({
+        error: 'Invalid webhook URL',
+        details: `Must end with ${WEBHOOK_PATH}`,
+      });
+    }
+
+    const finalSecret =
+      (webhookSecret && String(webhookSecret).trim()) ||
+      randomBytes(24).toString('hex');
+
+    user.akoenetWebhookUrl = finalWebhookUrl;
+    user.akoenetWebhookSecret = finalSecret;
+    if (channelId !== undefined) {
+      user.akoenetAnnounceChannelId = channelId ? String(channelId).trim() : null;
+    }
+    if (serverId !== undefined) {
+      user.akoenetServerId = serverId ? String(serverId).trim() : null;
+    }
+    if (sendClips !== undefined) {
+      user.akoenetSendClips = sendClips === true;
+    }
+    await user.save();
+
+    const plain = user.get ? user.get({ plain: true }) : user;
+    res.json({
+      ok: true,
+      user: {
+        id: plain.id,
+        akoenetWebhookUrl: plain.akoenetWebhookUrl || null,
+        akoenetAnnounceChannelId: plain.akoenetAnnounceChannelId || null,
+        akoenetServerId: plain.akoenetServerId || null,
+        akoenetWebhookSecretSet: !!(plain.akoenetWebhookSecret && String(plain.akoenetWebhookSecret).trim()),
+        akoenetSendClips: plain.akoenetSendClips === true,
+      },
+      generatedSecret: !webhookSecret,
+      webhookSecret: !webhookSecret ? finalSecret : undefined,
+    });
+  } catch (err) {
+    logger.error('AkoeNet connect complete error', { error: err.message });
+    res.status(500).json({ error: 'Could not complete AkoeNet auto-connect flow' });
+  }
+});
 
 /**
  * GET /akoenet/guilds

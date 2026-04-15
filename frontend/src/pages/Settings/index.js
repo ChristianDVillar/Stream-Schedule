@@ -38,6 +38,7 @@ import { BANNER_CONFIG_KEY, getBannersFromEnv } from '../../components/HeaderBan
 import { handleUpload, getUploadStats } from '../../utils/uploadHelper';
 import { getPublicImageUrl } from '../../utils/supabaseClient';
 import { devCatchLog } from '../../utils/devCatchLog';
+import { initAkoenetAutoConnect } from '../../features/akoenet/api';
 
 import SettingsProfileTab from './SettingsProfileTab';
 import SettingsNotificationsTab from './SettingsNotificationsTab';
@@ -261,6 +262,14 @@ export default function Settings({ user, token, setUser }) {
   }, [token]);
 
   useEffect(() => {
+    const requestedTab = (searchParams.get('tab') || '').trim();
+    if (requestedTab && getTabsConfig(t).some((tab) => tab.id === requestedTab)) {
+      setActiveTab(requestedTab);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- query param driven
+  }, [searchParams]);
+
+  useEffect(() => {
     const linked = searchParams.get('linked');
     const twitchConnected = searchParams.get('twitch_connected');
     const twitchError = searchParams.get('twitch_error');
@@ -396,6 +405,28 @@ export default function Settings({ user, token, setUser }) {
     else if (key === 'twitter') startTwitterLink(token);
     else if (key === 'youtube') startYoutubeConnect(token);
     else if (key === 'slack') startSlackLink(token);
+    else if (key === 'akoenet') {
+      setConnectingKey(null);
+      setActiveTab('bots');
+    }
+  };
+
+  const handleAkoenetAutoConnect = async () => {
+    setConnectingKey('akoenet');
+    try {
+      const data = await initAkoenetAutoConnect();
+      if (data?.connectUrl) {
+        window.location.href = data.connectUrl;
+        return;
+      }
+      setActiveTab('bots');
+      toast((t('settings.akoenetAutoConnectMissingUrl') || 'Auto-connect URL is not configured. Opened Bots tab to connect manually.'), { icon: 'ℹ️' });
+    } catch (err) {
+      setActiveTab('bots');
+      toast.error(err.response?.data?.error || err.message || (t('settings.linkFailed') || 'Connection failed'));
+    } finally {
+      setConnectingKey(null);
+    }
   };
 
   const handleDisconnect = async (key) => {
@@ -418,13 +449,17 @@ export default function Settings({ user, token, setUser }) {
     if (token) await fetchConnectedAccounts();
   };
 
-  const handleSaveClipsChannel = async (guildId, channelId) => {
+  const handleSaveClipsChannel = async (guildId, channelId, akoenetSendClips) => {
     if (!token) return;
     setLoading(true);
     try {
       const response = await apiClient.put(
         '/user/profile',
-        { discordClipsGuildId: guildId || null, discordClipsChannelId: channelId || null },
+        {
+          discordClipsGuildId: guildId || null,
+          discordClipsChannelId: channelId || null,
+          ...(typeof akoenetSendClips === 'boolean' ? { akoenetSendClips } : {}),
+        },
         { headers: { Authorization: `Bearer ${token}` }, withCredentials: true }
       );
       if (setUser && response.data.user) {
@@ -822,6 +857,8 @@ export default function Settings({ user, token, setUser }) {
             fetchConnectedAccounts={fetchConnectedAccounts}
             onTwitchPublishConnect={token ? () => startTwitchPublishConnect(token) : null}
             onSaveClipsChannel={handleSaveClipsChannel}
+            onOpenBotsSettings={() => setActiveTab('bots')}
+            onOpenAkoenetAutoConnect={handleAkoenetAutoConnect}
           />
         );
       case 'security':

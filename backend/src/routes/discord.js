@@ -319,7 +319,7 @@ router.post('/channels/:channelId/messages', requireAuth, async (req, res) => {
 
 /**
  * POST /discord/clips/publish
- * Publish a Twitch clip to the user's configured Discord clips channel (Settings).
+ * Publish a Twitch clip to configured destinations (Discord and/or AkoeNet).
  * Body: { title?, url?, thumbnailUrl?, creatorName? }
  */
 router.post('/clips/publish', requireAuth, async (req, res) => {
@@ -331,21 +331,21 @@ router.post('/clips/publish', requireAuth, async (req, res) => {
         details: 'Provide clip URL (e.g. https://clips.twitch.tv/...) and optionally title, thumbnailUrl, creatorName.',
       });
     }
-    const { publishTwitchClipToDiscord } = await import('../services/discordClipsService.js');
-    const result = await publishTwitchClipToDiscord(req.user.id, {
+    const { publishTwitchClip } = await import('../services/discordClipsService.js');
+    const result = await publishTwitchClip(req.user.id, {
       title: title || 'Twitch clip',
       url: url || '',
       thumbnailUrl: thumbnailUrl || null,
       creatorName: creatorName || null,
     });
     if (!result.success) {
-      const status = result.error?.includes('No Discord channel') ? 400 : 502;
+      const status = result.error?.includes('No destination configured') ? 400 : 502;
       return res.status(status).json({ error: result.error });
     }
-    res.json({ success: true, messageId: result.messageId });
+    res.json({ success: true, messageId: result.messageId, destinations: result.destinations || [] });
   } catch (err) {
     logger.error('Discord clips publish error', { error: err.message, userId: req.user?.id });
-    res.status(500).json({ error: err.message || 'Failed to publish clip to Discord' });
+    res.status(500).json({ error: err.message || 'Failed to publish clip' });
   }
 });
 
