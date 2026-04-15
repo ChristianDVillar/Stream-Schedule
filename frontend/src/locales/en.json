@@ -642,6 +642,8 @@
     "youtubePublishConnected": "Connected for video uploads.",
     "discordClipsChannelTitle": "Twitch clips channel",
     "discordClipsChannelDescription": "Twitch clips will be published automatically to the channel you choose.",
+    "akoenetClipsToggleLabel": "Also publish clips to AkoeNet",
+    "akoenetClipsToggleHint": "Turn this on to send automatic Twitch clips to AkoeNet too.",
     "discordServer": "Server",
     "discordChannel": "Channel",
     "selectServer": "Select server",
