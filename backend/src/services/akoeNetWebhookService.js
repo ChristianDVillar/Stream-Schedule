@@ -8,6 +8,7 @@ import { Integration } from '../modules/integrations/infrastructure/models.js';
 import { twitchService } from '../modules/integrations/application/twitchService.js';
 import logger from '../utils/logger.js';
 import { buildPublicStreamerShareUrl } from '../utils/publicStreamerShareUrl.js';
+import { resolveAkoenetWebhookAndSecret } from '../utils/akoenetWebhookResolve.js';
 
 /** Scheduled streams and calendar events → AkoeNet (not generic posts). */
 function shouldNotifyAkoeNetSchedule(content) {
@@ -101,10 +102,7 @@ export async function notifyAkoeNetStreamScheduled(userId, content) {
     return;
   }
 
-  const url =
-    (user.akoenetWebhookUrl || '').trim() || (process.env.AKOENET_SCHEDULER_WEBHOOK_URL || '').trim();
-  const secret =
-    (user.akoenetWebhookSecret || '').trim() || (process.env.SCHEDULER_WEBHOOK_SECRET || '').trim();
+  const { url, secret } = resolveAkoenetWebhookAndSecret(user);
   if (!url || !secret) return;
 
   const platforms = Array.isArray(content.platforms) ? content.platforms : [];
@@ -168,10 +166,7 @@ export async function notifyAkoeNetClip(userId, clip) {
   });
   if (!user || !user.akoenetSendClips) return;
 
-  const url =
-    (user.akoenetWebhookUrl || '').trim() || (process.env.AKOENET_SCHEDULER_WEBHOOK_URL || '').trim();
-  const secret =
-    (user.akoenetWebhookSecret || '').trim() || (process.env.SCHEDULER_WEBHOOK_SECRET || '').trim();
+  const { url, secret } = resolveAkoenetWebhookAndSecret(user);
   if (!url || !secret) return;
 
   const twitchIntegration = await Integration.findOne({
