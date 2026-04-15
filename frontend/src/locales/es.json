@@ -564,7 +564,10 @@
     "akoenetChooseChannel": "Elegir canal",
     "akoenetManualChannelHint": "Tu instancia AkoeNet aún no expone la API de listado de servidores. Introduce el ID de canal a mano o implementa GET /integrations/scheduler/servers en AkoeNet (misma cabecera de secreto que el webhook).",
     "akoenetPickerHint": "Elige servidor y canal como en Discord; el id del canal se envía como channel_id en los webhooks.",
-    "akoenetNoServersHint": "AkoeNet no devolvió servidores. Revisa la API o introduce el id del canal abajo."
+    "akoenetNoServersHint": "AkoeNet no devolvió servidores. Revisa la API o introduce el id del canal abajo.",
+    "akoenetCommunityBadge": "Comunidad",
+    "akoenetDescriptionHostConfigured": "El servidor del calendario ya aporta el webhook de AkoeNet y el secreto compartido. Elige servidor y canal abajo (misma idea que Discord). Usa «Avanzado» solo si esta cuenta necesita otra URL de AkoeNet.",
+    "akoenetAdvancedWebhook": "Avanzado: URL y secreto del webhook (por usuario)"
   },
   "publicPage": {
     "title": "Editar página del calendario compartido",
@@ -630,6 +633,10 @@
     "connectedAccounts": "Cuentas conectadas",
     "platformsConnectTitle": "Conectar plataformas",
     "connectedAccountsDescription": "Vincula otros métodos de inicio de sesión a esta cuenta. Luego podrás usar cualquiera para entrar.",
+    "communityPlatformsTitle": "Comunidad (avisos y clips)",
+    "communityPlatformsIntro": "AkoeNet es el hogar recomendado para tu comunidad (como Discord). Discord sigue siendo opcional si aún lo usas para clips de Twitch o bots antiguos.",
+    "akoenetPrimaryBadge": "Recomendado",
+    "discordOptionalHint": "Opcional — conecta si publicas clips de Twitch en Discord o usas bots solo de Discord.",
     "connected": "Conectado",
     "notConnected": "No conectado",
     "connect": "Conectar",
@@ -642,7 +649,7 @@
     "youtubeConnected": "YouTube conectado. Puedes programar subidas de vídeo.",
     "youtubePublishConnected": "Conectado para subir vídeos.",
     "akoenetConfigured": "Configurado. Puedes ajustar webhook y canal en Ajustes > Bots > AkoeNet.",
-    "akoenetNotConfigured": "Aún no configurado. Ve a Ajustes > Bots > AkoeNet para conectar webhook y secreto.",
+    "akoenetNotConfigured": "Aún no conectado. Usa Conectar en AkoeNet arriba, o Ajustes → Bots → AkoeNet. Si el host definió el mismo SCHEDULER_WEBHOOK_SECRET en Scheduler y AkoeNet, entra en Bots tras iniciar sesión para elegir servidor y canal.",
     "discordClipsChannelTitle": "Canal para clips de Twitch",
     "discordClipsChannelDescription": "Los clips de Twitch se publicarán automáticamente en el canal que elijas.",
     "akoenetClipsToggleLabel": "Publicar también los clips en AkoeNet",

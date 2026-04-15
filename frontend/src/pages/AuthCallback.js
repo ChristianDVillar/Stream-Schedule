@@ -16,6 +16,14 @@ export default function AuthCallback({ setAuth }) {
   const navigate = useNavigate();
   const handledRef = useRef(false);
 
+  const consumePostLoginRedirect = () => {
+    if (typeof sessionStorage === 'undefined') return null;
+    const raw = sessionStorage.getItem('postLoginRedirect');
+    sessionStorage.removeItem('postLoginRedirect');
+    if (!raw || !raw.startsWith('/') || raw.startsWith('//')) return null;
+    return raw;
+  };
+
   useEffect(() => {
     const run = async () => {
       // Prevent double run (e.g. React Strict Mode): second run often sees hash already cleared
@@ -86,8 +94,9 @@ export default function AuthCallback({ setAuth }) {
           const res = await loginBackendWithSupabaseToken(accessToken);
           const { token, user } = res.data;
           setAuth(user, token);
+          const postLoginRedirect = consumePostLoginRedirect();
           window.history.replaceState(null, '', window.location.pathname + window.location.search);
-          navigate('/dashboard');
+          navigate(postLoginRedirect || '/dashboard', { replace: true });
         } catch (error) {
           const msg = error?.message || error?.response?.data?.error || 'OAuth login failed';
           window.alert(msg);
@@ -116,13 +125,18 @@ export default function AuthCallback({ setAuth }) {
         try {
           const user = JSON.parse(decodeURIComponent(userParam));
           setAuth(user, token);
+          const postLoginRedirect = consumePostLoginRedirect();
           
           // Clean URL before navigation to prevent Chrome navigation issues
           window.history.replaceState(null, '', window.location.pathname);
           
           // Use setTimeout to ensure state is set before navigation
           setTimeout(() => {
-            navigate(returnTo === 'discord' ? '/schedule' : '/dashboard', { replace: true });
+            if (returnTo === 'discord') {
+              navigate('/schedule', { replace: true });
+              return;
+            }
+            navigate(postLoginRedirect || '/dashboard', { replace: true });
           }, 100);
         } catch (error) {
           console.error('Error parsing user data:', error);

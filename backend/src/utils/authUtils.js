@@ -94,10 +94,18 @@ export function generateToken(user) {
  * @param {Object} user - Sequelize User instance or plain user object
  * @returns {Object} Formatted user response with license summary
  */
+/** True when server .env provides AkoeNet webhook + secret fallback (GET /akoenet/guilds works without per-user URL). */
+export function isAkoenetGlobalWebhookConfigured() {
+  const url = String(process.env.AKOENET_SCHEDULER_WEBHOOK_URL || '').trim();
+  const secret = String(process.env.SCHEDULER_WEBHOOK_SECRET || '').trim();
+  return !!(url && secret);
+}
+
 export function buildUserResponse(user) {
   // Convert Sequelize instance to plain object if needed
   const userPlain = user.get ? user.get({ plain: true }) : user;
   const licenseSummary = buildLicenseSummary(userPlain);
+  const akoenetGlobalWebhookConfigured = isAkoenetGlobalWebhookConfigured();
 
   return {
     id: userPlain.id,
@@ -124,6 +132,7 @@ export function buildUserResponse(user) {
     akoenetServerId: userPlain.akoenetServerId || null,
     akoenetWebhookSecretSet: !!(userPlain.akoenetWebhookSecret && String(userPlain.akoenetWebhookSecret).trim()),
     akoenetSendClips: userPlain.akoenetSendClips === true,
+    akoenetGlobalWebhookConfigured,
   };
 }
 

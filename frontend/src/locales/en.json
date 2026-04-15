@@ -563,7 +563,10 @@
     "akoenetChooseChannel": "Choose channel",
     "akoenetManualChannelHint": "Your AkoeNet instance does not expose the server list API yet. Enter the channel ID manually, or add GET /integrations/scheduler/servers on AkoeNet (same shared secret header as the webhook).",
     "akoenetPickerHint": "Pick server and channel like Discord; the channel id is sent as channel_id in webhooks.",
-    "akoenetNoServersHint": "AkoeNet returned no servers. Check your API or enter the channel id below."
+    "akoenetNoServersHint": "AkoeNet returned no servers. Check your API or enter the channel id below.",
+    "akoenetCommunityBadge": "Community",
+    "akoenetDescriptionHostConfigured": "The scheduler host already provides the AkoeNet webhook and shared secret. Choose your server and channel below (same idea as Discord). Use Advanced only if you need a different AkoeNet URL for this account.",
+    "akoenetAdvancedWebhook": "Advanced: custom webhook URL & secret (per user)"
   },
   "publicPage": {
     "title": "Edit shared calendar page",
@@ -629,6 +632,10 @@
     "connectedAccounts": "Connected accounts",
     "platformsConnectTitle": "Connect platforms",
     "connectedAccountsDescription": "Link other sign-in methods to this account. You can then use any of them to log in.",
+    "communityPlatformsTitle": "Community (announcements & clips)",
+    "communityPlatformsIntro": "AkoeNet is the recommended home for your community (like Discord). Discord stays optional if you still use it for Twitch clips or legacy bots.",
+    "akoenetPrimaryBadge": "Recommended",
+    "discordOptionalHint": "Optional — connect if you publish Twitch clips to Discord or use Discord-only bots.",
     "connected": "Connected",
     "notConnected": "Not connected",
     "connect": "Connect",
@@ -641,7 +648,7 @@
     "youtubeConnected": "YouTube connected. You can schedule video uploads.",
     "youtubePublishConnected": "Connected for video uploads.",
     "akoenetConfigured": "Configured. You can adjust webhook and channel in Settings > Bots > AkoeNet.",
-    "akoenetNotConfigured": "Not configured yet. Go to Settings > Bots > AkoeNet to connect webhook and secret.",
+    "akoenetNotConfigured": "Not connected yet. Use Connect on AkoeNet above, or Settings → Bots → AkoeNet. If the host set the same SCHEDULER_WEBHOOK_SECRET on Scheduler and AkoeNet, open Bots after signing in to choose server and channel.",
     "discordClipsChannelTitle": "Twitch clips channel",
     "discordClipsChannelDescription": "Twitch clips will be published automatically to the channel you choose.",
     "akoenetClipsToggleLabel": "Also publish clips to AkoeNet",

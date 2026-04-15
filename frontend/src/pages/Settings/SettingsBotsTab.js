@@ -88,8 +88,11 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
     setAkoenetSecret('');
   }, [user?.akoenetWebhookUrl, user?.akoenetAnnounceChannelId, user?.akoenetServerId, user?.akoenetSendClips, user?.id]);
 
-  const akoenetConfigured =
+  const akoenetPerUserConfigured =
     !!(user?.akoenetWebhookUrl && String(user.akoenetWebhookUrl).trim() && user?.akoenetWebhookSecretSet);
+  const akoenetConfigured =
+    akoenetPerUserConfigured || user?.akoenetGlobalWebhookConfigured === true;
+  const akoenetHostOnlyMode = !akoenetPerUserConfigured && user?.akoenetGlobalWebhookConfigured === true;
 
   useEffect(() => {
     if (!token || !akoenetConfigured || streamMode) {
@@ -311,11 +314,11 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
           {t('bots.setupInMinutes') || 'Setup in ~2 minutes'}
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          <button type="button" onClick={() => scrollToId('bots-api-key')} className="text-xs px-3 py-1.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">
-            {t('bots.navApiKey') || 'API key'}
-          </button>
           <button type="button" onClick={() => scrollToId('bots-akoenet')} className="text-xs px-3 py-1.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-200 hover:bg-violet-200 dark:hover:bg-violet-800/50 transition-colors">
             {t('bots.navAkoeNet') || 'AkoeNet'}
+          </button>
+          <button type="button" onClick={() => scrollToId('bots-api-key')} className="text-xs px-3 py-1.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">
+            {t('bots.navApiKey') || 'API key'}
           </button>
           <button type="button" onClick={() => scrollToId('bots-overlays')} className="text-xs px-3 py-1.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800/50 transition-colors">
             {t('bots.navOverlays') || 'Overlays (OBS)'}
@@ -335,91 +338,60 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
         </div>
       )}
 
-      {/* 1. API key — first and prominent */}
-      <div id="bots-api-key" className="rounded-xl border border-gray-200 dark:border-gray-600 bg-gradient-to-br from-indigo-50 to-white dark:from-gray-800/80 dark:to-gray-800/50 p-5 sm:p-6 scroll-mt-4">
-        <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100 font-medium mb-1">
-          <Key className="w-5 h-5 text-indigo-500" />
-          {t('bots.apiKeyLabel') || 'Your API key'}
-        </div>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          {t('bots.apiKeyHint') || 'Use this key in Nightbot and in Streamer.bot, Mix It Up, StreamElements, etc. Keep it private.'}
-        </p>
-        {loading ? (
-          <p className="text-sm text-gray-500">{t('common.loading') || 'Loading...'}</p>
-        ) : key ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <code className="rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 px-3 py-2 text-sm font-mono text-gray-800 dark:text-gray-200 break-all max-w-full" title={streamMode ? undefined : key}>
-              {streamMode ? '••••••••••••••••' : key}
-            </code>
-            {!streamMode && <CopyButton text={key} label={copyLabel} copiedMessage={copiedMessage} />}
-            <button
-              type="button"
-              onClick={handleGenerate}
-              disabled={generating}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium disabled:opacity-50 transition-colors"
-            >
-              <RefreshCw className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
-              {generating ? (t('bots.generating') || 'Generating...') : (t('bots.regenerate') || 'Regenerate')}
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={handleGenerate}
-            disabled={generating}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium disabled:opacity-50 transition-colors"
-          >
-            <RefreshCw className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
-            {generating ? (t('bots.generating') || 'Generating...') : (t('bots.generateKey') || 'Generate API key')}
-          </button>
-        )}
-      </div>
-
-      {/* AkoeNet — local/private URL supported */}
+      {/* 1. AkoeNet — primary community integration (Discord-style); Discord remains optional in Platforms */}
       <div id="bots-akoenet" className="rounded-xl border border-violet-200 dark:border-violet-800 bg-gradient-to-br from-violet-50/90 to-white dark:from-violet-950/30 dark:to-gray-800/50 p-5 sm:p-6 scroll-mt-4">
-        <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100 font-medium mb-1">
+        <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100 font-medium mb-1 flex-wrap">
           <Link2 className="w-5 h-5 text-violet-600 dark:text-violet-400" />
           {t('bots.akoenetTitle') || 'AkoeNet'}
+          <span className="text-[10px] font-normal uppercase tracking-wide px-2 py-0.5 rounded bg-violet-100 text-violet-800 dark:bg-violet-900/50 dark:text-violet-200">
+            {t('bots.akoenetCommunityBadge') || 'Community'}
+          </span>
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 max-w-2xl">
-          {t('bots.akoenetDescription')}
+          {akoenetHostOnlyMode
+            ? (t('bots.akoenetDescriptionHostConfigured') || 'The server already provides the AkoeNet webhook and secret. Pick your server and channel below (same idea as Discord).')
+            : t('bots.akoenetDescription')}
         </p>
         <div className="space-y-4 max-w-xl">
-          <div>
-            <label htmlFor="akoenetWebhookUrl" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('bots.akoenetWebhookUrl') || 'Webhook URL'}
-            </label>
-            <input
-              id="akoenetWebhookUrl"
-              type="url"
-              autoComplete="off"
-              value={streamMode && akoenetUrl ? MASK : akoenetUrl}
-              onChange={(e) => !streamMode && setAkoenetUrl(e.target.value)}
-              readOnly={streamMode}
-              className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
-              placeholder="http://localhost:5173/integrations/scheduler/webhooks/stream-scheduled"
-            />
-          </div>
-          <div>
-            <label htmlFor="akoenetWebhookSecret" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('bots.akoenetSecret') || 'Shared secret'}
-            </label>
-            <input
-              id="akoenetWebhookSecret"
-              type="password"
-              autoComplete="new-password"
-              value={streamMode ? '' : akoenetSecret}
-              onChange={(e) => !streamMode && setAkoenetSecret(e.target.value)}
-              readOnly={streamMode}
-              className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
-              placeholder={user?.akoenetWebhookSecretSet ? (t('bots.akoenetSecretPlaceholder') || 'Leave blank to keep current secret') : (t('bots.akoenetSecretPlaceholderNew') || 'Same value as SCHEDULER_WEBHOOK_SECRET on AkoeNet')}
-            />
-            {user?.akoenetWebhookSecretSet && !streamMode && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {t('bots.akoenetSecretStored') || 'A secret is already saved. Enter a new one to replace it, or clear it below.'}
-              </p>
-            )}
-          </div>
+          {!akoenetHostOnlyMode && (
+            <>
+              <div>
+                <label htmlFor="akoenetWebhookUrl" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('bots.akoenetWebhookUrl') || 'Webhook URL'}
+                </label>
+                <input
+                  id="akoenetWebhookUrl"
+                  type="url"
+                  autoComplete="off"
+                  value={streamMode && akoenetUrl ? MASK : akoenetUrl}
+                  onChange={(e) => !streamMode && setAkoenetUrl(e.target.value)}
+                  readOnly={streamMode}
+                  className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+                  placeholder="http://localhost:5173/integrations/scheduler/webhooks/stream-scheduled"
+                />
+              </div>
+              <div>
+                <label htmlFor="akoenetWebhookSecret" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('bots.akoenetSecret') || 'Shared secret'}
+                </label>
+                <input
+                  id="akoenetWebhookSecret"
+                  type="password"
+                  autoComplete="new-password"
+                  value={streamMode ? '' : akoenetSecret}
+                  onChange={(e) => !streamMode && setAkoenetSecret(e.target.value)}
+                  readOnly={streamMode}
+                  className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+                  placeholder={user?.akoenetWebhookSecretSet ? (t('bots.akoenetSecretPlaceholder') || 'Leave blank to keep current secret') : (t('bots.akoenetSecretPlaceholderNew') || 'Same value as SCHEDULER_WEBHOOK_SECRET on AkoeNet')}
+                />
+                {user?.akoenetWebhookSecretSet && !streamMode && (
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {t('bots.akoenetSecretStored') || 'A secret is already saved. Enter a new one to replace it, or clear it below.'}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
           {akoenetGuildsError && (
             <div className="flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/30 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
               <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -556,7 +528,84 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
               </button>
             )}
           </div>
+          {akoenetHostOnlyMode && !streamMode && (
+            <details className="rounded-lg border border-gray-200 dark:border-gray-600 p-3 bg-white/60 dark:bg-gray-800/40">
+              <summary className="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('bots.akoenetAdvancedWebhook') || 'Advanced: custom webhook URL & secret (per user)'}
+              </summary>
+              <div className="mt-3 space-y-3">
+                <div>
+                  <label htmlFor="akoenetWebhookUrlAdvanced" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {t('bots.akoenetWebhookUrl') || 'Webhook URL'}
+                  </label>
+                  <input
+                    id="akoenetWebhookUrlAdvanced"
+                    type="url"
+                    autoComplete="off"
+                    value={akoenetUrl}
+                    onChange={(e) => setAkoenetUrl(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+                    placeholder="https://…/integrations/scheduler/webhooks/stream-scheduled"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="akoenetWebhookSecretAdvanced" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {t('bots.akoenetSecret') || 'Shared secret'}
+                  </label>
+                  <input
+                    id="akoenetWebhookSecretAdvanced"
+                    type="password"
+                    autoComplete="new-password"
+                    value={akoenetSecret}
+                    onChange={(e) => setAkoenetSecret(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+                    placeholder={t('bots.akoenetSecretPlaceholderNew') || 'Same value as SCHEDULER_WEBHOOK_SECRET on AkoeNet'}
+                  />
+                </div>
+              </div>
+            </details>
+          )}
         </div>
+      </div>
+
+      {/* 2. API key — Nightbot & chat commands */}
+      <div id="bots-api-key" className="rounded-xl border border-gray-200 dark:border-gray-600 bg-gradient-to-br from-indigo-50 to-white dark:from-gray-800/80 dark:to-gray-800/50 p-5 sm:p-6 scroll-mt-4">
+        <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100 font-medium mb-1">
+          <Key className="w-5 h-5 text-indigo-500" />
+          {t('bots.apiKeyLabel') || 'Your API key'}
+        </div>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          {t('bots.apiKeyHint') || 'Use this key in Nightbot and in Streamer.bot, Mix It Up, StreamElements, etc. Keep it private.'}
+        </p>
+        {loading ? (
+          <p className="text-sm text-gray-500">{t('common.loading') || 'Loading...'}</p>
+        ) : key ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 px-3 py-2 text-sm font-mono text-gray-800 dark:text-gray-200 break-all max-w-full" title={streamMode ? undefined : key}>
+              {streamMode ? '••••••••••••••••' : key}
+            </code>
+            {!streamMode && <CopyButton text={key} label={copyLabel} copiedMessage={copiedMessage} />}
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={generating}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium disabled:opacity-50 transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
+              {generating ? (t('bots.generating') || 'Generating...') : (t('bots.regenerate') || 'Regenerate')}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={generating}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
+            {generating ? (t('bots.generating') || 'Generating...') : (t('bots.generateKey') || 'Generate API key')}
+          </button>
+        )}
       </div>
 
       {/* Overlays for OBS — prominent, step-by-step */}

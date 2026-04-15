@@ -22,20 +22,26 @@ export function LanguageProvider({ children }) {
   const t = (key, params = {}) => {
     const keys = key.split('.');
     let value = translations[language];
-    
+
     for (const k of keys) {
       value = value?.[k];
       if (value === undefined) return key;
     }
-    
+
     // Replace placeholders with params (e.g., {count} -> params.count)
     if (typeof value === 'string' && Object.keys(params).length > 0) {
       return value.replace(/\{(\w+)\}/g, (match, paramKey) => {
         return params[paramKey] !== undefined ? params[paramKey] : match;
       });
     }
-    
+
     return value;
+  };
+
+  /** Like t() but returns fallback when the key is missing (t returns the key string, which breaks `t(k) || fallback`). */
+  const tSafe = (key, fallback) => {
+    const result = t(key);
+    return result === key ? fallback : result;
   };
 
   const toggleLanguage = () => {
@@ -43,7 +49,7 @@ export function LanguageProvider({ children }) {
   };
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t, toggleLanguage }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t, tSafe, toggleLanguage }}>
       {children}
     </LanguageContext.Provider>
   );

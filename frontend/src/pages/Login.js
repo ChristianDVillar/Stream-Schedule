@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { login, register, loginWithGoogle, loginWithTwitch, loginWithTwitter, loginWithDiscord, forgotPassword } from '../features/auth/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Eye } from 'lucide-react';
@@ -20,7 +20,34 @@ export default function Login({ setAuth }) {
   const [resetLoading, setResetLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const location = useLocation();
   const navigate = useNavigate();
+
+  const getSafeNextPath = () => {
+    const params = new URLSearchParams(location.search);
+    const raw = params.get('next');
+    if (!raw) return '/dashboard';
+    try {
+      const decoded = decodeURIComponent(raw);
+      if (!decoded.startsWith('/') || decoded.startsWith('//')) return '/dashboard';
+      return decoded;
+    } catch {
+      return '/dashboard';
+    }
+  };
+
+  const getSlugFromLocation = () => {
+    const params = new URLSearchParams(location.search);
+    const directSlug = (params.get('slug') || '').trim();
+    if (directSlug) return directSlug;
+    const nextPath = getSafeNextPath();
+    try {
+      const nextUrl = new URL(nextPath, window.location.origin);
+      return (nextUrl.searchParams.get('slug') || '').trim();
+    } catch {
+      return '';
+    }
+  };
 
   // Check for OAuth error in URL params
   useEffect(() => {
@@ -41,6 +68,17 @@ export default function Login({ setAuth }) {
       window.history.replaceState({}, document.title, '/login');
     }
   }, [t]);
+
+  useEffect(() => {
+    const slug = getSlugFromLocation();
+    if (slug && !username.trim()) {
+      setUsername(slug.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40));
+    }
+    if (slug) {
+      setIsRegister(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally run on route change
+  }, [location.search]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -78,7 +116,7 @@ export default function Login({ setAuth }) {
           } else if (!licenseType || licenseType === 'none') {
             setNotice(t('login.accountCreated'));
           }
-          navigate('/dashboard');
+          navigate(getSafeNextPath(), { replace: true });
           return;
         }
       }
@@ -96,7 +134,7 @@ export default function Login({ setAuth }) {
       } else if (alert === '3_days') {
         setNotice(t('login.licenseExpires3Days'));
       }
-      navigate('/dashboard');
+      navigate(getSafeNextPath(), { replace: true });
     } catch (err) {
       setError(err.response?.data?.error || (isRegister ? t('login.registerFailed') : t('login.loginFailed')));
     } finally {
@@ -109,6 +147,9 @@ export default function Login({ setAuth }) {
     setError(null);
     setNotice(null);
     try {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('postLoginRedirect', getSafeNextPath());
+      }
       if (provider === 'google') {
         await loginWithGoogle(isRegister);
       } else if (provider === 'twitch') {
