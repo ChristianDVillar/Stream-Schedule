@@ -841,21 +841,38 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
         <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">
           {t('bots.rouletteTitle')}
         </h4>
-        <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+        <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
           {t('bots.rouletteIntro')}
+        </p>
+        <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/80 dark:bg-emerald-950/25 px-4 py-3 mb-4">
+          <p className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
+            {t('bots.rouletteQuickStartTitle')}
+          </p>
+          <p className="text-sm text-emerald-800 dark:text-emerald-200/90 mt-1 leading-relaxed">
+            {t('bots.rouletteQuickStartBody')}
+          </p>
+        </div>
+        <p className="text-sm text-gray-700 dark:text-gray-300 mb-4 leading-relaxed">
+          {t('bots.rouletteWhyBearer')}
+        </p>
+        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
+          {t('bots.rouletteAdvancedHeading')}
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-lg bg-white dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 p-3 text-xs">
-            <p className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
+            <p className="font-semibold text-gray-900 dark:text-gray-100 mb-2">
               {t('bots.rouletteStepHttp')}
             </p>
-            <pre className="bg-gray-100 dark:bg-gray-800 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
+            <p className="text-gray-600 dark:text-gray-400 mb-2 leading-relaxed">
+              {t('bots.rouletteAuthExplain')}
+            </p>
+            <pre className="bg-gray-100 dark:bg-gray-800 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all text-gray-800 dark:text-gray-200">
               {`POST ${API_BASE}/api/roulette/spin\n${t('bots.rouletteAuthLine')}`}
             </pre>
             <p className="mt-2 text-gray-700 dark:text-gray-300">
               {t('bots.rouletteResponseHint')}
             </p>
-            <pre className="bg-gray-100 dark:bg-gray-800 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
+            <pre className="bg-gray-100 dark:bg-gray-800 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all text-gray-800 dark:text-gray-200">
               {t('bots.rouletteExampleBody')}
             </pre>
           </div>
@@ -863,10 +880,10 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
             <p className="font-semibold text-gray-900 dark:text-gray-100">
               {t('bots.rouletteStepCommand')}
             </p>
-            <p className="text-gray-700 dark:text-gray-300">
+            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
               {t('bots.rouletteTemplateHint')}
             </p>
-            <ul className="list-disc list-inside space-y-1 text-gray-700 dark:text-gray-300">
+            <ul className="list-disc list-inside space-y-1.5 text-gray-700 dark:text-gray-300">
               <li>
                 {t('bots.rouletteNightbotLabel')}:{' '}
                 <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">{t('bots.rouletteNightbotCommand')}</code>
@@ -876,7 +893,7 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
                 <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">{t('bots.rouletteStreamerbotCommand')}</code>
               </li>
             </ul>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 pt-1 leading-relaxed">
               {t('bots.rouletteNote')}
             </p>
           </div>
