@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Save, User, Bell, Globe, Shield, Palette, Key, MessageSquare, Download, Bot, Layout } from 'lucide-react';
@@ -83,6 +83,7 @@ export default function Settings({ user, token, setUser }) {
   const [connectedAccountsLoading, setConnectedAccountsLoading] = useState(false);
   const [disconnectingKey, setDisconnectingKey] = useState(null);
   const [connectingKey, setConnectingKey] = useState(null);
+  const hasTriggeredAkoenetAutoconnect = useRef(false);
 
   const [profileData, setProfileData] = useState({
     username: user?.username || '',
@@ -330,6 +331,16 @@ export default function Settings({ user, token, setUser }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- searchParams and t are the triggers
   }, [searchParams, t]);
 
+  useEffect(() => {
+    const shouldAutoconnect = searchParams.get('autoconnect') === 'akoenet';
+    if (!shouldAutoconnect || !token) return;
+    if (hasTriggeredAkoenetAutoconnect.current) return;
+    hasTriggeredAkoenetAutoconnect.current = true;
+    setActiveTab('platforms');
+    handleAkoenetAutoConnect();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- trigger only on query+auth availability
+  }, [searchParams, token]);
+
   const fetchConnectedAccounts = async () => {
     if (!token) return;
     setConnectedAccountsLoading(true);
@@ -393,24 +404,6 @@ export default function Settings({ user, token, setUser }) {
     }
   };
 
-  const handleConnect = (key) => {
-    setConnectingKey(key);
-    if (key === 'google') startGoogleLink();
-    else if (key === 'twitch') {
-      // Twitch always uses backend (never Supabase). Link to current user via connect-for-publish flow.
-      if (token) startTwitchPublishConnect(token);
-      else startTwitchLink();
-    }
-    else if (key === 'discord') startDiscordLink(token);
-    else if (key === 'twitter') startTwitterLink(token);
-    else if (key === 'youtube') startYoutubeConnect(token);
-    else if (key === 'slack') startSlackLink(token);
-    else if (key === 'akoenet') {
-      setConnectingKey(null);
-      setActiveTab('bots');
-    }
-  };
-
   const handleAkoenetAutoConnect = async () => {
     setConnectingKey('akoenet');
     try {
@@ -426,6 +419,24 @@ export default function Settings({ user, token, setUser }) {
       toast.error(err.response?.data?.error || err.message || (t('settings.linkFailed') || 'Connection failed'));
     } finally {
       setConnectingKey(null);
+    }
+  };
+
+  const handleConnect = (key) => {
+    setConnectingKey(key);
+    if (key === 'google') startGoogleLink();
+    else if (key === 'twitch') {
+      // Twitch always uses backend (never Supabase). Link to current user via connect-for-publish flow.
+      if (token) startTwitchPublishConnect(token);
+      else startTwitchLink();
+    }
+    else if (key === 'discord') startDiscordLink(token);
+    else if (key === 'twitter') startTwitterLink(token);
+    else if (key === 'youtube') startYoutubeConnect(token);
+    else if (key === 'slack') startSlackLink(token);
+    else if (key === 'akoenet') {
+      setConnectingKey(null);
+      navigate('/akoenet/connect');
     }
   };
 

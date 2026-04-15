@@ -21,7 +21,7 @@ import { setupStreamingWorkspace } from '../modules/integrations/application/sla
 import { generateLicenseKey, generateTemporaryPassword, generateUsernameSuffix } from '../utils/cryptoUtils.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { generateAuthData, buildUserResponse, createLinkState, verifyLinkState, createTwitterOAuth2State, verifyTwitterOAuth2State } from '../utils/authUtils.js';
+import { generateAuthData, buildUserResponse, createLinkState, verifyLinkState, createTwitterOAuth2State, verifyTwitterOAuth2State, isAkoenetGlobalWebhookConfigured } from '../utils/authUtils.js';
 import { supabase as supabaseAdmin } from '../utils/supabaseClient.js';
 import { validateBody } from '../middleware/validate.js';
 import { contentService } from '../modules/content/application/contentService.js';
@@ -3063,6 +3063,7 @@ router.put('/profile', requireAuth, validateBody(updateProfileSchema), auditLog(
         akoenetServerId: plain.akoenetServerId || null,
         akoenetWebhookSecretSet: !!(plain.akoenetWebhookSecret && String(plain.akoenetWebhookSecret).trim()),
         akoenetSendClips: plain.akoenetSendClips === true,
+        akoenetGlobalWebhookConfigured: isAkoenetGlobalWebhookConfigured(),
       }
     });
   } catch (err) {

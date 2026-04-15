@@ -7,7 +7,7 @@ import express from 'express';
 import { readFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { getPublicAdminDashboardUrl } from '../utils/publicFrontendUrl.js';
+import { getPublicAdminDashboardUrl, getPublicFrontendOrigin } from '../utils/publicFrontendUrl.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -70,6 +70,10 @@ const INTEGRATION_BODY = () => ({
   },
   /** Browser URL for Scheduler admin (SPA). Not on api.* unless you proxy; prefer this for links from AkoeNet. */
   admin_dashboard_url: getPublicAdminDashboardUrl(),
+  /** Browser URL for direct AkoeNet onboarding: redirects to login if needed, then opens platform auto-connect. */
+  akoenet_connect_url: getPublicFrontendOrigin()
+    ? `${getPublicFrontendOrigin().replace(/\/$/, '')}/akoenet/connect?slug={slug}`
+    : null,
 });
 
 router.get('/akoenet', (req, res) => {

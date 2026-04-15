@@ -135,8 +135,10 @@ router.post('/connect/complete', async (req, res) => {
       });
     }
 
+    /** Prefer explicit body, then same shared secret as host env (matches AkoeNet SCHEDULER_WEBHOOK_SECRET), else random. */
     const finalSecret =
       (webhookSecret && String(webhookSecret).trim()) ||
+      String(process.env.SCHEDULER_WEBHOOK_SECRET || '').trim() ||
       randomBytes(24).toString('hex');
 
     user.akoenetWebhookUrl = finalWebhookUrl;
@@ -153,6 +155,11 @@ router.post('/connect/complete', async (req, res) => {
     await user.save();
 
     const plain = user.get ? user.get({ plain: true }) : user;
+    const hadExplicitBodySecret = !!(webhookSecret && String(webhookSecret).trim());
+    const hadHostEnvSecret = String(process.env.SCHEDULER_WEBHOOK_SECRET || '').trim();
+    const generatedSecret =
+      !hadExplicitBodySecret && !hadHostEnvSecret;
+
     res.json({
       ok: true,
       user: {
@@ -163,8 +170,8 @@ router.post('/connect/complete', async (req, res) => {
         akoenetWebhookSecretSet: !!(plain.akoenetWebhookSecret && String(plain.akoenetWebhookSecret).trim()),
         akoenetSendClips: plain.akoenetSendClips === true,
       },
-      generatedSecret: !webhookSecret,
-      webhookSecret: !webhookSecret ? finalSecret : undefined,
+      generatedSecret,
+      webhookSecret: generatedSecret ? finalSecret : undefined,
     });
   } catch (err) {
     logger.error('AkoeNet connect complete error', { error: err.message });

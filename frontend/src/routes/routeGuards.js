@@ -4,19 +4,26 @@
  */
 
 import React from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ShieldOff, UserX } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
+function buildLoginRedirectTarget(location) {
+  const next = `${location.pathname}${location.search}${location.hash}`;
+  return `/login?next=${encodeURIComponent(next)}`;
+}
+
 export function PrivateRoute({ user, children }) {
-  if (!user) return <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (!user) return <Navigate to={buildLoginRedirectTarget(location)} replace />;
   return children;
 }
 
 export function AdminRoute({ user, children }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useLanguage();
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to={buildLoginRedirectTarget(location)} replace />;
   if (!user.isAdmin) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-100">
@@ -32,8 +39,9 @@ export function AdminRoute({ user, children }) {
 
 export function UserRoute({ user, children }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useLanguage();
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to={buildLoginRedirectTarget(location)} replace />;
   if (user.isAdmin) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 to-blue-100">
