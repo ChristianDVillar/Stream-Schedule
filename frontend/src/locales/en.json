@@ -567,6 +567,8 @@
     "akoenetCommunityBadge": "Community",
     "akoenetDescriptionHostConfigured": "The scheduler host already provides the AkoeNet webhook and shared secret. Choose your server and channel below (same idea as Discord). Use Advanced only if you need a different AkoeNet URL for this account.",
     "akoenetAdvancedWebhook": "Advanced: custom webhook URL & secret (per user)",
+    "akoenetDescriptionConnected": "AkoeNet is linked. Announcements use the server and channel you select below. Open “Webhook URL & shared secret” if you need to change the endpoint or password.",
+    "akoenetWebhookAdvancedSummary": "Webhook URL & shared secret",
     "akoenetIntegrationAuthFailed": "Could not verify the AkoeNet link. The shared secret must be exactly the same in Streamer Scheduler and AkoeNet (what you save here, or the host environment on both services).",
     "akoenetServersUnavailable": "AkoeNet server list is not available right now. You can still enter the channel ID below, or try again later."
   },

@@ -306,6 +306,18 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
     !akoenetGuildsError &&
     akoenetGuilds.length === 0;
 
+  /** Server + channel chosen and discovery OK — short intro; URL/secret in collapsible details. */
+  const akoenetPickerComplete =
+    akoenetConfigured &&
+    !akoenetManualTargets &&
+    !akoenetGuildsError &&
+    !akoenetGuildsEmpty &&
+    String(akoenetServerId || '').trim() !== '' &&
+    String(akoenetChannelId || '').trim() !== '';
+
+  const hideAkoeNetWebhookFieldsInMain =
+    akoenetHostOnlyMode || (akoenetPerUserConfigured && akoenetPickerComplete);
+
   return (
     <div className="space-y-8">
       {/* Header — streamer-friendly */}
@@ -358,10 +370,13 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 max-w-2xl">
           {akoenetHostOnlyMode
             ? (t('bots.akoenetDescriptionHostConfigured') || 'The server already provides the AkoeNet webhook and secret. Pick your server and channel below (same idea as Discord).')
-            : t('bots.akoenetDescription')}
+            : akoenetPerUserConfigured && akoenetPickerComplete
+              ? (t('bots.akoenetDescriptionConnected') ||
+                  'AkoeNet is linked. Announcements use the server and channel below. Open the section at the bottom to change the webhook URL or shared secret.')
+              : t('bots.akoenetDescription')}
         </p>
         <div className="space-y-4 max-w-xl">
-          {!akoenetHostOnlyMode && (
+          {!hideAkoeNetWebhookFieldsInMain && (
             <>
               <div>
                 <label htmlFor="akoenetWebhookUrl" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -522,7 +537,7 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
             >
               {akoenetSaving ? (t('common.saving') || 'Saving…') : (t('bots.akoenetSave') || 'Save AkoeNet')}
             </button>
-            {user?.akoenetWebhookSecretSet && !streamMode && (
+            {user?.akoenetWebhookSecretSet && !streamMode && !hideAkoeNetWebhookFieldsInMain && (
               <button
                 type="button"
                 disabled={akoenetSaving}
@@ -536,10 +551,12 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
               </button>
             )}
           </div>
-          {akoenetHostOnlyMode && !streamMode && (
+          {hideAkoeNetWebhookFieldsInMain && !streamMode && (
             <details className="rounded-lg border border-gray-200 dark:border-gray-600 p-3 bg-white/60 dark:bg-gray-800/40">
               <summary className="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t('bots.akoenetAdvancedWebhook') || 'Advanced: custom webhook URL & secret (per user)'}
+                {akoenetHostOnlyMode
+                  ? (t('bots.akoenetAdvancedWebhook') || 'Advanced: custom webhook URL & secret (per user)')
+                  : (t('bots.akoenetWebhookAdvancedSummary') || 'Webhook URL & shared secret')}
               </summary>
               <div className="mt-3 space-y-3">
                 <div>
@@ -567,9 +584,31 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
                     value={akoenetSecret}
                     onChange={(e) => setAkoenetSecret(e.target.value)}
                     className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
-                    placeholder={t('bots.akoenetSecretPlaceholderNew') || 'Same value as SCHEDULER_WEBHOOK_SECRET on AkoeNet'}
+                    placeholder={
+                      user?.akoenetWebhookSecretSet
+                        ? (t('bots.akoenetSecretPlaceholder') || 'Leave blank to keep current secret')
+                        : (t('bots.akoenetSecretPlaceholderNew') || 'Same value as SCHEDULER_WEBHOOK_SECRET on AkoeNet')
+                    }
                   />
+                  {user?.akoenetWebhookSecretSet && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {t('bots.akoenetSecretStored') || 'A secret is already saved. Enter a new one to replace it, or clear it below.'}
+                    </p>
+                  )}
                 </div>
+                {user?.akoenetWebhookSecretSet && (
+                  <button
+                    type="button"
+                    disabled={akoenetSaving}
+                    onClick={() => {
+                      if (!window.confirm(t('bots.akoenetClearSecretConfirm') || 'Remove the stored webhook secret?')) return;
+                      handleSaveAkoeNet(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                  >
+                    {t('bots.akoenetClearSecret') || 'Clear secret'}
+                  </button>
+                )}
               </div>
             </details>
           )}
