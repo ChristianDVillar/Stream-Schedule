@@ -413,9 +413,27 @@ export default function Settings({ user, token, setUser }) {
         return;
       }
       setActiveTab('bots');
+      setSearchParams(
+        (prev) => {
+          const p = new URLSearchParams(prev);
+          p.set('tab', 'bots');
+          p.set('botsSub', 'community');
+          return p;
+        },
+        { replace: true }
+      );
       toast((t('settings.akoenetAutoConnectMissingUrl') || 'Auto-connect URL is not configured. Opened Bots tab to connect manually.'), { icon: 'ℹ️' });
     } catch (err) {
       setActiveTab('bots');
+      setSearchParams(
+        (prev) => {
+          const p = new URLSearchParams(prev);
+          p.set('tab', 'bots');
+          p.set('botsSub', 'community');
+          return p;
+        },
+        { replace: true }
+      );
       toast.error(err.response?.data?.error || err.message || (t('settings.linkFailed') || 'Connection failed'));
     } finally {
       setConnectingKey(null);
@@ -868,7 +886,18 @@ export default function Settings({ user, token, setUser }) {
             fetchConnectedAccounts={fetchConnectedAccounts}
             onTwitchPublishConnect={token ? () => startTwitchPublishConnect(token) : null}
             onSaveClipsChannel={handleSaveClipsChannel}
-            onOpenBotsSettings={() => setActiveTab('bots')}
+            onOpenBotsSettings={() => {
+              setActiveTab('bots');
+              setSearchParams(
+                (prev) => {
+                  const p = new URLSearchParams(prev);
+                  p.set('tab', 'bots');
+                  p.set('botsSub', 'integrations');
+                  return p;
+                },
+                { replace: true }
+              );
+            }}
             onOpenAkoenetAutoConnect={handleAkoenetAutoConnect}
           />
         );

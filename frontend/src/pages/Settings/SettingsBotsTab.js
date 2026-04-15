@@ -3,6 +3,7 @@
  * Streamer-friendly layout: quick setup, command table, copy-paste ready docs.
  */
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Bot, Copy, RefreshCw, Check, ExternalLink, Key, ListTodo, Calendar, Radio, MessageSquare, Zap, Monitor, ChevronDown, ChevronRight, Link2, Server, Hash, AlertCircle } from 'lucide-react';
 import { getNightbotKey, generateNightbotKey } from '../../features/integrations/api';
 import { getAkoenetGuilds, getAkoenetChannels } from '../../features/akoenet/api';
@@ -56,8 +57,26 @@ function CopyButton({ text, label, copiedMessage = 'Copied', className = '' }) {
   );
 }
 
+const BOTS_SUB_IDS = ['community', 'integrations', 'overlays', 'commands'];
+
 export default function SettingsBotsTab({ user, token, t, setUser }) {
   const { streamMode } = useStreamMode();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const botsSubParam = searchParams.get('botsSub');
+  const botsSub = BOTS_SUB_IDS.includes(botsSubParam) ? botsSubParam : 'community';
+
+  const setBotsSub = (next) => {
+    if (!BOTS_SUB_IDS.includes(next)) return;
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        p.set('tab', 'bots');
+        p.set('botsSub', next);
+        return p;
+      },
+      { replace: true }
+    );
+  };
   const [key, setKey] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -296,6 +315,29 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
   const [overlaySectionOpen, setOverlaySectionOpen] = useState(true);
 
   const scrollToId = (id) => {
+    if (!id) return;
+    if (id.startsWith('cmd-')) {
+      setBotsSub('commands');
+      window.setTimeout(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 60);
+      return;
+    }
+    const idToTab = {
+      'bots-akoenet': 'community',
+      'bots-api-key': 'integrations',
+      'bots-overlays': 'overlays',
+      'bots-chat-commands': 'commands',
+      'bots-public-schedule': 'commands',
+    };
+    const tab = idToTab[id];
+    if (tab) {
+      setBotsSub(tab);
+      window.setTimeout(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 60);
+      return;
+    }
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
@@ -333,22 +375,30 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
           <Zap className="w-4 h-4" />
           {t('bots.setupInMinutes') || 'Setup in ~2 minutes'}
         </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button type="button" onClick={() => scrollToId('bots-akoenet')} className="text-xs px-3 py-1.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-200 hover:bg-violet-200 dark:hover:bg-violet-800/50 transition-colors">
-            {t('bots.navAkoeNet') || 'AkoeNet'}
-          </button>
-          <button type="button" onClick={() => scrollToId('bots-api-key')} className="text-xs px-3 py-1.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">
-            {t('bots.navApiKey') || 'API key'}
-          </button>
-          <button type="button" onClick={() => scrollToId('bots-overlays')} className="text-xs px-3 py-1.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800/50 transition-colors">
-            {t('bots.navOverlays') || 'Overlays (OBS)'}
-          </button>
-          <button type="button" onClick={() => scrollToId('bots-chat-commands')} className="text-xs px-3 py-1.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">
-            {t('bots.navChatCommands') || 'Chat commands'}
-          </button>
-          <button type="button" onClick={() => scrollToId('bots-public-schedule')} className="text-xs px-3 py-1.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">
-            {t('bots.navPublicSchedule') || 'Public schedule'}
-          </button>
+        <p className="mt-4 text-sm text-gray-600 dark:text-gray-400 max-w-2xl">
+          {t('bots.subTabsIntro') || 'Use the tabs below to focus on one area: community link, API & bot tools, OBS overlays, or chat commands and public links.'}
+        </p>
+        <div className="mt-4 flex flex-wrap gap-1 border-b border-gray-200 dark:border-gray-700">
+          {[
+            { id: 'community', label: t('bots.subTabCommunity') || 'AkoeNet & community', Icon: Link2 },
+            { id: 'integrations', label: t('bots.subTabIntegrations') || 'API key & integrations', Icon: Key },
+            { id: 'overlays', label: t('bots.subTabOverlays') || 'OBS overlays', Icon: Monitor },
+            { id: 'commands', label: t('bots.subTabCommands') || 'Commands & links', Icon: MessageSquare },
+          ].map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setBotsSub(id)}
+              className={`inline-flex items-center gap-2 px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors rounded-t-md ${
+                botsSub === id
+                  ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-300 bg-indigo-50/50 dark:bg-indigo-950/30'
+                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+              }`}
+            >
+              <Icon className="w-4 h-4 flex-shrink-0" />
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -359,6 +409,7 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
       )}
 
       {/* 1. AkoeNet — primary community integration (Discord-style); Discord remains optional in Platforms */}
+      {botsSub === 'community' && (
       <div id="bots-akoenet" className="rounded-xl border border-violet-200 dark:border-violet-800 bg-gradient-to-br from-violet-50/90 to-white dark:from-violet-950/30 dark:to-gray-800/50 p-5 sm:p-6 scroll-mt-4">
         <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100 font-medium mb-1 flex-wrap">
           <Link2 className="w-5 h-5 text-violet-600 dark:text-violet-400" />
@@ -368,13 +419,17 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
           </span>
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 max-w-2xl">
-          {akoenetHostOnlyMode
-            ? (t('bots.akoenetDescriptionHostConfigured') || 'The server already provides the AkoeNet webhook and secret. Pick your server and channel below (same idea as Discord).')
-            : akoenetPerUserConfigured && akoenetPickerComplete
-              ? (t('bots.akoenetDescriptionConnected') ||
-                  'AkoeNet is linked. Announcements use the server and channel you select below.')
-              : t('bots.akoenetDescription')}
+          {streamMode
+            ? (t('bots.akoenetStreamModeDescription') ||
+                'AkoeNet settings are hidden while stream mode is on. Turn it off in the header to view or edit the webhook, secret, and channel.')
+            : akoenetHostOnlyMode
+              ? (t('bots.akoenetDescriptionHostConfigured') || 'The server already provides the AkoeNet webhook and secret. Pick your server and channel below (same idea as Discord).')
+              : akoenetPerUserConfigured && akoenetPickerComplete
+                ? (t('bots.akoenetDescriptionConnected') ||
+                    'AkoeNet is linked. Announcements use the server and channel you select below.')
+                : t('bots.akoenetDescription')}
         </p>
+        {!streamMode && (
         <div className="space-y-4 max-w-xl">
           {!hideAkoeNetWebhookFieldsInMain && (
             <>
@@ -405,7 +460,11 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
                   onChange={(e) => !streamMode && setAkoenetSecret(e.target.value)}
                   readOnly={streamMode}
                   className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
-                  placeholder={user?.akoenetWebhookSecretSet ? (t('bots.akoenetSecretPlaceholder') || 'Leave blank to keep current secret') : (t('bots.akoenetSecretPlaceholderNew') || 'Same value as SCHEDULER_WEBHOOK_SECRET on AkoeNet')}
+                  placeholder={
+                    user?.akoenetWebhookSecretSet
+                      ? (t('bots.akoenetSecretPlaceholder') || 'Leave blank to keep current secret')
+                      : (t('bots.akoenetSecretPlaceholderNew') || 'Same shared password as on your AkoeNet server')
+                  }
                 />
                 {user?.akoenetWebhookSecretSet && !streamMode && (
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -491,7 +550,7 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
             </p>
           )}
 
-          {(akoenetManualTargets || !akoenetConfigured || streamMode || akoenetGuildsEmpty) && (
+          {(akoenetManualTargets || !akoenetConfigured || akoenetGuildsEmpty) && (
             <div>
               <label htmlFor="akoenetAnnounceChannelId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 {t('bots.akoenetChannelId') || 'Channel ID (optional)'}
@@ -585,7 +644,7 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
                     placeholder={
                       user?.akoenetWebhookSecretSet
                         ? (t('bots.akoenetSecretPlaceholder') || 'Leave blank to keep current secret')
-                        : (t('bots.akoenetSecretPlaceholderNew') || 'Same value as SCHEDULER_WEBHOOK_SECRET on AkoeNet')
+                        : (t('bots.akoenetSecretPlaceholderNew') || 'Same shared password as on your AkoeNet server')
                     }
                   />
                   {user?.akoenetWebhookSecretSet && (
@@ -611,9 +670,13 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
             </details>
           )}
         </div>
+        )}
       </div>
+      )}
 
       {/* 2. API key — Nightbot & chat commands */}
+      {botsSub === 'integrations' && (
+      <>
       <div id="bots-api-key" className="rounded-xl border border-gray-200 dark:border-gray-600 bg-gradient-to-br from-indigo-50 to-white dark:from-gray-800/80 dark:to-gray-800/50 p-5 sm:p-6 scroll-mt-4">
         <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100 font-medium mb-1">
           <Key className="w-5 h-5 text-indigo-500" />
@@ -650,64 +713,6 @@ export default function SettingsBotsTab({ user, token, t, setUser }) {
             <RefreshCw className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
             {generating ? (t('bots.generating') || 'Generating...') : (t('bots.generateKey') || 'Generate API key')}
           </button>
-        )}
-      </div>
-
-      {/* Overlays for OBS — prominent, step-by-step */}
-      <div id="bots-overlays" className="rounded-xl border-2 border-indigo-200 dark:border-indigo-800 bg-gradient-to-br from-indigo-50/80 to-white dark:from-gray-800/80 dark:to-gray-800/50 p-5 sm:p-6 scroll-mt-4">
-        <button
-          type="button"
-          onClick={() => setOverlaySectionOpen((o) => !o)}
-          className="flex w-full items-center gap-2 text-left"
-        >
-          <Monitor className="w-5 h-5 text-indigo-500 flex-shrink-0" />
-          <h4 className="font-semibold text-gray-900 dark:text-gray-100">
-            {t('bots.overlaysTitle') || 'Overlays for OBS / Streamlabs'}
-          </h4>
-          {overlaySectionOpen ? <ChevronDown className="w-5 h-5 text-gray-500" /> : <ChevronRight className="w-5 h-5 text-gray-500" />}
-        </button>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          {t('bots.overlaysIntro') || 'Show next stream, goal, weekly schedule or quotes on your stream. Add as Browser Source in OBS.'}
-        </p>
-        {overlaySectionOpen && (
-          <>
-            <div className="mt-4 p-4 rounded-lg bg-white dark:bg-gray-800/70 border border-indigo-100 dark:border-indigo-900/50">
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">{t('bots.overlaysStepsTitle') || 'How to add in OBS'}</p>
-              <ol className="space-y-2 text-sm text-gray-700 dark:text-gray-300 list-decimal list-inside">
-                <li>{t('bots.overlaysStep1') || 'In OBS: Sources → Add → Browser Source'}</li>
-                <li>{t('bots.overlaysStep2') || 'Paste one of the URLs below (it already includes your API key)'}</li>
-                <li>{t('bots.overlaysStep3') || 'Set width and height (e.g. 500 × 200). Optional: check "Shutdown source when not visible" to save resources.'}</li>
-              </ol>
-            </div>
-            <div className="mt-4 space-y-3">
-              {OVERLAY_ITEMS.map(({ id, path, label, size }) => {
-                const url = getOverlayUrl(path);
-                return (
-                  <div key={id} className="rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 p-3 sm:p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-medium text-gray-900 dark:text-gray-100 text-sm">{label}</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{size}</span>
-                    </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {url ? (
-                        <>
-                          <code className="flex-1 min-w-0 text-xs break-all bg-gray-100 dark:bg-gray-700 px-2 py-1.5 rounded">{url}</code>
-                          <CopyButton text={url} label={t('bots.copyObsUrl') || 'Copy OBS URL'} copiedMessage={copiedMessage} />
-                        </>
-                      ) : streamMode && key ? (
-                        <span className="text-gray-500 dark:text-gray-400 text-xs">{t('common.streamModeHidden') || 'Hidden (stream mode is on)'}</span>
-                      ) : (
-                        <span className="text-amber-600 dark:text-amber-400 text-xs">{t('bots.generateKeyFirst') || 'Generate a key above first.'}</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-              {t('bots.overlaysHint') || 'Each overlay refreshes automatically. They show "Powered by Streamer Scheduler" so viewers can find the app.'}
-            </p>
-          </>
         )}
       </div>
 
@@ -871,8 +876,72 @@ Authorization: Bearer <STREAMER_JWT_TOKEN>`}</pre>
           </div>
         </div>
       </div>
+      </>
+      )}
+
+      {/* Overlays for OBS — prominent, step-by-step */}
+      {botsSub === 'overlays' && (
+      <div id="bots-overlays" className="rounded-xl border-2 border-indigo-200 dark:border-indigo-800 bg-gradient-to-br from-indigo-50/80 to-white dark:from-gray-800/80 dark:to-gray-800/50 p-5 sm:p-6 scroll-mt-4">
+        <button
+          type="button"
+          onClick={() => setOverlaySectionOpen((o) => !o)}
+          className="flex w-full items-center gap-2 text-left"
+        >
+          <Monitor className="w-5 h-5 text-indigo-500 flex-shrink-0" />
+          <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+            {t('bots.overlaysTitle') || 'Overlays for OBS / Streamlabs'}
+          </h4>
+          {overlaySectionOpen ? <ChevronDown className="w-5 h-5 text-gray-500" /> : <ChevronRight className="w-5 h-5 text-gray-500" />}
+        </button>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+          {t('bots.overlaysIntro') || 'Show next stream, goal, weekly schedule or quotes on your stream. Add as Browser Source in OBS.'}
+        </p>
+        {overlaySectionOpen && (
+          <>
+            <div className="mt-4 p-4 rounded-lg bg-white dark:bg-gray-800/70 border border-indigo-100 dark:border-indigo-900/50">
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">{t('bots.overlaysStepsTitle') || 'How to add in OBS'}</p>
+              <ol className="space-y-2 text-sm text-gray-700 dark:text-gray-300 list-decimal list-inside">
+                <li>{t('bots.overlaysStep1') || 'In OBS: Sources → Add → Browser Source'}</li>
+                <li>{t('bots.overlaysStep2') || 'Paste one of the URLs below (it already includes your API key)'}</li>
+                <li>{t('bots.overlaysStep3') || 'Set width and height (e.g. 500 × 200). Optional: check "Shutdown source when not visible" to save resources.'}</li>
+              </ol>
+            </div>
+            <div className="mt-4 space-y-3">
+              {OVERLAY_ITEMS.map(({ id, path, label, size }) => {
+                const url = getOverlayUrl(path);
+                return (
+                  <div key={id} className="rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 p-3 sm:p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium text-gray-900 dark:text-gray-100 text-sm">{label}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{size}</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {url ? (
+                        <>
+                          <code className="flex-1 min-w-0 text-xs break-all bg-gray-100 dark:bg-gray-700 px-2 py-1.5 rounded">{url}</code>
+                          <CopyButton text={url} label={t('bots.copyObsUrl') || 'Copy OBS URL'} copiedMessage={copiedMessage} />
+                        </>
+                      ) : streamMode && key ? (
+                        <span className="text-gray-500 dark:text-gray-400 text-xs">{t('common.streamModeHidden') || 'Hidden (stream mode is on)'}</span>
+                      ) : (
+                        <span className="text-amber-600 dark:text-amber-400 text-xs">{t('bots.generateKeyFirst') || 'Generate a key above first.'}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+              {t('bots.overlaysHint') || 'Each overlay refreshes automatically. They show "Powered by Streamer Scheduler" so viewers can find the app.'}
+            </p>
+          </>
+        )}
+      </div>
+      )}
 
       {/* Chat commands (GET) — quick table + detailed cards */}
+      {botsSub === 'commands' && (
+      <>
       <div id="bots-chat-commands" className="rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/30 p-5 sm:p-6 scroll-mt-4">
         <h4 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-2">
           <MessageSquare className="w-4 h-4 text-indigo-500" />
@@ -1076,6 +1145,8 @@ Authorization: Bearer <STREAMER_JWT_TOKEN>`}</pre>
             )}
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );
