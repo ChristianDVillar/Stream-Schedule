@@ -640,6 +640,8 @@
     "twitchPublishConnected": "Connected for scheduling and bits.",
     "youtubeConnected": "YouTube connected. You can schedule video uploads.",
     "youtubePublishConnected": "Connected for video uploads.",
+    "akoenetConfigured": "Configured. You can adjust webhook and channel in Settings > Bots > AkoeNet.",
+    "akoenetNotConfigured": "Not configured yet. Go to Settings > Bots > AkoeNet to connect webhook and secret.",
     "discordClipsChannelTitle": "Twitch clips channel",
     "discordClipsChannelDescription": "Twitch clips will be published automatically to the channel you choose.",
     "akoenetClipsToggleLabel": "Also publish clips to AkoeNet",
