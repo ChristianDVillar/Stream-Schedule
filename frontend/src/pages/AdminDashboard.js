@@ -1658,7 +1658,7 @@ export default function AdminDashboard({ token, user, onLogout }) {
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
           >
             <option value="">{t('common.filter')}</option>
-            <option value="false">{t('admin.active')}</option>
+            <option value="false">{t('admin.supportFilterOpen')}</option>
             <option value="true">{t('admin.resolved')}</option>
           </select>
           <select

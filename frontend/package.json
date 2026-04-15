@@ -23,6 +23,7 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "check:architecture": "node scripts/check-api-imports.js",
+    "check:locales": "node scripts/compare-locales.mjs",
     "eject": "react-scripts eject",
     "update-browserslist": "npx update-browserslist-db@latest"
   },
