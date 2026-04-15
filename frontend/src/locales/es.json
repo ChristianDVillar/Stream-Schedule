@@ -567,7 +567,9 @@
     "akoenetNoServersHint": "AkoeNet no devolvió servidores. Revisa la API o introduce el id del canal abajo.",
     "akoenetCommunityBadge": "Comunidad",
     "akoenetDescriptionHostConfigured": "El servidor del calendario ya aporta el webhook de AkoeNet y el secreto compartido. Elige servidor y canal abajo (misma idea que Discord). Usa «Avanzado» solo si esta cuenta necesita otra URL de AkoeNet.",
-    "akoenetAdvancedWebhook": "Avanzado: URL y secreto del webhook (por usuario)"
+    "akoenetAdvancedWebhook": "Avanzado: URL y secreto del webhook (por usuario)",
+    "akoenetIntegrationAuthFailed": "No se pudo verificar el enlace con AkoeNet. El secreto compartido debe ser exactamente el mismo en Streamer Scheduler y en AkoeNet (lo que guardas aquí o las variables de entorno del host en ambos servicios).",
+    "akoenetServersUnavailable": "La lista de servidores de AkoeNet no está disponible ahora. Puedes indicar el ID del canal abajo o volver a intentarlo más tarde."
   },
   "publicPage": {
     "title": "Editar página del calendario compartido",
