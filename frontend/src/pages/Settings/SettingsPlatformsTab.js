@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { Twitch, Save, Server, AlertCircle, Link2 } from 'lucide-react';
 import { DISCORD_ICON_URL } from '../../constants/platforms';
