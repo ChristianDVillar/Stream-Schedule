@@ -69,6 +69,88 @@ export async function getInstagramMediaInsights(mediaId) {
   return graphGet(`${mediaId}/insights`, { metric: metrics });
 }
 
+async function graphPost(path, payload = {}) {
+  const url = `${graphBase()}/${path.replace(/^\//, '')}`;
+  const body = new URLSearchParams({
+    ...Object.fromEntries(Object.entries(payload).filter(([, v]) => v !== undefined && v !== null)),
+    access_token: PAGE_ACCESS_TOKEN,
+  });
+  const res = await axios.post(url, body.toString(), {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    timeout: 30000,
+    validateStatus: () => true,
+  });
+  const data = res.data;
+
+  if (res.status >= 400 || data?.error) {
+    const msg = data?.error?.message || `Graph API HTTP ${res.status}`;
+    const err = new Error(msg);
+    err.graphError = data?.error || { message: msg, status: res.status };
+    err.statusCode = res.status === 401 || data?.error?.code === 190 ? 401 : 502;
+    throw err;
+  }
+
+  return data;
+}
+
+async function waitForContainerReady(containerId, timeoutMs = 120000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const status = await graphGet(containerId, { fields: 'id,status_code,status' });
+    const code = String(status?.status_code || '').toUpperCase();
+    if (code === 'FINISHED' || code === 'PUBLISHED') return status;
+    if (code === 'ERROR' || code === 'EXPIRED') {
+      throw new Error(`Instagram media container failed with status ${code}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
+  throw new Error('Instagram media container timed out before publishing');
+}
+
+export async function publishToInstagram({ mediaUrl, caption = '', contentType = 'post' }) {
+  if (!isInstagramGraphConfigured()) {
+    throw new Error('Instagram Graph API is not configured on the server');
+  }
+  if (!mediaUrl || typeof mediaUrl !== 'string') {
+    throw new Error('Instagram publishing requires a media URL');
+  }
+
+  const isVideo = /\.(mp4|mov|webm|m4v)(\?|$)/i.test(mediaUrl) || String(contentType).toLowerCase() === 'reel';
+  const creation = await graphPost(`${IG_USER_ID}/media`, isVideo
+    ? { media_type: 'REELS', video_url: mediaUrl, caption }
+    : { image_url: mediaUrl, caption }
+  );
+
+  const creationId = creation?.id;
+  if (!creationId) {
+    throw new Error('Instagram did not return a media creation id');
+  }
+
+  if (isVideo) {
+    await waitForContainerReady(creationId);
+  }
+
+  const published = await graphPost(`${IG_USER_ID}/media_publish`, { creation_id: creationId });
+  const mediaId = published?.id;
+  if (!mediaId) {
+    throw new Error('Instagram did not return a published media id');
+  }
+
+  let permalink = null;
+  try {
+    const media = await graphGet(mediaId, { fields: 'id,permalink,media_type' });
+    permalink = media?.permalink || null;
+  } catch {
+    permalink = null;
+  }
+
+  return {
+    mediaId,
+    creationId,
+    permalink,
+  };
+}
+
 export function logInstagramConfigError(err) {
   logger.warn('Instagram Graph request failed', {
     message: err.message,

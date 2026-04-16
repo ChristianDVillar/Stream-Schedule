@@ -4,7 +4,7 @@
  */
 
 /** Canonical list of platform IDs for consistent ordering (e.g. admin dashboard). */
-export const PLATFORM_IDS = ['twitch', 'twitter', 'instagram', 'discord', 'youtube', 'slack'];
+export const PLATFORM_IDS = ['twitch', 'twitter', 'instagram', 'discord', 'youtube'];
 
 /** Max characters for a single tweet (X/Twitter). */
 export const TWITTER_MAX_CHARS = 280;

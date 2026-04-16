@@ -21,7 +21,7 @@ const templateSchema = Joi.object({
   title: Joi.string().max(500).allow('', null).optional(),
   content: Joi.string().min(1).max(10000).required(),
   contentType: Joi.string().valid('post', 'stream', 'event', 'reel').required(),
-  platforms: Joi.array().items(Joi.string().valid('twitch', 'twitter', 'instagram', 'discord', 'youtube', 'slack')).min(1).required(),
+  platforms: Joi.array().items(Joi.string().valid('twitch', 'twitter', 'instagram', 'discord', 'youtube')).min(1).required(),
   hashtags: Joi.string().max(500).allow('', null).optional(),
   mentions: Joi.string().max(500).allow('', null).optional(),
   variables: Joi.object().optional(),
