@@ -20,6 +20,7 @@ import { canPublish, recordPublication } from '../../system/application/rateLimi
 import { isFeatureEnabled } from '../../system/application/featureFlagService.js';
 import { enqueuePublication } from '../../../services/publicationQueueService.js';
 import platformConfigService from '../../system/application/platformConfigService.js';
+import { publishToInstagram } from '../../integrations/application/instagramGraphService.js';
 
 const INTERVAL_MS = APP_CONFIG.SCHEDULER_INTERVAL_MS;
 const SIGNED_URL_EXPIRES_SEC = APP_CONFIG.SIGNED_URL_EXPIRES_SEC;
@@ -195,7 +196,7 @@ async function publishToPlatform(content, platform) {
 
     if (platform === 'youtube' && !refreshToken) {
       throw new Error(`${platform} not linked. Connect ${platform} in Settings.`);
-    } else if (platform !== 'youtube' && !accessToken) {
+    } else if (platform !== 'youtube' && platform !== 'instagram' && !accessToken) {
       throw new Error(`${platform} not linked. Connect ${platform} in Settings.`);
     }
 
@@ -322,13 +323,26 @@ async function publishToPlatform(content, platform) {
         videoUrl: result.url,
       });
     } else if (platform === 'instagram') {
+      const rawItems = content.files?.items ?? (content.files?.urls ? content.files.urls.map((u) => ({ url: u })) : []) ?? [];
+      if (rawItems.length === 0) {
+        throw new Error('Instagram requires at least one media file');
+      }
+      const items = await resolveMediaUrls(rawItems);
+      if (items.length === 0) {
+        throw new Error('Could not resolve media URL for Instagram upload');
+      }
       const formattedContent = formatInstagramContent(content);
-      logger.info('Instagram content formatted', {
+      const result = await publishToInstagram({
+        mediaUrl: items[0].url,
+        caption: formattedContent,
+        contentType: content.contentType,
+      });
+      logger.info('Instagram content published', {
         contentId: content.id,
         contentType: content.contentType,
-        formattedLength: formattedContent.length,
+        mediaId: result.mediaId,
+        url: result.permalink,
       });
-      throw new Error('Instagram publishing not yet implemented');
     } else if (platform === 'twitch') {
       if (!integration) {
         throw new Error('Twitch not linked. Connect Twitch in Settings (Twitch connect for publishing).');

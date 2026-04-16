@@ -41,7 +41,6 @@ const PLATFORM_CONTENT_TYPES = {
   twitch: ['stream', 'event', 'reel'],
   twitter: ['post'],
   youtube: ['post', 'stream', 'event'],
-  slack: ['post'],
 };
 
 function normalizeEventLocationUrl(url) {
@@ -147,7 +146,7 @@ const Schedule = ({ user, token }) => {
         setEnabledPlatforms(res.data.platforms || []);
       } catch (err) {
         // Fallback to all platforms if error
-        setEnabledPlatforms(['twitch', 'twitter', 'instagram', 'discord', 'youtube', 'slack']);
+        setEnabledPlatforms(['twitch', 'twitter', 'instagram', 'discord', 'youtube']);
       }
     };
     loadEnabledPlatforms();
@@ -814,7 +813,6 @@ const Schedule = ({ user, token }) => {
           />
         );
       case 'youtube': return <Video className="w-6 h-6" />;
-      case 'slack': return <Share2 className="w-6 h-6" />;
       default: return <Share2 className="w-6 h-6" />;
     }
   };
@@ -827,8 +825,7 @@ const Schedule = ({ user, token }) => {
     twitter: 'Twitter',
     instagram: 'Instagram',
     discord: 'Discord',
-    youtube: 'YouTube',
-    slack: 'Slack'
+    youtube: 'YouTube'
   };
   
   // Filter platforms to only show enabled ones
@@ -839,8 +836,7 @@ const Schedule = ({ user, token }) => {
         { id: 'twitter', name: 'Twitter' },
         { id: 'instagram', name: 'Instagram' },
         { id: 'discord', name: 'Discord' },
-        { id: 'youtube', name: 'YouTube' },
-        { id: 'slack', name: 'Slack' }
+        { id: 'youtube', name: 'YouTube' }
       ];
 
   // Common timezones for easier selection

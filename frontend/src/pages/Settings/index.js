@@ -22,13 +22,11 @@ import {
   startTwitchPublishConnect,
   startTwitterLink,
   startYoutubeConnect,
-  startSlackLink,
   disconnectGoogle,
   disconnectTwitch,
   disconnectTwitter,
   disconnectDiscord,
   disconnectYoutube,
-  disconnectSlack,
 } from '../../features/account/api';
 import { apiClient } from '../../shared/api/client';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -451,7 +449,6 @@ export default function Settings({ user, token, setUser }) {
     else if (key === 'discord') startDiscordLink(token);
     else if (key === 'twitter') startTwitterLink(token);
     else if (key === 'youtube') startYoutubeConnect(token);
-    else if (key === 'slack') startSlackLink(token);
     else if (key === 'akoenet') {
       setConnectingKey(null);
       navigate('/akoenet/connect');
@@ -466,7 +463,6 @@ export default function Settings({ user, token, setUser }) {
       else if (key === 'discord') await disconnectDiscord();
       else if (key === 'twitter') await disconnectTwitter();
       else if (key === 'youtube') await disconnectYoutube();
-      else if (key === 'slack') await disconnectSlack();
       toast.success(t('settings.disconnected') || 'Disconnected');
     } catch (err) {
       toast.error(err.response?.data?.error || err.message || t('settings.linkFailed'));

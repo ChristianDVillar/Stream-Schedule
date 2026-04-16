@@ -43,13 +43,13 @@ export const contentSchema = Joi.object({
     'date.format': 'Event end time must be in ISO format'
   }),
   platforms: Joi.array()
-    .items(Joi.string().valid('twitch', 'twitter', 'instagram', 'discord', 'youtube', 'slack'))
+    .items(Joi.string().valid('twitch', 'twitter', 'instagram', 'discord', 'youtube'))
     .min(1)
     .required()
     .messages({
       'array.min': 'At least one platform must be selected',
       'any.required': 'Platforms are required',
-      'any.only': 'Platform must be one of: twitch, twitter, instagram, discord, youtube, slack'
+      'any.only': 'Platform must be one of: twitch, twitter, instagram, discord, youtube'
     }),
   hashtags: Joi.string().max(500).allow('', null).optional(),
   mentions: Joi.string().max(500).allow('', null).optional(),
@@ -133,7 +133,7 @@ export const updateContentSchema = Joi.object({
     'date.format': 'Event end time must be in ISO format'
   }),
   platforms: Joi.array()
-    .items(Joi.string().valid('twitch', 'twitter', 'instagram', 'discord', 'youtube', 'slack'))
+    .items(Joi.string().valid('twitch', 'twitter', 'instagram', 'discord', 'youtube'))
     .min(1)
     .optional(),
   hashtags: Joi.string().max(500).allow('', null).optional(),

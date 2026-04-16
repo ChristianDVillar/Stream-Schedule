@@ -17,6 +17,7 @@ import {
   formatTwitterContent,
   formatDiscordContent,
   formatYouTubeContent,
+  formatInstagramContent,
   formatTwitchContent,
 } from '../../../utils/contentFormatter.js';
 import { resolveMediaUrls } from '../../content/application/scheduler.js';
@@ -24,6 +25,7 @@ import { TwitchService } from './twitchService.js';
 import { enqueueDiscordSync } from '../../../services/discordQueueService.js';
 import platformConfigService from '../../system/application/platformConfigService.js';
 import { refreshIntegrationToken } from './integrationTokenService.js';
+import { publishToInstagram } from './instagramGraphService.js';
 
 async function getAccessToken(userId, platform) {
   const integration = await Integration.findOne({
@@ -64,7 +66,13 @@ export async function publishToPlatform(content, platform, user) {
   }
 
   try {
-    const { accessToken, providerUserId } = await getAccessToken(user.id, platform);
+    let accessToken = null;
+    let providerUserId = null;
+    if (platform !== 'instagram') {
+      const tokenData = await getAccessToken(user.id, platform);
+      accessToken = tokenData.accessToken;
+      providerUserId = tokenData.providerUserId;
+    }
     const mediaItems = await resolveMediaUrls(content.files || []);
 
     let result = { externalId: null, metadata: {} };
@@ -173,7 +181,7 @@ export async function publishToPlatform(content, platform, user) {
         result.metadata = { channelId: providerUserId };
       }
     } else if (platform === 'youtube') {
-      if (mediaItems.length === 0 || !mediaItems[0].type === 'video') {
+      if (mediaItems.length === 0 || mediaItems[0].type !== 'video') {
         throw new Error('YouTube requires a video file');
       }
       const formatted = formatYouTubeContent(content);
@@ -182,6 +190,22 @@ export async function publishToPlatform(content, platform, user) {
       result.metadata = {
         videoId: video.id,
         url: `https://youtube.com/watch?v=${video.id}`,
+      };
+    } else if (platform === 'instagram') {
+      if (mediaItems.length === 0) {
+        throw new Error('Instagram requires at least one media file');
+      }
+      const formatted = formatInstagramContent(content);
+      const ig = await publishToInstagram({
+        mediaUrl: mediaItems[0].url,
+        caption: formatted,
+        contentType: content.contentType,
+      });
+      result.externalId = ig.mediaId;
+      result.metadata = {
+        mediaId: ig.mediaId,
+        creationId: ig.creationId,
+        url: ig.permalink,
       };
     } else {
       throw new Error(`Platform ${platform} not implemented`);
