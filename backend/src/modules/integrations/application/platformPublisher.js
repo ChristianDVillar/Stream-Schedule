@@ -67,10 +67,12 @@ export async function publishToPlatform(content, platform, user) {
 
   try {
     let accessToken = null;
+    let refreshToken = null;
     let providerUserId = null;
     if (platform !== 'instagram') {
       const tokenData = await getAccessToken(user.id, platform);
       accessToken = tokenData.accessToken;
+      refreshToken = tokenData.refreshToken;
       providerUserId = tokenData.providerUserId;
     }
     const mediaItems = await resolveMediaUrls(content.files || []);
@@ -185,11 +187,11 @@ export async function publishToPlatform(content, platform, user) {
         throw new Error('YouTube requires a video file');
       }
       const formatted = formatYouTubeContent(content);
-      const video = await uploadVideoToYouTube(accessToken, mediaItems[0].url, formatted);
-      result.externalId = video.id;
+      const video = await uploadVideoToYouTube(refreshToken, mediaItems[0].url, formatted);
+      result.externalId = video.videoId;
       result.metadata = {
-        videoId: video.id,
-        url: `https://youtube.com/watch?v=${video.id}`,
+        videoId: video.videoId,
+        url: video.url,
       };
     } else if (platform === 'instagram') {
       if (mediaItems.length === 0) {
