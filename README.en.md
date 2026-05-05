@@ -19,6 +19,23 @@ Streamer Scheduler is a content management platform that allows content creators
 
 ---
 
+## Repository layout
+
+```text
+streamer-scheduler/
+├── apps/
+│   ├── api/          # Backend (Node.js / Express): API, worker, scheduler
+│   └── web/          # Frontend (React / Create React App)
+├── docs/
+├── .env.example      # Template (API + web vars); copy to apps/api/.env and apps/web/.env
+├── package.json      # Convenience scripts for apps/* (`npm run install:all`, `dev:api`, `dev:web`, …)
+└── README.md
+```
+
+On **Render** (or any host with a service root directory), set the API service **Root Directory** to `apps/api`.
+
+---
+
 ## Features
 
 ### Current features
@@ -54,8 +71,9 @@ Streamer Scheduler is a content management platform that allows content creators
 
 ## Recent updates (v2.3.1)
 
+- **Monorepo layout:** code under `apps/api` (backend) and `apps/web` (frontend); unified env template at [`.env.example`](.env.example); root `package.json` with helper scripts.
 - **Routing & API:** `GET /api/content/export` and `/debug-scheduled` registered before `/:id`; export requires auth; notifications list pagination and SQL unread count; optional limits on `GET /my-messages`.
-- **CI & quality:** GitHub Actions runs frontend production build + tests and backend Vitest; frontend Prettier aligned with backend.
+- **CI & quality:** GitHub Actions runs production build + tests for `apps/web` and Vitest for `apps/api`.
 - **Logging:** Winston for production fatals and user-route errors; Discord scheduled-event body only in dev debug; frontend `devCatchLog` / `devCatchLogThrottled` for non-fatal catches.
 - **Legal / branding:** Central `dakinisCopyrightNotice` with year cache on copyright headers and health JSON.
 
@@ -65,8 +83,8 @@ Streamer Scheduler is a content management platform that allows content creators
 - Reminder orchestration consolidated under `modules/reminders/application/jobs` (`jobs/reminders` kept only as a compatibility bridge), reducing business logic in routes.
 - Feature-first API structure in frontend (`shared/api`, `features/*/api`); the legacy global `frontend/src/api.js` was removed.
 - Realtime scaling path added with optional Redis pub/sub support for Socket.IO (automatic fallback to in-process mode).
-- Structural safety baseline added with startup/route smoke check (`npm run smoke:baseline` in backend).
-- Documentation cleanup and relocation (including legal docs under `docs/legal`) plus technical migration notes for maintainers.
+- Structural safety baseline added with startup/route smoke check (`npm run smoke:baseline` in `apps/api`).
+- Documentation focused on users and legal under `docs/` (including `docs/legal`).
 
 ---
 
@@ -116,23 +134,35 @@ Streamer Scheduler is a content management platform that allows content creators
 - Supabase account (for storage)
 - Stripe account (for payments)
 
-### Backend setup
+### Quick install (from repo root)
 
 ```bash
-cd backend
+npm run install:all
+cp .env.example apps/api/.env
+cp .env.example apps/web/.env
+# Edit apps/api/.env and apps/web/.env (e.g. REACT_APP_* on the web app)
+
+npm run dev:api    # terminal 1
+npm run dev:web    # terminal 2 — http://localhost:3000
+```
+
+### Per package
+
+**API (`apps/api`):**
+
+```bash
+cd apps/api
 npm install
-cp .env.example .env
-# Edit .env with your configuration
+cp ../../.env.example .env
 npm start
 ```
 
-### Frontend setup
+**Web (`apps/web`):**
 
 ```bash
-cd frontend
+cd apps/web
 npm install
-cp .env.example .env
-# Edit .env with your API URL
+cp ../../.env.example .env
 npm start
 ```
 
@@ -142,7 +172,7 @@ npm start
 
 ### Backend
 
-Backend sample template: [`backend/.env.example`](backend/.env.example) (Slack and Instagram comments included; set other variables in your `.env` as needed: database, Stripe, OAuth, Redis, etc.).
+Unified template at repo root: [`.env.example`](.env.example) (API + web sections; copy to `apps/api/.env` and `apps/web/.env`). For the API, set database, Stripe, OAuth, Redis, and other vars in `apps/api/.env` as needed.
 
 ### Frontend
 

@@ -16,10 +16,10 @@ out/
 !.env.example
 .env.local
 .env.*.local
-backend/.env
-frontend/.env
-backend/env.example
-frontend/.env.example
+apps/api/.env
+apps/web/.env
+apps/api/env.example
+apps/web/.env.example
 # Note: root .env.example can be committed if present (!.env.example above)
 
 # IDE and editor files
@@ -118,8 +118,8 @@ temp/
 # Upload directories
 uploads/
 public/uploads/
-!frontend/src/features/uploads/
-!frontend/src/features/uploads/api.js
+!apps/web/src/features/uploads/
+!apps/web/src/features/uploads/api.js
 
 # Database files
 *.db

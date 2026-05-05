@@ -63,7 +63,7 @@ const sequelize = usePostgres
     })
   : new Sequelize({
       dialect: 'sqlite',
-      // Always use backend/database.sqlite (never root) - avoids confusion when running from repo root
+      // Always use apps/api/database.sqlite (never repo root) — avoids confusion when cwd is monorepo root
       storage: process.env.SQLITE_STORAGE || path.resolve(__dirname, '..', '..', 'database.sqlite'),
       logging: enableLogging ? (msg) => logger.debug(msg) : false,
     });

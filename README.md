@@ -19,6 +19,23 @@ Streamer Scheduler es una plataforma de gestión de contenido que permite a crea
 
 ---
 
+## Estructura del repositorio
+
+```text
+streamer-scheduler/
+├── apps/
+│   ├── api/          # Backend (Node.js / Express): API, worker, scheduler
+│   └── web/          # Frontend (React / Create React App)
+├── docs/
+├── .env.example      # Plantilla (API + variables web); copiar a apps/api/.env y apps/web/.env
+├── package.json      # Scripts que delegan en apps/* (`npm run install:all`, `dev:api`, `dev:web`, …)
+└── README.md
+```
+
+En **Render** (u otro PaaS con raíz de servicio configurable), el servicio del API debe usar **Root Directory** `apps/api`.
+
+---
+
 ## Características
 
 ### Características actuales
@@ -54,8 +71,9 @@ Streamer Scheduler es una plataforma de gestión de contenido que permite a crea
 
 ## Novedades recientes (v2.3.1)
 
+- **Layout monorepo:** código en `apps/api` (backend) y `apps/web` (frontend); plantilla de entorno unificada en [`.env.example`](.env.example) en la raíz; `package.json` raíz con scripts de conveniencia.
 - **Rutas y API:** `GET /api/content/export` y `/debug-scheduled` antes de `/:id`; export con autenticación; paginación en listado de notificaciones y conteo SQL de no leídos; límites opcionales en `GET /my-messages`.
-- **CI y calidad:** GitHub Actions ejecuta build de producción y tests del frontend y Vitest del backend; Prettier del frontend alineado con el backend.
+- **CI y calidad:** GitHub Actions ejecuta build de producción y tests de `apps/web` y Vitest de `apps/api`.
 - **Logging:** Winston para errores fatales y rutas de usuario; cuerpo del evento programado de Discord solo en debug en desarrollo; `devCatchLog` / `devCatchLogThrottled` en el frontend para `catch` no fatales.
 - **Legal / marca:** `dakinisCopyrightNotice` centralizado con caché por año en cabeceras y health.
 
@@ -65,8 +83,8 @@ Streamer Scheduler es una plataforma de gestión de contenido que permite a crea
 - Orquestación de recordatorios consolidada en `modules/reminders/application/jobs` (manteniendo `jobs/reminders` solo como compatibilidad) y reducción de lógica de negocio en rutas.
 - Estructura feature-first en frontend (`shared/api`, `features/*/api`); el antiguo `frontend/src/api.js` global fue eliminado.
 - Escalado realtime preparado con soporte opcional de Redis pub/sub para Socket.IO (fallback automático a modo in-process).
-- Baseline de seguridad estructural con smoke check de entrypoints (`npm run smoke:baseline` en backend).
-- Reubicación y orden de documentación (incluyendo legal en `docs/legal`) y notas de migración técnica para mantenedores.
+- Baseline de seguridad estructural con smoke check de entrypoints (`npm run smoke:baseline` en `apps/api`).
+- Reubicación de documentación orientada a usuarios y legal en `docs/` (incluido `docs/legal`).
 
 ---
 
@@ -116,23 +134,35 @@ Streamer Scheduler es una plataforma de gestión de contenido que permite a crea
 - Cuenta en Supabase (almacenamiento)
 - Cuenta en Stripe (pagos)
 
-### Configuración del backend
+### Instalación rápida (desde la raíz del repo)
 
 ```bash
-cd backend
+npm run install:all
+cp .env.example apps/api/.env
+cp .env.example apps/web/.env
+# Edita apps/api/.env y apps/web/.env (p. ej. REACT_APP_* en la web)
+
+npm run dev:api    # terminal 1 — API por defecto en el puerto del proyecto
+npm run dev:web    # terminal 2 — React en http://localhost:3000
+```
+
+### Por carpeta
+
+**API (`apps/api`):**
+
+```bash
+cd apps/api
 npm install
-cp .env.example .env
-# Edita .env con tu configuración
+cp ../../.env.example .env
 npm start
 ```
 
-### Configuración del frontend
+**Web (`apps/web`):**
 
 ```bash
-cd frontend
+cd apps/web
 npm install
-cp .env.example .env
-# Edita .env con la URL de tu API
+cp ../../.env.example .env
 npm start
 ```
 
@@ -142,7 +172,7 @@ npm start
 
 ### Backend
 
-Plantilla de ejemplo del backend: [`backend/.env.example`](backend/.env.example) (incluye comentarios para Slack e Instagram; el resto de variables las defines en tu `.env` según despliegue: DB, Stripe, OAuth, Redis, etc.).
+Plantilla unificada en la raíz: [`.env.example`](.env.example) (secciones API y web; cópiala a `apps/api/.env` y `apps/web/.env`). En la API, el resto de variables (DB, Stripe, OAuth, Redis, etc.) las defines en tu `.env` según despliegue.
 
 **Stripe webhook:** Usa únicamente `POST /api/payments/webhook`. En Stripe Dashboard → Webhooks, configura la URL `https://tu-dominio.com/api/payments/webhook` (o `http://localhost:5000/api/payments/webhook` en desarrollo).
 

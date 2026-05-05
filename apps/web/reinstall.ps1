@@ -1,5 +1,5 @@
 # Limpia node_modules y reinstala dependencias del frontend
-# Ejecutar en PowerShell desde la carpeta frontend: .\reinstall.ps1
+# Ejecutar en PowerShell desde apps/web: .\reinstall.ps1
 
 Write-Host "Eliminando node_modules..." -ForegroundColor Yellow
 if (Test-Path node_modules) {

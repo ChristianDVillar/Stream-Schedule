@@ -27,9 +27,9 @@
 ### Code-Level Protections / Protecciones a Nivel de Código
 
 1. **Copyright Headers in Source Files**
-   - `backend/src/app.js` - Copyright header added
-   - `frontend/src/index.js` - Copyright header added
-   - `frontend/public/index.html` - Copyright meta tag and comment
+   - `apps/api/src/app.js` - Copyright header added
+   - `apps/web/src/index.js` - Copyright header added
+   - `apps/web/public/index.html` - Copyright meta tag and comment
 
 2. **HTTP Headers**
    - Backend sends copyright headers in all responses
@@ -52,9 +52,9 @@
 ### Files Modified / Archivos Modificados
 
 - ✅ Source code files - Copyright headers in all files
-- ✅ backend/src/app.js - Added copyright header and protection middleware
-- ✅ frontend/src/index.js - Added copyright header
-- ✅ frontend/public/index.html - Added copyright meta tag and comment
+- ✅ apps/api/src/app.js - Added copyright header and protection middleware
+- ✅ apps/web/src/index.js - Added copyright header
+- ✅ apps/web/public/index.html - Added copyright meta tag and comment
 
 ## 🔒 Additional Recommendations / Recomendaciones Adicionales
 

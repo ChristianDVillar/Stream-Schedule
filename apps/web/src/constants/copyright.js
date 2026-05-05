@@ -1,5 +1,5 @@
 /**
- * Copyright strings (keep in sync with backend/src/constants/copyright.js).
+ * Copyright strings (keep in sync with apps/api/src/constants/copyright.js).
  * Used for HTML meta, runtime attribution, and UI fallbacks.
  */
 

@@ -82,7 +82,7 @@ SCHEDULER_UPCOMING_PATH=/api/streamer/{username}/events
 
 ## 4) Variables por lado
 
-### Streamer Scheduler (`backend/.env`)
+### Streamer Scheduler (`apps/api/.env`)
 
 ```env
 # Saliente hacia AkoeNet (fallback si el usuario no rellena URL en la UI)

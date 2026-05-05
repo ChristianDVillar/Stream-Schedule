@@ -5,7 +5,7 @@
  * 
  * IMPORTANT: The 'uploads' table in Supabase must have 'user_id' as TEXT type,
  * not UUID, to support numeric user IDs from Sequelize.
- * Run the migration script: backend/migrations/fix-uploads-user-id-type.sql
+ * Run the migration script: apps/api/migrations/fix-uploads-user-id-type.sql
  */
 
 import express from 'express';

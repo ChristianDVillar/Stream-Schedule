@@ -69,7 +69,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Load environment variables: backend/.env first (so REDIS_URL etc. work when run from repo root), then cwd
+// Load environment variables: apps/api/.env first (so REDIS_URL etc. work when cwd is repo root), then cwd
 dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 dotenv.config();
 

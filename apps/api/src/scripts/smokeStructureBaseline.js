@@ -10,7 +10,7 @@ const requiredPaths = [
   'src/workerServer.js',
   'src/schedulerServer.js',
   'src/routes/cron.js',
-  '../frontend/src/routes/AppRoutes.js',
+  '../web/src/routes/AppRoutes.js',
 ];
 
 function checkExists(relativePath) {

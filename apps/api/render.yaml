@@ -1,5 +1,5 @@
-# Render configuration for backend (stream-schedule-api)
-# Root Directory en Render debe ser: backend
+# Render configuration for API (stream-schedule-api)
+# Root Directory en Render debe ser: apps/api
 #
 # NOTA: En el entorno de build "Node" de Render puede que apt-get no esté disponible.
 # Si el build falla con "apt-get: not found", configura el servicio con Docker y un
